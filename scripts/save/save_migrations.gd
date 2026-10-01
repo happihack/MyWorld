@@ -15,6 +15,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	4: _v4_to_v5,
 	5: _v5_to_v6,
 	6: _v6_to_v7,
+	7: _v7_to_v8,
 }
 
 
@@ -242,3 +243,20 @@ static func migrate(data: Dictionary, from_version: int, to_version: int, steps:
 	result.ok = true
 	result.data = current
 	return result
+
+
+## Version 8 (M6.4) adds what everyone has been doing lately (the day log)
+## and how long the player has stayed with one person. Neither can be told
+## from an older save: both start empty.
+static func _v7_to_v8(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("day_log"):
+		(state as Dictionary)["day_log"] = {"logs": {}}
+	if not (state as Dictionary).has("observer"):
+		(state as Dictionary)["observer"] = {}
+	return data

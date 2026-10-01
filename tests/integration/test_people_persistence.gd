@@ -101,7 +101,7 @@ func test_version_4_save_migrates_and_its_people_start_living() -> void:
 	# Saved again: the current version; the old file is kept.
 	assert_true(SaveManager.save_world(s, &"test"))
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
-	assert_eq(SaveManager.SAVE_VERSION, 7)
+	assert_true(SaveManager.SAVE_VERSION >= 7)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 4)
 	var again := _session()
 	assert_true(again.load_from(SaveManager.load_world(V4_ID).world))

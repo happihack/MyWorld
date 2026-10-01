@@ -33,6 +33,8 @@ var nudges: Array[int] = []
 var bedtimes: Array[int] = []
 ## What everyone remembers (may be null: nobody remembers anything).
 var memories: MemoryStore
+## What everyone has been doing lately (may be null: nothing is written down).
+var day_log: DayLog
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

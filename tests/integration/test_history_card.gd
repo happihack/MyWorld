@@ -353,8 +353,8 @@ func test_version_6_save_migrates_its_history() -> void:
 	assert_eq(s.memories.size(), 4, "and nothing else was lost")
 	# Saved again: the current version, the old file kept.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveManager.SAVE_VERSION, 7)
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 7)
+	assert_true(SaveManager.SAVE_VERSION >= 7)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 6)
 	s.queue_free()
 	# A world whose history is empty has nothing to derive.

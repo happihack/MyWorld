@@ -104,6 +104,17 @@ size_flags_horizontal = 3
 [node name="Separator" type="HSeparator" parent="Content/Body/MoreScroll/More"]
 layout_mode = 2
 
+[node name="TodayTitle" type="Label" parent="Content/Body/MoreScroll/More"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+text = "Today"
+
+[node name="Today" type="Label" parent="Content/Body/MoreScroll/More"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 3
+
 [node name="FamilyTitle" type="Label" parent="Content/Body/MoreScroll/More"]
 layout_mode = 2
 theme_type_variation = &"DimLabel"

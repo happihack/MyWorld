@@ -285,12 +285,51 @@ func think(person: PersonData) -> Brain.Decision:
 ## `score` is how much spoke for it (what something else has to beat for the
 ## person to drop it).
 func set_plan(person: PersonData, activity: StringName, reason: StringName, steps: Array, score: float = 0.0) -> void:
+	_note_change(person, activity, steps)
 	_drop(person)
 	person.current_action = {"activity": String(activity), "reason": String(reason), "since": ctx.now(),
 		"score": score, "steps": steps, "index": 0}
 	_since_think[person.id] = 0.0
 	activity_changed.emit(person.id, activity)
 	_carry_on(person, 0.0)
+
+
+## Writes what a person turns to into their day (see DayLog). Reactions are
+## written by whoever knows what they are reacting to.
+func _note_change(person: PersonData, activity: StringName, steps: Array) -> void:
+	if ctx.day_log == null:
+		return
+	var now := ctx.now()
+	var was_asleep := person.pose == PersonData.Pose.SLEEP
+	var to_bed := false
+	var detail := ""
+	var other := 0
+	for step: Variant in steps:
+		if typeof(step) != TYPE_DICTIONARY:
+			continue
+		match str((step as Dictionary).get("type", "")):
+			"sleep":
+				to_bed = true
+			"socialize":
+				other = int((step as Dictionary).get("partner", 0))
+			"work":
+				if activity == &"work":
+					detail = str((step as Dictionary).get("kind", ""))
+			"eat":
+				if bool((step as Dictionary).get("meal", false)):
+					detail = "meal"
+	if was_asleep and to_bed:
+		return # (sleeping on)
+	if was_asleep:
+		ctx.day_log.note(person.id, now, DayLog.WAKE)
+	if activity == ACTIVITY_REACT or activity == ACTIVITY_CALLED:
+		return
+	if to_bed:
+		# (Going home at night is going to bed.)
+		var hour := ctx.clock.hour() if ctx.clock != null else 12.0
+		ctx.day_log.note(person.id, now, "sleep", "" if SleepStep.is_bedtime_for(person, hour) else "nap")
+		return
+	ctx.day_log.note(person.id, now, String(activity), detail, other)
 
 
 ## Calls people to stand around a spot (the debug call tool). Returns how many
@@ -419,8 +458,18 @@ func _consider_perceptions(person: PersonData) -> bool:
 	_outcomes[person.id] = outcome
 	reactions += 1
 	if outcome.steps.is_empty():
+		if outcome.reaction == ReactionTable.STIR and ctx.day_log != null:
+			ctx.day_log.note(person.id, ctx.now(), DayLog.STIR)
 		return false
 	set_plan(person, ACTIVITY_REACT, outcome.interpretation, outcome.steps)
+	if ctx.day_log != null:
+		# Whom they go to tell, or who told them.
+		var with := stimulus.told_by if second_hand else 0
+		for step: Variant in outcome.steps:
+			if typeof(step) == TYPE_DICTIONARY and str((step as Dictionary).get("type", "")) == "tell":
+				with = int((step as Dictionary).get("listener", 0))
+		ctx.day_log.note(person.id, ctx.now(), DayLog.REACT,
+			"%s:%s" % [outcome.reaction, "" if second_hand else String(stimulus.type)], with)
 	person.current_action["reaction"] = String(outcome.reaction)
 	person.current_action["stimulus"] = String(stimulus.about if second_hand else stimulus.type)
 	person.current_action["salience"] = outcome.salience
@@ -460,6 +509,8 @@ func _carry_on(person: PersonData, minutes: float) -> void:
 		ActionStep.Status.DONE:
 			handler.end(ctx, person, step_now)
 			_begun.erase(person.id)
+			if ctx.day_log != null and str(step_now.get("type", "")) == "sleep":
+				ctx.day_log.note(person.id, ctx.now(), DayLog.WAKE) # (slept out)
 			person.current_action["index"] = int(person.current_action.get("index", 0)) + 1
 			if current_step(person).is_empty():
 				_finish(person)
@@ -583,6 +634,8 @@ func _rescue_if_stranded(person_id: int) -> void:
 
 
 func _on_person_removed(person_id: int) -> void:
+	if ctx != null and ctx.day_log != null:
+		ctx.day_log.forget(person_id)
 	_begun.erase(person_id)
 	_since_think.erase(person_id)
 	_since_weighed.erase(person_id)

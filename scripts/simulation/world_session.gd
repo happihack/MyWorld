@@ -65,15 +65,22 @@ var behavior: BehaviorSystem
 var perception: PerceptionSystem
 ## What everyone remembers.
 var memories: MemoryStore
+## What everyone has been doing lately (the card's "Today").
+var day_log: DayLog
+## How long the player has stayed with one person (the OBSERVER achievement).
+var observer: ObserverWatch
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
+var _saved_day_log: Dictionary = {}
 
 
 func _init() -> void:
+	day_log = DayLog.new()
+	observer = ObserverWatch.new()
 	interactions = InteractionManager.new()
 	interactions.name = "InteractionManager"
 	add_child(interactions)
@@ -105,9 +112,11 @@ func create_new(seed_value: int = 0) -> void:
 	clock = GameClock.new(Config.time)
 	template_id = DEFAULT_TEMPLATE_ID
 	history = PlayerHistory.new()
+	observer.reset()
 	_saved_behavior = {}
 	_saved_memories = {}
 	_saved_perception = {}
+	_saved_day_log = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -150,7 +159,13 @@ func load_from(data: Dictionary) -> bool:
 	_saved_behavior = {}
 	_saved_memories = {}
 	_saved_perception = {}
+	_saved_day_log = {}
+	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
+			_saved_day_log = state["day_log"]
+		if typeof((state as Dictionary).get("observer")) == TYPE_DICTIONARY:
+			observer.from_dict(state["observer"])
 		if typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
 			history.from_dict(state["history"])
 		if typeof((state as Dictionary).get("water")) == TYPE_DICTIONARY:
@@ -178,6 +193,24 @@ func load_from(data: Dictionary) -> bool:
 	return true
 
 
+## Tells the world whom the camera is with right now (0 = nobody): staying
+## with one person for a whole day is the OBSERVER achievement. Returns true
+## at the moment it is unlocked.
+func watch_followed(person_id: int) -> bool:
+	if not is_active or history.has_achievement(PlayerHistory.OBSERVER):
+		return false
+	if person_id != 0 and people.get_person(person_id) == null:
+		person_id = 0
+	if not observer.update(clock.tick, person_id):
+		return false
+	history.unlock(PlayerHistory.OBSERVER, clock.tick)
+	for achievement in history.take_unlocked():
+		Log.info(Log.Category.WORLD, "Achievement unlocked", {"achievement": achievement, "tick": clock.tick})
+		EventBus.achievement_unlocked.emit(achievement)
+	SaveManager.note_world_changed()
+	return true
+
+
 ## Everything about the world that is saved. (Before it is written, everyone
 ## lives the time that has built up for them: nobody is saved "behind".)
 func to_dict() -> Dictionary:
@@ -201,6 +234,8 @@ func to_dict() -> Dictionary:
 			"people": people.to_dict(),
 			"behavior": behavior.to_dict(),
 			"memories": memories.to_dict(),
+			"day_log": day_log.to_dict(),
+			"observer": observer.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -421,6 +456,11 @@ func _activate() -> void:
 	ai.memories = memories
 	ai.loose = loose
 	ai.places.memories = memories
+	var unreadable := day_log.from_dict(_saved_day_log)
+	if unreadable > 0:
+		Log.warn(Log.Category.LOAD, "Some saved day-log entries were unusable and skipped", {"entries": unreadable})
+	_saved_day_log = {}
+	ai.day_log = day_log
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)

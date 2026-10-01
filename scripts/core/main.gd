@@ -116,6 +116,7 @@ func _process(delta: float) -> void:
 	if _observing:
 		world_view.people_view().show_trail(_way_of(_selected_id))
 	_advance_follow(delta)
+	session.watch_followed(follow.person_id if follow.is_following() else 0)
 	_update_locate()
 	ui_root.hints().set_person_in_view(world_view.people_view().shown_count() > 0)
 	# The inspector is part of the debug overlay; it shows whoever is selected.

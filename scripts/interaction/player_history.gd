@@ -17,6 +17,8 @@ const MAX_ENTRIES := 400
 ## Achievements the history can unlock so far (bible §27.4; they are shown
 ## from M25 on — until then they are only kept).
 const FIRST_CONTACT := &"first_contact"
+## Stayed with one person for a whole day (see ObserverWatch).
+const OBSERVER := &"observer"
 
 var _next_id := 1
 var _counts: Dictionary = {} # type -> int

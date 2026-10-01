@@ -53,6 +53,8 @@ const ACTION_MARK := &"mark"
 @onready var _family: VBoxContainer = %Family
 @onready var _memory: Label = %Memory
 @onready var _memories: VBoxContainer = %Memories
+@onready var _today_title: Label = %TodayTitle
+@onready var _today: Label = %Today
 
 var _session: WorldSession
 var _person_id := 0
@@ -72,6 +74,7 @@ var _dragged := false
 
 
 func _ready() -> void:
+	_today.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 	_close.pressed.connect(close)
 	_mark.pressed.connect(func() -> void: action.emit(ACTION_MARK, _person_id))
 	_header.gui_input.connect(_on_header_input)
@@ -197,6 +200,16 @@ func traits_text() -> String:
 	return _traits.text
 
 
+## Their day so far, as shown on the full card: "06:30 wakes · 07:00 has breakfast".
+func today_text() -> String:
+	return _today.text
+
+
+## "Today" (or "Yesterday", in the small hours before they have done anything).
+func today_title() -> String:
+	return _today_title.text
+
+
 ## The last thing they remember, as shown on the half card ("" if nothing).
 func memory_text() -> String:
 	return _memory.text if _memory.visible else ""
@@ -256,6 +269,10 @@ func refresh() -> void:
 	_memory.visible = not remembered.is_empty() and _state == State.HALF
 	if not remembered.is_empty():
 		_memory.text = remembered[0]
+	if _state == State.FULL and (_today.text != shown["today"] or _today_title.text != shown["today_title"]):
+		_today_title.text = shown["today_title"]
+		_today.text = shown["today"]
+		_settling = 3
 	if _state == State.FULL and _family_shown != shown["family"]:
 		_family_shown = shown["family"]
 		_show_family(_family_shown)
@@ -288,7 +305,8 @@ func layout() -> void:
 ##   name, age, occupation, activity, mood: String; stage: PersonData.LifeStage;
 ##   needs: PackedFloat32Array; traits: PackedStringArray; marked: bool;
 ##   family: Array of [person id, relation, name] (those still in the world);
-##   memories: PackedStringArray, the most recent first ("Age 23 · Felt …").
+##   memories: PackedStringArray, the most recent first ("Age 23 · Felt …");
+##   today_title, today: String — their day so far ("Today", "06:30 wakes · …").
 static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 	var now := session.clock.tick
 	var year := Config.time.ticks_per_year()
@@ -306,7 +324,10 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 		if relative != null and not seen.has(relative.id):
 			seen[relative.id] = true
 			family.append([relative.id, UIText.relation_word(entry[1], relative.sex), relative.given_name])
+	var day := DayLogText.shown(session.day_log, person.id, now, session.people)
 	return {
+		"today_title": day[0],
+		"today": day[1],
 		"name": person.full_name(),
 		"stage": stage,
 		"age": UIText.age_text(person.age_years(now, year)),
