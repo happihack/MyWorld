@@ -12,6 +12,11 @@ const CAMERA_PITCH_DEG := 52.0
 const FRAME_MARGIN := 1.12
 
 var _world: WorldData
+var _props: PropRegistry
+var _prop_library: PropMeshLibrary
+var _prop_material: ShaderMaterial
+var _props_dirty: Dictionary = {} # chunk coord -> true
+var _ambient: AmbientLife
 var _chunks: Node3D
 var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
 var _terrain_material: StandardMaterial3D
@@ -19,6 +24,7 @@ var _water_material: ShaderMaterial
 var _camera: Camera3D
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
+const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
 
 
 func _ready() -> void:
@@ -33,29 +39,76 @@ func _ready() -> void:
 	_terrain_material.metallic_specular = 0.0
 	_water_material = ShaderMaterial.new()
 	_water_material.shader = WATER_SHADER
+	_prop_material = ShaderMaterial.new()
+	_prop_material.shader = PROP_SHADER
+	_prop_library = PropMeshLibrary.new()
+	_ambient = AmbientLife.new()
+	_ambient.name = "AmbientLife"
+	add_child(_ambient)
 	apply_palette(Config.terrain_palette)
 	_build_temporary_camera_and_light()
 	get_viewport().size_changed.connect(_frame_world)
 
 
-## Shows `world`, replacing whatever was shown before.
-func show_world(world: WorldData) -> void:
+## Shows `world` and what stands on it, replacing whatever was shown before.
+## `start` (optional) tells the ambient effects where the campfire is.
+func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.StartInfo = null) -> void:
 	clear()
 	_world = world
+	_props = props
+	var started := Time.get_ticks_msec()
 	for coord in world.chunk_coords():
 		var view := ChunkView.new()
 		_chunks.add_child(view)
 		view.setup(world, coord, _terrain_material, _water_material)
+		if props != null:
+			view.rebuild_props(world, props, _prop_library, _prop_material)
 		_chunk_views[coord] = view
+	if props != null:
+		props.chunk_changed.connect(_on_props_changed)
+	var has_fire := start != null and start.campfire_id != 0
+	_ambient.setup(world, start.settlement_tile if has_fire else Vector2i.ZERO, has_fire)
 	_frame_world()
-	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size()})
+	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
 
 
 func clear() -> void:
+	if _props != null and _props.chunk_changed.is_connected(_on_props_changed):
+		_props.chunk_changed.disconnect(_on_props_changed)
 	for view: ChunkView in _chunk_views.values():
 		view.queue_free()
 	_chunk_views.clear()
+	_props_dirty.clear()
 	_world = null
+	_props = null
+
+
+func ambient() -> AmbientLife:
+	return _ambient
+
+
+## Rebuilds the prop meshes of chunks whose props changed; returns how many.
+## Runs automatically each frame; call directly when a rebuild is needed now.
+func refresh_dirty_props() -> int:
+	if _world == null or _props == null or _props_dirty.is_empty():
+		return 0
+	var rebuilt := 0
+	for coord: Vector2i in _props_dirty:
+		var view: ChunkView = _chunk_views.get(coord)
+		if view != null:
+			view.rebuild_props(_world, _props, _prop_library, _prop_material)
+			rebuilt += 1
+	_props_dirty.clear()
+	return rebuilt
+
+
+func _process(_delta: float) -> void:
+	# Several prop changes in one frame (e.g. clearing a glade) rebuild once.
+	refresh_dirty_props()
+
+
+func _on_props_changed(coord: Vector2i) -> void:
+	_props_dirty[coord] = true
 
 
 func chunk_view_count() -> int:
@@ -80,6 +133,7 @@ func refresh_dirty_chunks() -> int:
 		if chunk.is_dirty(ChunkData.DIRTY_MESH):
 			view.rebuild_terrain(_world)
 			rebuilt += 1
+			_props_dirty[coord] = true # props stand on the terrain: re-seat them
 		if chunk.is_dirty(ChunkData.DIRTY_WATER):
 			view.rebuild_water(_world)
 			rebuilt += 1

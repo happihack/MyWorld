@@ -1,13 +1,14 @@
 class_name ChunkView
 extends Node3D
-## Visual for one chunk (bible §31.7): terrain and water meshes now; props
-## (M1.5) are added as children. Views are disposable — all state lives in
+## Visual for one chunk (bible §31.7): terrain, water and one merged mesh for
+## everything standing on the chunk. Views are disposable — all state lives in
 ## WorldData — and are rebuilt whenever the chunk is marked dirty.
 
 var coord: Vector2i
 
 var _terrain: MeshInstance3D
 var _water: MeshInstance3D
+var _props: MeshInstance3D
 
 
 func _init() -> void:
@@ -19,6 +20,9 @@ func _init() -> void:
 	# Water never casts shadows (it is a thin transparent sheet).
 	_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_water)
+	_props = MeshInstance3D.new()
+	_props.name = "Props"
+	add_child(_props)
 
 
 ## Binds this view to a chunk and builds its geometry.
@@ -31,6 +35,12 @@ func setup(world: WorldData, chunk_coord: Vector2i, terrain_material: Material, 
 	_water.material_override = water_material
 	rebuild_terrain(world)
 	rebuild_water(world)
+
+
+func rebuild_props(world: WorldData, props: PropRegistry, library: PropMeshLibrary, material: Material) -> void:
+	_props.material_override = material
+	_props.mesh = PropMesher.build_mesh(world, props, coord, library)
+	_props.visible = _props.mesh != null
 
 
 func rebuild_terrain(world: WorldData) -> void:
@@ -51,6 +61,10 @@ func terrain_mesh() -> Mesh:
 
 func water_mesh() -> Mesh:
 	return _water.mesh
+
+
+func props_mesh() -> Mesh:
+	return _props.mesh
 
 
 func _clear_dirty(world: WorldData, bits: int) -> void:

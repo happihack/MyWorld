@@ -6,6 +6,9 @@ extends RefCounted
 ## they regenerate with their chunk. Only the differences are saved —
 ## which generated props were removed, and which props were added.
 
+## Emitted when the props standing on a chunk change (views rebuild that chunk).
+signal chunk_changed(coord: Vector2i)
+
 var chunk_size: int
 ## Optional: kept in sync so entities can be found by position.
 var spatial_index: SpatialIndex
@@ -67,6 +70,7 @@ func populate_chunk(coord: Vector2i, generated: Array[PropData]) -> void:
 		if _removed_generated.has(prop.id) or _by_tile.has(prop.tile):
 			continue
 		_insert(prop)
+	chunk_changed.emit(coord)
 
 
 ## Forgets a chunk's generated props (when the chunk is unloaded). Added props
@@ -78,6 +82,7 @@ func depopulate_chunk(coord: Vector2i) -> void:
 	for prop in props_in_chunk(coord):
 		if prop.is_generated():
 			_erase(prop)
+	chunk_changed.emit(coord)
 
 
 ## Adds a non-generated prop. False if the id is invalid/taken or the tile is occupied.
@@ -85,6 +90,7 @@ func add(prop: PropData) -> bool:
 	if prop == null or prop.id <= 0 or prop.is_generated() or _props.has(prop.id) or _by_tile.has(prop.tile):
 		return false
 	_insert(prop)
+	chunk_changed.emit(WorldCoords.tile_to_chunk(prop.tile, chunk_size))
 	return true
 
 
@@ -96,6 +102,7 @@ func remove(id: int) -> bool:
 	if prop.is_generated():
 		_removed_generated[id] = true
 	_erase(prop)
+	chunk_changed.emit(WorldCoords.tile_to_chunk(prop.tile, chunk_size))
 	return true
 
 

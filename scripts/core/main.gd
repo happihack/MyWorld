@@ -12,7 +12,7 @@ extends Node
 
 func _ready() -> void:
 	_open_world()
-	world_view.show_world(session.world)
+	world_view.show_world(session.world, session.props, session.start)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
