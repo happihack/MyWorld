@@ -16,6 +16,8 @@ func _ready() -> void:
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
+	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
+	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
 
@@ -51,6 +53,13 @@ func _world_debug_section() -> String:
 		session.start.settlement_tile,
 	]
 	return clock_line + "\n" + world_line
+
+
+func _camera_debug_section() -> String:
+	var rig := world_view.camera_rig()
+	var at := rig.pivot()
+	return "camera at (%.1f, %.1f)  dist %.1f / %.1f  pitch %.0f" % [
+		at.x, at.z, rig.distance(), rig.fit_distance(), rig.pitch_degrees()]
 
 
 func _save_debug_section() -> String:

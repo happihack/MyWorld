@@ -150,3 +150,31 @@ func test_table_sits_under_the_box() -> void:
 	assert_near(table.y, frame.bottom_y(), 0.001)
 	assert_near(table.x, frame.outer_rect().get_center().x, 0.001)
 	assert_near(table.z, frame.outer_rect().get_center().y, 0.001)
+
+
+func test_camera_rig_frames_the_shown_world() -> void:
+	var rig := view.camera_rig()
+	assert_true(rig.is_framed())
+	assert_true(rig.fit_distance() > 20.0)
+	# The rig looks at the surface of the real terrain when zoomed in.
+	rig.set_process(false)
+	rig.focus_on(Vector3(start.settlement_tile.x + 0.5, 0, start.settlement_tile.y + 0.5), rig.config.min_distance, false)
+	for i in 300:
+		rig.advance(1.0 / 60.0)
+	var ground := world.get_height(start.settlement_tile) * world.height_step
+	assert_near(rig.pivot().y, ground, 0.1)
+
+
+func test_shadow_range_follows_the_camera() -> void:
+	var rig := view.camera_rig()
+	var lighting := view.lighting()
+	rig.set_process(false)
+	rig.set_view_size(Vector2(1080, 1920)) # portrait: the framed camera is far away
+	rig.frame_box(false)
+	await wait_frames(2)
+	assert_true(lighting.shadow_range() > rig.distance(), "shadows reach the box when framed (range %.0f, camera %.0f)" % [lighting.shadow_range(), rig.distance()])
+	var framed_range := lighting.shadow_range()
+	rig.zoom_at(1000.0, Vector2(540, 960))
+	await wait_frames(2)
+	assert_true(lighting.shadow_range() < framed_range * 0.5, "a shorter range keeps close-up shadows sharp")
+	assert_true(lighting.shadow_range() > rig.distance() * 2.0)

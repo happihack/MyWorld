@@ -13,6 +13,7 @@ var save: SaveConfig
 var interaction: InteractionConfig
 var perf: PerfConfig
 var terrain_palette: TerrainPalette
+var camera: CameraConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -30,6 +31,7 @@ func reload() -> void:
 	interaction = _load("interaction_config.tres", InteractionConfig) as InteractionConfig
 	perf = _load("perf_config.tres", PerfConfig) as PerfConfig
 	terrain_palette = _load("terrain_palette.tres", TerrainPalette) as TerrainPalette
+	camera = _load("camera_config.tres", CameraConfig) as CameraConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

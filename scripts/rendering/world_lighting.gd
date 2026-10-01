@@ -23,6 +23,8 @@ var _table: MeshInstance3D
 var _table_material: ShaderMaterial
 var _vignette_layer: CanvasLayer
 var _vignette: ColorRect
+var _box_span := 64.0
+var _view_distance := -1.0
 
 
 func _ready() -> void:
@@ -87,9 +89,23 @@ func fit_to_box(frame_rect: Rect2, table_y: float, box_height: float) -> void:
 	_table_material.set_shader_parameter(&"fade_start", span * 0.75)
 	_table_material.set_shader_parameter(&"fade_end", span * (0.5 + TABLE_SPAN * 0.42))
 	_table_material.set_shader_parameter(&"shadow_reach", span * 0.07)
-	# Shadows must cover the whole box from any camera distance used to view it.
-	_sun.directional_shadow_max_distance = span * 4.0 + box_height
+	_box_span = span + box_height
 	_sun.directional_shadow_fade_start = 0.95
+	_view_distance = -1.0
+	set_view_distance(span * 2.0)
+
+
+## Keeps the shadow range matched to the camera: far enough to cover what is
+## in view when zoomed out, short enough to stay sharp when zoomed in.
+func set_view_distance(camera_distance: float) -> void:
+	if is_equal_approx(camera_distance, _view_distance):
+		return
+	_view_distance = camera_distance
+	_sun.directional_shadow_max_distance = camera_distance * 1.6 + minf(_box_span, 40.0)
+
+
+func shadow_range() -> float:
+	return _sun.directional_shadow_max_distance
 
 
 func apply_quality(level: GraphicsQuality.Level) -> void:

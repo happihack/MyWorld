@@ -3,13 +3,8 @@ extends Node3D
 ## Everything visible of the world (bible §31.3): the box frame, chunk views
 ## (terrain, water, props), ambient life and lighting. Entities and weather
 ## effects join in later milestones. Views only read world state; they never
-## own or change it.
-##
-## TEMPORARY (until M1.7): a fixed camera that frames the whole box.
+## own or change it. The CameraRig is the player's view into the box.
 
-const CAMERA_FOV := 32.0
-const CAMERA_PITCH_DEG := 52.0
-const FRAME_MARGIN := 1.10
 ## Headroom between the highest possible terrain and the top of the box.
 const BOX_HEADROOM := 2.6
 
@@ -25,7 +20,7 @@ var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
 var _water_material: ShaderMaterial
-var _camera: Camera3D
+var _rig: CameraRig
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
@@ -53,11 +48,11 @@ func _ready() -> void:
 	_ambient.name = "AmbientLife"
 	add_child(_ambient)
 	apply_palette(Config.terrain_palette)
-	_camera = Camera3D.new()
-	_camera.name = "TempCamera"
-	_camera.fov = CAMERA_FOV
-	add_child(_camera)
-	get_viewport().size_changed.connect(_frame_world)
+	_rig = CameraRig.new(Config.camera)
+	_rig.name = "CameraRig"
+	add_child(_rig)
+	_rig.set_view_size(get_viewport().get_visible_rect().size)
+	get_viewport().size_changed.connect(_on_viewport_resized)
 
 
 ## Shows `world` and what stands on it, replacing whatever was shown before.
@@ -81,7 +76,8 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
 	var has_fire := start != null and start.campfire_id != 0
 	_ambient.setup(world, start.settlement_tile if has_fire else Vector2i.ZERO, has_fire)
-	_frame_world()
+	_rig.ground_height = _ground_height_at
+	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
 
 
@@ -108,6 +104,10 @@ func lighting() -> WorldLighting:
 	return _lighting
 
 
+func camera_rig() -> CameraRig:
+	return _rig
+
+
 ## Rebuilds the prop meshes of chunks whose props changed; returns how many.
 ## Runs automatically each frame; call directly when a rebuild is needed now.
 func refresh_dirty_props() -> int:
@@ -126,6 +126,7 @@ func refresh_dirty_props() -> int:
 func _process(_delta: float) -> void:
 	# Several prop changes in one frame (e.g. clearing a glade) rebuild once.
 	refresh_dirty_props()
+	_lighting.set_view_distance(_rig.distance())
 
 
 func _on_props_changed(coord: Vector2i) -> void:
@@ -175,23 +176,12 @@ func apply_palette(palette: TerrainPalette) -> void:
 		material.set_shader_parameter(&"cloud_scale", 1.0 / maxf(palette.cloud_size_tiles, 1.0))
 
 
-# --- temporary camera (replaced in M1.7) ------------------------------------------
+func _on_viewport_resized() -> void:
+	_rig.set_view_size(get_viewport().get_visible_rect().size)
 
-## Places the camera so the whole box fits the screen in any orientation.
-func _frame_world() -> void:
-	if _world == null or _camera == null:
-		return
-	var b := _frame.outer_rect() # the whole box, frame included
-	var center := Vector3(b.position.x + b.size.x * 0.5, 1.0, b.position.y + b.size.y * 0.5)
-	var size := get_viewport().get_visible_rect().size
-	var aspect := size.x / size.y if size.y > 0.0 else 1.0
-	var half_v := deg_to_rad(CAMERA_FOV) * 0.5
-	var half_h := atan(tan(half_v) * aspect)
-	var pitch := deg_to_rad(CAMERA_PITCH_DEG)
-	# Width must fit horizontally; depth (foreshortened by the pitch) vertically.
-	var for_width := (b.size.x * 0.5) / tan(half_h)
-	var for_depth := (b.size.y * 0.5 * sin(pitch)) / tan(half_v) + b.size.y * 0.5 * cos(pitch)
-	var distance := maxf(for_width, for_depth) * FRAME_MARGIN
-	_camera.position = center + Vector3(0.0, sin(pitch), cos(pitch)) * distance
-	_camera.look_at(center, Vector3.UP)
-	_camera.far = distance * 3.0
+
+## Terrain surface height (world units) at a world XZ position.
+func _ground_height_at(world_xz: Vector2) -> float:
+	if _world == null:
+		return 0.0
+	return _world.get_height(WorldCoords.world2d_to_tile(world_xz)) * _world.height_step

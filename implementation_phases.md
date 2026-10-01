@@ -437,9 +437,19 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Deferred:** fake tilt-shift blur → M24 high preset (a full-screen blur is too expensive to enable by default on phones).
 - **Verified:** 13 new tests (frame meshes/extents/no wood inside the world/posts/glass fade/per-renderer opacity/rebuild/clamping/winding, quality resolution; WorldView frame matches world and rebuilds, lighting follows quality and the live setting, table under the box). Suite: 234 passing (~37 s). Desktop: both renderers match. **Phone (medium, shadows on): 60 FPS, 68 draw calls, ~67k triangles.**
 
-### M1.7 Camera rig v0
-- [ ] `scenes/world/camera_rig.tscn` + `scripts/rendering/camera_rig.gd`: pivot (target point on XZ) + yaw + pitch + distance; perspective FOV ~32°; `pan(delta_screen)`, `zoom(factor, focal_screen)`, bounds clamp to box (+ margin), smoothing (critically damped). Mouse/touch hooks from InputRouter (drag = pan, wheel/pinch = zoom).
-- [ ] `frame_box()` fits the whole box at launch in both orientations (recompute on `get_viewport().size_changed`).
+### M1.7 Camera rig v0 — ✅ DONE (2026-09-30)
+- [x] `scripts/rendering/camera_rig.gd` (`CameraRig`, built in code — no `.tscn` needed): pivot on the ground + distance (+ yaw, ready for twist-rotate in M2.1); pitch eases from 54° (overview) to 38° (closest); perspective FOV 32°.
+  - **Anchored panning**: the ground point under the finger stays under the finger (finger projected onto the ground plane, not scaled pixels).
+  - **Anchored zoom**: the point under the pinch/cursor stays fixed; clamped between `min_distance` and the fit distance.
+  - **Never lost**: the furthest zoom is "the whole box fits" — found by projecting the box's actual corners (posts included) with a binary search, so it is right in portrait and landscape; the pivot's range shrinks as the view zooms out and is pinned to the centre when framed.
+  - `frame_box()`, `focus_on(point, distance, animate)` (animated moves use exponential smoothing; direct manipulation is instant), `set_view_size()` (keeps the box framed across rotations), `handle_gesture()` (DRAG / TWO_FINGER_DRAG pan, PINCH zooms; taps are left for the world).
+  - Looks at the terrain surface when zoomed in (ground-height callback from `WorldView`), at a fixed base height when framed.
+  - Own projection math (`screen_ray`, `screen_to_ground`, `world_to_screen`) — testable headless and reusable for picking (M2.2) and UI anchoring.
+- [x] `scripts/core/config_types/camera_config.gd` (`CameraConfig`) + `data/configuration/camera_config.tres` → `Config.camera`: FOV, pitches, min distance, fit margin, edge margin, smoothing, base look height.
+- [x] `WorldView` owns the rig (the temporary camera is gone), feeds it viewport size changes and ground heights; Main routes gestures to it; overlay shows camera position/distance/pitch.
+- [x] **Shadow range follows the camera** (`WorldLighting.set_view_distance`): the fixed range from M1.6 cut shadows off in the portrait framed view (camera 304 units away) and would have been blurry up close.
+- **Verified:** 16 unit tests (framed in both orientations, tight framing, ray/projection inverse, pan and zoom anchoring, clamping, return to centre, 400 random operations never leave the world or produce NaN, roaming range vs zoom, animated focus/frame, gesture mapping, ground following, camera node sync) + 2 integration tests. Suite: 251 passing (~37 s). Driven with real input events on desktop (wheel zoom to the settlement, drag pan, zoom out returns to framed). **Phone: 60 FPS with shadows, 84 draw calls, ~87k triangles (incl. shadow pass); a drag while framed leaves the view pinned.** Pinch/pan feel still to be judged by hand.
+- **Left for M2.1 (as planned):** fling inertia, rubber-band bounds, double-tap zoom, optional twist-to-rotate, Home button.
 
 ### M1.8 Wire into WorldSession
 - [ ] `WorldSession.create_new(seed)` → generate world → WorldView spawns ChunkViews/props/box → camera frames the settlement.
