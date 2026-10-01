@@ -2,16 +2,20 @@ class_name HintLabel
 extends PanelContainer
 ## A quiet line of text near the bottom of the screen (bible §26.3): fades in,
 ## stays until it is no longer needed, fades out. It never takes a touch — the
-## world under it stays touchable.
+## world under it stays touchable. While a card it should not hide behind is
+## open (see set_above) it sits just above that card.
 
 const FADE_SECONDS := 0.35
 ## Distance from the bottom of the screen (clear of the tool bar's row).
 const BOTTOM_OFFSET := 400.0
 const FONT_SIZE := 44
+## The gap kept to a card it sits above.
+const GAP := 28.0
 
 var _label: Label
 var _showing := false
 var _tween: Tween
+var _above: Control
 
 
 func _init() -> void:
@@ -52,6 +56,19 @@ func hide_hint() -> void:
 	_fade_to(0.0)
 
 
+## Makes the hint sit above a control (a card at the bottom of the screen)
+## instead of where that control is; null puts it back in its usual place.
+func set_above(control: Control) -> void:
+	_above = control
+	_place()
+
+
+func _process(_delta: float) -> void:
+	# A card grows and shrinks: the hint keeps clear of it.
+	if visible and _above != null:
+		_place()
+
+
 func is_showing() -> bool:
 	return _showing
 
@@ -66,7 +83,10 @@ func _place() -> void:
 		return
 	reset_size()
 	var view := get_viewport_rect().size
-	position = Vector2((view.x - size.x) * 0.5, view.y - BOTTOM_OFFSET - size.y)
+	var bottom := view.y - BOTTOM_OFFSET
+	if _above != null and is_instance_valid(_above) and _above.is_inside_tree() and _above.visible:
+		bottom = minf(bottom, _above.global_position.y - GAP)
+	position = Vector2((view.x - size.x) * 0.5, maxf(bottom - size.y, 0.0))
 
 
 func _fade_to(alpha: float) -> void:

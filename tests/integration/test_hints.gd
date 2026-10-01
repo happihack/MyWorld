@@ -136,6 +136,165 @@ func test_an_early_long_press_skips_the_hold_hint() -> void:
 	assert_eq(director.completed().size(), 2)
 
 
+# --- "Try touching someone." ------------------------------------------------------------------
+
+func test_touch_hint_comes_after_the_first_pan_when_someone_is_in_view() -> void:
+	director.set_person_in_view(true)
+	director.advance(_idle() + 0.1)
+	assert_eq(director.current(), HintDirector.DRAG, "exploring comes first, whoever is in view")
+	director.note_gesture(_gesture(Gesture.Type.DRAG))
+	director.advance(_follow_up() - 0.1)
+	assert_eq(director.current(), &"")
+	director.advance(0.2)
+	assert_eq(director.current(), HintDirector.TOUCH)
+	assert_eq(label.text(), "Try touching someone.")
+	# Touching the ground is not it.
+	director.note_gesture(_gesture(Gesture.Type.TAP))
+	assert_eq(director.current(), HintDirector.TOUCH)
+	# They walk out of view: the hint goes, and comes back with them.
+	director.set_person_in_view(false)
+	director.advance(0.1)
+	assert_eq(director.current(), &"")
+	assert_false(director.is_completed(HintDirector.TOUCH), "hidden, not done")
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.HOLD, "meanwhile the next one has its turn")
+	director.note_gesture(_gesture(Gesture.Type.LONG_PRESS))
+	director.set_person_in_view(true)
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.TOUCH)
+	# Someone is touched: done for good.
+	director.complete(HintDirector.TOUCH)
+	assert_eq(director.current(), &"")
+	director.advance(60.0)
+	assert_eq(director.current(), &"")
+	var later := _new_director()
+	later.set_person_in_view(true)
+	later.advance(60.0)
+	assert_eq(later.current(), &"", "not in a later session either")
+	later.queue_free()
+
+
+func test_nobody_in_view_does_not_hold_up_the_next_hint() -> void:
+	director.note_gesture(_gesture(Gesture.Type.DRAG))
+	director.note_gesture(_gesture(Gesture.Type.TAP))
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.HOLD)
+
+
+func test_touching_someone_comes_before_holding() -> void:
+	director.set_person_in_view(true)
+	director.note_gesture(_gesture(Gesture.Type.DRAG))
+	director.note_gesture(_gesture(Gesture.Type.TAP))
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.TOUCH, "in order")
+	director.complete(HintDirector.TOUCH)
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.HOLD)
+
+
+func test_someone_touched_before_the_hint_never_sees_it() -> void:
+	director.set_person_in_view(true)
+	director.complete(HintDirector.TOUCH)
+	director.note_gesture(_gesture(Gesture.Type.DRAG))
+	director.advance(60.0)
+	assert_eq(director.current(), &"")
+
+
+# --- "Follow them to see their day." ----------------------------------------------------------
+
+func test_follow_hint_belongs_to_a_persons_card() -> void:
+	director.set_person_in_view(true)
+	director.note_gesture(_gesture(Gesture.Type.DRAG))
+	director.complete(HintDirector.TOUCH)
+	director.note_gesture(_gesture(Gesture.Type.LONG_PRESS))
+	director.advance(60.0)
+	assert_eq(director.current(), &"", "no card open: nothing to follow")
+	director.set_person_card_open(true)
+	director.advance(_follow_up() - 0.1)
+	assert_eq(director.current(), &"", "the wait starts when the card opens")
+	director.advance(0.2)
+	assert_eq(director.current(), HintDirector.FOLLOW)
+	assert_eq(label.text(), "Follow them to see their day.")
+	# The card closes: the hint goes with it, and comes back with the next card.
+	director.set_person_card_open(false)
+	director.advance(0.1)
+	assert_eq(director.current(), &"")
+	assert_false(director.is_completed(HintDirector.FOLLOW))
+	director.set_person_card_open(true)
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.FOLLOW)
+	# They follow: done for good.
+	director.complete(HintDirector.FOLLOW)
+	assert_eq(director.current(), &"")
+	director.advance(60.0)
+	assert_eq(director.current(), &"")
+	assert_eq(director.completed().size(), HintDirector.ORDER.size(), "everything learnt: silence from now on")
+
+
+func test_with_a_card_open_only_its_own_hint_shows() -> void:
+	# A player who went straight for a person: nothing learnt yet, a card open.
+	director.set_person_in_view(true)
+	director.note_gesture(_gesture(Gesture.Type.TAP))
+	director.set_person_card_open(true)
+	director.advance(_idle() + _follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.FOLLOW, "not 'drag', not 'touch', not 'hold'")
+	# A hint that was showing gives way when a card opens.
+	director.set_person_card_open(false)
+	director.advance(0.1)
+	assert_eq(director.current(), &"", "the card's hint goes with the card")
+	director.advance(_idle() + 0.1)
+	assert_eq(director.current(), HintDirector.DRAG)
+	director.set_person_card_open(true)
+	director.advance(0.1)
+	assert_eq(director.current(), &"")
+	# Another panel over it: nothing at all.
+	director.set_suppressed(true)
+	director.advance(60.0)
+	assert_eq(director.current(), &"")
+	director.set_suppressed(false)
+	director.advance(_follow_up() + 0.1)
+	assert_eq(director.current(), HintDirector.FOLLOW)
+	# Following before the hint ever showed: never shown.
+	var eager := _new_director()
+	eager.complete(HintDirector.FOLLOW)
+	eager.set_person_card_open(true)
+	eager.advance(60.0)
+	assert_eq(eager.current(), &"")
+	eager.queue_free()
+
+
+func test_the_label_keeps_clear_of_a_card() -> void:
+	var view := get_viewport().get_visible_rect().size
+	var card := ColorRect.new()
+	card.size = Vector2(600, 500)
+	card.position = Vector2(40, view.y - 308 - 500)
+	add_child(card)
+	label.show_text("Follow them to see their day.")
+	var usual := label.get_global_rect()
+	label.set_above(card)
+	var above := label.get_global_rect()
+	assert_near(above.end.y, card.global_position.y - HintLabel.GAP, 1.0, "just above the card")
+	assert_true(above.end.y < usual.end.y)
+	assert_near(above.get_center().x, view.x * 0.5, 1.0, "still centred")
+	# The card grows: the hint moves up with its top edge.
+	card.position.y -= 200
+	await wait_frames(2)
+	assert_near(label.get_global_rect().end.y, card.global_position.y - HintLabel.GAP, 1.0)
+	# A card lower than the hint's own place does not pull it down.
+	card.position.y = view.y - 100
+	await wait_frames(2)
+	assert_near(label.get_global_rect().end.y, usual.end.y, 1.0)
+	# Never off the top of the screen.
+	card.position.y = 10
+	await wait_frames(2)
+	assert_true(label.get_global_rect().position.y >= 0.0)
+	# The card gone: back where it was.
+	label.set_above(null)
+	assert_near(label.get_global_rect().end.y, usual.end.y, 1.0)
+	card.free()
+	label.set_above(null)
+
+
 # --- panels, reset ----------------------------------------------------------------------------
 
 func test_no_hints_while_a_panel_is_open() -> void:
@@ -200,5 +359,5 @@ func test_every_hint_has_text_in_the_quiet_style() -> void:
 		assert_false(text.is_empty(), String(hint))
 		assert_true(text.ends_with("."), "a calm full stop")
 		assert_false(text.contains("!"), "never exclamation-heavy (bible §26.3)")
-		assert_true(text.length() <= 24, "short")
+		assert_true(text.length() <= 30, "short")
 	assert_eq(UIText.hint(&"unknown"), "")

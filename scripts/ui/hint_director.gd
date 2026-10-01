@@ -4,17 +4,24 @@ extends Node
 ## time, only when it is relevant, and only until the player has done the thing
 ## once — after that it never comes back on this device.
 ##
-##   "Drag to explore."     after a few idle seconds, until the first pan
-##   "Hold to learn more."  after the first touch of the world, until the first long press
+##   "Drag to explore."              after a few idle seconds, until the first pan
+##   "Try touching someone."         once the player has panned and someone is in view,
+##                                   until the first touch of a person
+##   "Hold to learn more."           after the first touch of the world, until the first long press
+##   "Follow them to see their day." while a person's card is open, until the first follow
 ##
-## A player who does the thing before its hint appears never sees the hint.
+## One at a time, in that order — but a hint that makes no sense right now
+## (nobody in view to touch) does not hold up the next. A player who does
+## the thing before its hint appears never sees the hint.
 ## What has been done is remembered in Settings ("ftue/completed"), so it
 ## survives new worlds and reinstalls of a world, but not of the app.
 
 const DRAG := &"drag"
+const TOUCH := &"touch_person"
 const HOLD := &"hold"
+const FOLLOW := &"follow"
 ## Hints in the order they are offered.
-const ORDER: Array[StringName] = [DRAG, HOLD]
+const ORDER: Array[StringName] = [DRAG, TOUCH, HOLD, FOLLOW]
 const SETTING := &"ftue/completed"
 
 var _label: HintLabel
@@ -22,6 +29,10 @@ var _idle := 0.0
 var _suppressed := false
 ## The world was touched (tapped) during this session.
 var _touched_world := false
+## Someone can be seen (as a figure, not a far-off dot).
+var _person_in_view := false
+## A person's card is open (and nothing else is).
+var _person_card_open := false
 var _current: StringName = &""
 
 
@@ -53,6 +64,20 @@ func note_gesture(gesture: Gesture) -> void:
 			complete(HOLD)
 
 
+## Tells the director whether anyone is on screen to be touched.
+func set_person_in_view(in_view: bool) -> void:
+	_person_in_view = in_view
+
+
+## Tells the director that a person's card is open: the only hint that makes
+## sense then is the one about what the card offers.
+func set_person_card_open(open: bool) -> void:
+	if _person_card_open == open:
+		return
+	_person_card_open = open
+	_idle = 0.0
+
+
 ## While suppressed (a panel is open) no hint shows and idle time does not count.
 func set_suppressed(suppressed: bool) -> void:
 	if _suppressed == suppressed:
@@ -69,6 +94,9 @@ func advance(delta: float) -> void:
 		return
 	_idle += delta
 	if _current != &"":
+		# Shown, and no longer to the point (the person walked off, a card opened)?
+		if not _relevant(_current):
+			_hide()
 		return
 	var next := _next_hint()
 	if next != &"" and _idle >= _delay_for(next):
@@ -111,10 +139,26 @@ func _next_hint() -> StringName:
 	for hint in ORDER:
 		if is_completed(hint):
 			continue
-		if hint == HOLD and not _touched_world:
-			return &"" # nothing to hold yet; and never skip ahead of the order
-		return hint
+		if _relevant(hint):
+			return hint
+		if hint == HOLD and not _person_card_open:
+			return &"" # nothing to hold yet, and nothing later makes sense before it
 	return &""
+
+
+## Does a hint make sense as things are?
+func _relevant(hint: StringName) -> bool:
+	match hint:
+		DRAG:
+			return not _person_card_open
+		TOUCH:
+			# After the first pan (the view is theirs), with someone to touch.
+			return is_completed(DRAG) and _person_in_view and not _person_card_open
+		HOLD:
+			return _touched_world and not _person_card_open
+		FOLLOW:
+			return _person_card_open
+	return false
 
 
 func _delay_for(hint: StringName) -> float:

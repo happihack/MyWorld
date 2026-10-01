@@ -392,6 +392,7 @@ func test_hold_hint_goes_when_the_menu_opens() -> void:
 	var hints := ui.hints()
 	hints.set_process(false)
 	hints.complete(HintDirector.DRAG)
+	hints.complete(HintDirector.TOUCH) # (with people in view that one would come first)
 	var fire := session.props.get_prop(session.start.campfire_id)
 	_tap(_prop_screen(fire, 0.15))
 	hints.advance(Config.interaction.hint_follow_up_seconds + 0.1)

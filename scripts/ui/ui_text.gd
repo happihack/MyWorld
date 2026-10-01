@@ -111,7 +111,9 @@ const LIFE_STAGE_NAMES := {
 ## First-time hints (bible §26.3: quiet, short, curious).
 const HINTS := {
 	&"drag": "Drag to explore.",
+	&"touch_person": "Try touching someone.",
 	&"hold": "Hold to learn more.",
+	&"follow": "Follow them to see their day.",
 }
 
 

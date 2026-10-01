@@ -123,9 +123,9 @@ func hints() -> HintDirector:
 ## Puts a panel on top of the stack and shows it.
 func open_panel(panel: UIPanel) -> void:
 	_panels.append(panel)
-	_hints.set_suppressed(true) # one thing at a time
 	panel.closed.connect(_on_panel_closed.bind(panel))
 	_panel_layer.add_child(panel)
+	_update_hints()
 
 
 ## Closes the top panel. False if none is open.
@@ -273,9 +273,22 @@ func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCar
 
 func _on_panel_closed(panel: UIPanel) -> void:
 	_panels.erase(panel)
-	_hints.set_suppressed(not _panels.is_empty())
+	_update_hints()
 	if not panel.transient:
 		AudioManager.play_ui(&"ui_close")
+
+
+## One thing at a time: no hints while a panel is open — except a person's
+## card, which has a hint of its own (shown above it).
+func _update_hints() -> void:
+	var card := person_card()
+	var other := false
+	for panel: UIPanel in _panels:
+		if not panel.is_closing() and not (panel is PersonCard):
+			other = true
+	_hints.set_suppressed(other)
+	_hints.set_person_card_open(card != null and not other)
+	_hint_label.set_above(card)
 
 
 ## The sound and feel of pressing something in the UI.

@@ -75,6 +75,9 @@ func _ready() -> void:
 	session.interactions.responded.connect(world_view.effects().play)
 	session.behavior.worked.connect(_on_person_worked)
 	session.behavior.reacted.connect(_on_person_reacted)
+	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
+		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
+			ui_root.hints().complete(HintDirector.TOUCH))
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
 	_begin_opening()
@@ -114,6 +117,7 @@ func _process(delta: float) -> void:
 		world_view.people_view().show_trail(_way_of(_selected_id))
 	_advance_follow(delta)
 	_update_locate()
+	ui_root.hints().set_person_in_view(world_view.people_view().shown_count() > 0)
 	# The inspector is part of the debug overlay; it shows whoever is selected.
 	var debugging := debug_overlay.is_shown()
 	inspector.visible = debugging
@@ -224,6 +228,7 @@ func follow_person(person_id: int) -> bool:
 		EventBus.person_followed.emit(person_id)
 	else:
 		follow.resume()
+	ui_root.hints().complete(HintDirector.FOLLOW)
 	var rig := world_view.camera_rig()
 	rig.focus_on(world_view.people_view().ground_position(person), minf(rig.distance(), Config.camera.home_distance))
 	return true
