@@ -185,6 +185,8 @@ func counts() -> Dictionary:
 func step(minutes: float) -> void:
 	if ctx == null or not enabled or minutes < 0.0:
 		return
+	if ctx.settlement != null:
+		ctx.settlement.step(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()
@@ -318,6 +320,8 @@ func _note_change(person: PersonData, activity: StringName, steps: Array) -> voi
 			"eat":
 				if bool((step as Dictionary).get("meal", false)):
 					detail = "meal"
+				elif (step as Dictionary).has("bush"):
+					detail = "bush"
 			"store":
 				if detail == "":
 					detail = "haul" # only carrying something home

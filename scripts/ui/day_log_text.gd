@@ -43,6 +43,8 @@ static func text(entry: Array, people: PersonRegistry = null, config: TimeConfig
 			if detail == "meal":
 				var hour := config.minute_of_day(int(entry[DayLog.TICK])) / 60.0
 				key = "DAY_BREAKFAST" if hour < LUNCH_FROM else ("DAY_LUNCH" if hour < DINNER_FROM else "DAY_DINNER")
+			elif detail == "bush":
+				key = "DAY_EAT_BUSH"
 		"sleep":
 			if detail == "nap":
 				key = "DAY_NAP"

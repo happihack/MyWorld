@@ -12,6 +12,9 @@ enum Category { FOOD, WATER, MATERIAL, MEDICINE }
 ## Game days until a stored unit goes bad (0 = keeps for ever). Spoilage
 ## itself comes with the stockpile (M7.2).
 @export_range(0.0, 10000.0, 0.5) var spoil_days: float = 0.0
+## Food only: how much of an empty belly one unit fills (1 = hunger from
+## nothing to full).
+@export_range(0.0, 10.0, 0.05) var nutrition: float = 0.0
 ## Kilograms per unit: how many units someone carries at once.
 @export_range(0.01, 1000.0, 0.01) var weight: float = 1.0
 ## Its colour where it is drawn as a heap, and in lists.
@@ -44,6 +47,8 @@ func validate() -> PackedStringArray:
 		problems.append("%s: stack must be at least 1" % id)
 	if weight <= 0.0 or not is_finite(weight):
 		problems.append("%s: weight must be more than nothing" % id)
+	if category == Category.FOOD and nutrition <= 0.0:
+		problems.append("%s: food must feed (nutrition)" % id)
 	if spoil_days < 0.0 or not is_finite(spoil_days):
 		problems.append("%s: spoil_days cannot be negative" % id)
 	return problems

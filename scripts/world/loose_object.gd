@@ -61,6 +61,8 @@ var moved_tick := 0
 ## Piles only: what it is a pile of, and how many units.
 var resource: StringName = &""
 var amount := 0
+## ...and how much of the next unit has already gone bad (0 … 1).
+var spoil := 0.0
 
 
 ## The look (`variant`) of a pile of `resource_id`.
@@ -155,7 +157,7 @@ func to_dict() -> Dictionary:
 		"discovered_by": discovered_by, "placed_by_player": placed_by_player,
 		"discoverable": discoverable,
 		"moved_count": moved_count, "moved_tick": moved_tick,
-		"resource": String(resource), "amount": amount,
+		"resource": String(resource), "amount": amount, "spoil": spoil,
 	}
 
 
@@ -188,6 +190,8 @@ static func from_dict(data: Dictionary) -> LooseObject:
 	object.moved_tick = int(data.get("moved_tick", 0))
 	object.resource = StringName(str(data.get("resource", "")))
 	object.amount = maxi(int(data.get("amount", 0)), 0)
+	var gone := float(data.get("spoil", 0.0))
+	object.spoil = clampf(gone, 0.0, 1.0) if is_finite(gone) else 0.0
 	if object.kind == Kind.PILE and (object.resource == &"" or object.amount <= 0):
 		return null # a pile of nothing
 	return object

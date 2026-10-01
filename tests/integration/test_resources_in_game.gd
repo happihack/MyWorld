@@ -106,6 +106,9 @@ func test_what_someone_carries_is_seen_in_their_arms() -> void:
 func test_piles_lie_in_the_world_and_grow() -> void:
 	var at := session.storage_place(&"wood")
 	await _look_at(at)
+	for begun in session.piles.piles(&"wood"):
+		session.loose.remove(begun.id) # (what the settlement began with)
+	await wait_frames(2)
 	var loose := view.loose_view()
 	var before := loose.object_count()
 	var pile := session.loose.get_object(session.piles.add(&"wood", 2, at)[0])
@@ -123,18 +126,18 @@ func test_piles_lie_in_the_world_and_grow() -> void:
 	assert_false(loose.is_shown(pile.id), "and is gone when the last of it is taken")
 	assert_eq(loose.object_count(), before)
 	# The inspect card of a pile.
-	var berries := session.loose.get_object(session.piles.add(&"berries", 7, session.storage_place(&"berries"))[0])
+	var berries := session.loose.get_object(session.piles.add(&"grain", 7, session.storage_place(&"grain"))[0])
 	var target := Picker.Result.new()
 	target.kind = Picker.Kind.ENTITY
 	target.entity_id = berries.id
 	target.tile = berries.tile()
 	var card := ui.open_inspect(session.interactions.inspect(target))
 	await wait_frames(2)
-	assert_eq(card.title_text(), "A pile of berries")
-	assert_eq(card.rows()["Holds"], "7 berries")
+	assert_eq(card.title_text(), "A pile of grain")
+	assert_eq(card.rows()["Holds"], "7 grain")
 	# For the debug overlay: what is in store, here and anywhere.
-	assert_has(session.piles.debug_text(session.storage_place(&"berries"), 4.0), "berries 7/7")
-	assert_has(session.piles.debug_text(Vector2(-500.0, -500.0), 1.0), "berries 0/7")
+	assert_has(session.piles.debug_text(session.storage_place(&"grain"), 4.0), "grain 7/7")
+	assert_has(session.piles.debug_text(Vector2(-500.0, -500.0), 1.0), "grain 0/7")
 	assert_has(session.nodes.debug_text(), "nodes: 0 regrowing")
 
 
@@ -183,6 +186,9 @@ func test_a_felled_tree_is_drawn_as_a_stump() -> void:
 	var full := session.nodes.capacity(other)
 	assert_eq(card.rows()["Holds"], "%d of %d wood" % [full, full])
 	# Days later it has grown back, and is drawn whole again without anyone asking.
+	# (Wood enough for the fire meanwhile: it is in the same chunk.)
+	for i in 12:
+		session.piles.add(&"wood", 16, session.storage_place(&"wood"))
 	session.clock.set_speed(0)
 	session.clock.tick += 26 * 1440
 	await wait_frames(4)

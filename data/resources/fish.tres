@@ -8,6 +8,7 @@ id = &"fish"
 category = 0
 stack = 12
 spoil_days = 2.0
+nutrition = 1.2
 weight = 0.8
 color = Color(0.55, 0.66, 0.74, 1)
 defined_only = false

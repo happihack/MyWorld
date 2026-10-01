@@ -42,6 +42,8 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 					report.prop_variant >= PropData.TREE_CONIFER_FIRST_VARIANT))
 			if report.resource != &"":
 				_add_row("Holds", UIText.holds_text(report.resource, report.resource_left, report.resource_capacity))
+			if report.prop_kind == PropData.Kind.CAMPFIRE:
+				_add_row("Fire", "Gone out — no wood" if report.look == ResourceNodes.Look.BARE else "Burning")
 			_add_row("Ground height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 		InspectReport.Subject.LOOSE:

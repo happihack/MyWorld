@@ -277,7 +277,7 @@ static func node_name(kind: int, variant: int, look: int) -> String:
 		ResourceNodes.Look.SAPLING:
 			return "Young tree"
 		ResourceNodes.Look.BARE:
-			return "Bare bush"
+			return "Cold fire" if kind == PropData.Kind.CAMPFIRE else "Bare bush"
 	return prop_name(kind, variant)
 
 

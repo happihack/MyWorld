@@ -17,6 +17,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	6: _v6_to_v7,
 	7: _v7_to_v8,
 	8: _v8_to_v9,
+	9: _v9_to_v10,
 }
 
 
@@ -270,4 +271,20 @@ static func _v7_to_v8(data: Dictionary) -> Dictionary:
 ## is whole, nothing lies in piles, nobody carries anything — which is what
 ## records without those fields mean, so there is nothing to rewrite.
 static func _v8_to_v9(data: Dictionary) -> Dictionary:
+	return data
+
+
+## Version 10 (M7.2) adds the settlement's own state (when its fire wants
+## wood next, its job board), how far a pile has gone bad ("spoil") and what
+## is left of the food someone last took ("food_in_hand"). An older world's
+## settlement begins its housekeeping when it is opened.
+static func _v9_to_v10(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("settlement"):
+		(state as Dictionary)["settlement"] = {}
 	return data

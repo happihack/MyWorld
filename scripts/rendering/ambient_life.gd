@@ -72,6 +72,20 @@ func is_smoking() -> bool:
 	return _smoke.emitting
 
 
+## The fire burns (smoke rises, it crackles at night) or has gone out.
+func set_fire_lit(lit: bool) -> void:
+	if _smoke.visible == lit:
+		return
+	_smoke.visible = lit
+	_smoke.emitting = lit
+	if lit:
+		_smoke.restart()
+
+
+func fire_lit() -> bool:
+	return _smoke.visible
+
+
 ## Tells the ambient life how dark it is and what hour: birds roost at
 ## night and sing most at dawn; crickets and the crackle of the fire belong
 ## to the dark.

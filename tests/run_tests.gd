@@ -74,6 +74,17 @@ func _initialize() -> void:
 	_parse_args()
 	OS.add_logger(_catcher)
 	await process_frame # autoloads are ready from here on
+	# With the game's own scripts not compiling, tests would run against
+	# half a game (objects that are not what they say, paths that come back
+	# empty): nothing is run at all.
+	for core: String in ["res://scripts/simulation/world_session.gd", "res://scripts/core/main.gd"]:
+		var script := load(core) as GDScript
+		if script == null or not script.can_instantiate():
+			print("FAILURES:
+  the game does not compile (%s) - no tests were run" % core)
+			print("SUMMARY: 0 passed, 1 failed in 0.0 s")
+			quit(1)
+			return
 	await _run()
 
 

@@ -40,6 +40,9 @@ var day_log: DayLog
 var nodes: ResourceNodes
 var piles: PileStore
 var resources: ResourceLibrary
+## The settlement: its stores and its job board (may be null: then food is
+## simply there at the fire and every node is worth working at, as before).
+var settlement: Settlement
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer
@@ -107,6 +110,9 @@ func gatherable(prop_id: int) -> StringName:
 		return &""
 	var store: Variant = places.storage_tile(resource)
 	if store == null or piles.room(resource, Places.middle_of(store)) <= 0:
+		return &""
+	# ...or the settlement has enough of it for now (nothing posted).
+	if settlement != null and not settlement.jobs.wants(resource):
 		return &""
 	return resource
 

@@ -76,6 +76,9 @@ func _ready() -> void:
 	session.behavior.worked.connect(_on_person_worked)
 	session.behavior.reacted.connect(_on_person_reacted)
 	session.nodes.depleted.connect(_on_node_depleted)
+	if session.settlement != null:
+		session.settlement.fire_changed.connect(world_view.set_fire_lit)
+		world_view.set_fire_lit(session.settlement.fire_lit())
 	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
 		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
 			ui_root.hints().complete(HintDirector.TOUCH))
@@ -96,6 +99,8 @@ func _ready() -> void:
 	debug_overlay.register_section(&"perception", func() -> String:
 		return "%s  reactions %d
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
+	debug_overlay.register_section(&"settlement", func() -> String:
+		return session.settlement.debug_text() if session.settlement != null else "settlement: none")
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():

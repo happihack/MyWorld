@@ -230,7 +230,10 @@ func test_untouched_loose_objects_cost_nothing_to_save() -> void:
 	s.create_new(12345)
 	assert_true(s.loose.size() > 20, "rocks lie about (%d)" % s.loose.size())
 	var state: Dictionary = s.to_dict()["world_state"]
-	assert_eq((state["loose"]["objects"] as Array).size(), 0)
+	# (Only the piles the settlement began with are saved: they were made, not generated.)
+	assert_eq((state["loose"]["objects"] as Array).size(), s.piles.piles().size())
+	for record: Dictionary in state["loose"]["objects"]:
+		assert_eq(record["kind"], LooseObject.Kind.PILE)
 	assert_true((state["loose"]["removed"] as PackedInt64Array).size() <= 25, "only the cleared glade")
 	var again := _save_and_reload(s)
 	assert_eq(again.loose.size(), s.loose.size())
@@ -310,7 +313,7 @@ func test_version_2_save_migrates_and_loads() -> void:
 	assert_eq(s.world.get_height(Vector2i(16, 14)), 2, "the dug tile stays dug")
 	assert_eq(s.props.size(), fresh.props.size() - 1)
 	# Its rocks are loose objects now, and none lie in the glade again.
-	assert_eq(s.loose.size(), fresh.loose.size(), "the same rocks, now loose")
+	assert_eq(s.loose.size(), fresh.loose.size() - fresh.piles.piles().size(), "the same rocks, now loose")
 	for o in s.loose.all_objects():
 		var d := o.tile() - s.start.settlement_tile
 		assert_false(absi(d.x) <= WorldSetup.SITE_RADIUS and absi(d.y) <= WorldSetup.SITE_RADIUS, "glade stays clear")
@@ -338,7 +341,7 @@ func test_damaged_loose_data_falls_back_to_the_seed() -> void:
 	Log.console_output = false
 	var again := _session()
 	assert_true(again.load_from(data), "still loads")
-	assert_eq(again.loose.size(), s.loose.size(), "rebuilt from the seed")
+	assert_eq(again.loose.size(), s.loose.size() - s.piles.piles().size(), "rebuilt from the seed (what lay in piles is lost)")
 
 
 # --- trees ----------------------------------------------------------------------------------

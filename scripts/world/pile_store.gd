@@ -150,6 +150,30 @@ func take_from(pile_id: int, amount: int) -> int:
 	return share
 
 
+## `days` pass for what does not keep: every pile of something that spoils
+## loses its share (a pile of berries that keep 8 days loses an eighth of
+## itself a day — whole units; what is left over of a unit is carried to the
+## next day). Wherever the pile lies. Returns what was lost: resource -> units.
+func spoil(days: float = 1.0) -> Dictionary:
+	var lost := {}
+	if _loose == null or _library == null or days <= 0.0:
+		return lost
+	for pile in piles():
+		var def := _library.get_def(pile.resource)
+		if def == null or not def.spoils():
+			continue
+		pile.spoil += pile.amount * days / def.spoil_days
+		var gone := mini(floori(pile.spoil), pile.amount)
+		if gone <= 0:
+			_loose.touch(pile.id)
+			continue
+		pile.spoil -= gone
+		var resource := pile.resource
+		take_from(pile.id, gone)
+		lost[resource] = int(lost.get(resource, 0)) + gone
+	return lost
+
+
 ## How big a pile of `amount` lies there, in percent.
 static func scale_for(amount: int, stack: int, config: ResourcesConfig = null) -> int:
 	if config == null:

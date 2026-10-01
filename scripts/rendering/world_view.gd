@@ -16,6 +16,7 @@ var _props_dirty: Dictionary = {} # chunk coord -> true
 var _ambient: AmbientLife
 var _chunks: Node3D
 var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
+var _has_fire := false
 var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
@@ -117,6 +118,7 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	_frame.build(world.bounds, box_height)
 	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
 	var has_fire := start != null and start.campfire_id != 0
+	_has_fire = has_fire
 	_ambient.setup(world, start.settlement_tile if has_fire else Vector2i.ZERO, has_fire)
 	var fire_at := Vector3.ZERO
 	if has_fire:
@@ -201,6 +203,13 @@ func camera_rig() -> CameraRig:
 
 func pick_highlight() -> PickHighlight:
 	return _highlight
+
+
+## The settlement's fire burns, or has gone out: its light, its smoke and
+## its crackle go with it (the flame itself is part of the prop's mesh).
+func set_fire_lit(lit: bool) -> void:
+	_day_night.fire_light().visible = lit and _has_fire
+	_ambient.set_fire_lit(lit and _has_fire)
 
 
 ## The view of one chunk (null if it is not shown).

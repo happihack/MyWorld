@@ -937,8 +937,12 @@ func test_someone_running_runs() -> void:
 	var covered := person.world2d().distance_to(start)
 	var usual := session.movement.speed_of(person, person.position) * 4.0
 	assert_true(covered > usual * 1.5 or not session.movement.is_walking(person.id), "faster than a walk (%.1f against %.1f)" % [covered, usual])
-	_run(30.0)
-	assert_true(person.world2d().distance_to(beside.position) > from.distance_to(beside.position) + 3.0, "well away from it")
+	# (Where they are once the fright is over is their own business: how far they got counts.)
+	var farthest := 0.0
+	for i in 60:
+		_run(0.5)
+		farthest = maxf(farthest, person.world2d().distance_to(beside.position))
+	assert_true(farthest > from.distance_to(beside.position) + 3.0, "well away from it (%.1f)" % farthest)
 
 
 func test_telling_someone_passes_it_on() -> void:

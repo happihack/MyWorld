@@ -17,7 +17,7 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 		&"home":
 			return ctx.places.home_tile(person) != null
 		&"food":
-			return ctx.places.food_tile(person) != null
+			return ctx.places.has_food(person, ctx.settlement)
 		&"water":
 			return true # found out when planning: looking for water is not cheap
 		&"work":
@@ -38,6 +38,12 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var food: Variant = ctx.places.food_tile(person)
 			if food == null:
 				return []
+			# Nothing in the stores: to a bush that has berries, and eat there.
+			if ctx.settlement != null and person.food_in_hand <= 0.0 and ctx.settlement.stockpile.food_units() <= 0:
+				var bush := ctx.places.forage_place(person, rng)
+				if bush.is_empty():
+					return []
+				return [WalkToStep.make(bush["tile"], person.sub_tile_offset), EatStep.make(bush["tile"], false, bush["id"])]
 			# A meal, if this is the hour for one: everyone in their place
 			# around the fire, staying until it is over.
 			var hour := ctx.clock.hour() if ctx.clock != null else 12.0
@@ -62,11 +68,18 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var stores: Variant = ctx.places.storage_tile(person.carrying)
 				if stores != null:
 					return [WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
-			var place := ctx.places.work_place(person, def.work_target, rng)
+			# What the job board has for them (their own trade first; what is
+			# pressing, whoever they are) — or, with nothing posted, their trade.
+			var target := def.work_target
+			if ctx.settlement != null:
+				var job := ctx.settlement.jobs.choose(def.work_target, rng)
+				if job != null:
+					target = job.node
+			var place := ctx.places.work_place(person, target, rng)
 			if place.is_empty():
 				return []
 			var steps := [WalkToStep.make(place["tile"], person.sub_tile_offset),
-				WorkStep.make(def.work_target, place["id"], place["tile"], snappedf(rng.randf_range(50.0, 110.0), 1.0))]
+				WorkStep.make(target, place["id"], place["tile"], snappedf(rng.randf_range(50.0, 110.0), 1.0))]
 			# If it yields something the settlement has room for, they take
 			# it up as they work and carry it home.
 			var yields := ctx.gatherable(place["id"])

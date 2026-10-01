@@ -106,7 +106,23 @@ func wait_real_ms(milliseconds: int) -> void:
 
 
 ## Recursively deletes a user:// directory (test cleanup only).
+## Tests only ever write, change or delete things in the user data directory
+## (their own run directory there). A path anywhere else — the project
+## itself, if something upstream came back empty — is refused.
+static func is_test_path(path: String) -> bool:
+	if path.begins_with("user://") and not path.contains(".."):
+		return true
+	var user_dir := OS.get_user_data_dir().replace("\\", "/")
+	var plain := path.replace("\\", "/")
+	if user_dir != "" and plain.begins_with(user_dir + "/") and not plain.contains(".."):
+		return true
+	push_error("Test helper refused a path outside the user data directory: '%s'" % path)
+	return false
+
+
 static func remove_dir_recursive(dir_path: String) -> void:
+	if not is_test_path(dir_path):
+		return
 	if not DirAccess.dir_exists_absolute(dir_path):
 		return
 	for f in DirAccess.get_files_at(dir_path):
@@ -117,6 +133,8 @@ static func remove_dir_recursive(dir_path: String) -> void:
 
 
 static func write_bytes(file_path: String, bytes: PackedByteArray) -> void:
+	if not is_test_path(file_path):
+		return
 	var f := FileAccess.open(file_path, FileAccess.WRITE)
 	f.store_buffer(bytes)
 	f.close()
@@ -124,6 +142,8 @@ static func write_bytes(file_path: String, bytes: PackedByteArray) -> void:
 
 ## Flips all bits of the byte `offset_from_end` bytes before the end of a file.
 static func corrupt_byte(file_path: String, offset_from_end: int = 2) -> void:
+	if not is_test_path(file_path):
+		return
 	var bytes := FileAccess.get_file_as_bytes(file_path)
 	var i := bytes.size() - offset_from_end
 	bytes[i] = bytes[i] ^ 0xFF

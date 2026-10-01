@@ -72,6 +72,9 @@ var day_log: DayLog
 var resources: ResourceLibrary
 var nodes: ResourceNodes
 var piles: PileStore
+## The settlement around the fire: its stores, its job board (null in a
+## world without one).
+var settlement: Settlement
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## Makes time pass for all of that, in turns and within a budget.
@@ -81,6 +84,7 @@ var _saved_behavior: Dictionary = {} # likewise what the band knows, until behav
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
 var _saved_day_log: Dictionary = {}
+var _saved_settlement: Dictionary = {}
 
 
 func _init() -> void:
@@ -138,6 +142,8 @@ func create_new(seed_value: int = 0) -> void:
 	rng = RngStreams.new(world_seed)
 	_restore_people({})
 	_activate()
+	if settlement != null:
+		settlement.stock_up(clock.tick)
 	Log.info(Log.Category.WORLD, "New world created", {"world_id": world_id, "seed": world_seed})
 
 
@@ -167,8 +173,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_memories = {}
 	_saved_perception = {}
 	_saved_day_log = {}
+	_saved_settlement = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("settlement")) == TYPE_DICTIONARY:
+			_saved_settlement = state["settlement"]
 		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
 			_saved_day_log = state["day_log"]
 		if typeof((state as Dictionary).get("observer")) == TYPE_DICTIONARY:
@@ -243,6 +252,7 @@ func to_dict() -> Dictionary:
 			"memories": memories.to_dict(),
 			"day_log": day_log.to_dict(),
 			"observer": observer.to_dict(),
+			"settlement": settlement.to_dict() if settlement != null else {},
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -273,6 +283,8 @@ func _process(delta: float) -> void:
 		simulation.advance(delta)
 		if nodes.due(clock.tick):
 			nodes.settle(clock.tick)
+		if settlement != null:
+			settlement.step(clock.tick)
 
 
 ## Where the settlement keeps `resource` (the middle of its storage tile),
@@ -450,10 +462,10 @@ func _activate() -> void:
 	_saved_water = {}
 	loose_system.bind(world, loose, props, water.current_at)
 	interactions.bind(world, props, loose, loose_system, ids, rng)
-	var settlement := Vector2.INF
+	var fire_at := Vector2.INF
 	if start != null and start.campfire_id != 0:
-		settlement = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
-	interactions.bind_session(water, clock, history, settlement)
+		fire_at = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
+	interactions.bind_session(water, clock, history, fire_at)
 	interactions.bind_people(people)
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
@@ -479,6 +491,16 @@ func _activate() -> void:
 	ai.resources = resources
 	ai.places.resources = resources
 	ai.places.nodes = nodes
+	if settlement != null:
+		settlement.unbind()
+	settlement = null
+	if start != null and start.campfire_id != 0:
+		settlement = Settlement.new()
+		settlement.bind(start, people, props, piles, ai.places, resources, loose, Config.settlement)
+		settlement.from_dict(_saved_settlement)
+		settlement.jobs.refresh(settlement, clock.tick)
+	_saved_settlement = {}
+	ai.settlement = settlement
 	ai.rng = rng.stream(&"ai")
 	ai.world_seed = world_seed
 	memories.bind(people)

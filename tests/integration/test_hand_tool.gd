@@ -265,8 +265,12 @@ func test_letting_go_drops_the_rock_where_it_is() -> void:
 	assert_true(rock.discoverable, "and it lies where the settlement may find it")
 	assert_eq(rock.moved_count, 1)
 	assert_true(rock.placed_by_player)
-	assert_eq(session.loose.saved_count(), 1, "a moved rock is saved")
-	var record: Dictionary = session.to_dict()["world_state"]["loose"]["objects"][0]
+	# (Saved besides: the piles the settlement began with.)
+	assert_eq(session.loose.saved_count(), 1 + session.piles.piles().size(), "a moved rock is saved")
+	var record: Dictionary = {}
+	for saved: Dictionary in session.to_dict()["world_state"]["loose"]["objects"]:
+		if saved["id"] == rock.id:
+			record = saved
 	assert_eq(record["position"], rock.position)
 
 
@@ -378,7 +382,10 @@ func test_saving_while_carrying_saves_the_rock_on_the_ground() -> void:
 	_drag_to(_ground_screen(rock.position + Vector2(2.0, 0)))
 	_run(0.6)
 	assert_true(rock.height_offset > 0.2)
-	var records: Array = session.to_dict()["world_state"]["loose"]["objects"]
+	var records: Array = []
+	for saved: Dictionary in session.to_dict()["world_state"]["loose"]["objects"]:
+		if saved["id"] == rock.id:
+			records.append(saved)
 	assert_eq(records.size(), 1)
 	assert_near(records[0]["height_offset"], 0.0, 0.0, "not hanging in the air after a reload")
 	assert_eq(records[0]["position"], rock.position)

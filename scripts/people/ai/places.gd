@@ -159,6 +159,20 @@ func work_place(person: PersonData, target: StringName, rng: RandomNumberGenerat
 	return {}
 
 
+## A bush with berries on it, near home: where someone goes to eat when the
+## stores are empty. {} if there is none.
+func forage_place(person: PersonData, rng: RandomNumberGenerator) -> Dictionary:
+	return _nearest_prop(person, PropData.Kind.BUSH, rng, true) if _start != null and nodes != null else {}
+
+
+## Is there anything to eat for this person: food in the settlement's
+## stores, or failing that berries on a bush?
+func has_food(person: PersonData, settlement: Settlement) -> bool:
+	if settlement == null:
+		return food_tile(person) != null
+	return person.food_in_hand > 0.0 or settlement.stockpile.food_units() > 0 or not forage_place(person, null).is_empty()
+
+
 ## Someone to talk to: a person of the same settlement who is up and about,
 ## one of the nearest few. Null if there is nobody.
 func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
@@ -262,7 +276,8 @@ func _cell(tile: Vector2i) -> Vector2i:
 
 ## One of the props of `kind` nearest to the person's home (and so to the
 ## settlement: work is done near home), chosen by the dice among the nearest few.
-func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGenerator) -> Dictionary:
+## `only_giving`: nothing rather than one that has nothing to take.
+func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGenerator, only_giving: bool = false) -> Dictionary:
 	var home: Variant = home_tile(person)
 	var center: Vector2i = home if home != null else person.position
 	if _work_version != _props.version:
@@ -291,18 +306,27 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 	if nodes != null:
 		var giving: Array = []
 		var begun: Array = []
+		var laden: Array = []
 		for place: Array in places:
 			var prop := _props.get_prop(place[1])
-			if nodes.available(prop) > 0:
+			var there := nodes.available(prop)
+			if there > 0:
 				giving.append(place)
 				# A tree somebody has begun to cut is cut down before the next
-				# one is begun (bushes are picked wherever there are berries).
+				# one is begun; a bush is worth the walk when it has berries
+				# enough on it (a nearly bare one only if there are no others).
 				if kind == PropData.Kind.TREE and prop.stock >= 0:
 					begun.append(place)
+				elif kind == PropData.Kind.BUSH and there >= nodes.capacity(prop) * Config.resources.worth_picking_from:
+					laden.append(place)
 		if not begun.is_empty():
 			places = begun
+		elif not laden.is_empty():
+			places = laden
 		elif not giving.is_empty():
 			places = giving
+		elif only_giving:
+			return {}
 	places = places.slice(0, WORK_CHOICES)
 	# Not where something frightening happened, if there is anywhere else.
 	if memories != null and not person.memory_ids.is_empty():
@@ -312,7 +336,7 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 				calm.append(place)
 		if not calm.is_empty():
 			places = calm
-	var chosen: Array = places[rng.randi_range(0, places.size() - 1)]
+	var chosen: Array = places[rng.randi_range(0, places.size() - 1) if rng != null else 0]
 	return {"tile": chosen[0], "id": chosen[1]}
 
 

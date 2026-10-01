@@ -10,7 +10,7 @@ extends ConfigBase
 ## animals, M7.4).
 @export var nodes: Dictionary = {
 	&"tree": {"resource": &"wood", "quantity": 16, "strokes_per_unit": 12, "regrow_days": 24.0},
-	&"bush": {"resource": &"berries", "quantity": 8, "strokes_per_unit": 4, "regrow_days": 3.0},
+	&"bush": {"resource": &"berries", "quantity": 8, "strokes_per_unit": 4, "regrow_days": 2.0},
 	&"rock": {"resource": &"stone", "quantity": 10, "strokes_per_unit": 16, "regrow_days": 0.0},
 	&"shoal": {"resource": &"fish", "quantity": 20, "strokes_per_unit": 10, "regrow_days": 4.0},
 }
@@ -33,6 +33,12 @@ extends ConfigBase
 @export_range(1, 100) var carry_units_max: int = 6
 ## Game minutes it takes to put a load down on a pile.
 @export_range(0.0, 60.0, 0.5) var store_minutes: float = 2.0
+## What bringing a load home is worth to the one who brought it, as purpose
+## (the walk there and back is part of the work, and should feel like it).
+@export_range(0.0, 1.0, 0.01) var load_purpose: float = 0.15
+## A bush with at least this share of its berries is worth the walk; people
+## go to barer ones only when there are no others.
+@export_range(0.0, 1.0, 0.01) var worth_picking_from: float = 0.5
 
 @export_group("Storing")
 ## Where a settlement keeps things, as an offset from its fire, by category

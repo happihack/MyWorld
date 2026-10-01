@@ -378,8 +378,8 @@ func test_plan_hungry_home_food_eat_work() -> void:
 	_set_hour(8.0)
 	var person := _adult(&"woodcutter")
 	_content(person)
-	person.needs[Needs.Need.HUNGER] = 0.15
-	person.needs[Needs.Need.PURPOSE] = 0.25
+	person.needs[Needs.Need.HUNGER] = 0.08
+	person.needs[Needs.Need.PURPOSE] = 0.3
 	var home := session.props.get_prop(person.home_building_id)
 	var fire := session.props.get_prop(session.start.campfire_id)
 	session.people.move(person.id, session.pathfinder.standable_near(home.tile, 1)[0])

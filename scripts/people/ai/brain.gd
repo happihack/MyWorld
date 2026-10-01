@@ -101,6 +101,12 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 	if pushed:
 		timely = maxf(timely, 1.0)
 	var total := (def.base + def.trait_part(person.traits) + def.need_total_from(spoken)) * timely
+	# Work is worth what there is to do: more with something pressing on the
+	# job board, less with nothing on it for them.
+	if def.id == &"work" and ctx.settlement != null and ctx.occupations != null:
+		var trade := ctx.occupations.get_def(person.occupation_id)
+		if trade != null:
+			total *= ctx.settlement.jobs.work_factor(trade.work_target)
 	if def.repeat_after_minutes > 0.0 and person.activity_log.has(def.id_text()):
 		var since := float(ctx.now() - int(person.activity_log[def.id_text()]))
 		total -= REPEAT_PENALTY * clampf(1.0 - since / def.repeat_after_minutes, 0.0, 1.0)

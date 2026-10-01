@@ -74,7 +74,8 @@ func test_corrupt_main_falls_back_to_bak1() -> void:
 func test_crash_between_rotation_and_rename_prefers_tmp() -> void:
 	SaveManager.save_world(session, &"test")
 	SaveManager.save_world(session, &"test")
-	DirAccess.remove_absolute(_dir().path_join("world.sav")) # rotated away, rename never happened
+	if is_test_path(_dir()):
+		DirAccess.remove_absolute(_dir().path_join("world.sav")) # rotated away, rename never happened
 	_tick(2)
 	SaveContainer.write(_dir().path_join("world.sav.tmp"), {"save_version": 1, "saved_unix": 1}, {"world": session.to_dict()})
 	var lr := SaveManager.load_world(session.world_id)

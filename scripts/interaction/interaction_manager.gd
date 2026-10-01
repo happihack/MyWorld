@@ -483,10 +483,10 @@ func inspect(target: Picker.Result) -> InspectReport:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()
 		report.resource = ResourceNodes.resource_for(prop)
+		report.look = ResourceNodes.look_of(prop)
 		if report.resource != &"":
 			report.resource_capacity = ResourceNodes.capacity_of(prop)
 			report.resource_left = ResourceNodes.left_of(prop)
-			report.look = ResourceNodes.look_of(prop)
 	elif object != null:
 		report.subject = InspectReport.Subject.LOOSE
 		report.entity_id = object.id

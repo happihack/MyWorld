@@ -94,6 +94,7 @@ func _init() -> void:
 	_templates[_look_key(PropData.Kind.BUSH, 1, ResourceNodes.Look.SPARSE)] = _bush(0.22, 0.31, 2)
 	_templates[_look_key(PropData.Kind.BUSH, 0, ResourceNodes.Look.BARE)] = _bush(0.26, 0.26, 0)
 	_templates[_look_key(PropData.Kind.BUSH, 1, ResourceNodes.Look.BARE)] = _bush(0.22, 0.31, 0)
+	_templates[_look_key(PropData.Kind.CAMPFIRE, 0, ResourceNodes.Look.BARE)] = _campfire(false)
 	_tuft = _grass_tuft()
 	# Loose objects (things that can be moved). Rocks look like the rock props
 	# they replace; boulders are the same stone, bigger.
@@ -315,18 +316,22 @@ static func _hut() -> Template:
 	return t
 
 
-static func _campfire() -> Template:
+static func _campfire(burning: bool = true) -> Template:
 	var t := Template.new()
 	for i in 6:
 		var angle := TAU * i / 6.0
 		_box(t, Vector3(cos(angle) * 0.20, 0.035, sin(angle) * 0.20), Vector3(0.055, 0.035, 0.045), _rgba(STONE_DARK, 0.0), angle)
-	_box(t, Vector3(0, 0.04, 0), Vector3(0.14, 0.03, 0.03), _rgba(LOG, 0.0), 0.5)
-	_box(t, Vector3(0, 0.06, 0), Vector3(0.14, 0.03, 0.03), _rgba(LOG, 0.0), 2.2)
+	# (A fire that has gone out: charred ends, no flame.)
+	var wood := LOG if burning else LOG.darkened(0.55)
+	_box(t, Vector3(0, 0.04, 0), Vector3(0.14, 0.03, 0.03), _rgba(wood, 0.0), 0.5)
+	_box(t, Vector3(0, 0.06, 0), Vector3(0.14, 0.03, 0.03), _rgba(wood, 0.0), 2.2)
+	if not burning:
+		return t
 	# Flame: sway weight above 1 makes it flicker more than leaves.
 	var flame := _ring(0.07, 0.09, 5, 0.0)
-	var burning := t.vertices.size()
+	var lit_from := t.vertices.size()
 	_fan(t, flame, Vector3(0, 0.36, 0), _rgba(FLAME, 0.6), _rgba(FLAME_HOT, 2.5))
-	t.glow_from(burning, 2.0)
+	t.glow_from(lit_from, 2.0)
 	return t
 
 

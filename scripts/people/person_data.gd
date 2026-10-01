@@ -54,6 +54,9 @@ var settlement_id := 0
 ## What they have in their arms (a resource id; &"" = nothing), and how much.
 var carrying: StringName = &""
 var carrying_amount := 0
+## What is left of the last unit of food they took, in bellies: eaten first
+## at their next meal (nothing is thrown away).
+var food_in_hand := 0.0
 ## Mother and father, if known. Lineage outlives the people themselves.
 var parents: PackedInt64Array = PackedInt64Array()
 var children: PackedInt64Array = PackedInt64Array()
@@ -129,7 +132,7 @@ func to_dict() -> Dictionary:
 		"position": position, "sub_tile_offset": sub_tile_offset, "facing": facing,
 		"significance": significance, "flags": flags,
 		"appearance": appearance.duplicate(),
-		"carrying": String(carrying), "carrying_amount": carrying_amount,
+		"carrying": String(carrying), "carrying_amount": carrying_amount, "food_in_hand": food_in_hand,
 	}
 
 
@@ -183,6 +186,8 @@ static func from_dict(data: Dictionary) -> PersonData:
 	p.carrying = StringName(str(data.get("carrying", ""))) if p.carrying_amount > 0 else &""
 	if p.carrying == &"":
 		p.carrying_amount = 0
+	var morsel := float(data.get("food_in_hand", 0.0))
+	p.food_in_hand = clampf(morsel, 0.0, 10.0) if is_finite(morsel) else 0.0
 	return p
 
 

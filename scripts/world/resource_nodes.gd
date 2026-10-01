@@ -87,6 +87,9 @@ static func look_of(prop: PropData, config: ResourcesConfig = null) -> Look:
 			if prop.stock == 0:
 				return Look.BARE
 			return Look.SPARSE if fraction_of(prop, config) < config.sparse_below else Look.FULL
+		PropData.Kind.CAMPFIRE:
+			# (Not a node: a fire that has gone out is marked with stock 0.)
+			return Look.BARE if prop.stock == 0 else Look.FULL
 	return Look.FULL
 
 

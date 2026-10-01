@@ -20,7 +20,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		return Status.DONE # nothing in their arms after all
 	if not tick(step, minutes):
 		return Status.RUNNING
-	ctx.put_down(person)
+	if ctx.put_down(person) > 0:
+		Needs.satisfy(person.needs, Needs.Need.PURPOSE, Config.resources.load_purpose)
 	return Status.DONE
 
 

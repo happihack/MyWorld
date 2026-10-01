@@ -34,6 +34,9 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Config.settlement.fire_wood_per_day = SettlementConfig.new().fire_wood_per_day
+	Config.settlement.wood_days_wanted = SettlementConfig.new().wood_days_wanted
+	Config.settlement.urgent_from = SettlementConfig.new().urgent_from
 	session.queue_free()
 	await wait_frames(1)
 
@@ -70,6 +73,23 @@ func _adult(occupation: StringName = &"woodcutter") -> PersonData:
 func _calm(person: PersonData) -> PersonData:
 	person.needs = PackedFloat32Array([0.9, 0.95, 0.9, 0.9, 0.6, 1.0])
 	return person
+
+
+## Takes away what the settlement began with (for tests that count piles).
+func _empty_stores() -> void:
+	for pile in piles.piles():
+		session.loose.remove(pile.id)
+	session.settlement.jobs.refresh(session.settlement, session.clock.tick)
+
+
+## For tests about gathering alone: the fire burns next to nothing (but
+## the same amount of wood is wanted), and nobody takes up a job that is not
+## their trade (see test_settlement for those).
+func _gathering_only() -> void:
+	Config.settlement.fire_wood_per_day = 0.01
+	Config.settlement.wood_days_wanted = 1800.0
+	Config.settlement.urgent_from = 2.0
+	_empty_stores()
 
 
 ## Everyone but `people` stands still for the length of the test.
@@ -376,7 +396,8 @@ func test_what_is_gathered_lies_in_piles() -> void:
 	assert_eq(at, Places.middle_of(session.start.settlement_tile + Vector2i(2, 1)), "materials beside the fire")
 	assert_eq(session.storage_place(&"berries"), Places.middle_of(session.start.settlement_tile + Vector2i(-2, 1)), "food on the other side")
 	assert_true(session.pathfinder.can_stand(ctx.places.storage_tile(&"wood")))
-	assert_eq(piles.piles().size(), 0, "a new world has no stores")
+	_empty_stores()
+	assert_eq(piles.piles().size(), 0)
 	assert_eq(session.stored(&"wood"), 0)
 	var stack := session.resources.get_def(&"wood").stack
 	assert_eq(piles.room(&"wood", at), config.piles_per_resource * stack)
@@ -477,6 +498,7 @@ func test_what_is_gathered_lies_in_piles() -> void:
 
 
 func test_the_player_can_move_a_pile() -> void:
+	_empty_stores()
 	var at := session.storage_place(&"berries")
 	var pile := session.loose.get_object(piles.add(&"berries", 10, at)[0])
 	assert_eq(session.stored(&"berries"), 10)
@@ -547,6 +569,7 @@ func test_gathering() -> void:
 	var cutter := _calm(_adult(&"woodcutter"))
 	var forager := _calm(_adult(&"forager"))
 	_only([cutter, forager])
+	_gathering_only()
 	behavior.set_plan(forager, BehaviorSystem.ACTIVITY_CALLED, BehaviorSystem.ACTIVITY_CALLED, [RestStep.make(600.0)])
 	var steps := Planner.plan(&"work", cutter, ctx)
 	assert_eq(steps.size(), 4, "to the tree, work, to the stores, put it down")
@@ -623,6 +646,7 @@ func test_work_stops_yielding_when_the_stores_are_full_or_the_node_is_empty() ->
 	_set_hour(9.0)
 	var cutter := _calm(_adult(&"woodcutter"))
 	_only([cutter])
+	_gathering_only()
 	var at := session.storage_place(&"wood")
 	var stack := session.resources.get_def(&"wood").stack
 	# Full stores: work is only work (as it was before there were resources).
@@ -635,10 +659,18 @@ func test_work_stops_yielding_when_the_stores_are_full_or_the_node_is_empty() ->
 	_run(90.0)
 	assert_eq(_missing_from_nodes(&"wood"), 0, "no tree is cut for wood nobody has room for")
 	assert_eq(cutter.carrying_amount, 0)
-	# Room again (the player carries a pile off): gathering goes on.
-	var pile := piles.piles(&"wood")[0]
-	session.loose.move(pile.id, pile.position + Vector2(8.0, 0.0))
+	# Room, but enough in store: the board has nothing posted, and nobody cuts.
+	session.loose.remove(piles.piles(&"wood")[0].id)
+	session.settlement.jobs.refresh(session.settlement, session.clock.tick)
 	assert_eq(piles.room(&"wood", at), stack)
+	assert_false(session.settlement.jobs.wants(&"wood"), "two full piles are plenty")
+	assert_eq(Planner.plan(&"work", cutter, ctx).size(), 2)
+	# The player carries the piles off: wood is wanted again, and gathering goes on.
+	for pile in piles.piles(&"wood"):
+		session.loose.move(pile.id, pile.position + Vector2(8.0, 0.0))
+	session.settlement.jobs.refresh(session.settlement, session.clock.tick)
+	assert_true(session.settlement.jobs.wants(&"wood"))
+	assert_eq(session.stored(&"wood"), 0)
 	assert_eq(Planner.plan(&"work", cutter, ctx).size(), 4)
 	# A tree that has been begun is cut down before the next one is.
 	var begun := session.props.get_prop(int(Planner.plan(&"work", cutter, ctx)[1]["target"]))
@@ -678,7 +710,7 @@ func test_work_stops_yielding_when_the_stores_are_full_or_the_node_is_empty() ->
 		_run(0.5)
 		waited += 0.5
 	assert_eq(cutter.carrying_amount, 0)
-	assert_eq(session.stored(&"wood"), stack * (config.piles_per_resource - 1) + 1, "the one piece is in the stores")
+	assert_eq(session.stored(&"wood"), 1, "the one piece is in the stores")
 	# Nothing to take anywhere near: they work on all the same (nobody stands idle for it).
 	for prop in session.props.all_props():
 		if prop.kind == PropData.Kind.TREE:
@@ -692,6 +724,7 @@ func test_someone_called_away_keeps_what_they_carry_and_brings_it_home_later() -
 	_set_hour(9.0)
 	var cutter := _calm(_adult(&"woodcutter"))
 	_only([cutter])
+	_gathering_only()
 	behavior.set_plan(cutter, &"work", &"purpose", Planner.plan(&"work", cutter, ctx), 2.0)
 	var waited := 0.0
 	while cutter.carrying_amount == 0 and waited < 120.0:
@@ -786,8 +819,9 @@ func test_a_week_of_gathering() -> void:
 		# grown back, is carried, or lies in piles.
 		var wood := session.stored(&"wood")
 		var berries := session.stored(&"berries")
-		assert_true(wood <= most_wood + ctx.carry_capacity(&"wood") * 4, "day %d: wood within what the stores hold (%d)" % [day + 1, wood])
-		assert_true(berries <= most_berries + ctx.carry_capacity(&"berries") * 4, "day %d: berries (%d)" % [day + 1, berries])
+		# (The settlement wants a few days' worth, not all the stores hold.)
+		assert_true(wood <= 18 + ctx.carry_capacity(&"wood") * 4, "day %d: wood about what is wanted (%d)" % [day + 1, wood])
+		assert_true(berries <= most_berries, "day %d: berries (%d)" % [day + 1, berries])
 		assert_eq(piles.total(&"wood"), wood, "nobody leaves wood lying elsewhere")
 		var felled := 0
 		for prop in session.props.all_props():
@@ -803,7 +837,9 @@ func test_a_week_of_gathering() -> void:
 	var berries_end := session.stored(&"berries")
 	print("    after a day: %s; after a week: wood %d of %d, berries %d of %d in %d piles; %d trees felled at most, %d nodes regrowing" % [
 		after_first_day, wood_end, most_wood, berries_end, most_berries, piles.piles().size(), felled_at_most, nodes.tracked_count()])
-	assert_true(wood_end >= most_wood - ctx.carry_capacity(&"wood"), "the wood store is full (%d)" % wood_end)
+	assert_true(wood_end >= 6 and wood_end <= most_wood, "wood in store (%d)" % wood_end)
+	assert_true(berries_end >= 6, "and food (%d)" % berries_end)
+	assert_true(session.settlement.fire_lit(), "the fire burns")
 	assert_true(felled_at_most >= 1, "trees came down for it")
 	assert_true(felled_at_most <= 8, "but not the forest (%d)" % felled_at_most)
 	assert_true(piles.piles().size() <= config.piles_per_resource * 2 + 4)
@@ -865,8 +901,8 @@ func test_version_8_save_gains_resources() -> void:
 	assert_true(s.nodes.tracked_count() > 0)
 	# Saved again: the current version, the old file kept.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveManager.SAVE_VERSION, 9)
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 9)
+	assert_true(SaveManager.SAVE_VERSION >= 9)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 8)
 	var again := SaveManager.load_world(V8_ID)
 	assert_true(again.ok, again.error)
