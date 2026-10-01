@@ -5,6 +5,10 @@ extends ConfigBase
 @export var save_root: String = "user://saves"
 @export_range(10.0, 3600.0) var autosave_interval_s: float = 120.0
 @export_range(1, 10) var backup_count: int = 2
+## Lifecycle/auto saves of the same world closer together than this are skipped.
+## Android fires focus-loss and pause back to back (and quit is followed by the
+## world closing); saving twice would rotate a duplicate into the backups.
+@export_range(0, 10000) var min_save_gap_ms: int = 500
 
 
 func validate() -> PackedStringArray:

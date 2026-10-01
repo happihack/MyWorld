@@ -15,6 +15,7 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	Config.save.min_save_gap_ms = SaveConfig.new().min_save_gap_ms
 	SaveManager.attach(null)
 	if is_instance_valid(session):
 		session.queue_free()
@@ -116,7 +117,27 @@ func test_recency_order_and_unreadable_headers() -> void:
 	assert_eq(SaveManager.find_latest_world_id(), "wC")
 
 
+func test_back_to_back_lifecycle_saves_are_deduplicated() -> void:
+	var reasons := []
+	var cb := func(_p: String, _ms: float) -> void: reasons.append(SaveManager.last_save_info["reason"])
+	EventBus.save_completed.connect(cb)
+	SaveManager.attach(session)
+	EventBus.app_focus_changed.emit(false) # Android: focus loss, then pause
+	EventBus.app_paused.emit()
+	EventBus.save_completed.disconnect(cb)
+	assert_eq(reasons, [&"focus_lost"], "second save within the gap is skipped")
+	var files := Array(DirAccess.get_files_at(_dir()))
+	assert_false(files.has("world.sav.bak1"), "no duplicate rotated into the backups")
+	assert_true(SaveManager.save_world(session, &"manual"), "explicit save_world always saves")
+	await wait_seconds(Config.save.min_save_gap_ms / 1000.0 + 0.1)
+	EventBus.save_completed.connect(cb)
+	EventBus.app_paused.emit()
+	EventBus.save_completed.disconnect(cb)
+	assert_eq(reasons, [&"focus_lost", &"app_paused"], "saves again once the gap has passed")
+
+
 func test_lifecycle_and_close_saves() -> void:
+	Config.save.min_save_gap_ms = 0 # isolate the triggers from the dedupe rule
 	var reasons := []
 	var cb := func(_p: String, _ms: float) -> void: reasons.append(SaveManager.last_save_info["reason"])
 	EventBus.save_completed.connect(cb)
@@ -134,6 +155,7 @@ func test_lifecycle_and_close_saves() -> void:
 
 
 func test_reattach_and_detach_stop_saving_old_session() -> void:
+	Config.save.min_save_gap_ms = 0
 	var other: WorldSession = SessionScript.new()
 	add_child(other)
 	other.create_new(5)

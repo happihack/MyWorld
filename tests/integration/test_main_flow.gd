@@ -152,6 +152,7 @@ func test_back_button_with_no_panels_saves_and_quits() -> void:
 	ui.quit_action = func() -> void: quit_called[0] = true
 	var reasons := []
 	var cb := func(_p: String, _ms: float) -> void: reasons.append(SaveManager.last_save_info["reason"])
+	await wait_seconds(Config.save.min_save_gap_ms / 1000.0 + 0.1) # past the new-world save
 	EventBus.save_completed.connect(cb)
 	EventBus.back_requested.emit()
 	EventBus.save_completed.disconnect(cb)

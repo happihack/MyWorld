@@ -18,6 +18,8 @@ var last_save_info: Dictionary = {}
 
 var _session: WorldSession
 var _autosave_timer: Timer
+var _last_saved_world_id := ""
+var _last_saved_msec := 0
 
 
 class LoadResult:
@@ -54,10 +56,17 @@ func attach(session: WorldSession) -> void:
 		_autosave_timer.stop()
 
 
-## Saves the attached session if there is an active one.
+## Saves the attached session if there is an active one. Used by lifecycle
+## events and autosave; a save that would land within Config.save.min_save_gap_ms
+## of the previous successful save of the same world is skipped (returns true:
+## the world on disk is already current). save_world() itself always saves.
 func save_current(reason: StringName = &"manual") -> bool:
 	if _session == null or not is_instance_valid(_session) or not _session.is_active:
 		return false
+	if _session.world_id == _last_saved_world_id \
+			and Time.get_ticks_msec() - _last_saved_msec < Config.save.min_save_gap_ms:
+		Log.debug(Log.Category.SAVE, "Save skipped (just saved)", {"reason": reason})
+		return true
 	return save_world(_session, reason)
 
 
@@ -92,6 +101,8 @@ func save_world(session: WorldSession, reason: StringName = &"manual") -> bool:
 	if err != OK:
 		return _save_failed("final rename failed (%s)" % error_string(err))
 
+	_last_saved_world_id = session.world_id
+	_last_saved_msec = Time.get_ticks_msec()
 	var ms := (Time.get_ticks_usec() - started) / 1000.0
 	last_save_info = {
 		"reason": reason,
