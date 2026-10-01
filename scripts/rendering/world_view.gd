@@ -19,6 +19,7 @@ var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
 var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
+var _day_night: DayNight
 var _water_material: ShaderMaterial
 var _rig: CameraRig
 var _highlight: PickHighlight
@@ -65,6 +66,9 @@ func _ready() -> void:
 	_people_view = PeopleView.new()
 	_people_view.name = "People"
 	add_child(_people_view)
+	_day_night = DayNight.new()
+	_day_night.name = "DayNight"
+	add_child(_day_night)
 	apply_palette(Config.terrain_palette)
 	_rig = CameraRig.new(Config.camera)
 	_rig.name = "CameraRig"
@@ -108,6 +112,11 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
 	var has_fire := start != null and start.campfire_id != 0
 	_ambient.setup(world, start.settlement_tile if has_fire else Vector2i.ZERO, has_fire)
+	var fire_at := Vector3.ZERO
+	if has_fire:
+		var tile := start.settlement_tile
+		fire_at = Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step, tile.y + 0.5)
+	_day_night.set_fire(fire_at, has_fire)
 	_rig.ground_height = _ground_height_at
 	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
@@ -116,6 +125,12 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 ## Shows the people of the world that is being shown (call after show_world).
 func show_people(people: PersonRegistry, clock: GameClock, occupations: OccupationLibrary) -> void:
 	_people_view.show_people(_world, people, clock, occupations)
+	_day_night.bind(clock) # the light of the day follows the same clock
+
+
+## The light of the day (sun, moon, windows, fire).
+func day_night() -> DayNight:
+	return _day_night
 
 
 func clear() -> void:
@@ -247,6 +262,7 @@ func _process(_delta: float) -> void:
 	if _water_wait <= 0 and refresh_dirty_water(1) > 0:
 		_water_wait = WATER_REBUILD_EVERY_FRAMES
 	_lighting.set_view_distance(_rig.distance())
+	_ambient.set_night(_day_night.night(), _day_night.hour())
 
 
 func _on_props_changed(coord: Vector2i) -> void:
@@ -321,6 +337,10 @@ func apply_palette(palette: TerrainPalette) -> void:
 			_people_view.selected_material()]:
 		material.set_shader_parameter(&"cloud_strength", palette.cloud_shadow_strength)
 		material.set_shader_parameter(&"cloud_scale", 1.0 / maxf(palette.cloud_size_tiles, 1.0))
+	var clouded: Array[ShaderMaterial] = [_terrain_material, _water_material, _prop_material, _people_view.body_material(),
+		_people_view.selected_material()]
+	_day_night.setup(_lighting, _prop_material, clouded, palette.cloud_shadow_strength)
+	_day_night.refresh()
 
 
 func _apply_camera_settings() -> void:

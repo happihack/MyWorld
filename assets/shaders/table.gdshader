@@ -13,6 +13,8 @@ uniform float fade_start = 40.0;
 uniform float fade_end = 110.0;
 uniform float shadow_strength : hint_range(0.0, 1.0) = 0.55;
 uniform float shadow_reach = 5.0;
+// How much of its daytime brightness the table has (1 by day, less at night).
+uniform float daylight : hint_range(0.0, 1.0) = 1.0;
 
 varying vec2 v_world;
 
@@ -26,5 +28,5 @@ void fragment() {
 	float outside = length(max(abs(p) - box_half, vec2(0.0)));
 	float shadow = 1.0 - shadow_strength * exp(-outside / shadow_reach);
 	float fade = smoothstep(fade_start, fade_end, length(p));
-	ALBEDO = mix(table_color * shadow, background_color, fade);
+	ALBEDO = mix(table_color * shadow * daylight, background_color, fade);
 }

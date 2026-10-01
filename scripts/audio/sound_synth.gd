@@ -17,7 +17,7 @@ const WIND_SECONDS := 3.0
 ## Every sound this class can make.
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
-	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice",
+	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice", &"crickets",
 ]
 
 
@@ -36,7 +36,7 @@ static func make(id: StringName) -> AudioStreamWAV:
 		return null
 	var rate := WIND_RATE if id == &"wind" else RATE
 	var stream := to_stream(samples, rate)
-	if id == &"wind":
+	if id == &"wind" or id == &"crickets":
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		stream.loop_begin = 0
 		stream.loop_end = samples.size()
@@ -82,6 +82,8 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _finish(_blip(880.0, 590.0, 0.07), 0.4)
 		&"wind":
 			return _wind(rng)
+		&"crickets":
+			return _crickets(rng)
 		&"voice":
 			# A small "oh!": up, and down again. (Pitched per person when played.)
 			return _finish(_whistles(0.24, [[0.0, 0.09, 430.0, 600.0], [0.11, 0.12, 600.0, 390.0]]), 0.55)
@@ -266,6 +268,33 @@ static func _blip(from_hz: float, to_hz: float, seconds: float) -> PackedFloat32
 		phase += TAU * lerpf(from_hz, to_hz, f) / RATE
 		out[i] = sin(phase) * sin(PI * f)
 	return out
+
+
+## A loop of crickets in the night: three of them, each chirping in short
+## trills at its own pitch and pace. Every trill fits inside the loop, so it
+## has no seam.
+static func _crickets(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var seconds := 4.0
+	var n := int(seconds * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for cricket in 3:
+		var pitch := 3900.0 + cricket * 420.0 + rng.randf_range(-60.0, 60.0)
+		var period := 0.62 + cricket * 0.21
+		var loudness := 0.5 - cricket * 0.12
+		var start := rng.randf_range(0.05, 0.3)
+		while start + 0.2 < seconds:
+			# A trill: three or four quick pulses.
+			for pulse in 3 + (cricket % 2):
+				var from := int((start + pulse * 0.045) * RATE)
+				var length := int(0.028 * RATE)
+				for i in length:
+					if from + i >= n:
+						break
+					var f := float(i) / float(length)
+					out[from + i] += sin(TAU * pitch * float(i) / RATE) * sin(PI * f) * loudness
+			start += period + rng.randf_range(-0.04, 0.04)
+	return _finish(out, 0.4)
 
 
 ## A loop of soft, slowly breathing wind. The end is blended into the start so

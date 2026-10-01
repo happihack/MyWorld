@@ -25,6 +25,10 @@ var _formation: Array[Vector3] = []
 var _bird_positions: Array[Vector3] = []
 ## Seconds until the next bird call.
 var _chirp_in := 10.0
+## How much it is night (0 … 1) and the hour, as the day/night cycle has it.
+var _night := 0.0
+var _hour := 12.0
+var _crackle_in := 2.0
 
 
 func _ready() -> void:
@@ -68,13 +72,55 @@ func is_smoking() -> bool:
 	return _smoke.emitting
 
 
+## Tells the ambient life how dark it is and what hour: birds roost at
+## night and sing most at dawn; crickets and the crackle of the fire belong
+## to the dark.
+func set_night(night: float, hour: float) -> void:
+	_night = clampf(night, 0.0, 1.0)
+	_hour = hour
+	_birds.visible = _night < 0.85
+	AudioManager.set_night(_night)
+
+
+func night() -> float:
+	return _night
+
+
+## How many times as often as usual the birds call right now: not at all at
+## night, most of all around sunrise.
+func chirp_rate() -> float:
+	var config := Config.day_night
+	if _night > 0.85:
+		return 0.0
+	var from_dawn := absf(_hour - (config.sunrise_hour + 0.75))
+	var chorus := 1.0 - smoothstep(0.75, 2.0, from_dawn)
+	return lerpf(1.0, Config.feedback.dawn_chorus, chorus) * (1.0 - _night * 0.6)
+
+
 func _process(delta: float) -> void:
 	_time += delta
 	_update_birds()
-	_chirp_in -= delta
-	if _chirp_in <= 0.0:
+	var rate := chirp_rate()
+	_chirp_in -= delta * rate
+	if _chirp_in <= 0.0 and rate > 0.0:
 		chirp()
 		_chirp_in = next_chirp_delay()
+	# The fire is heard once it is dark enough to listen to it.
+	if _smoke.visible and _night > 0.3:
+		_crackle_in -= delta
+		if _crackle_in <= 0.0:
+			crackle()
+			_crackle_in = randf_range(Config.feedback.crackle_min_seconds, Config.feedback.crackle_max_seconds)
+
+
+## The fire crackles (heard from where it burns), louder the darker it is.
+func crackle() -> void:
+	AudioManager.play_at(&"crackle", _smoke.position, Config.feedback.crackle_volume_db - (1.0 - _night) * 8.0,
+		randf_range(0.85, 1.25), false)
+
+
+func seconds_until_crackle() -> float:
+	return _crackle_in
 
 
 ## One of the birds calls (heard from where it is flying). Which bird, which

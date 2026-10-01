@@ -2,8 +2,9 @@ class_name WorldLighting
 extends Node3D
 ## Light and atmosphere for the diorama (bible §28.2): a warm sun, cool sky
 ## ambient, the tabletop the box stands on, and a vignette. Shadows and the
-## vignette follow the graphics quality level. The sun is static for now; the
-## day/night cycle (M6) will drive it through set_sun().
+## vignette follow the graphics quality level. The day/night cycle (DayNight)
+## drives the light through set_sun() and set_atmosphere(); left alone it is a
+## fixed afternoon.
 
 const TABLE_SHADER := preload("res://assets/shaders/table.gdshader")
 const VIGNETTE_SHADER := preload("res://assets/shaders/vignette.gdshader")
@@ -125,6 +126,30 @@ func set_sun(rotation_deg: Vector3, color: Color, energy: float) -> void:
 	_sun.rotation_degrees = rotation_deg
 	_sun.light_color = color
 	_sun.light_energy = energy
+
+
+## The light that comes from everywhere, the backdrop, how much of its
+## daytime brightness the table has, and how dark shadows are (driven by the
+## day/night cycle).
+func set_atmosphere(ambient: Color, ambient_energy: float, background: Color, table_light: float, shadow_opacity: float) -> void:
+	_environment.ambient_light_color = ambient
+	_environment.ambient_light_energy = ambient_energy
+	_environment.background_color = background
+	_table_material.set_shader_parameter(&"background_color", background)
+	_table_material.set_shader_parameter(&"daylight", table_light)
+	_sun.shadow_opacity = shadow_opacity
+
+
+func sun() -> DirectionalLight3D:
+	return _sun
+
+
+func environment() -> Environment:
+	return _environment
+
+
+func table_material() -> ShaderMaterial:
+	return _table_material
 
 
 func shadows_enabled() -> bool:

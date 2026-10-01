@@ -19,6 +19,9 @@ const BUS_UI := &"UI"
 const SFX_DIR := "res://assets/audio/sfx/"
 const SFX_EXTENSIONS: PackedStringArray = ["wav", "ogg"]
 const WIND := &"wind"
+const CRICKETS := &"crickets"
+## Below this share of night the crickets are silent.
+const NIGHT_SILENT_BELOW := 0.02
 
 ## Counters for the debug overlay and tests.
 var sounds_played := 0
@@ -37,6 +40,8 @@ var _ui_voices: Array[AudioStreamPlayer] = []
 var _busy_until: Dictionary = {} # voice -> ticks msec when its sound ends
 var _started_at: Dictionary = {} # voice -> ticks msec when its sound started
 var _ambience: AudioStreamPlayer
+var _night_ambience: AudioStreamPlayer
+var _night := 0.0
 var _ambience_wanted := false
 var _rng := RandomNumberGenerator.new() # pitch variation only; never the simulation's
 
@@ -101,6 +106,28 @@ func start_ambience() -> void:
 func stop_ambience() -> void:
 	_ambience_wanted = false
 	_ambience.stop()
+	_night_ambience.stop()
+
+
+## How much it is night (0 day … 1 night): the crickets come in with the dark
+## and go with the dawn.
+func set_night(amount: float) -> void:
+	_night = clampf(amount, 0.0, 1.0)
+	if not _ready_to_play or not _ambience_wanted or _night < NIGHT_SILENT_BELOW:
+		if _night_ambience.playing:
+			_night_ambience.stop()
+		return
+	if not _night_ambience.playing:
+		var stream: AudioStream = _sounds.get(CRICKETS)
+		if stream == null:
+			return
+		_night_ambience.stream = stream
+		_night_ambience.play()
+	_night_ambience.volume_db = Config.feedback.crickets_volume_db + linear_to_db(maxf(_night, 0.001))
+
+
+func night_ambience_player() -> AudioStreamPlayer:
+	return _night_ambience
 
 
 func is_ambience_wanted() -> bool:
@@ -287,6 +314,10 @@ func _build_voices() -> void:
 	_ambience.name = "Ambience"
 	_ambience.bus = BUS_AMBIENCE
 	add_child(_ambience)
+	_night_ambience = AudioStreamPlayer.new()
+	_night_ambience.name = "NightAmbience"
+	_night_ambience.bus = BUS_AMBIENCE
+	add_child(_night_ambience)
 
 
 func _ensure_bus(bus: StringName) -> void:

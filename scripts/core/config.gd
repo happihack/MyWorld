@@ -20,6 +20,7 @@ var needs: NeedsConfig
 var sim: SimConfig
 var reactions: ReactionTable
 var memory: MemoryConfig
+var day_night: DayNightConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -44,6 +45,7 @@ func reload() -> void:
 	sim = _load("sim_config.tres", SimConfig) as SimConfig
 	reactions = _load("reactions.tres", ReactionTable) as ReactionTable
 	memory = _load("memory_config.tres", MemoryConfig) as MemoryConfig
+	day_night = _load("day_night.tres", DayNightConfig) as DayNightConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

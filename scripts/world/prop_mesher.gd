@@ -21,6 +21,8 @@ class Buffers:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	## x = what glows (PropMeshLibrary.Template.glow).
+	var uvs := PackedVector2Array()
 
 	func is_empty() -> bool:
 		return vertices.is_empty()
@@ -83,6 +85,7 @@ static func build_mesh(world: WorldData, props: PropRegistry, coord: Vector2i,
 	arrays[Mesh.ARRAY_VERTEX] = buffers.vertices
 	arrays[Mesh.ARRAY_NORMAL] = buffers.normals
 	arrays[Mesh.ARRAY_COLOR] = buffers.colors
+	arrays[Mesh.ARRAY_TEX_UV] = buffers.uvs
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
@@ -96,6 +99,7 @@ static func _append(out: Buffers, template: PropMeshLibrary.Template, xform: Tra
 		out.normals.append(normal_basis * template.normals[i])
 		var c := template.colors[i]
 		out.colors.append(Color(c.r * tint, c.g * tint, c.b * tint, c.a))
+		out.uvs.append(Vector2(template.glow_of(i), 0.0))
 
 
 ## Living things vary a little in brightness; built things do not.

@@ -13,9 +13,22 @@ class Template:
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	## What glows, per vertex (see prop.gdshader): 0 nothing, 1 a window or a
+	## doorway (lit at night), 2 a flame (always). Shorter than `vertices`
+	## where nothing after it glows.
+	var glow := PackedFloat32Array()
 
 	func triangle_count() -> int:
 		return vertices.size() / 3
+
+	## Marks everything added since vertex `from` as glowing.
+	func glow_from(from: int, value: float) -> void:
+		glow.resize(vertices.size())
+		for i in range(from, vertices.size()):
+			glow[i] = value
+
+	func glow_of(index: int) -> float:
+		return glow[index] if index < glow.size() else 0.0
 
 
 const TRUNK := Color(0.42, 0.29, 0.18)
@@ -34,6 +47,7 @@ const WALL_DARK := Color(0.63, 0.52, 0.36)
 const THATCH := Color(0.74, 0.58, 0.28)
 const THATCH_DARK := Color(0.55, 0.42, 0.20)
 const DOOR := Color(0.24, 0.16, 0.10)
+const WINDOW := Color(0.28, 0.20, 0.14)
 const LOG := Color(0.30, 0.20, 0.12)
 const FLAME := Color(1.0, 0.55, 0.10)
 const FLAME_HOT := Color(1.0, 0.86, 0.35)
@@ -202,8 +216,12 @@ static func _hut() -> Template:
 	var roof := _ring(wall_h - 0.04, r * 1.28, 8, 0.5)
 	_fan(t, roof, Vector3(0, wall_h + 0.52, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
 	_fan(t, roof, Vector3(0, wall_h, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
-	# Doorway facing +X (PropData rotation turns it toward the fire).
+	# Doorway facing +X (PropData rotation turns it toward the fire), and a
+	# small window to one side: dark by day, lit from within at night.
+	var openings := t.vertices.size()
 	_box(t, Vector3(r * 0.93, 0.15, 0.0), Vector3(0.03, 0.15, 0.10), _rgba(DOOR, 0.0))
+	_box(t, Vector3(r * 0.66, 0.27, r * 0.66), Vector3(0.03, 0.055, 0.065), _rgba(WINDOW, 0.0), -PI * 0.25)
+	t.glow_from(openings, 1.0)
 	return t
 
 
@@ -216,7 +234,9 @@ static func _campfire() -> Template:
 	_box(t, Vector3(0, 0.06, 0), Vector3(0.14, 0.03, 0.03), _rgba(LOG, 0.0), 2.2)
 	# Flame: sway weight above 1 makes it flicker more than leaves.
 	var flame := _ring(0.07, 0.09, 5, 0.0)
+	var burning := t.vertices.size()
 	_fan(t, flame, Vector3(0, 0.36, 0), _rgba(FLAME, 0.6), _rgba(FLAME_HOT, 2.5))
+	t.glow_from(burning, 2.0)
 	return t
 
 

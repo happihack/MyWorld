@@ -24,7 +24,7 @@ func test_every_sound_is_made_and_sane() -> void:
 				finite = false
 				break
 		assert_true(finite, "%s has only finite samples" % id)
-		if id != &"wind":
+		if id != &"wind" and id != &"crickets": # (those two are loops)
 			assert_true(SoundSynth.seconds_of(samples) <= 1.6, "%s is short" % id)
 			assert_near(samples[0], 0.0, 0.02, "%s starts silent (no click)" % id)
 			assert_near(samples[samples.size() - 1], 0.0, 0.02, "%s ends silent (no click)" % id)

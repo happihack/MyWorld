@@ -27,6 +27,14 @@ extends ConfigBase
 
 @export_group("Ambience")
 @export_range(-60.0, 0.0, 0.5) var wind_volume_db: float = -22.0
+## The crickets of the night, at their loudest.
+@export_range(-60.0, 0.0, 0.5) var crickets_volume_db: float = -26.0
+## The fire crackles this often once it is dark (seconds between crackles), this loud.
+@export_range(0.2, 60.0, 0.1) var crackle_min_seconds: float = 1.6
+@export_range(0.2, 60.0, 0.1) var crackle_max_seconds: float = 5.0
+@export_range(-60.0, 6.0, 0.5) var crackle_volume_db: float = -14.0
+## At dawn the birds call this many times as often as during the day.
+@export_range(1.0, 10.0, 0.1) var dawn_chorus: float = 3.5
 ## Seconds of quiet between bird calls (a random time in this range).
 @export_range(0.5, 300.0, 0.5) var chirp_min_seconds: float = 14.0
 @export_range(0.5, 300.0, 0.5) var chirp_max_seconds: float = 55.0

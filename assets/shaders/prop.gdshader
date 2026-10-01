@@ -1,8 +1,9 @@
 // Props: trees, bushes, rocks, huts, grass (bible §28.2). Vertex colours only.
 //
 // Mesh data from PropMesher:  COLOR.rgb = colour (sRGB)
-//                             COLOR.a   = wind-sway weight (0 rigid .. 1 treetop;
-//                                         above 1 for the campfire flame)
+//                             COLOR.a   = wind-sway weight (0 rigid .. 1 treetop)
+//                             UV.x      = what glows: 0 nothing, 1 a window or
+//                                         doorway (lit at night), 2 a flame
 // Works on the Mobile and Compatibility renderers.
 shader_type spatial;
 render_mode world_vertex_coords, cull_back;
@@ -21,9 +22,17 @@ const int IMPULSE_COUNT = 4;
 uniform vec4 impulse_origin[4];
 uniform vec4 impulse_offset[4];
 
+// Day and night (DayNight): how brightly windows are lit (0 by day) and how
+// strongly flames shine.
+uniform float night_glow : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 glow_color : source_color = vec3(1.0, 0.74, 0.36);
+uniform float flame_glow = 0.6;
+
 varying vec3 v_color;
+varying float v_glow;
 
 void vertex() {
+	v_glow = UV.x;
 	// With world_vertex_coords, VERTEX is already in world space, so the wind
 	// blows the same way for every prop regardless of its own rotation.
 	vec3 rest = VERTEX;
@@ -55,7 +64,10 @@ void vertex() {
 }
 
 void fragment() {
-	ALBEDO = v_color;
+	float window = clamp(v_glow, 0.0, 1.0) * (1.0 - step(1.5, v_glow)) * night_glow;
+	float flame = step(1.5, v_glow);
+	ALBEDO = mix(v_color, glow_color, window);
+	EMISSION = glow_color * window * 1.4 + v_color * flame * flame_glow;
 	ROUGHNESS = 1.0;
 	SPECULAR = 0.0;
 	METALLIC = 0.0;

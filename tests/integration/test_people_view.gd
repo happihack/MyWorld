@@ -498,7 +498,11 @@ func test_reduced_motion_calms_the_bodies() -> void:
 	assert_true(float(material.get_shader_parameter(&"motion")) < 0.5)
 	people_view.reduced_motion = false
 	assert_eq(float(material.get_shader_parameter(&"motion")), 1.0)
-	# The world's cloud shadows fall on people as on everything else.
+	# The world's cloud shadows fall on people as on everything else (as strong as the hour makes them).
+	assert_near(float(material.get_shader_parameter(&"cloud_strength")),
+		Config.terrain_palette.cloud_shadow_strength * view.day_night().state().cloud_shadows)
+	view.day_night().forced_hour = 12.0
+	view.day_night().refresh()
 	assert_near(float(material.get_shader_parameter(&"cloud_strength")), Config.terrain_palette.cloud_shadow_strength)
 
 
