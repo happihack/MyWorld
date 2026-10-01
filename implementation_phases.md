@@ -269,12 +269,14 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** clean import; headless smoke test of all services 31/31 PASS (log file + ring + filtering, config load/validate, signal round trip, settings coercion/rejection/atomic overwrite/reload incl. Vector3, id roundtrip, RNG determinism + FNV reference value + state roundtrip, lifecycle → EventBus); windowed run clean. Smoke checks become real unit tests in M0.7.
 - **Note:** `godot --check-only` reports "Identifier not found: Log" for scripts using autoloads — a false positive (check-only doesn't register autoloads). Use real runs/tests for validation.
 
-### M0.3 Scene architecture
-- [ ] `scenes/main/boot.tscn` + `boot.gd`: init order (Log → Config → Settings → SaveManager) → change to `main.tscn`.
-- [ ] `scenes/main/main.tscn`: `Main` with children `WorldSession` (empty shell), `WorldView` (Node3D), `UIRoot` (CanvasLayer), `AppLifecycle`.
-- [ ] `scripts/simulation/world_session.gd`: `create_new(seed)`, `load_from(dict)`, `to_dict()`, `shutdown()`; holds `GameClock` placeholder + `IdAllocator` + `RngStreams`.
-- [ ] `scripts/core/game_clock.gd`: tick counter, `advance(delta)` using `TimeConfig`, speed multiplier (only Pause/Normal for now).
-- [ ] `UIRoot` shows a centered title "My World in a Box" over a plain background + a label with version/build.
+### M0.3 Scene architecture — ✅ DONE (2026-09-30)
+- [x] `scenes/main/boot.tscn` + `scripts/core/boot.gd`: autoloads (Log → Config → EventBus → Settings) are already ready; Boot logs environment info (version, Godot, OS, model, locale, screen, dpi), warns on config problems, then `change_scene_to_file` → Main. (SaveManager readiness check added in M0.6.) Project main scene is now `boot.tscn`.
+- [x] `scenes/main/main.tscn` + `scripts/core/main.gd`: `Main` with children `AppLifecycle`, `WorldSession`, `WorldView` (Node3D, empty until M1), `UIRoot` (CanvasLayer). Every launch creates a new world until M0.6.
+- [x] `scripts/simulation/world_session.gd` (`WorldSession`, Node): `create_new(seed)` (0 = random), `load_from(dict) -> bool` (rejects missing keys, stays inactive), `to_dict()`, `shutdown()` (idempotent; also runs on `_exit_tree`); owns `GameClock`, `IdAllocator`, `RngStreams`; unique `world_id` even for equal seeds; emits `world_loaded/world_unloaded/sim_speed_changed`.
+- [x] `scripts/core/game_clock.gd` (`GameClock`, **RefCounted** — pure/headless-testable instead of a Node): tick = game minute, `advance(real_delta) -> ticks` with accumulator, speed index over `TimeConfig.speed_multipliers` (Pause/Normal/Fast/Very Fast), `tick_fraction()` for interpolation, clamps frame delta to new tunable `TimeConfig.max_frame_delta_s` (0.25 s), sanitizes corrupt saved data. Calendar math arrives in M6.
+- [x] `scripts/ui/ui_root.gd` (`UIRoot`): title, subtitle, version label (from project settings); back button with no panels → `app_quit_requested` then quit (panel stack in M2.4).
+- [x] No launch flash: boot splash image off, splash bg colour and default clear colour = UI background colour.
+- **Verified:** headless smoke 21/21 PASS (clock math/clamp/pause/speeds/roundtrip/sanitizing; session create/save-dict/load/rng continuation/invalid data/unique ids/signals; real Boot → Main flow ticking in real time; back button); windowed Boot → Main → world closed on exit, no errors.
 
 ### M0.4 Input foundation
 - [ ] `scripts/interaction/gesture_recognizer.gd` (RefCounted, pure logic, testable): consumes touch events (index, position, pressed, time) → emits gesture results: `TAP`, `DOUBLE_TAP`, `LONG_PRESS`, `DRAG_START/DRAG/DRAG_END`, `PINCH(scale, focal)`, `TWO_FINGER_DRAG`, `SWIPE(velocity)`. Thresholds from `InteractionConfig` (B§33). dp → px via `DisplayServer.screen_get_dpi()` ⚠ with fallback.
@@ -294,6 +296,8 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 ### M0.7 Test runner (Track T2, D-03)
 - [ ] `tests/test_case.gd`: `assert_eq`, `assert_true`, `assert_near`, `assert_null`, `fail`; collects failures with file/line context.
 - [ ] `tests/run_tests.gd` (extends `SceneTree`): discovers `tests/**/test_*.gd`, runs each `test_*` method, prints summary, `quit(exit_code)` non-zero on failure; supports `--filter=`.
+  - **Must `load()` test scripts at runtime after the first `process_frame`** — `-s` scripts are compiled before autoloads are registered, so statically referencing a class that uses an autoload (e.g. `WorldSession` → `Config`) fails with "Identifier not found" (found in M0.3).
+  - **Watchdog timer** (e.g. 60 s) that quits with a non-zero code — a runtime script error inside a coroutine stops it silently and the process hangs otherwise.
 - [ ] First tests: `test_gesture_recognizer.gd` (tap, long press, drag slop, pinch scale), `test_save_container.gd` (roundtrip, checksum mismatch detected, truncated file detected), `test_rng_streams.gd` (same seed ⇒ same sequence), `test_id_allocator.gd`.
 
 ### M0.8 Android export & device loop (Track T5)

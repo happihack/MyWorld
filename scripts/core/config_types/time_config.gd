@@ -8,6 +8,9 @@ extends ConfigBase
 @export_range(1, 12) var seasons_per_year: int = 4
 ## Pause, Normal, Fast, Very Fast.
 @export var speed_multipliers: PackedFloat32Array = PackedFloat32Array([0.0, 1.0, 4.0, 16.0])
+## Longest real frame time the clock will consume at once (prevents a huge
+## catch-up burst after a hitch or breakpoint; offline time is handled separately).
+@export_range(0.016, 2.0, 0.001) var max_frame_delta_s: float = 0.25
 @export_range(0.0, 240.0) var offline_full_rate_hours: float = 24.0
 @export_range(0.0, 720.0) var offline_cap_hours: float = 72.0
 ## Minimum real absence before the "While You Were Gone" summary is shown.
@@ -24,5 +27,6 @@ func validate() -> PackedStringArray:
 	_check(p, days_per_season >= 1 and seasons_per_year >= 1, "calendar sizes must be >= 1")
 	_check(p, speed_multipliers.size() == 4, "speed_multipliers needs 4 entries (pause, normal, fast, very fast)")
 	_check(p, speed_multipliers.size() > 0 and speed_multipliers[0] == 0.0, "speed_multipliers[0] must be 0 (pause)")
+	_check(p, max_frame_delta_s > 0.0, "max_frame_delta_s must be > 0")
 	_check(p, offline_cap_hours >= offline_full_rate_hours, "offline_cap_hours must be >= offline_full_rate_hours")
 	return p
