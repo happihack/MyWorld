@@ -15,7 +15,10 @@ var _world: WorldData
 var _chunks: Node3D
 var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
 var _terrain_material: StandardMaterial3D
+var _water_material: ShaderMaterial
 var _camera: Camera3D
+
+const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 
 
 func _ready() -> void:
@@ -28,6 +31,9 @@ func _ready() -> void:
 	_terrain_material.vertex_color_is_srgb = true
 	_terrain_material.roughness = 1.0
 	_terrain_material.metallic_specular = 0.0
+	_water_material = ShaderMaterial.new()
+	_water_material.shader = WATER_SHADER
+	apply_palette(Config.terrain_palette)
 	_build_temporary_camera_and_light()
 	get_viewport().size_changed.connect(_frame_world)
 
@@ -39,7 +45,7 @@ func show_world(world: WorldData) -> void:
 	for coord in world.chunk_coords():
 		var view := ChunkView.new()
 		_chunks.add_child(view)
-		view.setup(world, coord, _terrain_material)
+		view.setup(world, coord, _terrain_material, _water_material)
 		_chunk_views[coord] = view
 	_frame_world()
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size()})
@@ -60,17 +66,35 @@ func get_chunk_view(coord: Vector2i) -> ChunkView:
 	return _chunk_views.get(coord)
 
 
-## Rebuilds the meshes of chunks whose terrain changed. Call when tiles change.
+## Rebuilds the meshes of chunks whose terrain or water changed; returns how
+## many meshes were rebuilt. Call after tiles change.
 func refresh_dirty_chunks() -> int:
 	if _world == null:
 		return 0
 	var rebuilt := 0
 	for coord: Vector2i in _chunk_views:
 		var chunk := _world.get_chunk(coord, false)
-		if chunk != null and chunk.is_dirty(ChunkData.DIRTY_MESH):
-			(_chunk_views[coord] as ChunkView).rebuild_terrain(_world)
+		if chunk == null:
+			continue
+		var view: ChunkView = _chunk_views[coord]
+		if chunk.is_dirty(ChunkData.DIRTY_MESH):
+			view.rebuild_terrain(_world)
+			rebuilt += 1
+		if chunk.is_dirty(ChunkData.DIRTY_WATER):
+			view.rebuild_water(_world)
 			rebuilt += 1
 	return rebuilt
+
+
+## Pushes palette values into the shared materials (call again after tuning).
+func apply_palette(palette: TerrainPalette) -> void:
+	_water_material.set_shader_parameter(&"shallow_color", palette.water_shallow)
+	_water_material.set_shader_parameter(&"deep_color", palette.water_deep)
+	_water_material.set_shader_parameter(&"foam_color", palette.water_foam)
+	_water_material.set_shader_parameter(&"opacity_shallow", palette.water_opacity_shallow)
+	_water_material.set_shader_parameter(&"opacity_deep", palette.water_opacity_deep)
+	_water_material.set_shader_parameter(&"wave_height", palette.water_wave_height)
+	_water_material.set_shader_parameter(&"foam_amount", palette.water_foam_amount)
 
 
 # --- temporary camera / light (replaced in M1.6 and M1.7) ----------------------------

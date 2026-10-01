@@ -34,6 +34,17 @@ extends ConfigBase
 ## Brightness of the bottom edge of a side face (1 = no gradient).
 @export_range(0.3, 1.0, 0.01) var side_base_shade: float = 0.72
 
+@export_group("Water")
+@export var water_shallow: Color = Color(0.40, 0.74, 0.86)
+@export var water_deep: Color = Color(0.13, 0.40, 0.68)
+@export var water_foam: Color = Color(0.95, 0.98, 1.0)
+@export_range(0.0, 1.0, 0.01) var water_opacity_shallow: float = 0.62
+@export_range(0.0, 1.0, 0.01) var water_opacity_deep: float = 0.90
+## Water this many height levels deep is drawn fully "deep".
+@export_range(0.1, 8.0, 0.1) var water_deep_levels: float = 1.4
+@export_range(0.0, 0.2, 0.005) var water_wave_height: float = 0.02
+@export_range(0.0, 1.0, 0.01) var water_foam_amount: float = 0.75
+
 
 func top(terrain: int) -> Color:
 	return top_colors[terrain] if terrain >= 0 and terrain < top_colors.size() else Color.MAGENTA

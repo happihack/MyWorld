@@ -410,9 +410,12 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - New test helper `wait_real_ms()`: scene timers count frame deltas and can fire early after a long frame (world generation), which made a real-time save-gap test flaky.
 - Not done (deferred, optional): bevelled block edges.
 
-### M1.4 Water surface (static)
-- [ ] `scripts/rendering/water_view.gd`: per-chunk water mesh from `water` layer (quads at terrain+depth where depth > ε).
-- [ ] `assets/shaders/water.gdshader`: scrolling normal/colour variation, depth tint, shoreline foam via vertex attribute (depth); must compile in Mobile and Compatibility.
+### M1.4 Water surface (static) — ✅ DONE (2026-09-30)
+- [x] `scripts/world/water_mesher.gd` (`WaterMesher`, pure/static): one quad per wet tile at bed height + depth; **corner heights averaged over the wet tiles sharing the corner** (smooth, crack-free surface once the M3/M9 water simulation gives tiles different levels; identical across chunk borders); vertical cross-section faces where water meets the box wall; vertex colour carries shader data (r = depth 0..1, g = shore flag at corners touching dry land — the wall is not a shore), UV = world XZ.
+- [x] `assets/shaders/water.gdshader`: **fully procedural** (no textures, no screen/depth reads → identical on Mobile and Compatibility): gentle vertex bob (shoreline pinned), three ripple waves in unrelated directions, shallow→deep tint, opacity by depth, thin animated foam line at the shore.
+- [x] `ChunkView` gained a `Water` mesh instance (`rebuild_water()`, clears `DIRTY_WATER`, hidden when dry, casts no shadow); `WorldView.refresh_dirty_chunks()` rebuilds terrain and/or water; `WorldView.apply_palette()` pushes water colours/opacities/wave/foam from `TerrainPalette` (new *Water* group, incl. `water_deep_levels`).
+- **Tuned from screenshots:** the first ripple pattern was a regular checkerboard (axis-aligned sines) and the foam a milky band over the whole bank tile.
+- **Verified:** 12 mesher tests (dry chunk, quad per wet tile, flat surface over different beds, corner averaging, shore flags on a pond rim, depth attribute, world-space UVs, wall faces, winding, seamless chunk borders, the generated river is one flat surface with a quad per wet tile, view rebuild on dirty). Suite: 202 passing. Shader compiles and renders the same on **Mobile (Vulkan)** and **Compatibility (OpenGL 3.3)** on desktop. **Phone: 60 FPS, 27 draw calls, ~13k triangles.**
 
 ### M1.5 Props & ambient life
 - [ ] `scripts/rendering/prop_renderer.gd`: per chunk, one `MultiMeshInstance3D` per prop type (tree variants, rocks, bushes, grass tufts), transform + colour jitter.
