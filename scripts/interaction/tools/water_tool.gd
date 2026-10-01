@@ -14,8 +14,11 @@ const BUCKET := 3.0
 ## A tile with at least this much water is scooped from, not poured onto.
 const SCOOP_FROM := 0.1
 
-## How much water the bucket holds.
-var bucket := 0.0
+## How much water the bucket holds. It is the world's "carried" water, so it
+## survives saving and switching tools.
+var bucket: float:
+	get:
+		return ctx.session.water.carried if ctx != null else 0.0
 
 
 func _init() -> void:
@@ -39,10 +42,8 @@ func tap(target: Picker.Result) -> InteractionResponse:
 	var moved := 0.0
 	if world.get_water(tile) >= SCOOP_FROM and bucket < BUCKET:
 		moved = interactions.scoop(tile, minf(SCOOP, BUCKET - bucket), ID)
-		bucket += moved
 	elif bucket > 0.0:
 		moved = interactions.pour(tile, minf(SCOOP, bucket), ID)
-		bucket -= moved
 	if moved > 0.0:
 		var at := Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step + world.get_water(tile), tile.y + 0.5)
 		ctx.view.effects().play_landing(at, world.get_terrain(tile), true, 0.2)

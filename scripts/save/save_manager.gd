@@ -11,7 +11,8 @@ extends Node
 ## Saves are synchronous for now; threaded writes arrive in M22.
 
 ## 1: clock, ids, rng. 2: + world_state (modified chunks, prop differences, start info).
-const SAVE_VERSION := 2
+## 3: + loose objects, changed props, player history, water books (M3).
+const SAVE_VERSION := 3
 const SAVE_FILE := "world.sav"
 
 ## Last save outcome, for the debug overlay.
@@ -19,6 +20,9 @@ var last_save_info: Dictionary = {}
 
 var _session: WorldSession
 var _autosave_timer: Timer
+## Saves soon after the player changed the world (see note_world_changed).
+var _change_timer: Timer
+var _first_unsaved_msec := 0
 var _last_saved_world_id := ""
 var _last_saved_msec := 0
 
@@ -38,6 +42,10 @@ func _ready() -> void:
 	_autosave_timer.one_shot = false
 	_autosave_timer.timeout.connect(func() -> void: save_current(&"autosave"))
 	add_child(_autosave_timer)
+	_change_timer = Timer.new()
+	_change_timer.one_shot = true
+	_change_timer.timeout.connect(func() -> void: save_current(&"changed"))
+	add_child(_change_timer)
 	EventBus.app_paused.connect(func() -> void: save_current(&"app_paused"))
 	EventBus.app_quit_requested.connect(func() -> void: save_current(&"quit"))
 	EventBus.app_focus_changed.connect(func(has_focus: bool) -> void:
@@ -47,14 +55,40 @@ func _ready() -> void:
 
 ## The session that lifecycle/autosaves write. Pass null to detach.
 func attach(session: WorldSession) -> void:
-	if _session != null and is_instance_valid(_session) and _session.about_to_close.is_connected(_on_session_closing):
-		_session.about_to_close.disconnect(_on_session_closing)
+	if _session != null and is_instance_valid(_session):
+		if _session.about_to_close.is_connected(_on_session_closing):
+			_session.about_to_close.disconnect(_on_session_closing)
+		if _session.interactions.intervention_applied.is_connected(_on_intervention):
+			_session.interactions.intervention_applied.disconnect(_on_intervention)
 	_session = session
+	_change_timer.stop()
+	_first_unsaved_msec = 0
 	if session != null:
 		session.about_to_close.connect(_on_session_closing)
+		session.interactions.intervention_applied.connect(_on_intervention)
 		_autosave_timer.start(Config.save.autosave_interval_s)
 	else:
 		_autosave_timer.stop()
+
+
+## The player changed the world. It is saved once they have left it alone for
+## Config.save.save_quiet_s — or, if they never do, save_max_wait_s after the
+## first unsaved change — so that even a crash loses very little, without a
+## save interrupting every touch.
+func note_world_changed() -> void:
+	if _session == null or not is_instance_valid(_session) or not _session.is_active:
+		return
+	var now := Time.get_ticks_msec()
+	if _first_unsaved_msec == 0:
+		_first_unsaved_msec = now
+	var waited := (now - _first_unsaved_msec) / 1000.0
+	var wait := minf(Config.save.save_quiet_s, Config.save.save_max_wait_s - waited)
+	_change_timer.start(maxf(wait, 0.05))
+
+
+## True while a change is waiting to be saved.
+func has_unsaved_change() -> bool:
+	return _first_unsaved_msec != 0
 
 
 ## Saves the attached session if there is an active one. Used by lifecycle
@@ -104,6 +138,9 @@ func save_world(session: WorldSession, reason: StringName = &"manual") -> bool:
 
 	_last_saved_world_id = session.world_id
 	_last_saved_msec = Time.get_ticks_msec()
+	if session == _session:
+		_first_unsaved_msec = 0
+		_change_timer.stop()
 	var ms := (Time.get_ticks_usec() - started) / 1000.0
 	last_save_info = {
 		"reason": reason,
@@ -203,6 +240,11 @@ func _rotate_backups(path: String) -> void:
 
 func _on_session_closing() -> void:
 	save_current(&"world_closed")
+
+
+func _on_intervention(intervention: Intervention) -> void:
+	if intervention.recorded:
+		note_world_changed()
 
 
 func _save_failed(message: String) -> bool:

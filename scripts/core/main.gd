@@ -281,8 +281,9 @@ func _save_debug_section() -> String:
 		return "save: none yet"
 	if info.has("error"):
 		return "save FAILED: %s" % info["error"]
-	return "save %s  %.1f ms  %d B  %ds ago" % [
+	return "save %s  %.1f ms  %d B  %ds ago%s" % [
 		info["reason"], info["ms"], info["bytes"],
 		int(Time.get_unix_time_from_system()) - int(info["unix"]),
+		"  (change pending)" if SaveManager.has_unsaved_change() else "",
 	]
 

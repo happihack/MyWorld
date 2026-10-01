@@ -88,6 +88,9 @@ func bind(world: WorldData, registry: LooseObjectRegistry, props: PropRegistry =
 	_current = current
 	_moving.clear()
 	_anchors.clear()
+	# What was saved while afloat and moving was saved lying on the bed:
+	# let everything that floats find the surface again.
+	on_water_changed()
 	_time_bank = 0.0
 
 

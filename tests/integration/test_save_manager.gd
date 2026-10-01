@@ -16,6 +16,8 @@ func before_each() -> void:
 
 func after_each() -> void:
 	Config.save.min_save_gap_ms = SaveConfig.new().min_save_gap_ms
+	Config.save.save_quiet_s = SaveConfig.new().save_quiet_s
+	Config.save.save_max_wait_s = SaveConfig.new().save_max_wait_s
 	SaveManager.attach(null)
 	if is_instance_valid(session):
 		session.queue_free()
@@ -170,3 +172,112 @@ func test_reattach_and_detach_stop_saving_old_session() -> void:
 	EventBus.save_completed.disconnect(cb)
 	other.queue_free()
 	assert_eq(saves[0], 0)
+
+
+# --- saving soon after the player changed something -----------------------------------------------
+
+func _touch_ground(offset: Vector2i = Vector2i.ZERO) -> void:
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.TILE
+	target.tile = session.start.settlement_tile + offset
+	session.interactions.tap(target)
+
+
+func _reasons() -> Array:
+	var reasons := []
+	var cb := func(_p: String, _ms: float) -> void: reasons.append(SaveManager.last_save_info["reason"])
+	EventBus.save_completed.connect(cb)
+	_listeners.append(cb)
+	return reasons
+
+
+var _listeners: Array[Callable] = []
+
+
+func _stop_listening() -> void:
+	for cb in _listeners:
+		EventBus.save_completed.disconnect(cb)
+	_listeners.clear()
+
+
+func test_a_change_is_saved_once_the_player_leaves_the_world_alone() -> void:
+	Config.save.min_save_gap_ms = 0
+	Config.save.save_quiet_s = 0.3
+	Config.save.save_max_wait_s = 5.0
+	SaveManager.attach(session)
+	var reasons := _reasons()
+	assert_false(SaveManager.has_unsaved_change())
+	await wait_real_ms(450)
+	assert_eq(reasons, [], "nothing changed, nothing saved")
+	_touch_ground()
+	assert_true(SaveManager.has_unsaved_change())
+	await wait_real_ms(150)
+	_touch_ground() # still busy: the wait starts again
+	await wait_real_ms(200)
+	assert_eq(reasons, [], "not while the player is at it")
+	await wait_real_ms(350)
+	_stop_listening()
+	assert_eq(reasons, [&"changed"], "one save for the whole burst")
+	assert_false(SaveManager.has_unsaved_change())
+	var saved := PlayerHistory.new()
+	saved.from_dict(SaveManager.load_world(session.world_id).world["world_state"]["history"])
+	assert_eq(saved.total(), 2, "both touches are on disk")
+
+
+func test_a_player_who_never_stops_is_still_saved() -> void:
+	Config.save.min_save_gap_ms = 0
+	Config.save.save_quiet_s = 0.4
+	Config.save.save_max_wait_s = 0.8
+	SaveManager.attach(session)
+	var reasons := _reasons()
+	for i in 12: # 1.2 s of touching every 100 ms: never 0.4 s of quiet
+		_touch_ground(Vector2i(i % 3, 0))
+		await wait_real_ms(100)
+	_stop_listening()
+	assert_true(reasons.has(&"changed"), "saved although the player never paused")
+	assert_true(reasons.size() <= 2, "but not at every touch (%s)" % [reasons])
+
+
+func test_any_save_settles_the_pending_change() -> void:
+	Config.save.min_save_gap_ms = 0
+	Config.save.save_quiet_s = 0.3
+	Config.save.save_max_wait_s = 5.0
+	SaveManager.attach(session)
+	_touch_ground()
+	EventBus.app_paused.emit() # the app goes to the background: saved now
+	assert_false(SaveManager.has_unsaved_change())
+	var reasons := _reasons()
+	await wait_real_ms(450)
+	_stop_listening()
+	assert_eq(reasons, [], "no second save for the same change")
+
+
+func test_looking_and_refused_actions_do_not_save() -> void:
+	Config.save.min_save_gap_ms = 0
+	Config.save.save_quiet_s = 0.2
+	SaveManager.attach(session)
+	var reasons := _reasons()
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.TILE
+	target.tile = session.start.settlement_tile
+	session.interactions.inspect(target)
+	session.interactions.long_press(target)
+	session.interactions.pour(target.tile, 0.3) # nothing carried: refused
+	assert_false(SaveManager.has_unsaved_change())
+	await wait_real_ms(350)
+	_stop_listening()
+	assert_eq(reasons, [])
+
+
+func test_a_pending_change_dies_with_its_session() -> void:
+	Config.save.min_save_gap_ms = 0
+	Config.save.save_quiet_s = 0.2
+	SaveManager.attach(session)
+	_touch_ground()
+	SaveManager.attach(null)
+	assert_false(SaveManager.has_unsaved_change())
+	var reasons := _reasons()
+	_touch_ground() # no longer listened to
+	await wait_real_ms(350)
+	_stop_listening()
+	assert_eq(reasons, [])

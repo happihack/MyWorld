@@ -45,6 +45,7 @@ var loose_system: LooseObjectSystem
 var water: WaterSim
 ## What the player has done to this world.
 var history: PlayerHistory
+var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 
 
 func _init() -> void:
@@ -106,8 +107,12 @@ func load_from(data: Dictionary) -> bool:
 
 	var state: Variant = data.get("world_state", {})
 	history = PlayerHistory.new()
-	if typeof(state) == TYPE_DICTIONARY and typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
-		history.from_dict(state["history"])
+	_saved_water = {}
+	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
+			history.from_dict(state["history"])
+		if typeof((state as Dictionary).get("water")) == TYPE_DICTIONARY:
+			_saved_water = state["water"]
 	if typeof(state) != TYPE_DICTIONARY or not _restore_world(state):
 		# No usable world state (a migrated version-1 save, or damaged data):
 		# rebuild from the seed. The setup's props take the same low ids they
@@ -138,6 +143,7 @@ func to_dict() -> Dictionary:
 			"props": props.to_dict(),
 			"loose": loose.to_dict(),
 			"history": history.to_dict(),
+			"water": water.to_dict(),
 			"start": start.to_dict(),
 		},
 	}
@@ -224,16 +230,10 @@ func _restore_world(state: Dictionary) -> bool:
 	var restored_loose := LooseObjectRegistry.new(restored.chunk_size, restored_spatial)
 	var loose_data: Variant = state.get("loose")
 	var skipped_loose := 0
-	if typeof(loose_data) == TYPE_DICTIONARY:
+	if typeof(loose_data) == TYPE_DICTIONARY: # (always there since save version 3)
 		skipped_loose = restored_loose.from_dict(loose_data)
 		if skipped_loose < 0:
 			return false
-	else:
-		# Saved before loose objects existed: rocks were props then, and the
-		# rocks removed from that world (the cleared glade) must stay removed.
-		var removed: Variant = (props_data as Dictionary).get("removed")
-		if typeof(removed) == TYPE_PACKED_INT64_ARRAY:
-			restored_loose.mark_removed(removed)
 	WorldSetup.populate_all(restored, restored_generator, restored_props, restored_loose)
 
 	template_id = saved_template
@@ -267,6 +267,8 @@ func _load_template(id: StringName) -> StartTemplate:
 
 func _activate() -> void:
 	water.bind(world, generator)
+	water.from_dict(_saved_water)
+	_saved_water = {}
 	loose_system.bind(world, loose, props, water.current_at)
 	interactions.bind(world, props, loose, loose_system, ids, rng)
 	var settlement := Vector2.INF

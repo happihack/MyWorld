@@ -41,8 +41,11 @@ const _DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1),
 
 ## Depth soaked up per second by soil under thin water (0 = never).
 var soak_per_second := 0.008
-## Everything the soil has soaked up since the world was opened.
+## Everything the soil has soaked up since the world began.
 var soaked_total := 0.0
+## Water the player has scooped up and not yet poured out again. It is part
+## of the world's water (and saved with it): scooping must not destroy water.
+var carried := 0.0
 ## Time the last frame's stepping took, microseconds (debug overlay).
 var last_step_usec := 0
 
@@ -71,6 +74,7 @@ func bind(world: WorldData, generator: WorldGenerator = null) -> void:
 	_flow.clear()
 	_time_bank = 0.0
 	soaked_total = 0.0
+	carried = 0.0
 	_width = 0
 	_rows = 0
 	if world == null:
@@ -140,6 +144,21 @@ func wake(tile: Vector2i) -> void:
 		_ground[i] = _world.get_height(t) * _world.height_step
 		_depth[i] = _world.get_water(t)
 		_active[i] = true
+
+
+# --- saving -----------------------------------------------------------------------------
+
+## The water's books (the depths themselves are saved with their chunks).
+func to_dict() -> Dictionary:
+	return {"carried": carried, "soaked_total": soaked_total}
+
+
+## Call after bind().
+func from_dict(data: Dictionary) -> void:
+	var held := float(data.get("carried", 0.0))
+	var soaked := float(data.get("soaked_total", 0.0))
+	carried = maxf(held, 0.0) if is_finite(held) else 0.0
+	soaked_total = maxf(soaked, 0.0) if is_finite(soaked) else 0.0
 
 
 # --- queries ----------------------------------------------------------------------------

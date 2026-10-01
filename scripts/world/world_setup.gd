@@ -83,7 +83,11 @@ static func populate_chunk(world: WorldData, generator: WorldGenerator, props: P
 	var chunk := world.get_chunk(coord)
 	if chunk == null:
 		return
-	var generated := generator.generate_props(chunk)
+	# What grows and lies in a chunk is decided by the land as it was made, not
+	# as it is now: a tree the player flooded or dug beside is still that tree
+	# (a changed chunk would otherwise lose or gain props on every load).
+	var made := generator.generate_chunk(coord) if chunk.modified else chunk
+	var generated := generator.generate_props(made)
 	if loose == null:
 		props.populate_chunk(coord, generated)
 		return

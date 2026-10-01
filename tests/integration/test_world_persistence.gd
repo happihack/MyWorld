@@ -4,6 +4,7 @@ extends TestCase
 
 const SessionScript := preload("res://scripts/simulation/world_session.gd")
 const V1_FIXTURE := "res://tests/fixtures/saves/v1_world.sav"
+const V2_FIXTURE := "res://tests/fixtures/saves/v2_world.sav"
 
 var sessions: Array[WorldSession] = []
 
@@ -278,24 +279,55 @@ func test_moved_added_and_removed_loose_objects_survive() -> void:
 	assert_eq(again.interactions.tap(target).loose_kind, LooseObject.Kind.ROCK)
 
 
-func test_save_from_before_loose_objects_keeps_its_glade_clear() -> void:
+func test_version_2_save_migrates_and_loads() -> void:
+	# The fixture was written by the last build from before loose objects
+	# (rocks were props): seed 12345, one tree felled, one tile dug.
+	assert_true(FileAccess.file_exists(V2_FIXTURE), "fixture present")
+	var id := "w1790835263_88a7bf97"
+	var dir := SaveManager.world_dir(id)
+	DirAccess.make_dir_recursive_absolute(dir)
+	write_bytes(dir.path_join("world.sav"), FileAccess.get_file_as_bytes(V2_FIXTURE))
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 2)
+
+	var loaded := SaveManager.load_world(id)
+	assert_true(loaded.ok, loaded.error)
+	var state: Dictionary = loaded.world["world_state"]
+	for part: String in ["loose", "history", "water"]:
+		assert_true(typeof(state.get(part)) == TYPE_DICTIONARY, "migration added %s" % part)
+	assert_true((state["props"] as Dictionary).has("changed"))
+	assert_true((state["loose"]["removed"] as PackedInt64Array).size() > 0, "the rocks cleared from the glade")
+
 	var s := _session()
-	s.create_new(12345)
-	var data := s.to_dict()
-	# As such a save looked: no "loose" entry, and the glade's rocks listed with
-	# the removed props (rocks were props then).
-	var removed: PackedInt64Array = data["world_state"]["props"]["removed"]
-	removed.append_array(data["world_state"]["loose"]["removed"])
-	removed.sort()
-	data["world_state"]["props"]["removed"] = removed
-	(data["world_state"] as Dictionary).erase("loose")
-	var old := _session()
-	assert_true(old.load_from(data))
-	assert_eq(old.loose.size(), s.loose.size(), "the same rocks, now loose")
-	assert_eq(old.props.size(), s.props.size())
-	for o in old.loose.all_objects():
-		var d := o.tile() - old.start.settlement_tile
+	assert_true(s.load_from(loaded.world))
+	var fresh := _session()
+	fresh.create_new(12345)
+	assert_eq(s.world_seed, 12345)
+	assert_eq(s.clock.tick, 617)
+	assert_eq(s.start.settlement_tile, Vector2i(11, 9))
+	# What the player of that save had changed is still changed.
+	assert_null(s.props.prop_at(Vector2i(-8, -32)), "the felled tree stays felled")
+	assert_not_null(fresh.props.prop_at(Vector2i(-8, -32)))
+	assert_eq(s.world.get_height(Vector2i(16, 14)), 2, "the dug tile stays dug")
+	assert_eq(s.props.size(), fresh.props.size() - 1)
+	# Its rocks are loose objects now, and none lie in the glade again.
+	assert_eq(s.loose.size(), fresh.loose.size(), "the same rocks, now loose")
+	for o in s.loose.all_objects():
+		var d := o.tile() - s.start.settlement_tile
 		assert_false(absi(d.x) <= WorldSetup.SITE_RADIUS and absi(d.y) <= WorldSetup.SITE_RADIUS, "glade stays clear")
+		var twin := fresh.loose.get_object(o.id)
+		assert_not_null(twin, "the same ids as in a new world")
+		if twin != null:
+			assert_eq(o.position, twin.position)
+	assert_eq(s.history.total(), 0, "an empty history to start from")
+	assert_eq(s.water.carried, 0.0)
+	# Saving again writes the current version; the old file is kept.
+	assert_true(SaveManager.save_world(s, &"test"))
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 2)
+	var again := _session()
+	assert_true(again.load_from(SaveManager.load_world(id).world))
+	assert_eq(again.loose.size(), s.loose.size())
+	assert_eq(WorldChecksum.terrain(again.world), WorldChecksum.terrain(s.world))
 
 
 func test_damaged_loose_data_falls_back_to_the_seed() -> void:
@@ -410,3 +442,141 @@ func test_a_save_without_history_loads_with_an_empty_one() -> void:
 	assert_true(old.load_from(data))
 	assert_eq(old.history.total(), 0)
 	assert_eq(old.history.peek_next_id(), 1)
+
+
+# --- water ------------------------------------------------------------------------------------
+
+func _river_tile(s: WorldSession, z: int) -> Vector2i:
+	var best := Vector2i(0, z)
+	var deepest := 0.0
+	for x in range(s.world.bounds.position.x, s.world.bounds.end.x):
+		var depth := s.world.get_water(Vector2i(x, z))
+		if depth > deepest:
+			deepest = depth
+			best = Vector2i(x, z)
+	return best
+
+
+func test_water_in_the_players_hands_is_saved_with_the_world() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.water.set_process(false)
+	s.water.soak_per_second = 0.0
+	var before := s.water.total_volume()
+	var river := _river_tile(s, 0)
+	assert_near(s.interactions.pour(river, 0.3), 0.0, 0.0, "empty hands pour nothing")
+	var scooped := s.interactions.scoop(river, 0.3)
+	assert_true(scooped > 0.0)
+	assert_near(s.water.carried, scooped, 0.0001)
+	assert_near(s.interactions.pour(river + Vector2i(0, 3), 5.0), scooped, 0.0001, "no more than is carried")
+	assert_near(s.water.carried, 0.0, 0.0001)
+	scooped = s.interactions.scoop(river, 0.3)
+	assert_near(s.water.total_volume() + s.water.carried, before, 0.0001, "none made, none lost")
+
+	var again := _save_and_reload(s)
+	again.water.set_process(false)
+	assert_near(again.water.carried, scooped, 0.0001, "still carried after loading")
+	assert_near(again.water.total_volume() + again.water.carried, before, 0.001)
+	assert_near(again.interactions.pour(river, 1.0), scooped, 0.0001, "and it can be poured out")
+	# Another world does not inherit it.
+	again.water.carried = 1.0
+	again.create_new(777)
+	assert_eq(again.water.carried, 0.0)
+
+
+func test_what_the_soil_drank_is_remembered() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.water.set_process(false)
+	var dry := s.start.settlement_tile + Vector2i(6, 0)
+	s.water.add_water(dry, 0.5)
+	for i in 3000:
+		if s.water.is_still():
+			break
+		s.water.step_once()
+	assert_true(s.water.soaked_total > 0.0)
+	var again := _save_and_reload(s)
+	assert_near(again.water.soaked_total, s.water.soaked_total, 0.00001)
+
+
+func test_broken_water_books_load_as_empty() -> void:
+	var s := _session()
+	s.create_new(12345)
+	var data := s.to_dict()
+	data["world_state"]["water"] = {"carried": NAN, "soaked_total": -4.0}
+	var again := _session()
+	assert_true(again.load_from(data))
+	assert_eq(again.water.carried, 0.0)
+	assert_eq(again.water.soaked_total, 0.0)
+	data["world_state"]["water"] = "broken"
+	var third := _session()
+	assert_true(third.load_from(data))
+	assert_eq(third.water.carried, 0.0)
+
+
+func test_a_floating_log_saved_adrift_is_afloat_after_loading() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.loose_system.set_process(false)
+	s.water.set_process(false)
+	var tile := _river_tile(s, -10)
+	var log := LooseObject.new()
+	log.id = s.ids.next_id()
+	log.kind = LooseObject.Kind.LOG
+	log.position = Vector2(tile) + Vector2(0.5, 0.5)
+	log.height_offset = 1.0
+	s.loose.add(log)
+	s.loose_system.drop(log.id)
+	for i in 150:
+		s.loose_system.step(LooseObjectSystem.STEP_SECONDS)
+	assert_true(s.loose_system.is_moving(log.id), "adrift")
+	assert_true(log.height_offset > 0.05, "on the surface")
+
+	var again := _save_and_reload(s)
+	again.loose_system.set_process(false)
+	again.water.set_process(false)
+	var back := again.loose.get_object(log.id)
+	assert_eq(back.position, log.position, "where it was")
+	assert_true(again.loose_system.is_moving(back.id), "it does not lie on the river bed")
+	for i in 120:
+		again.loose_system.step(LooseObjectSystem.STEP_SECONDS)
+	assert_near(back.height_offset, again.world.get_water(back.tile()), 0.02, "afloat again")
+	assert_true(back.position.y > log.position.y, "and drifting on")
+
+
+func test_flooding_or_digging_under_things_does_not_unmake_them() -> void:
+	# What stands and lies in a chunk comes from the land as it was made. The
+	# generator grows nothing on water — so a flooded tree must not be missing
+	# after loading, nor a tree on dug ground change its kind.
+	var s := _session()
+	s.create_new(12345)
+	s.water.set_process(false)
+	s.loose_system.set_process(false)
+	var tree := _first_tree(s)
+	var rock := _first_loose(s, LooseObject.Kind.ROCK)
+	s.world.set_water(tree.tile, 0.3)
+	s.world.set_water(rock.tile(), 0.3)
+	var conifer: PropData = null
+	for p in s.props.all_props():
+		if p.kind == PropData.Kind.TREE and p.is_conifer():
+			conifer = p
+			break
+	assert_not_null(conifer)
+	s.world.set_height(conifer.tile, 0)
+	var props := WorldChecksum.props(s.props)
+	var count := s.loose.size()
+
+	var again := _save_and_reload(s)
+	assert_true(again.world.get_water(tree.tile) > 0.0, "the flood was saved")
+	assert_not_null(again.props.get_prop(tree.id), "the flooded tree still stands")
+	assert_not_null(again.loose.get_object(rock.id), "the flooded rock still lies there")
+	assert_true(again.props.get_prop(conifer.id).is_conifer(), "the tree on dug ground is the tree it was")
+	assert_eq(WorldChecksum.props(again.props), props)
+	assert_eq(again.loose.size(), count)
+	# And nothing new grows where the player drained the river.
+	var bed := _river_tile(s, 0)
+	s.world.set_water(bed, 0.0)
+	s.world.set_terrain(bed, ChunkData.Terrain.GRASS)
+	var drained := _save_and_reload(s)
+	assert_null(drained.props.prop_at(bed))
+	assert_eq(drained.props.size(), s.props.size())

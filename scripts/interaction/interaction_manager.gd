@@ -221,7 +221,8 @@ func is_in_hand(object_id: int) -> bool:
 	return _in_hand.has(object_id)
 
 
-## Takes up to `amount` of water from a tile. Returns how much was taken.
+## Takes up to `amount` of water from a tile into what the player carries
+## (WaterSim.carried). Returns how much was taken.
 func scoop(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
 	var iv := Intervention.create(Intervention.SCOOP_WATER, tool)
 	iv.tile = tile
@@ -230,7 +231,8 @@ func scoop(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
 	return iv.magnitude if iv.applied else 0.0
 
 
-## Pours `amount` of water onto a tile. Returns how much was poured.
+## Pours up to `amount` of the water the player carries onto a tile. Returns
+## how much was poured.
 func pour(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
 	var iv := Intervention.create(Intervention.POUR_WATER, tool)
 	iv.tile = tile
@@ -332,11 +334,15 @@ func _do_water(iv: Intervention) -> bool:
 		return false
 	if not _admit(iv, &"water", Intervention.Severity.MODERATE):
 		return false
+	# Scooped water is carried, and only carried water can be poured: none is
+	# made and none is lost.
 	var moved := 0.0
 	if iv.type == Intervention.SCOOP_WATER:
 		moved = _water.take_water(iv.tile, iv.magnitude)
+		_water.carried += moved
 	else:
-		moved = _water.add_water(iv.tile, iv.magnitude)
+		moved = _water.add_water(iv.tile, minf(iv.magnitude, _water.carried))
+		_water.carried = maxf(_water.carried - moved, 0.0)
 	if moved <= 0.0:
 		iv.rejected = &"nothing_moved"
 		return false

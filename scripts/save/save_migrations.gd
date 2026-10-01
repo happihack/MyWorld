@@ -10,6 +10,7 @@ extends RefCounted
 
 static var STEPS: Dictionary = { # int from_version -> Callable
 	1: _v1_to_v2,
+	2: _v2_to_v3,
 }
 
 
@@ -27,6 +28,39 @@ static func _v1_to_v2(data: Dictionary) -> Dictionary:
 	var world: Variant = data.get("world")
 	if typeof(world) == TYPE_DICTIONARY and not (world as Dictionary).has("world_state"):
 		(world as Dictionary)["world_state"] = {}
+	return data
+
+
+## Version 3 (M3) adds to the world state: loose objects, props changed since
+## they were generated, the player's history and the water's books.
+##
+## In version 2 rocks were props. They are loose objects now, with the same
+## ids — so the rocks that had been removed (the glade cleared for the
+## settlement) are carried over as removed loose objects, or they would lie
+## in the glade again. (Builds between M3.1 and M3.6 already wrote some of
+## these parts under version 2; what is there is kept.)
+static func _v2_to_v3(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data # no world content saved (a migrated version 1): rebuilt from the seed
+	var s: Dictionary = state
+	var props: Variant = s.get("props")
+	if typeof(props) == TYPE_DICTIONARY:
+		if not (props as Dictionary).has("changed"):
+			(props as Dictionary)["changed"] = []
+		if typeof(s.get("loose")) != TYPE_DICTIONARY:
+			var removed: Variant = (props as Dictionary).get("removed")
+			s["loose"] = {
+				"removed": (removed as PackedInt64Array).duplicate() if typeof(removed) == TYPE_PACKED_INT64_ARRAY else PackedInt64Array(),
+				"objects": [],
+			}
+	if typeof(s.get("history")) != TYPE_DICTIONARY:
+		s["history"] = {}
+	if typeof(s.get("water")) != TYPE_DICTIONARY:
+		s["water"] = {}
 	return data
 
 
