@@ -231,7 +231,7 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 
 ---
 
-## M0 — PROJECT FOUNDATION
+## M0 — PROJECT FOUNDATION — ✅ COMPLETE (2026-09-30)
 
 **Goal:** A clean, stable Godot 4.7.2 project that can eventually support the entire game. (P:M0, S§80–82, S§75–77)
 **Player-facing:** The app launches into a basic "World in a Box" screen on desktop and Android.
@@ -328,7 +328,7 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** full suite 96/96 PASS in ~6 s; self-test 3/4 as designed; `--filter` works; real save + settings untouched.
 - **Parallel-safety fix (found during M0.8):** 12 concurrent runs sharing `user://test_run` deleted each other's files (6–17 failures each). Now each process uses **`user://test_run_<pid>/`**, log files include the pid, and **`--shard=<i>/<n>`** splits the test files across processes. Verified: 12 concurrent shards = 96 passes total; 12 concurrent full runs = 96/0 each.
 
-### M0.8 Android export & device loop (Track T5) — ✅ DONE except hands-on multi-touch + release keystore (2026-09-30)
+### M0.8 Android export & device loop (Track T5) — ✅ DONE (2026-09-30; release keystore deferred until a release build is needed)
 - [x] Toolchain found: Android SDK `%LOCALAPPDATA%\Android\Sdk` (build-tools 34–36, platforms to 37, NDK, platform-tools/adb 1.0.41), JDK 17 (`C:\Program Files\Java\jdk-17.0.2`, already in editor settings), Godot debug keystore, **4.7.2.stable.mono** export templates.
 - [x] `export_presets.cfg` (committed; passwords live in git-ignored `.godot/export_credentials.cfg`):
   - **Android Debug** — `com.happihack.worldinabox.dev`, "WIAB Dev", arm64-v8a + x86_64 (emulator), editor debug keystore, `build/wiab-debug.apk`.
@@ -342,10 +342,15 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
   - Lifecycle: Home → focus lost + paused → saved; return → resumed (same process); **force-stop → relaunch continues the same world at the saved tick**; Back → saved, world closed, process exits; relaunch continues. `adb install -r` (app update) keeps the world. The clock does not advance while backgrounded.
   - Rotation: landscape (2400×1080) lays out correctly and input maps correctly.
   - **Fix found on device:** Android fires focus-loss and pause back to back (and quit is followed by world close), so every lifecycle event saved twice and rotated a duplicate into the backups. New tunable `SaveConfig.min_save_gap_ms` (500): `save_current()` skips a save within that gap of the last successful save of the same world. Verified on device: one save per event, three distinct backup files.
-- [ ] **Hands-on multi-touch check** — real fingers (cannot be injected via `adb shell input`): three-finger tap ✅ (toggled the overlay on the device, logged 17:58:01) and double tap ✅; **pinch and twist to be re-confirmed after the fix below**.
+- [x] **Hands-on multi-touch check** — real fingers (cannot be injected via `adb shell input`): three-finger tap, double tap, pinch, two-finger drag and twist all confirmed on the device after the fix below. Note: a deliberate twist also registers a little drag (the midpoint between the fingers shifts) — expected; re-evaluate feel with the real camera in M1.7.
   - **Fix found by hand on device:** every two-finger gesture read "TWIST". Cause: TWIST was emitted for *any* angle change and real fingers never hold a constant angle (the synthetic tests used perfect geometry), so each pinch also rotated; the overlay showed only the last event. Now each two-finger component activates past a threshold — PINCH (`pinch_slop_dp` 8), TWO_FINGER_DRAG (`drag_slop_dp`), TWIST (`twist_start_deg` 12, starts from zero so there is no rotation jump) — and the overlay shows one combined line: `TWO_FINGER pinch x1.23  drag (dx, dy)  twist N deg`. New tests: jitter emits nothing, a wobbly pinch never twists, twist threshold/no jump, two-finger drag slop.
 - [ ] **Release keystore** — create with `keytool`; supply via env vars `GODOT_ANDROID_KEYSTORE_RELEASE_PATH/_USER/_PASSWORD` (never committed). Needed before any release build.
 - **Finding:** the project is pure GDScript but the installed Godot is the **.NET (mono) build**. Export works (Godot warns "Exporting to Android when using C#/.NET is experimental", non-blocking), but the **standard (non-.NET) Godot 4.7.2 + standard templates** is the recommended toolchain: no experimental path, smaller engine library. Decision pending (would be D-15).
+
+### M0 — Completion summary
+- **Exit criteria met:** desktop runs · Android debug build runs on a real device (Galaxy Note20 5G, 60 FPS) · structure clean · no parser/runtime errors · touch + multi-touch verified by hand · pause/resume/kill/back handled with saves.
+- **Tests:** 100 automated tests (unit + integration) passing headless in ~7 s; runner self-test; parallel-safe.
+- **Open items carried forward:** release keystore (before first release build); D-15 standard vs .NET Godot build; known issues KI-1..KI-3 (Appendix 6).
 
 ### M0 — Tests & checks
 **Automated:** runner executes ≥ 4 test files green headless.
