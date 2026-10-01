@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"fish"
+diet = 2
+aggregate = true
+capacity = 40
+starting_groups = 0
+meat = 0
+height = 0.1
+radius = 0.1
+color = Color(0.55, 0.66, 0.74, 1)

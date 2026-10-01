@@ -24,7 +24,7 @@ func _def(id: StringName, stages: Array[PersonData.LifeStage], share: float = 1.
 
 func test_the_first_occupations_are_defined_in_data() -> void:
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"builder", &"child", &"elder", &"farmer", &"forager", &"woodcutter"] as Array[StringName])
+	assert_eq(library.ids(), [&"builder", &"child", &"elder", &"farmer", &"forager", &"hunter", &"woodcutter"] as Array[StringName])
 	for id in library.ids():
 		var def := library.get_def(id)
 		assert_eq(def.id, id)

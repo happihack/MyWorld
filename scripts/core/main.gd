@@ -49,6 +49,7 @@ func _ready() -> void:
 	_open_world()
 	world_view.show_world(session.world, session.props, session.start, session.loose)
 	world_view.show_people(session.people, session.clock, session.occupations)
+	world_view.show_animals(session.animals, session.species, session.clock)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	_setup_tools()
@@ -101,6 +102,8 @@ func _ready() -> void:
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
 	debug_overlay.register_section(&"settlement", func() -> String:
 		return session.settlement.debug_text() if session.settlement != null else "settlement: none")
+	debug_overlay.register_section(&"animals", func() -> String:
+		return session.fauna.debug_text())
 	debug_overlay.register_section(&"farming", func() -> String:
 		return session.farming.debug_text(session.clock.tick))
 	debug_overlay.register_section(&"resources", func() -> String:

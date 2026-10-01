@@ -25,6 +25,8 @@ var stockpile: Stockpile
 var jobs: JobBoard
 ## Its fields (null: this settlement cannot farm).
 var farming: Farming
+## The animals around it (null: nothing to hunt).
+var fauna: AnimalSystem
 ## What people can be (null: nobody changes what they are).
 var occupations: OccupationLibrary
 
@@ -130,6 +132,18 @@ func days_of_food() -> float:
 	return stockpile.food() / need if need > 0.0 else INF
 
 
+## How many of its people hunt.
+func hunter_count() -> int:
+	var count := 0
+	if occupations == null:
+		return 0
+	for person in members():
+		var def := occupations.get_def(person.occupation_id)
+		if def != null and def.work_target == &"game":
+			count += 1
+	return count
+
+
 ## A settlement of gatherers with nobody farming: in a season for sowing,
 ## the one of them best suited to it takes it up (from the trade that has
 ## the most people, so that no work is left without anyone). Returns who,
@@ -138,7 +152,21 @@ func ensure_farmer(now: int) -> PersonData:
 	if farming == null or occupations == null or not occupations.has_def(&"farmer") or not farming.sowing_time(now) \
 			or farming.farmer_count() > 0:
 		return null
-	var farmer := occupations.get_def(&"farmer")
+	return _take_up(&"farmer", _config.farmer_from_gatherers, now)
+
+
+## Likewise with game about and nobody hunting.
+func ensure_hunter(now: int) -> PersonData:
+	if fauna == null or occupations == null or not occupations.has_def(&"hunter") or hunter_count() > 0 or not fauna.has_game():
+		return null
+	return _take_up(&"hunter", _config.hunter_from_gatherers, now)
+
+
+## One of the gatherers takes up `occupation`: the one it suits best, from
+## the trade with the most people (which keeps at least one). Null if
+## there are fewer than `least` gatherers or no trade can spare anyone.
+func _take_up(occupation: StringName, least: int, now: int) -> PersonData:
+	var farmer := occupations.get_def(occupation)
 	var by_trade := {}
 	for person in members():
 		var def := occupations.get_def(person.occupation_id)
@@ -158,7 +186,7 @@ func ensure_farmer(now: int) -> PersonData:
 		gatherers += people.size()
 		if people.size() > largest.size():
 			largest = people
-	if gatherers < _config.farmer_from_gatherers or largest.size() < 2:
+	if gatherers < least or largest.size() < 2:
 		return null
 	var best: PersonData = null
 	for person: PersonData in largest:
@@ -202,9 +230,10 @@ func step(now: int) -> void:
 	_day = today
 	if farming != null:
 		farming.settle(now)
-		if now - _farmer_check_tick >= FARMER_CHECK_MINUTES or now < _farmer_check_tick:
-			_farmer_check_tick = now
-			ensure_farmer(now)
+	if now - _farmer_check_tick >= FARMER_CHECK_MINUTES or now < _farmer_check_tick:
+		_farmer_check_tick = now
+		ensure_farmer(now)
+		ensure_hunter(now)
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
 		jobs.refresh(self, now)
 

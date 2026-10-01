@@ -58,7 +58,8 @@ func test_untouched_world_saves_only_the_start() -> void:
 	assert_eq((state["props"]["added"] as Array).size(), 5, "campfire + 3 huts + ruin")
 	assert_eq(state["start"]["settlement_tile"], s.start.settlement_tile)
 	SaveManager.save_world(s, &"test")
-	assert_true(SaveManager.last_save_info["bytes"] < 4000, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
+	# (What is saved of a pristine world: its people, the piles it began with, its animals.)
+	assert_true(SaveManager.last_save_info["bytes"] < 6000, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
 
 
 func test_reload_reproduces_the_world_exactly() -> void:

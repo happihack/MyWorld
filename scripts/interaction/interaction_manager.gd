@@ -74,6 +74,7 @@ var _water: WaterSim
 var _clock: GameClock
 var _settlement := Vector2.INF
 var _people: PersonRegistry
+var _fauna: AnimalSystem
 ## How tall a person is taken to be where the manager has no view to ask.
 const PERSON_HEIGHT := 0.5
 var _shakes: Dictionary = {} # tree id -> shakes since the world was opened
@@ -118,6 +119,11 @@ func bind_session(water: WaterSim, clock: GameClock, saved_history: PlayerHistor
 ## The people of the world: they can be touched too.
 func bind_people(people: PersonRegistry) -> void:
 	_people = people
+
+
+## The animals (so that they can be touched and looked at).
+func bind_animals(fauna: AnimalSystem) -> void:
+	_fauna = fauna
 
 
 # --- the choke point ----------------------------------------------------------------------
@@ -271,6 +277,9 @@ func _do_touch(iv: Intervention) -> bool:
 		var touched := _people.get_person(response.person_id)
 		if touched != null:
 			touched.set_flag(PersonData.FLAG_TOUCHED_BY_PLAYER, true)
+	elif response.animal_id != 0:
+		# A hand out of nowhere: it bolts.
+		_fauna.startle_one(response.animal_id, Vector2(response.position.x, response.position.z), iv.tick)
 	elif response.prop_kind == PropData.Kind.TREE:
 		_shake_tree(response)
 	elif response.effect == InteractionResponse.RIPPLE:
@@ -394,6 +403,8 @@ func _on_object_settled(id: int) -> void:
 static func subject_of(response: InteractionResponse) -> StringName:
 	if response.person_id != 0:
 		return &"person"
+	if response.animal_id != 0:
+		return response.animal_species
 	if response.loose_kind >= 0:
 		return loose_subject(response.loose_kind)
 	if response.prop_kind >= 0:
@@ -455,14 +466,19 @@ func inspect(target: Picker.Result) -> InspectReport:
 	var report := InspectReport.new()
 	var prop: PropData = null
 	var object: LooseObject = null
+	var animal: AnimalData = null
 	if target.kind == Picker.Kind.ENTITY:
 		prop = _props.get_prop(target.entity_id) if _props != null else null
 		object = _loose.get_object(target.entity_id) if _loose != null and prop == null else null
+		if prop == null and object == null and _fauna != null and _fauna.registry != null:
+			animal = _fauna.registry.get_animal(target.entity_id)
 	report.tile = target.tile
 	if prop != null:
 		report.tile = prop.tile
 	elif object != null:
 		report.tile = object.tile()
+	elif animal != null:
+		report.tile = animal.tile()
 	var chunk := _world.chunk_at_tile(report.tile)
 	if chunk == null:
 		return null
@@ -505,6 +521,15 @@ func inspect(target: Picker.Result) -> InspectReport:
 		if object.is_pile():
 			report.resource = object.resource
 			report.resource_left = object.amount
+	elif animal != null:
+		report.subject = InspectReport.Subject.ANIMAL
+		report.entity_id = animal.id
+		report.species = animal.species
+		report.animal_state = animal.state
+		report.animal_age_days = animal.age_days(_clock.tick if _clock != null else 0)
+		report.species_count = _fauna.count(animal.species)
+		var kind := _fauna.species.get_def(animal.species)
+		report.animal_grown = kind == null or report.animal_age_days >= kind.adult_days
 	elif target.kind == Picker.Kind.WATER:
 		report.subject = InspectReport.Subject.WATER
 	return report
@@ -527,7 +552,23 @@ func _respond(target: Picker.Result, action: InteractionResponse.Action, announc
 		object = _loose.get_object(target.entity_id) if _loose != null and prop == null else null
 		person = _people.get_person(target.entity_id) if _people != null and prop == null and object == null else null
 
-	if person != null:
+	var animal: AnimalData = null
+	if target.kind == Picker.Kind.ENTITY and prop == null and object == null and person == null and _fauna != null \
+			and _fauna.registry != null:
+		animal = _fauna.registry.get_animal(target.entity_id)
+	if animal != null:
+		var kind := _fauna.species.get_def(animal.species)
+		response.entity_id = animal.id
+		response.animal_id = animal.id
+		response.animal_species = animal.species
+		response.tile = animal.tile()
+		response.terrain = _world.get_terrain(response.tile)
+		response.position = Vector3(animal.position.x, _world.get_height(response.tile) * _world.height_step, animal.position.y)
+		response.body = Vector2(kind.height, kind.radius) if kind != null else Vector2(0.4, 0.2)
+		response.effect = InteractionResponse.NUDGE
+		response.strength = 1.2
+		response.description = "%s at %s" % [String(animal.species).to_upper(), response.tile]
+	elif person != null:
 		var at := person.world2d()
 		response.entity_id = person.id
 		response.person_id = person.id

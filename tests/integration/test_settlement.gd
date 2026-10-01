@@ -491,7 +491,7 @@ func test_the_board_posts_what_runs_low() -> void:
 	_refresh()
 	var food_wanted := settlement.food_need_per_day() * config.food_days_wanted
 	var wood_wanted := config.fire_wood_per_day * config.wood_days_wanted
-	assert_eq(board.jobs().size(), 4, "food, wood, the fire and the field")
+	assert_eq(board.jobs().size(), 5, "berries, meat, wood, the fire and the field")
 	var food_job := board.job_for(&"berries")
 	var wood_job := board.job_for(&"wood")
 	assert_eq(food_job.kind, JobBoard.GATHER)

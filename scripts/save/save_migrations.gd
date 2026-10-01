@@ -19,6 +19,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	8: _v8_to_v9,
 	9: _v9_to_v10,
 	10: _v10_to_v11,
+	11: _v11_to_v12,
 }
 
 
@@ -304,4 +305,19 @@ static func _v10_to_v11(data: Dictionary) -> Dictionary:
 		return data
 	if not (state as Dictionary).has("farming"):
 		(state as Dictionary)["farming"] = {}
+	return data
+
+
+## Version 12 (M7.4) adds animals. An older world has none in its save: it
+## is given its first when it is opened (they were always there — the
+## player just had not seen them).
+static func _v11_to_v12(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("animals"):
+		(state as Dictionary)["animals"] = {}
 	return data

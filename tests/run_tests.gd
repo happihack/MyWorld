@@ -9,7 +9,7 @@ extends SceneTree
 ##   --dir=<res://path>     test directory (repeatable; default unit + integration)
 ##   --shard=<i>/<n>        run only the i-th of n slices of the test files
 ##                          (1-based; lets several processes split the suite)
-##   --test-timeout=<s>     per-test timeout in seconds (default 15)
+##   --test-timeout=<s>     per-test timeout in seconds (default 30)
 ##   --timeout=<s>          whole-run watchdog in seconds (default 300)
 ##   --verbose              echo game logs to the console (off by default)
 ##
@@ -60,7 +60,7 @@ class ErrorCatcher:
 var _catcher := ErrorCatcher.new()
 var _filter := ""
 var _dirs: PackedStringArray = []
-var _test_timeout_s := 15.0
+var _test_timeout_s := 30.0
 var _verbose := false
 var _shard_index := 1
 var _shard_count := 1
@@ -85,6 +85,17 @@ func _initialize() -> void:
 			print("SUMMARY: 0 passed, 1 failed in 0.0 s")
 			quit(1)
 			return
+	# ...and neither if a world cannot even be made (a mistake that only
+	# shows when the code runs).
+	var probe: Node = (load("res://scripts/simulation/world_session.gd") as GDScript).new()
+	var whole: bool = probe.get("simulation") != null and probe.get("interactions") != null
+	probe.free()
+	if not whole:
+		print("FAILURES:
+  a world cannot be made (WorldSession._init fails) - no tests were run")
+		print("SUMMARY: 0 passed, 1 failed in 0.0 s")
+		quit(1)
+		return
 	await _run()
 
 

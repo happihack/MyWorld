@@ -60,6 +60,13 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 			_add_row("Weight", UIText.weight_text(report.mass))
 			_add_row("Moved", UIText.moved_text(report.moved_count))
 			_add_row("Ground height", str(report.height_level))
+		InspectReport.Subject.ANIMAL:
+			_title.text = UIText.species_name(report.species)
+			_subtitle.text = where
+			_add_row("Doing", UIText.animal_state(report.animal_state, report.species == &"fox"))
+			_add_row("Age", UIText.animal_age(report.animal_age_days, report.animal_grown))
+			_add_row("In the box", str(report.species_count))
+			_add_row("Stands on", UIText.terrain_name(report.terrain))
 		InspectReport.Subject.WATER:
 			_title.text = UIText.WATER_NAME
 			_subtitle.text = where

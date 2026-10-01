@@ -27,6 +27,23 @@ const PROP_NAMES := {
 	PropData.Kind.CROP: "Field",
 }
 
+const SPECIES_NAMES := {
+	&"deer": "Deer",
+	&"rabbit": "Rabbit",
+	&"fox": "Fox",
+	&"fish": "Fish",
+}
+
+## What an animal is doing (AnimalData.State).
+const ANIMAL_STATES := {
+	AnimalData.State.GRAZE: "Grazing",
+	AnimalData.State.WANDER: "Wandering",
+	AnimalData.State.DRINK: "Going to drink",
+	AnimalData.State.SLEEP: "Sleeping",
+	AnimalData.State.FLEE: "Running away",
+	AnimalData.State.HUNT: "Hunting",
+}
+
 ## A plot of field by what stands on it (Farming.Stage).
 const CROP_NAMES := {
 	Farming.Stage.SOWN: "Sown field",
@@ -76,6 +93,7 @@ const OCCUPATION_NAMES := {
 	&"woodcutter": "Woodcutter",
 	&"builder": "Builder",
 	&"farmer": "Farmer",
+	&"hunter": "Hunter",
 	&"child": "Child",
 	&"elder": "Elder",
 }
@@ -260,6 +278,22 @@ static func weight_text(kilograms: float) -> String:
 	elif kilograms < 30.0:
 		word = "Heavy"
 	return "%s (%s kg)" % [word, ("%.1f" % kilograms) if kilograms < 10.0 else str(roundi(kilograms))]
+
+
+static func species_name(species: StringName) -> String:
+	return SPECIES_NAMES.get(species, String(species).capitalize())
+
+
+## What an animal is doing; one that eats meat rests where a grazer grazes.
+static func animal_state(state: int, hunter: bool = false) -> String:
+	if state == AnimalData.State.GRAZE and hunter:
+		return "Resting"
+	return ANIMAL_STATES.get(state, "About")
+
+
+## "Young (5 days)" / "Grown (40 days)".
+static func animal_age(days: int, grown: bool) -> String:
+	return "%s (%d %s)" % ["Grown" if grown else "Young", days, "day" if days == 1 else "days"]
 
 
 ## A plot's name by its stage.

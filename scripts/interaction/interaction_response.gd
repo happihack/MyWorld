@@ -39,6 +39,9 @@ var prop_variant := 0
 var loose_kind := -1
 ## Id of the touched person, or 0 (then also `entity_id`).
 var person_id := 0
+## Id and species of the touched animal, or 0 and &"".
+var animal_id := 0
+var animal_species: StringName = &""
 ## Height and radius of the touched body (entities only).
 var body := Vector2.ZERO
 ## How strongly the target gives way to a touch: 1 = an ordinary rock; a

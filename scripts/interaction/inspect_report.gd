@@ -4,7 +4,7 @@ extends RefCounted
 ## only — how they are worded is the UI's business. Produced by
 ## InteractionManager.inspect().
 
-enum Subject { GROUND, WATER, PROP, LOOSE }
+enum Subject { GROUND, WATER, PROP, LOOSE, ANIMAL }
 
 var subject: Subject = Subject.GROUND
 var tile := Vector2i.ZERO
@@ -39,6 +39,13 @@ var crop_stage := -1
 var crop_growth := 0
 var crop_vigor := 1000
 var crop_dry := false
+## Animals only: which kind, what it is doing (AnimalData.State), how old
+## (game days), whether it is grown, and how many of its kind there are.
+var species: StringName = &""
+var animal_state := 0
+var animal_age_days := 0
+var animal_grown := true
+var species_count := 0
 ## True if the prop or object came with the world (not placed or built later).
 var generated := false
 

@@ -45,6 +45,10 @@ var resources: ResourceLibrary
 var settlement: Settlement
 ## The fields (may be null: nobody farms).
 var farming: Farming
+## The animals (may be null: there are none to hunt).
+var fauna: AnimalSystem
+## Kills not announced yet: [person id, species].
+var kills: Array = []
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

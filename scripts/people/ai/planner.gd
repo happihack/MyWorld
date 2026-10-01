@@ -77,10 +77,10 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 					target = job.node
 			# The field: whatever it needs most right now. With nothing to do
 			# there, a farmer turns to what else they do.
-			if target == &"field":
-				var field_work := _field_work(person, ctx)
-				if not field_work.is_empty():
-					return field_work
+			if target == &"field" or target == &"game":
+				var own_work := _field_work(person, ctx) if target == &"field" else _hunt(person, ctx)
+				if not own_work.is_empty():
+					return own_work
 				if def.helps_with.is_empty():
 					return []
 				target = StringName(def.helps_with[0])
@@ -131,6 +131,22 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				return [WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()]
 			return [WalkToStep.make(home, person.sub_tile_offset), RestStep.make(snappedf(rng.randf_range(20.0, 45.0), 1.0), home)]
 	return []
+
+
+## A hunt: after the nearest game there is; with a kill, home to the stores
+## with the meat. [] if there is nothing to hunt.
+static func _hunt(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.fauna == null or ctx.settlement == null or ctx.settlement.fire() == null:
+		return []
+	var quarry := ctx.fauna.quarry_for(person.world2d(), ctx.settlement.fire().position2d(), Config.settlement.hunt_radius)
+	if quarry == null:
+		return []
+	var steps := [HuntStep.make(quarry.id)]
+	var stores: Variant = ctx.places.storage_tile(&"meat")
+	if stores != null:
+		steps.append(WalkToStep.make(stores, STORE_STAND))
+		steps.append(StoreStep.make())
+	return steps
 
 
 ## Work on the field: to the plot, do what it needs — and with a harvest,

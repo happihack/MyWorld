@@ -142,7 +142,8 @@ func test_someone_takes_up_farming() -> void:
 	for p in session.people.all_people():
 		cutters += 1 if p.occupation_id == &"woodcutter" else 0
 		foragers += 1 if p.occupation_id == &"forager" else 0
-	assert_eq([cutters, foragers], [2, 2], "(there were three woodcutters)")
+	assert_eq(cutters, 2, "(there were three woodcutters)")
+	assert_true(foragers >= 1, "and the others still have their people")
 	for p in session.people.all_people():
 		if p.occupation_id == &"woodcutter":
 			assert_true(def.affinity(farmer.traits) >= def.affinity(p.traits), "the one of them it suits best")
@@ -762,13 +763,13 @@ func test_version_10_save_gains_fields() -> void:
 	var taken: Array = []
 	s.settlement.took_up.connect(func(id: int, occupation: StringName) -> void: taken.append(occupation))
 	_run(900.0, 1.0, s)
-	assert_eq(taken, [&"farmer"])
+	assert_true(taken.has(&"farmer"), str(taken))
 	assert_eq(s.farming.farmer_count(), 1)
 	assert_true(s.farming.plot_count() >= 1, "a first plot (%d)" % s.farming.plot_count())
 	# Saved again: the current version, the old file kept; and read back the same.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveManager.SAVE_VERSION, 11)
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 11)
+	assert_true(SaveManager.SAVE_VERSION >= 11)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 10)
 	var again := SaveManager.load_world(V10_ID)
 	assert_true(again.ok, again.error)

@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"fox"
+diet = 1
+capacity = 6
+starting_groups = 3
+group_min = 1
+group_max = 1
+birth_rate = 0.08
+adult_days = 24
+lifespan_days = 168
+walk_speed = 0.55
+run_speed = 1.8
+home_range = 13.0
+fear_radius = 4.5
+sleep_from = 9.0
+sleep_to = 16.0
+meat = 0
+prey = PackedStringArray("rabbit")
+hunts_every_days = 2.0
+pounce_success = 0.6
+per_prey = 0.35
+height = 0.34
+radius = 0.2
+color = Color(0.82, 0.42, 0.16, 1)
+shape = &"fox"

@@ -9,6 +9,7 @@ extends RefCounted
 const GATHER := &"gather"
 const TEND := &"tend"
 const FARM := &"farm"
+const HUNT := &"hunt"
 
 class Job:
 	extends RefCounted
@@ -31,6 +32,8 @@ class Job:
 			return "keep the %s %.2f" % [node, priority]
 		if kind == FARM:
 			return "the field %.2f" % priority
+		if kind == HUNT:
+			return "hunting %.2f" % priority
 		return "%s %.2f (%.0f of %.0f)" % [resource, priority, have, wanted]
 
 
@@ -76,6 +79,9 @@ func refresh(settlement: Settlement, now: int) -> void:
 		var food := stock.food()
 		if food_wanted > 0.0 and food < food_wanted:
 			wanted.append([GATHER, &"berries", ResourceNodes.BUSH, 1.0 - food / food_wanted, food, food_wanted])
+			# ...and meat, where there are hunters and game enough to take from.
+			if settlement.fauna != null and settlement.hunter_count() > 0 and settlement.fauna.has_game():
+				wanted.append([HUNT, &"meat", &"game", 1.0 - food / food_wanted, food, food_wanted])
 		# Wood: so many days of what the fire burns.
 		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted
 		var wood := float(stock.amount(&"wood"))

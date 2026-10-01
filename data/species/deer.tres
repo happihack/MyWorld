@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"deer"
+diet = 0
+capacity = 10
+starting_groups = 1
+group_min = 5
+group_max = 6
+birth_rate = 0.05
+adult_days = 24
+lifespan_days = 240
+walk_speed = 0.5
+run_speed = 1.7
+home_range = 9.0
+fear_radius = 5.5
+meat = 6
+hunt_above = 0.5
+height = 0.7
+radius = 0.3
+color = Color(0.62, 0.45, 0.28, 1)
+shape = &"deer"

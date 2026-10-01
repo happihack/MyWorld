@@ -26,6 +26,13 @@ extends ConfigBase
 ## do on it (so that there is always a reason to look after the field).
 @export_range(0.0, 1.0, 0.01) var field_job_floor: float = 0.0
 
+@export_group("Hunting")
+## A settlement with at least this many grown gatherers, game to hunt and
+## nobody hunting has one of them take it up.
+@export_range(1, 100) var hunter_from_gatherers: int = 4
+## Hunters go after game within this many tiles of the fire.
+@export_range(4.0, 128.0, 1.0) var hunt_radius: float = 28.0
+
 @export_group("Fire")
 ## Pieces of wood the fire burns in a day. Without wood it goes out.
 @export_range(0.0, 100.0, 0.5) var fire_wood_per_day: float = 6.0

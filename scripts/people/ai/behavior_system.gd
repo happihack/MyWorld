@@ -24,6 +24,8 @@ signal prompted(person_id: int)
 signal worked(person_id: int, kind: StringName, target_id: int)
 ## A child has gone to bed for the night (the hook for bedtime stories, M11).
 signal bedtime(child_id: int)
+## A hunter killed an animal.
+signal hunted(person_id: int, species: StringName)
 ## A person reacted to something they noticed (bible §14.4). `stimulus` is the
 ## kind of thing it was; `direct`: it happened to them.
 signal reacted(person_id: int, reaction: StringName, interpretation: StringName, stimulus: StringName, direct: bool)
@@ -80,7 +82,8 @@ func _init() -> void:
 	for step: Array in [[WalkToStep.TYPE, WalkToStep.new()], [EatStep.TYPE, EatStep.new()],
 			[DrinkStep.TYPE, DrinkStep.new()], [SleepStep.TYPE, SleepStep.new()], [WorkStep.TYPE, WorkStep.new()],
 			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()],
-			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()]]:
+			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()],
+			[HuntStep.TYPE, HuntStep.new()]]:
 		_steps[String(step[0])] = step[1]
 
 
@@ -187,6 +190,8 @@ func step(minutes: float) -> void:
 		return
 	if ctx.settlement != null:
 		ctx.settlement.step(ctx.now())
+	if ctx.fauna != null:
+		ctx.fauna.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()
@@ -253,6 +258,11 @@ func announce() -> void:
 	for stroke: Array in ctx.strokes:
 		worked.emit(stroke[0], stroke[1], stroke[2])
 	ctx.strokes.clear()
+	if not ctx.kills.is_empty():
+		var killed := ctx.kills.duplicate()
+		ctx.kills.clear()
+		for kill: Array in killed:
+			hunted.emit(kill[0], kill[1])
 	if not ctx.bedtimes.is_empty():
 		var asleep := ctx.bedtimes.duplicate()
 		ctx.bedtimes.clear()
@@ -322,6 +332,8 @@ func _note_change(person: PersonData, activity: StringName, steps: Array) -> voi
 					detail = "meal"
 				elif (step as Dictionary).has("bush"):
 					detail = "bush"
+			"hunt":
+				detail = "game"
 			"store":
 				if detail == "":
 					detail = "haul" # only carrying something home

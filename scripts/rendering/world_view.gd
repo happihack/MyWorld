@@ -17,6 +17,7 @@ var _ambient: AmbientLife
 var _chunks: Node3D
 var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
 var _has_fire := false
+var _animals_view: AnimalsView
 var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
@@ -73,6 +74,9 @@ func _ready() -> void:
 	_people_view = PeopleView.new()
 	_people_view.name = "People"
 	add_child(_people_view)
+	_animals_view = AnimalsView.new()
+	_animals_view.name = "Animals"
+	add_child(_animals_view)
 	_day_night = DayNight.new()
 	_day_night.name = "DayNight"
 	add_child(_day_night)
@@ -81,6 +85,7 @@ func _ready() -> void:
 	_rig.name = "CameraRig"
 	add_child(_rig)
 	_people_view.setup(_rig, _prop_material)
+	_animals_view.setup(_rig, _prop_material)
 	_highlight = PickHighlight.new()
 	_highlight.name = "PickHighlight"
 	add_child(_highlight)
@@ -205,6 +210,15 @@ func pick_highlight() -> PickHighlight:
 	return _highlight
 
 
+## Shows the world's animals (call after show_world).
+func show_animals(animals: AnimalRegistry, library: SpeciesLibrary, clock: GameClock) -> void:
+	_animals_view.show_animals(_world, animals, library, clock)
+
+
+func animals_view() -> AnimalsView:
+	return _animals_view
+
+
 ## The settlement's fire burns, or has gone out: its light, its smoke and
 ## its crackle go with it (the flame itself is part of the prop's mesh).
 func set_fire_lit(lit: bool) -> void:
@@ -261,6 +275,8 @@ func _pick_shape(id: int) -> Variant:
 		shape = _loose.pick_shape(id)
 	if shape == null:
 		shape = _people_view.pick_shape(id)
+	if shape == null:
+		shape = _animals_view.pick_shape(id)
 	return shape
 
 

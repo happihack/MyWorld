@@ -77,6 +77,12 @@ var piles: PileStore
 var settlement: Settlement
 ## The fields and what grows on them.
 var farming: Farming
+## What the player does frightens the animals at least this near to it (tiles).
+const STARTLE_RADIUS := 3.0
+## What kinds of animals there are, the animals themselves, and their lives.
+var species: SpeciesLibrary
+var animals: AnimalRegistry
+var fauna: AnimalSystem
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## Makes time pass for all of that, in turns and within a budget.
@@ -88,6 +94,7 @@ var _saved_perception: Dictionary = {}
 var _saved_day_log: Dictionary = {}
 var _saved_settlement: Dictionary = {}
 var _saved_farming: Dictionary = {}
+var _saved_animals: Dictionary = {}
 
 
 func _init() -> void:
@@ -96,6 +103,7 @@ func _init() -> void:
 	nodes = ResourceNodes.new()
 	piles = PileStore.new()
 	farming = Farming.new()
+	fauna = AnimalSystem.new()
 	nodes.reaped.connect(func(prop_id: int) -> void:
 		var crop := props.get_prop(prop_id) if props != null else null
 		if crop != null:
@@ -116,6 +124,10 @@ func _init() -> void:
 	perception = PerceptionSystem.new()
 	memories = MemoryStore.new()
 	interactions.stimulus_emitted.connect(perception.emit)
+	# What the player does startles the animals near it.
+	interactions.stimulus_emitted.connect(func(stimulus: Stimulus) -> void:
+		if stimulus != null and clock != null:
+			fauna.startle(stimulus.position, maxf(stimulus.radius, STARTLE_RADIUS), clock.tick))
 	perception.noticed.connect(behavior.notice)
 	simulation = SimulationManager.new()
 	simulation.name = "SimulationManager"
@@ -153,6 +165,7 @@ func create_new(seed_value: int = 0) -> void:
 	if settlement != null:
 		settlement.stock_up(clock.tick)
 		settlement.ensure_farmer(clock.tick)
+		settlement.ensure_hunter(clock.tick)
 	Log.info(Log.Category.WORLD, "New world created", {"world_id": world_id, "seed": world_seed})
 
 
@@ -184,8 +197,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_day_log = {}
 	_saved_settlement = {}
 	_saved_farming = {}
+	_saved_animals = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("animals")) == TYPE_DICTIONARY:
+			_saved_animals = state["animals"]
 		if typeof((state as Dictionary).get("farming")) == TYPE_DICTIONARY:
 			_saved_farming = state["farming"]
 		if typeof((state as Dictionary).get("settlement")) == TYPE_DICTIONARY:
@@ -266,6 +282,7 @@ func to_dict() -> Dictionary:
 			"observer": observer.to_dict(),
 			"settlement": settlement.to_dict() if settlement != null else {},
 			"farming": farming.to_dict(),
+			"animals": fauna.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -298,6 +315,7 @@ func _process(delta: float) -> void:
 			nodes.settle(clock.tick)
 		if settlement != null:
 			settlement.step(clock.tick)
+		fauna.advance_to(clock.tick)
 
 
 ## Where the settlement keeps `resource` (the middle of its storage tile),
@@ -480,6 +498,7 @@ func _activate() -> void:
 		fire_at = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
 	interactions.bind_session(water, clock, history, fire_at)
 	interactions.bind_people(people)
+	interactions.bind_animals(fauna)
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
 	if activities == null:
@@ -508,6 +527,19 @@ func _activate() -> void:
 	farming.from_dict(_saved_farming)
 	_saved_farming = {}
 	ai.farming = farming
+	# The animals: those the save has — or, for a world that never had any, its first.
+	if species == null:
+		species = SpeciesLibrary.load_from()
+	animals = AnimalRegistry.new(spatial)
+	fauna.bind(world, props, people, animals, species, ids, start, rng.stream(&"animals"), pathfinder)
+	var lost := fauna.from_dict(_saved_animals)
+	if lost > 0:
+		Log.warn(Log.Category.LOAD, "Some saved animals were unusable and skipped", {"animals": lost})
+	_saved_animals = {}
+	for animal in animals.all_animals():
+		ids.reserve_above(animal.id)
+	fauna.seed_world(clock.tick)
+	ai.fauna = fauna
 	if settlement != null:
 		settlement.unbind()
 	settlement = null
@@ -516,6 +548,7 @@ func _activate() -> void:
 		settlement.bind(start, people, props, piles, ai.places, resources, loose, Config.settlement)
 		settlement.farming = farming
 		settlement.occupations = occupations
+		settlement.fauna = fauna
 		settlement.from_dict(_saved_settlement)
 		settlement.jobs.refresh(settlement, clock.tick)
 	_saved_settlement = {}
