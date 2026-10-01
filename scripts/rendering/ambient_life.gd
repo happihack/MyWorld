@@ -18,6 +18,8 @@ var _radius := Vector2(18.0, 13.0)
 var _time := 0.0
 var _formation: Array[Vector3] = []
 var _bird_positions: Array[Vector3] = []
+## Seconds until the next bird call.
+var _chirp_in := 4.0
 
 
 func _ready() -> void:
@@ -63,6 +65,18 @@ func is_smoking() -> bool:
 func _process(delta: float) -> void:
 	_time += delta
 	_update_birds()
+	_chirp_in -= delta
+	if _chirp_in <= 0.0:
+		_chirp_in = randf_range(Config.feedback.chirp_min_seconds, Config.feedback.chirp_max_seconds)
+		chirp()
+
+
+## One of the birds calls (heard from where it is flying).
+func chirp() -> void:
+	if _bird_positions.is_empty():
+		return
+	var bird := randi() % _bird_positions.size()
+	AudioManager.play_at(&"chirp", _bird_positions[bird], Config.feedback.chirp_volume_db, randf_range(0.9, 1.2))
 
 
 func _update_birds() -> void:

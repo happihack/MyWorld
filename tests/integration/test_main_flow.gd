@@ -333,6 +333,47 @@ func test_double_tap_on_open_ground_zooms_in() -> void:
 	assert_near(rig.distance(), before / Config.camera.double_tap_zoom, 0.1)
 
 
+func test_touches_are_heard_and_felt() -> void:
+	AudioManager.ensure_sounds()
+	var felt := []
+	var real_vibrate := Haptics.vibrate_action
+	Haptics.vibrate_action = func(ms: int, _amplitude: float) -> void: felt.append(ms)
+	Haptics.reset()
+	var main := await _load_main_on_known_world()
+	assert_true(AudioManager.is_ambience_wanted(), "the world has a background sound")
+	assert_true(AudioManager.ambience_player().playing)
+	var parts := _look_at_settlement(main)
+	var rig: CameraRig = parts[0]
+	var session: WorldSession = parts[2]
+	# Tap the campfire: a crackle from where the fire is, and a light tick.
+	var fire := session.props.get_prop(session.start.campfire_id)
+	_tap(_prop_screen(rig, session, fire, 0.15))
+	assert_eq(AudioManager.last_sound, &"crackle")
+	var at_the_fire := false
+	for i in AudioManager.world_voice_count():
+		var voice := AudioManager.world_voice(i)
+		if voice.stream == AudioManager.sound(&"crackle") 				and Vector2(voice.position.x, voice.position.z).distance_to(fire.position2d()) < 0.01:
+			at_the_fire = true
+	assert_true(at_the_fire, "the crackle comes from the fire")
+	assert_eq(felt, [Config.feedback.haptic_light_ms])
+	# The Home button ticks too.
+	await wait_real_ms(Config.feedback.haptic_min_gap_ms + 20)
+	(main.get_node("UIRoot/HomeButton") as Button).pressed.emit()
+	assert_eq(AudioManager.last_sound, &"ui_tap")
+	assert_eq(felt.size(), 2)
+	# The overlay reports the feedback services.
+	var overlay: DebugOverlay = main.get_node("DebugOverlay")
+	overlay.toggle()
+	overlay.refresh()
+	var text := (overlay.get_node("%OverlayLabel") as Label).text
+	assert_has(text, "audio ")
+	assert_has(text, "haptics 2")
+	overlay.toggle()
+	await _unload_main()
+	assert_false(AudioManager.is_ambience_wanted(), "leaving the world stops its background sound")
+	Haptics.vibrate_action = real_vibrate
+
+
 func test_camera_settings_follow_the_player_settings() -> void:
 	var main := await _load_main()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()

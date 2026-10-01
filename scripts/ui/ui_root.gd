@@ -40,7 +40,9 @@ func _ready() -> void:
 	_version_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	_version_label.add_to_group(InputRouter.UI_BLOCKER_GROUP)
 	_version_label.gui_input.connect(_on_version_label_input)
-	_home_button.pressed.connect(func() -> void: home_pressed.emit())
+	_home_button.pressed.connect(func() -> void:
+		_tick()
+		home_pressed.emit())
 	EventBus.back_requested.connect(_on_back_requested)
 	_panel_layer = Control.new()
 	_panel_layer.name = "Panels"
@@ -108,7 +110,9 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 	open_panel(menu)
 	menu.setup(UIText.subject_name(what), entries)
 	menu.place_near(anchor, Rect2(Vector2.ZERO, _panel_layer.get_viewport_rect().size))
-	menu.action_chosen.connect(func(action: StringName) -> void: context_action.emit(action, target))
+	menu.action_chosen.connect(func(action: StringName) -> void:
+		_tick()
+		context_action.emit(action, target))
 	return menu
 
 
@@ -127,6 +131,14 @@ func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCar
 
 func _on_panel_closed(panel: UIPanel) -> void:
 	_panels.erase(panel)
+	if not panel.transient:
+		AudioManager.play_ui(&"ui_close")
+
+
+## The sound and feel of pressing something in the UI.
+func _tick() -> void:
+	AudioManager.play_ui(&"ui_tap")
+	Haptics.light()
 
 
 # --- scale ----------------------------------------------------------------------------

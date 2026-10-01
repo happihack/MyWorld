@@ -1,0 +1,43 @@
+class_name TouchFeedback
+extends RefCounted
+## What a touch of the world sounds and feels like (bible §23, §29): maps an
+## InteractionResponse to a sound at the touched place and a vibration pulse.
+## The visual side of the same response is WorldEffects.
+
+## Haptic strengths (the values of Haptics.Strength).
+const LIGHT := 0
+const MEDIUM := 1
+
+## effect -> [sound id, volume dB, pitch, haptic strength]
+const CUES := {
+	InteractionResponse.DUST: [&"thud", -5.0, 1.0, LIGHT],
+	InteractionResponse.RIPPLE: [&"plip", -4.0, 1.0, LIGHT],
+	InteractionResponse.TREE_SHAKE: [&"rustle", -6.0, 1.0, LIGHT],
+	InteractionResponse.BUSH_RUSTLE: [&"rustle", -9.0, 1.3, LIGHT],
+	InteractionResponse.ROCK_WOBBLE: [&"click", -6.0, 1.0, LIGHT],
+	InteractionResponse.BUILDING_KNOCK: [&"knock", -4.0, 1.0, MEDIUM],
+	InteractionResponse.FIRE_FLARE: [&"crackle", -6.0, 1.0, LIGHT],
+	InteractionResponse.RUIN_HUM: [&"hum", -5.0, 1.0, MEDIUM],
+}
+
+
+## Hook for InteractionManager.responded.
+static func play(response: InteractionResponse) -> void:
+	if response == null:
+		return
+	if response.effect == InteractionResponse.INSPECT:
+		# A long press opens a menu: a UI sound and a tick, nothing in the world.
+		AudioManager.play_ui(&"ui_open")
+		Haptics.light()
+		return
+	var cue: Array = CUES.get(response.effect, [])
+	if cue.is_empty():
+		return
+	AudioManager.play_at(cue[0], response.position, cue[1], cue[2])
+	Haptics.pulse(cue[3])
+
+
+## The sound id of an effect (&"" if it has none).
+static func sound_for(effect: StringName) -> StringName:
+	var cue: Array = CUES.get(effect, [])
+	return cue[0] if not cue.is_empty() else &""

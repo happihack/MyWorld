@@ -27,6 +27,8 @@ Config="*res://scripts/core/config.gd"
 EventBus="*res://scripts/core/event_bus.gd"
 Settings="*res://scripts/core/settings.gd"
 SaveManager="*res://scripts/save/save_manager.gd"
+Haptics="*res://scripts/core/haptics.gd"
+AudioManager="*res://scripts/core/audio_manager.gd"
 
 [display]
 

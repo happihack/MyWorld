@@ -30,15 +30,21 @@ func _ready() -> void:
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
+	session.interactions.responded.connect(TouchFeedback.play)
+	AudioManager.start_ambience()
 	ui_root.home_pressed.connect(go_home)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
+	debug_overlay.register_section(&"feedback", func() -> String:
+		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
+			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
 
 
 func _exit_tree() -> void:
 	SaveManager.attach(null)
+	AudioManager.stop_ambience()
 
 
 ## Touches of the world: the view says what is under the finger, the session's
