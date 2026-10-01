@@ -9,6 +9,9 @@ extends Node
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
+## How long a long press keeps its target marked.
+const LONG_PRESS_MARK_SECONDS := 1.2
+
 var _world_fingerprint := ""
 var _last_pick := "-"
 
@@ -22,6 +25,8 @@ func _ready() -> void:
 	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
 	input_router.touch_began.connect(func(_pos: Vector2) -> void: world_view.camera_rig().stop_motion())
 	input_router.gesture_recognized.connect(_on_gesture)
+	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
+	session.interactions.responded.connect(world_view.effects().play)
 	ui_root.home_pressed.connect(go_home)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
@@ -33,33 +38,46 @@ func _exit_tree() -> void:
 	SaveManager.attach(null)
 
 
-## TEMPORARY until the InteractionManager (M2.3): taps are picked and reported
-## in the debug overlay, with a highlight while the overlay is shown.
+## Touches of the world: the view says what is under the finger, the session's
+## InteractionManager decides what that means, the view shows the answer.
 func _on_gesture(gesture: Gesture) -> void:
-	if gesture.type != Gesture.Type.TAP:
-		return
+	match gesture.type:
+		Gesture.Type.TAP:
+			var target := pick_at(gesture.position)
+			_note_pick(target, session.interactions.tap(target))
+			if debug_overlay.is_shown():
+				world_view.show_pick(target)
+			else:
+				world_view.pick_highlight().clear()
+		Gesture.Type.LONG_PRESS:
+			var target := pick_at(gesture.position)
+			_note_pick(target, session.interactions.long_press(target))
+			# Until the context panel (M2.4): mark what was pressed for a moment.
+			world_view.show_pick(target)
+			if not debug_overlay.is_shown():
+				world_view.pick_highlight().clear_after(LONG_PRESS_MARK_SECONDS)
+		Gesture.Type.DOUBLE_TAP:
+			# On a thing: look at it. On open ground or water: zoom toward it.
+			var what := session.interactions.describe(pick_at(gesture.position))
+			var rig := world_view.camera_rig()
+			if what != null and what.is_entity():
+				rig.focus_on(what.position, minf(rig.distance(), Config.camera.home_distance))
+			else:
+				rig.double_tap_zoom(gesture.position)
+
+
+## What is under a screen position, with the finger-sized forgiveness.
+func pick_at(screen: Vector2) -> Picker.Result:
 	var radius := Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp
-	var result := world_view.pick(gesture.position, radius)
-	_last_pick = describe_pick(result)
-	if debug_overlay.is_shown():
-		world_view.show_pick(result)
-	else:
-		world_view.pick_highlight().clear()
+	return world_view.pick(screen, radius)
 
 
-## One-line description of a pick result (debug overlay).
-func describe_pick(result: Picker.Result) -> String:
-	match result.kind:
-		Picker.Kind.ENTITY:
-			var prop := session.props.get_prop(result.entity_id)
-			var label: String = PropData.Kind.keys()[prop.kind] if prop != null else "entity"
-			return "%s at %s%s" % [label, result.tile, "" if result.direct else " (near)"]
-		Picker.Kind.WATER:
-			return "WATER at %s  depth %.2f" % [result.tile, session.world.get_water(result.tile)]
-		Picker.Kind.TILE:
-			var terrain: String = ChunkData.Terrain.keys()[session.world.get_terrain(result.tile)]
-			return "%s at %s  height %d" % [terrain, result.tile, session.world.get_height(result.tile)]
-	return "nothing"
+func _note_pick(target: Picker.Result, response: InteractionResponse) -> void:
+	if response == null:
+		_last_pick = "nothing"
+		return
+	var near := target.kind == Picker.Kind.ENTITY and not target.direct
+	_last_pick = "%s%s -> %s" % [response.description, " (near)" if near else "", response.effect]
 
 
 ## Glides the camera to the settlement (or frames the box if there is none).

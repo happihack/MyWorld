@@ -26,6 +26,9 @@ var ground_height: Callable
 var yaw := 0.0
 ## Whether the two-finger twist rotates the view (player setting).
 var twist_enabled := false
+## Whether a double tap zooms by itself. Off when someone else decides what a
+## double tap means (on an entity it focuses that entity instead).
+var handles_double_tap := true
 ## Flings are skipped when the player asked for reduced motion.
 var reduced_motion := false
 
@@ -228,8 +231,9 @@ func handle_gesture(gesture: Gesture) -> bool:
 			settle()
 			return true
 		Gesture.Type.DOUBLE_TAP:
-			double_tap_zoom(gesture.position)
-			return true
+			if handles_double_tap:
+				double_tap_zoom(gesture.position)
+			return handles_double_tap
 	return false
 
 

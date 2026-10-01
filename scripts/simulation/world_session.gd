@@ -35,6 +35,14 @@ var generator: WorldGenerator
 var props: PropRegistry
 var spatial: SpatialIndex
 var start: WorldSetup.StartInfo
+## Where every player touch of the world is answered.
+var interactions: InteractionManager
+
+
+func _init() -> void:
+	interactions = InteractionManager.new()
+	interactions.name = "InteractionManager"
+	add_child(interactions)
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -221,6 +229,7 @@ func _load_template(id: StringName) -> StartTemplate:
 
 
 func _activate() -> void:
+	interactions.bind(world, props)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

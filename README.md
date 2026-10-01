@@ -22,8 +22,9 @@ Saves live in `user://saves/<world_id>/` — on Windows:
 
 | Input | Gesture |
 |---|---|
-| Left click / drag | Tap / one-finger drag (mouse emulates touch) |
-| Hold left button | Long press |
+| Left click / drag | Tap (the world answers: dust, ripples, a shaken tree…) / one-finger drag (mouse emulates touch) |
+| Double click | Double tap: look at the thing under the cursor, or zoom toward open ground |
+| Hold left button | Long press (marks what it would inspect) |
 | Mouse wheel | Pinch zoom at the cursor |
 | Right drag | Two-finger drag |
 | F3 | Toggle debug overlay (debug builds; on device: three-finger tap) |

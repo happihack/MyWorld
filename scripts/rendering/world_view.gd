@@ -22,6 +22,7 @@ var _lighting: WorldLighting
 var _water_material: ShaderMaterial
 var _rig: CameraRig
 var _highlight: PickHighlight
+var _effects: WorldEffects
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
@@ -55,6 +56,10 @@ func _ready() -> void:
 	_highlight = PickHighlight.new()
 	_highlight.name = "PickHighlight"
 	add_child(_highlight)
+	_effects = WorldEffects.new()
+	_effects.name = "Effects"
+	add_child(_effects)
+	_effects.setup(_prop_material)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -95,6 +100,7 @@ func clear() -> void:
 	_chunk_views.clear()
 	_props_dirty.clear()
 	_highlight.clear()
+	_effects.clear()
 	_world = null
 	_props = null
 
@@ -117,6 +123,11 @@ func camera_rig() -> CameraRig:
 
 func pick_highlight() -> PickHighlight:
 	return _highlight
+
+
+## Visual answers to touches (connect InteractionManager.responded to effects().play).
+func effects() -> WorldEffects:
+	return _effects
 
 
 ## What is under a screen position (viewport units)? `touch_radius` is the
@@ -215,6 +226,7 @@ func apply_palette(palette: TerrainPalette) -> void:
 func _apply_camera_settings() -> void:
 	_rig.twist_enabled = bool(Settings.get_value(&"camera/twist_rotate"))
 	_rig.reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
+	_effects.reduced_motion = _rig.reduced_motion
 
 
 func _on_setting_changed(key: StringName, _value: Variant) -> void:

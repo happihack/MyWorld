@@ -126,7 +126,7 @@ func _build_birds() -> void:
 
 
 ## A round, soft-edged white dot (generated, so there is no texture file).
-static func _soft_dot() -> GradientTexture2D:
+static func soft_dot() -> GradientTexture2D:
 	var gradient := Gradient.new()
 	gradient.set_color(0, Color(1, 1, 1, 1))
 	gradient.add_point(0.55, Color(1, 1, 1, 0.55))
@@ -150,7 +150,7 @@ func _build_smoke() -> void:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.vertex_color_use_as_albedo = true
 	material.albedo_color = Color(1, 1, 1, 1)
-	material.albedo_texture = _soft_dot()
+	material.albedo_texture = soft_dot()
 	puff.material = material
 
 	var fade := Gradient.new()

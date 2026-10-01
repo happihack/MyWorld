@@ -373,6 +373,15 @@ func test_double_tap_zooms_in_toward_the_point_then_back_out() -> void:
 	assert_true(rig.is_framed(), "from the closest zoom a double tap returns to the whole box")
 
 
+func test_double_tap_can_be_left_to_someone_else() -> void:
+	rig.handles_double_tap = false
+	var start_distance := rig.distance()
+	assert_false(rig.handle_gesture(_gesture(Gesture.Type.DOUBLE_TAP, Vector2(700, 1100))))
+	_run(1.0)
+	assert_near(rig.distance(), start_distance, 0.001, "the rig did nothing")
+	assert_false(rig.is_moving())
+
+
 func test_zoom_to_keeps_the_focal_point_when_free() -> void:
 	_zoom_to(30.0)
 	var focal := Vector2(600, 1000)
