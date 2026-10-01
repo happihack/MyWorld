@@ -7,6 +7,8 @@
 shader_type spatial;
 render_mode world_vertex_coords, cull_back;
 
+#include "res://assets/shaders/clouds.gdshaderinc"
+
 uniform float sway_amplitude = 0.055;
 uniform float sway_speed = 1.3;
 uniform vec2 wind_direction = vec2(1.0, 0.35);
@@ -28,6 +30,7 @@ void vertex() {
 	if (!OUTPUT_IS_SRGB) {
 		v_color = pow(COLOR.rgb, vec3(2.2));
 	}
+	v_color *= cloud_light(VERTEX.xz, TIME);
 }
 
 void fragment() {

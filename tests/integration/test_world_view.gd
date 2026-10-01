@@ -114,3 +114,39 @@ func test_clear_disconnects_from_the_registry() -> void:
 	view.show_world(world, props, start) # showing again must not double-connect
 	view.show_world(world, props, start)
 	assert_eq(props.chunk_changed.get_connections().size(), 1)
+
+
+func test_box_frame_matches_the_world() -> void:
+	var frame := view.box_frame()
+	assert_eq(frame.bounds, world.bounds)
+	assert_not_null(frame.wood_mesh())
+	var expected_height := Config.world.height_levels * world.height_step + WorldView.BOX_HEADROOM
+	assert_near(frame.box_height, expected_height, 0.001, "posts clear the tallest possible terrain")
+	# Showing a different world rebuilds the frame around it.
+	view.show_world(WorldData.create_centered(32, 16))
+	assert_eq(view.box_frame().bounds, Rect2i(-16, -16, 32, 32))
+
+
+func test_lighting_follows_quality() -> void:
+	var lighting := view.lighting()
+	lighting.apply_quality(GraphicsQuality.Level.LOW)
+	assert_false(lighting.shadows_enabled())
+	assert_false(lighting.vignette_visible())
+	lighting.apply_quality(GraphicsQuality.Level.MEDIUM)
+	assert_true(lighting.shadows_enabled())
+	assert_true(lighting.vignette_visible())
+	# Changing the setting re-applies it.
+	Settings.set_value(GraphicsQuality.SETTING, "low")
+	assert_false(lighting.shadows_enabled())
+	Settings.set_value(GraphicsQuality.SETTING, "high")
+	assert_true(lighting.shadows_enabled())
+	assert_eq(lighting.quality, GraphicsQuality.Level.HIGH)
+	Settings.set_value(GraphicsQuality.SETTING, "auto")
+
+
+func test_table_sits_under_the_box() -> void:
+	var table := view.lighting().table_position()
+	var frame := view.box_frame()
+	assert_near(table.y, frame.bottom_y(), 0.001)
+	assert_near(table.x, frame.outer_rect().get_center().x, 0.001)
+	assert_near(table.z, frame.outer_rect().get_center().y, 0.001)

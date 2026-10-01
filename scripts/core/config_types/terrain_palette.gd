@@ -45,6 +45,12 @@ extends ConfigBase
 @export_range(0.0, 0.2, 0.005) var water_wave_height: float = 0.02
 @export_range(0.0, 1.0, 0.01) var water_foam_amount: float = 0.75
 
+@export_group("Clouds")
+## How much a cloud shadow darkens the ground (0 = no cloud shadows).
+@export_range(0.0, 1.0, 0.01) var cloud_shadow_strength: float = 0.2
+## Rough size of a cloud shadow patch, in tiles.
+@export_range(4.0, 128.0, 1.0) var cloud_size_tiles: float = 18.0
+
 
 func top(terrain: int) -> Color:
 	return top_colors[terrain] if terrain >= 0 and terrain < top_colors.size() else Color.MAGENTA

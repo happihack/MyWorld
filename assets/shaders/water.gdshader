@@ -8,6 +8,8 @@
 shader_type spatial;
 render_mode blend_mix, cull_back, depth_draw_opaque, specular_schlick_ggx;
 
+#include "res://assets/shaders/clouds.gdshaderinc"
+
 uniform vec3 shallow_color : source_color = vec3(0.40, 0.74, 0.86);
 uniform vec3 deep_color : source_color = vec3(0.13, 0.40, 0.68);
 uniform vec3 foam_color : source_color = vec3(0.95, 0.98, 1.0);
@@ -20,10 +22,12 @@ uniform float foam_amount : hint_range(0.0, 1.0) = 0.75;
 
 varying float v_depth;
 varying float v_shore;
+varying float v_cloud;
 
 void vertex() {
 	v_depth = COLOR.r;
 	v_shore = COLOR.g;
+	v_cloud = cloud_light(UV, TIME);
 	float t = TIME * wave_speed;
 	float wave = sin(UV.x * 1.7 + t * 1.3) + sin(UV.y * 2.1 - t);
 	// Open water bobs gently; the shoreline stays put so it never lifts off the bank.
@@ -44,7 +48,7 @@ void fragment() {
 	float foam = smoothstep(0.72, 0.98, v_shore + ripple * 0.10) * foam_amount;
 	color = mix(color, foam_color, foam);
 
-	ALBEDO = color;
+	ALBEDO = color * v_cloud;
 	ROUGHNESS = 0.18;
 	SPECULAR = 0.5;
 	METALLIC = 0.0;
