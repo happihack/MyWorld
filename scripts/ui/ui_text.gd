@@ -40,6 +40,7 @@ const TOOL_NAMES := {
 	&"hand": "Hand",
 	&"observe": "Observe",
 	&"water": "Water (prototype)",
+	&"call": "Call (prototype)",
 }
 
 const WATER_NAME := "Water"

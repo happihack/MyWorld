@@ -18,6 +18,10 @@ const SPEED_VERY_FAST := 3
 var tick: int = 0
 var speed_index: int = SPEED_NORMAL
 
+## Game minutes (fractions included) the last advance() covered: what
+## systems that move things evenly step by. 0 while paused.
+var last_advance_minutes := 0.0
+
 var _config: TimeConfig
 var _accumulator: float = 0.0 # game minutes not yet turned into ticks
 
@@ -29,9 +33,11 @@ func _init(config: TimeConfig) -> void:
 ## Advances by real elapsed seconds; returns how many ticks elapsed.
 func advance(real_delta: float) -> int:
 	if real_delta <= 0.0 or is_paused():
+		last_advance_minutes = 0.0
 		return 0
 	var clamped := minf(real_delta, _config.max_frame_delta_s)
-	_accumulator += clamped * speed_multiplier() / _config.real_seconds_per_game_minute
+	last_advance_minutes = clamped * speed_multiplier() / _config.real_seconds_per_game_minute
+	_accumulator += last_advance_minutes
 	var ticks := int(_accumulator)
 	_accumulator -= ticks
 	tick += ticks

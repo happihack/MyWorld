@@ -10,6 +10,14 @@ extends ConfigBase
 ## ... and an adult an elder.
 @export_range(1, 150) var elder_from_years: int = 55
 
+@export_group("Walking")
+## Tiles an adult in good health walks per game minute on open ground.
+@export_range(0.05, 5.0, 0.01) var walk_tiles_per_minute: float = 0.45
+## How fast the others walk, as a fraction of that.
+@export_range(0.1, 2.0, 0.01) var walk_factor_child: float = 0.7
+@export_range(0.1, 2.0, 0.01) var walk_factor_adolescent: float = 0.95
+@export_range(0.1, 2.0, 0.01) var walk_factor_elder: float = 0.65
+
 @export_group("Starting band")
 @export_range(1, 40) var band_min_people: int = 6
 @export_range(1, 40) var band_max_people: int = 8
@@ -27,6 +35,17 @@ func stage_for_age(years: int) -> PersonData.LifeStage:
 	if years >= adolescent_from_years:
 		return PersonData.LifeStage.ADOLESCENT
 	return PersonData.LifeStage.CHILD
+
+
+func walk_factor(stage: PersonData.LifeStage) -> float:
+	match stage:
+		PersonData.LifeStage.CHILD:
+			return walk_factor_child
+		PersonData.LifeStage.ADOLESCENT:
+			return walk_factor_adolescent
+		PersonData.LifeStage.ELDER:
+			return walk_factor_elder
+	return 1.0
 
 
 func validate() -> PackedStringArray:

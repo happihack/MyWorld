@@ -7,6 +7,10 @@ extends RefCounted
 ## (`modified`) are saved, and unmodified chunks may be dropped at any time.
 ## Out-of-bounds reads return safe defaults; out-of-bounds writes are ignored.
 
+## The height or kind of ground of a tile was changed (not its water: moving
+## water is reported by WaterSim, in bulk).
+signal ground_changed(tile: Vector2i)
+
 ## Fallback generator for tests / missing generator: empty flat chunks.
 const DEFAULT_HEIGHT := 0
 
@@ -128,6 +132,7 @@ func set_height(tile: Vector2i, level: int) -> void:
 	var chunk := _chunk_for(tile)
 	if chunk != null:
 		chunk.set_height(WorldCoords.tile_to_index(tile, chunk_size), level)
+		ground_changed.emit(tile)
 
 
 func get_terrain(tile: Vector2i) -> ChunkData.Terrain:
@@ -141,6 +146,7 @@ func set_terrain(tile: Vector2i, type: ChunkData.Terrain) -> void:
 	var chunk := _chunk_for(tile)
 	if chunk != null:
 		chunk.set_terrain(WorldCoords.tile_to_index(tile, chunk_size), type)
+		ground_changed.emit(tile)
 
 
 func get_water(tile: Vector2i) -> float:

@@ -55,6 +55,11 @@ func _ready() -> void:
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
 	debug_overlay.register_section(&"people", _people_debug_section)
+	debug_overlay.register_section(&"paths", func() -> String:
+		var finder := session.pathfinder
+		return "paths: %d walking  %d queued  %d found  %d from cache  %.2f ms last  serve %.2f ms" % [
+			session.movement.walking_count(), finder.queue_size(), finder.paths_found, finder.cache_hits,
+			finder.last_path_usec / 1000.0, finder.last_serve_usec / 1000.0])
 	debug_overlay.register_section(&"history", func() -> String:
 		var history := session.history
 		return "history %d interventions  %d remembered" % [history.total(), history.entry_count()])

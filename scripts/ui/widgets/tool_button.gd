@@ -49,6 +49,8 @@ func _draw() -> void:
 			_draw_eye(center, u, ink)
 		WaterTool.ID:
 			_draw_drop(center, u, ink)
+		CallTool.ID:
+			_draw_flag(center, u, ink)
 		_:
 			draw_circle(center, u * 0.5, ink)
 
@@ -70,6 +72,19 @@ func _draw_hand(center: Vector2, u: float, ink: Color) -> void:
 	var tip := center + Vector2(u * 1.3, -u * 0.1)
 	draw_line(base, tip, ink, finger_width * 1.05, true)
 	draw_circle(tip, finger_width * 0.52, ink)
+
+
+## A flag on a pole: "come here".
+func _draw_flag(center: Vector2, u: float, ink: Color) -> void:
+	var foot := center + Vector2(-u * 0.55, u * 1.2)
+	var top := center + Vector2(-u * 0.55, -u * 1.2)
+	draw_line(foot, top, ink, maxf(u * 0.2, 3.0), true)
+	draw_colored_polygon(PackedVector2Array([
+		top,
+		top + Vector2(u * 1.5, u * 0.5),
+		top + Vector2(0.0, u * 1.0),
+	]), ink)
+	draw_circle(foot, u * 0.22, ink)
 
 
 ## A drop of water.

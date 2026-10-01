@@ -53,6 +53,10 @@ var people: PersonRegistry
 var names: NameGenerator
 ## What people can do with their days (data/occupations).
 var occupations: OccupationLibrary
+## Finds ways across the world on foot.
+var pathfinder: Pathfinder
+## Walks people along those ways.
+var movement: MovementSystem
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 
 
@@ -67,6 +71,8 @@ func _init() -> void:
 	water.name = "WaterSim"
 	add_child(water)
 	water.tiles_changed.connect(loose_system.on_water_changed)
+	pathfinder = Pathfinder.new()
+	movement = MovementSystem.new()
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -166,6 +172,7 @@ func shutdown() -> void:
 		return
 	about_to_close.emit()
 	is_active = false
+	movement.stop_all()
 	clock.speed_changed.disconnect(_on_speed_changed)
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
 	EventBus.world_unloaded.emit()
@@ -179,6 +186,8 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if is_active:
 		clock.advance(delta)
+		pathfinder.serve(int(Config.perf.path_budget_ms_per_frame * 1000.0))
+		movement.step(clock.last_advance_minutes)
 
 
 ## Generates terrain, props and the starting settlement for `world_seed`.
@@ -317,6 +326,8 @@ func _activate() -> void:
 	if start != null and start.campfire_id != 0:
 		settlement = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
 	interactions.bind_session(water, clock, history, settlement)
+	pathfinder.bind(world, props, loose, water)
+	movement.bind(people, pathfinder, clock)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)
