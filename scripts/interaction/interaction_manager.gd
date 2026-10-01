@@ -70,6 +70,9 @@ var _rng: RngStreams
 var _water: WaterSim
 var _clock: GameClock
 var _settlement := Vector2.INF
+var _people: PersonRegistry
+## How tall a person is taken to be where the manager has no view to ask.
+const PERSON_HEIGHT := 0.5
 var _shakes: Dictionary = {} # tree id -> shakes since the world was opened
 var _in_hand: Dictionary = {} # object id -> where it was picked up (Vector2)
 var _awaiting_rest: Dictionary = {} # object id -> true: moved by the player, still on its way
@@ -107,6 +110,11 @@ func bind_session(water: WaterSim, clock: GameClock, saved_history: PlayerHistor
 	_settlement = settlement
 	if saved_history != null:
 		history = saved_history
+
+
+## The people of the world: they can be touched too.
+func bind_people(people: PersonRegistry) -> void:
+	_people = people
 
 
 # --- the choke point ----------------------------------------------------------------------
@@ -250,7 +258,11 @@ func _do_touch(iv: Intervention) -> bool:
 		return false
 	if not _admit(iv, subject_of(response), Intervention.Severity.GENTLE):
 		return false
-	if response.prop_kind == PropData.Kind.TREE:
+	if response.person_id != 0:
+		var touched := _people.get_person(response.person_id)
+		if touched != null:
+			touched.set_flag(PersonData.FLAG_TOUCHED_BY_PLAYER, true)
+	elif response.prop_kind == PropData.Kind.TREE:
 		_shake_tree(response)
 	elif response.effect == InteractionResponse.RIPPLE:
 		_disturb_water(response)
@@ -367,6 +379,8 @@ func _on_object_settled(id: int) -> void:
 
 ## What a touch landed on, as the history names it: "tree", "water", "rock", ...
 static func subject_of(response: InteractionResponse) -> StringName:
+	if response.person_id != 0:
+		return &"person"
 	if response.loose_kind >= 0:
 		return loose_subject(response.loose_kind)
 	if response.prop_kind >= 0:
@@ -481,11 +495,23 @@ func _respond(target: Picker.Result, action: InteractionResponse.Action, announc
 
 	var prop: PropData = null
 	var object: LooseObject = null
+	var person: PersonData = null
 	if target.kind == Picker.Kind.ENTITY:
 		prop = _props.get_prop(target.entity_id) if _props != null else null
 		object = _loose.get_object(target.entity_id) if _loose != null and prop == null else null
+		person = _people.get_person(target.entity_id) if _people != null and prop == null and object == null else null
 
-	if object != null:
+	if person != null:
+		var at := person.world2d()
+		response.entity_id = person.id
+		response.person_id = person.id
+		response.tile = person.position
+		response.terrain = _world.get_terrain(response.tile)
+		response.position = Vector3(at.x, _world.get_height(person.position) * _world.height_step, at.y)
+		response.body = Vector2(PERSON_HEIGHT, PERSON_HEIGHT * 0.4)
+		response.effect = InteractionResponse.PERSON_TOUCH
+		response.description = "PERSON %s at %s" % [person.given_name, person.position]
+	elif object != null:
 		response.entity_id = object.id
 		response.loose_kind = object.kind
 		response.strength = object.give()

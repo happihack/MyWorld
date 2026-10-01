@@ -372,6 +372,7 @@ func _activate() -> void:
 	if start != null and start.campfire_id != 0:
 		settlement = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
 	interactions.bind_session(water, clock, history, settlement)
+	interactions.bind_people(people)
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
 	if activities == null:

@@ -10,6 +10,16 @@ extends Node3D
 
 const VIEW_SCENE := preload("res://scenes/people/person_view.tscn")
 const PERSON_SHADER := preload("res://assets/shaders/person.gdshader")
+const OUTLINE_SHADER := preload("res://assets/shaders/person_outline.gdshader")
+## The ring under the selected person: its radius in the world, and the
+## smallest it gets on screen (viewport units) — it is how they are found.
+const RING_RADIUS := 0.34
+const RING_MIN_ON_SCREEN := 20.0
+const RING_COLOR := Color(1.0, 0.86, 0.45, 0.95)
+const RING_LIFT := 0.04
+## The dots of an observed person's way.
+const TRAIL_DOT := 0.09
+const TRAIL_COLOR := Color(1.0, 0.92, 0.66, 0.85)
 
 ## How tall a grown person is on screen (viewport units) decides what is drawn:
 ## bodies down to BODY_MIN, markers fading in from MARKER_START to MARKER_FULL.
@@ -35,6 +45,8 @@ var reduced_motion := false:
 	set(value):
 		reduced_motion = value
 		_body_material.set_shader_parameter(&"motion", REDUCED_MOTION if value else 1.0)
+		_selected_material.set_shader_parameter(&"motion", REDUCED_MOTION if value else 1.0)
+		_outline_material.set_shader_parameter(&"motion", REDUCED_MOTION if value else 1.0)
 
 var _world: WorldData
 var _people: PersonRegistry
@@ -49,6 +61,12 @@ var _markers: MultiMeshInstance3D
 var _marker_material: StandardMaterial3D
 var _ids: Array[int] = []
 var _marker_alpha := 0.0
+## The body material with the outline pass after it: the selected person's.
+var _selected_material: ShaderMaterial
+var _outline_material: ShaderMaterial
+var _selected_id := 0
+var _ring: MeshInstance3D
+var _trail: MultiMeshInstance3D
 var _marker_transforms: Array[Transform3D] = [] # as written to the MultiMesh (for queries)
 var _bodies_shown := true
 var _refreshes := 0
@@ -57,6 +75,11 @@ var _refreshes := 0
 func _init() -> void:
 	_body_material = ShaderMaterial.new()
 	_body_material.shader = PERSON_SHADER
+	_outline_material = ShaderMaterial.new()
+	_outline_material.shader = OUTLINE_SHADER
+	_selected_material = ShaderMaterial.new()
+	_selected_material.shader = PERSON_SHADER
+	_selected_material.next_pass = _outline_material
 	_shadow_material = StandardMaterial3D.new()
 	_shadow_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_shadow_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -67,6 +90,7 @@ func _init() -> void:
 	_pool.name = "Views"
 	add_child(_pool)
 	_build_markers()
+	_build_selection()
 
 
 ## `rig` is the camera people are seen through; `accessory_material` draws what
@@ -79,6 +103,52 @@ func setup(rig: CameraRig, accessory_material: Material) -> void:
 ## Pushes the cloud-shadow look into the body material (see WorldView.apply_palette).
 func body_material() -> ShaderMaterial:
 	return _body_material
+
+
+## The same material with the outline after it (the selected person's).
+func selected_material() -> ShaderMaterial:
+	return _selected_material
+
+
+# --- selection ----------------------------------------------------------------------------------
+
+## Marks a person as the one the player has selected (0 = nobody): a ring
+## under their feet, an outline around their body.
+func set_selected(person_id: int) -> void:
+	_selected_id = person_id
+	if person_id == 0:
+		_ring.visible = false
+
+
+func selected_id() -> int:
+	return _selected_id
+
+
+## Is the ring showing, and where?
+func ring_shown() -> bool:
+	return _ring.visible
+
+
+func ring_position() -> Vector3:
+	return _ring.position
+
+
+## Shows a way on the ground as a row of dots (an observed person's path);
+## an empty list takes it away.
+func show_trail(points: PackedVector3Array) -> void:
+	var multimesh := _trail.multimesh
+	if multimesh.instance_count < points.size():
+		multimesh.instance_count = maxi(points.size(), multimesh.instance_count * 2)
+	for i in points.size():
+		# The last dot — where they are going — is larger.
+		var dot := TRAIL_DOT * (2.0 if i == points.size() - 1 else 1.0)
+		multimesh.set_instance_transform(i, Transform3D(Basis.from_scale(Vector3(dot, 1.0, dot)), points[i] + Vector3(0, RING_LIFT, 0)))
+	multimesh.visible_instance_count = points.size()
+	_trail.visible = not points.is_empty()
+
+
+func trail_size() -> int:
+	return _trail.multimesh.visible_instance_count if _trail.visible else 0
 
 
 ## Shows the people of `registry`, replacing whoever was shown before.
@@ -105,6 +175,9 @@ func clear() -> void:
 	for view in _pool.get_children():
 		(view as PersonView).unbind()
 	_ids.clear()
+	_selected_id = 0
+	_ring.visible = false
+	show_trail(PackedVector3Array())
 	_markers.multimesh.visible_instance_count = 0
 	_markers.visible = false
 	_marker_transforms.clear()
@@ -164,6 +237,7 @@ func refresh(delta: float) -> void:
 			if view != null:
 				view.advance(delta, feet, person.facing)
 				view.set_pose(person.pose)
+				view.set_selected(id == _selected_id, _body_material, _selected_material)
 		elif view != null:
 			view.unbind()
 			_pool.release(id)
@@ -180,6 +254,17 @@ func refresh(delta: float) -> void:
 	multimesh.visible_instance_count = marked
 	_markers.visible = marked > 0
 	_marker_material.albedo_color.a = _marker_alpha
+	# The ring under whoever is selected: with their body, or where they are
+	# if they have none (far away) — and never smaller than can be seen.
+	var chosen := _people.get_person(_selected_id) if _selected_id != 0 else null
+	if chosen == null or chosen.has_flag(PersonData.FLAG_INDOORS):
+		_ring.visible = false
+	else:
+		var body := _pool.view_of(_selected_id) as PersonView
+		_ring.position = (body.position if body != null else ground_position(chosen)) + Vector3(0, RING_LIFT, 0)
+		var radius := maxf(RING_RADIUS, RING_MIN_ON_SCREEN * units_per_px)
+		_ring.scale = Vector3(radius, 1.0, radius)
+		_ring.visible = true
 
 
 ## The body a finger can hit (Vector2(height, radius), see Picker), or null
@@ -259,6 +344,58 @@ func _on_person_removed(id: int) -> void:
 	if view != null:
 		view.unbind()
 		_pool.release(id)
+
+
+## A round dot with a crisp edge (white; the material colours it).
+static func trail_dot_texture() -> GradientTexture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.82, 1.0])
+	gradient.colors = PackedColorArray([Color.WHITE, Color.WHITE, Color(1, 1, 1, 0)])
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.width = 32
+	texture.height = 32
+	return texture
+
+
+func _build_selection() -> void:
+	var ring_material := StandardMaterial3D.new()
+	ring_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	ring_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ring_material.albedo_color = RING_COLOR
+	ring_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	ring_material.render_priority = 2
+	_ring = MeshInstance3D.new()
+	_ring.name = "SelectionRing"
+	_ring.mesh = PickHighlight._ring_mesh()
+	_ring.material_override = ring_material
+	_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ring.visible = false
+	add_child(_ring)
+	var dot_material := StandardMaterial3D.new()
+	dot_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dot_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	dot_material.albedo_texture = trail_dot_texture()
+	dot_material.albedo_color = TRAIL_COLOR
+	dot_material.render_priority = 1
+	var dot := PlaneMesh.new()
+	dot.size = Vector2(2.0, 2.0)
+	var dots := MultiMesh.new()
+	dots.transform_format = MultiMesh.TRANSFORM_3D
+	dots.mesh = dot
+	dots.instance_count = 64
+	dots.visible_instance_count = 0
+	_trail = MultiMeshInstance3D.new()
+	_trail.name = "Trail"
+	_trail.multimesh = dots
+	_trail.material_override = dot_material
+	_trail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_trail.custom_aabb = AABB(Vector3(-4096, -64, -4096), Vector3(8192, 256, 8192))
+	_trail.visible = false
+	add_child(_trail)
 
 
 func _build_markers() -> void:

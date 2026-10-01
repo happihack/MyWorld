@@ -26,6 +26,11 @@ var _last_pick := "-"
 var _tap_closed_menu := false
 ## The player has touched the world: the camera is theirs, no opening glide.
 var _player_has_touched := false
+## The person the player has selected (0 = nobody): their card is open, they
+## are ringed in the world and simulated most closely.
+var _selected_id := 0
+## The selected person is being observed: the way they are going is shown.
+var _observing := false
 ## People at work are heard and seen at most this often (real time).
 const WORK_EFFECT_GAP_MSEC := 350
 var _last_work_effect_msec := 0
@@ -45,6 +50,11 @@ func _ready() -> void:
 	session.loose_system.landed.connect(_on_object_landed)
 	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
+	ui_root.person_action.connect(_on_person_action)
+	ui_root.person_chosen.connect(_on_person_chosen)
+	ui_root.person_card_closed.connect(_on_person_card_closed)
+	session.people.person_removed.connect(_on_person_removed)
+	_refresh_pins()
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
@@ -80,15 +90,19 @@ func _process(_delta: float) -> void:
 	# Whoever the player is looking at is simulated most closely.
 	var pivot := world_view.camera_rig().pivot()
 	session.simulation.tiers.look_at(Vector2(pivot.x, pivot.z))
-	# The inspector is part of the debug overlay; whoever it shows is marked.
+	if _observing:
+		world_view.people_view().show_trail(_way_of(_selected_id))
+	# The inspector is part of the debug overlay; it shows whoever is selected.
 	var debugging := debug_overlay.is_shown()
-	if inspector.visible != debugging:
-		inspector.visible = debugging
-		if not debugging:
-			inspector.clear()
-	var inspected := session.people.get_person(inspector.inspected_id()) if debugging and session.is_active else null
-	if inspected != null and not inspected.has_flag(PersonData.FLAG_INDOORS):
-		world_view.pick_highlight().show_entity(world_view.people_view().ground_position(inspected), 0.3)
+	inspector.visible = debugging
+	if debugging:
+		if inspector.inspected_id() != _selected_id:
+			if _selected_id == 0:
+				inspector.clear()
+			else:
+				inspector.inspect(_selected_id)
+		var card := ui_root.person_card()
+		inspector.set_bottom_margin(AiInspector.BOTTOM_MARGIN + (card.size.y + 20.0 if card != null else 0.0))
 
 
 func _exit_tree() -> void:
@@ -103,6 +117,7 @@ func _setup_inspector() -> void:
 	inspector.visible = debug_overlay.is_shown()
 	inspector.spawn_requested.connect(_on_spawn_requested)
 	inspector.kill_requested.connect(func(person_id: int) -> void: session.kill_person(person_id))
+	inspector.dismissed.connect(clear_selection)
 
 
 ## Debug: a newcomer appears where the player is looking.
@@ -110,7 +125,143 @@ func _on_spawn_requested() -> void:
 	var pivot := world_view.camera_rig().pivot()
 	var person := session.spawn_person(WorldCoords.world2d_to_tile(Vector2(pivot.x, pivot.z)))
 	if person != null:
-		inspector.inspect(person.id)
+		select_person(person.id)
+
+
+# --- the selected person ------------------------------------------------------------------------
+
+## Selects a person: their card opens (at least at `card_state`), they are
+## ringed in the world and come into the player's focus. False if there is
+## no such person.
+func select_person(person_id: int, card_state: PersonCard.State = PersonCard.State.PEEK) -> bool:
+	if not session.is_active or not session.people.has_person(person_id):
+		return false
+	if person_id != _selected_id:
+		_selected_id = person_id
+		_observing = false
+		world_view.people_view().show_trail(PackedVector3Array())
+		world_view.people_view().set_selected(person_id)
+		EventBus.person_selected.emit(person_id)
+	var card := ui_root.open_person_card(session, person_id, card_state)
+	card.set_observing(_observing)
+	return true
+
+
+## Nobody is selected any more.
+func clear_selection() -> void:
+	if _selected_id == 0:
+		return
+	_selected_id = 0
+	_observing = false
+	world_view.people_view().set_selected(0)
+	world_view.people_view().show_trail(PackedVector3Array())
+	EventBus.person_selected.emit(-1)
+	var card := ui_root.person_card()
+	if card != null:
+		card.close()
+
+
+func selected_person_id() -> int:
+	return _selected_id
+
+
+func is_observing() -> bool:
+	return _observing
+
+
+## Looks at a person, no further away than the settlement is seen from.
+func focus_on_person(person_id: int) -> void:
+	var person := session.people.get_person(person_id)
+	if person == null:
+		return
+	var rig := world_view.camera_rig()
+	rig.focus_on(world_view.people_view().ground_position(person), minf(rig.distance(), Config.camera.home_distance))
+
+
+## The id of the person a pick found (0 if it found something else).
+func _person_in(target: Picker.Result) -> int:
+	if target != null and target.kind == Picker.Kind.ENTITY and session.people.has_person(target.entity_id):
+		return target.entity_id
+	return 0
+
+
+## Touches a person as a finger on them would.
+func _touch_person(person_id: int) -> void:
+	var person := session.people.get_person(person_id)
+	if person == null:
+		return
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = person_id
+	target.entity_kind = SpatialIndex.KIND_PERSON
+	target.tile = person.position
+	target.position = world_view.people_view().ground_position(person)
+	target.direct = true
+	_note_pick(target, session.interactions.tap(target, tools.current_id()))
+
+
+## The way a walking person still has to go, as points on the ground.
+func _way_of(person_id: int) -> PackedVector3Array:
+	var points := PackedVector3Array()
+	if person_id == 0 or not session.is_active:
+		return points
+	var world := session.world
+	for tile: Vector2i in session.movement.remaining_path(person_id):
+		points.append(Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step, tile.y + 0.5))
+	return points
+
+
+func _on_person_action(action: StringName, person_id: int) -> void:
+	var person := session.people.get_person(person_id)
+	if person == null:
+		return
+	match action:
+		PersonCard.ACTION_OBSERVE:
+			_observing = not _observing and person_id == _selected_id
+			if not _observing:
+				world_view.people_view().show_trail(PackedVector3Array())
+			var card := ui_root.person_card()
+			if card != null:
+				card.set_observing(_observing)
+		PersonCard.ACTION_TOUCH:
+			_touch_person(person_id)
+		PersonCard.ACTION_FOCUS:
+			focus_on_person(person_id)
+		PersonCard.ACTION_MARK:
+			person.set_flag(PersonData.FLAG_MARKED_IMPORTANT, not person.has_flag(PersonData.FLAG_MARKED_IMPORTANT))
+			SaveManager.note_world_changed()
+			_refresh_pins()
+			var card := ui_root.person_card()
+			if card != null:
+				card.refresh()
+
+
+## A person was picked in the UI (family on a card, a marked name): go to them.
+func _on_person_chosen(person_id: int) -> void:
+	var card := ui_root.person_card()
+	if select_person(person_id, card.state() if card != null else PersonCard.State.PEEK):
+		focus_on_person(person_id)
+
+
+func _on_person_card_closed(person_id: int) -> void:
+	if person_id == _selected_id:
+		clear_selection()
+
+
+func _on_person_removed(person_id: int) -> void:
+	if person_id == _selected_id:
+		clear_selection()
+	_refresh_pins()
+
+
+## The names of the people marked as important, at the edge of the screen.
+func _refresh_pins() -> void:
+	var marked: Array = []
+	for person: PersonData in session.people.all_people():
+		if person.has_flag(PersonData.FLAG_MARKED_IMPORTANT):
+			marked.append([person.id, person.given_name])
+	marked.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	ui_root.pins().set_people(marked)
 
 
 func _setup_tools() -> void:
@@ -148,13 +299,16 @@ func _on_gesture(gesture: Gesture) -> void:
 			if _tap_closed_menu:
 				_tap_closed_menu = false
 				return # that tap only put the menu away
-			# Debug: with the overlay up, a tap on a person inspects them.
-			if debug_overlay.is_shown():
-				var person_id := world_view.pick_person(gesture.position,
-					Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp)
-				if person_id != 0 and inspector.inspect(person_id):
-					return
 			var target := pick_at(gesture.position)
+			# A tap on a person selects them. The hand touches them as well;
+			# looking (Observe) does not.
+			var tapped := _person_in(target)
+			if tapped != 0 and (tools.current_id() == HandTool.ID or tools.current_id() == ObserveTool.ID):
+				if tools.current_id() == HandTool.ID:
+					_note_pick(target, tools.tap(target))
+				select_person(tapped)
+				world_view.pick_highlight().clear()
+				return
 			var response := tools.tap(target)
 			if response != null or tools.current_id() == HandTool.ID:
 				_note_pick(target, response)
@@ -164,6 +318,10 @@ func _on_gesture(gesture: Gesture) -> void:
 				world_view.pick_highlight().clear()
 		Gesture.Type.LONG_PRESS:
 			var target := pick_at(gesture.position)
+			# A press on a person opens their card with what can be done.
+			if _person_in(target) != 0:
+				select_person(_person_in(target), PersonCard.State.HALF)
+				return
 			var what := session.interactions.long_press(target)
 			_note_pick(target, what)
 			if what == null:
@@ -176,6 +334,11 @@ func _on_gesture(gesture: Gesture) -> void:
 		Gesture.Type.DOUBLE_TAP:
 			var target := pick_at(gesture.position)
 			var tool := tools.current()
+			# On a person: look at them (the first tap has already said hello).
+			if _person_in(target) != 0 and tool.double_tap_moves_camera():
+				select_person(_person_in(target))
+				focus_on_person(_person_in(target))
+				return
 			if tool.double_tap_moves_camera():
 				# On a thing: look at it. On open ground or water: zoom toward it.
 				var what := session.interactions.describe(target)

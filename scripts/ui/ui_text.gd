@@ -91,6 +91,16 @@ const NEED_WORDS := {
 	&"safety": "uneasy",
 }
 
+## What a need is called on a person's card (ids from Needs).
+const NEED_LABELS := {
+	&"hunger": "Food",
+	&"thirst": "Water",
+	&"sleep": "Rest",
+	&"social": "Company",
+	&"purpose": "Purpose",
+	&"safety": "Safety",
+}
+
 const LIFE_STAGE_NAMES := {
 	PersonData.LifeStage.CHILD: "Child",
 	PersonData.LifeStage.ADOLESCENT: "Youth",
@@ -123,6 +133,43 @@ static func activity_phrase(activity: StringName, reason: StringName = &"") -> S
 	if activity == &"":
 		return ""
 	return "%s — %s" % [what, NEED_WORDS[reason]] if NEED_WORDS.has(reason) else what
+
+
+static func need_label(need_name: StringName) -> String:
+	return NEED_LABELS.get(need_name, String(need_name).capitalize())
+
+
+static func age_text(years: int) -> String:
+	if years <= 0:
+		return "A baby"
+	return "1 year" if years == 1 else "%d years" % years
+
+
+## How someone feels, in a word (mood and stress: 0 … 1, see Needs).
+static func mood_word(mood: float, stress: float = 0.0) -> String:
+	if stress >= 0.75:
+		return "Desperate"
+	if stress >= 0.4:
+		return "Strained"
+	if mood >= 0.8:
+		return "Content"
+	if mood >= 0.62:
+		return "At ease"
+	if mood >= 0.45:
+		return "Restless"
+	return "Troubled"
+
+
+## What someone is to the person whose card is shown: `relation` is
+## &"partner", &"parent" or &"child"; `sex` is theirs (PersonData.Sex).
+static func relation_word(relation: StringName, sex: int) -> String:
+	var woman := sex == PersonData.Sex.FEMALE
+	match relation:
+		&"parent":
+			return "Mother" if woman else "Father"
+		&"child":
+			return "Daughter" if woman else "Son"
+	return "Partner"
 
 
 static func life_stage_name(stage: int) -> String:
@@ -185,6 +232,8 @@ static func subject_name(what: InteractionResponse) -> String:
 		return ""
 	if what.loose_kind >= 0:
 		return loose_name(what.loose_kind)
+	if what.person_id != 0:
+		return "Someone"
 	if what.is_entity():
 		return prop_name(what.prop_kind, what.prop_variant)
 	if what.touch_effect == InteractionResponse.RIPPLE:

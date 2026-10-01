@@ -6,12 +6,13 @@ extends PanelContainer
 ## take them out of it.
 ##
 ## Lives on the debug overlay's layer and is only there while the overlay is
-## shown. The person is chosen by tapping them (see Main); while inspected
-## they are in the player's focus (tier 4).
+## shown. It shows whoever the player has selected (see Main).
 
 ## Bring a newcomer into the world / take this person out of it.
 signal spawn_requested
 signal kill_requested(person_id: int)
+## The player closed the inspector on this person (its X).
+signal dismissed
 
 const REFRESH_INTERVAL_S := 0.25
 const FONT_SIZE := 22
@@ -35,7 +36,7 @@ func _init() -> void:
 	name = "AiInspector"
 	add_to_group(InputRouter.UI_BLOCKER_GROUP) # touches here never reach the world
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0, 0, 0, 0.62)
+	style.bg_color = Color(0, 0, 0, 0.86) # (it may lie over the overlay's own text)
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(12)
 	add_theme_stylebox_override(&"panel", style)
@@ -49,7 +50,9 @@ func _init() -> void:
 	_buttons[&"spawn"] = _button(row, "Spawn", func() -> void: spawn_requested.emit())
 	_think = _button(row, "Think", _on_think)
 	_kill = _button(row, "Kill", func() -> void: kill_requested.emit(_person_id))
-	_close = _button(row, "X", clear)
+	_close = _button(row, "X", func() -> void:
+		clear()
+		dismissed.emit())
 	_buttons[&"think"] = _think
 	_buttons[&"kill"] = _kill
 	_buttons[&"close"] = _close
@@ -89,22 +92,27 @@ func bind(session: WorldSession) -> void:
 	refresh()
 
 
-## Shows this person (and puts them in the player's focus).
+## Shows this person.
 func inspect(person_id: int) -> bool:
 	if _session == null or not _session.is_active or not _session.people.has_person(person_id):
 		return false
 	_person_id = person_id
-	EventBus.person_selected.emit(person_id)
 	refresh()
 	return true
 
 
 ## Stops inspecting anyone.
 func clear() -> void:
-	if _person_id != 0:
-		_person_id = 0
-		EventBus.person_selected.emit(-1)
+	_person_id = 0
 	refresh()
+
+
+## Ends this far above the bottom of the screen (clear of the tool bar, and
+## of a person's card when one is open).
+func set_bottom_margin(margin: float) -> void:
+	if not is_equal_approx(offset_bottom, -margin):
+		offset_bottom = -margin
+		offset_top = -margin
 
 
 ## Who is being inspected (0 = nobody).
@@ -136,7 +144,6 @@ func refresh() -> void:
 	var person := _session.people.get_person(_person_id) if _session != null and _session.is_active and _person_id != 0 else null
 	if person == null and _person_id != 0:
 		_person_id = 0 # they are gone
-		EventBus.person_selected.emit(-1)
 	_think.visible = person != null
 	_kill.visible = person != null
 	_close.visible = person != null

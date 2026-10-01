@@ -26,6 +26,7 @@ const REDUCED_MOTION_SCALE := 0.35
 
 const WATER_RING := Color(0.93, 0.98, 1.0, 0.85)
 const RUIN_RING := Color(0.62, 0.95, 0.90, 0.75)
+const PERSON_RING := Color(1.0, 0.90, 0.62, 0.8)
 const RUIN_MOTE := Color(0.70, 1.0, 0.92)
 const SPLASH := Color(0.90, 0.96, 1.0)
 const SPARK := Color(1.0, 0.62, 0.18)
@@ -172,6 +173,9 @@ func play(response: InteractionResponse) -> void:
 			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.7, 0.0), LEAF_FALL)
 			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.4, 0.0), LEAF_FALL)
 			burst(Burst.DUST, at + Vector3(0.0, 0.08, 0.0), dust_color(ChunkData.Terrain.DIRT))
+		InteractionResponse.PERSON_TOUCH:
+			# The touch itself, made visible; what the person makes of it is theirs.
+			ring(at, 0.55, 0.7, PERSON_RING)
 		InteractionResponse.RUIN_HUM:
 			_shake(response)
 			ring(at, 1.5, 1.6, RUIN_RING)

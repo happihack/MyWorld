@@ -227,11 +227,16 @@ func test_selecting_someone_puts_them_in_focus() -> void:
 	var people := session.people.all_people()
 	EventBus.person_selected.emit(people[0].id)
 	assert_eq(people[0].sim_tier, TierManager.FOCUS)
+	# One person is selected at a time; the focus has room for one more (someone followed).
+	sim.tiers.focus(people[2].id)
 	EventBus.person_selected.emit(people[1].id)
 	EventBus.person_selected.emit(people[3].id)
-	assert_eq(sim.tiers.focused(), [people[1].id, people[3].id] as Array[int], "the focus holds two; the oldest gives way")
+	assert_eq(sim.tiers.focused(), [people[2].id, people[3].id] as Array[int], "whoever was selected is let go; others in focus stay")
 	assert_eq(people[0].sim_tier, TierManager.ACTIVE)
+	assert_eq(people[1].sim_tier, TierManager.ACTIVE)
 	EventBus.person_selected.emit(-1)
+	assert_eq(sim.tiers.focused(), [people[2].id] as Array[int])
+	sim.tiers.unfocus()
 	assert_eq(sim.tiers.focused().size(), 0)
 	# Someone in focus who leaves the world leaves the focus.
 	sim.tiers.focus(people[4].id)

@@ -183,9 +183,8 @@ func pick(screen: Vector2, touch_radius: float, kind_mask: int = SpatialIndex.KI
 	return Picker.pick(screen, _rig, _world, spatial, _pick_shape, touch_radius, kind_mask)
 
 
-## The person under a screen position (0 if there is none). People are not
-## among the things pick() finds until they can be touched (M5); this is for
-## whoever wants a person in particular (the debug inspector).
+## The person under a screen position (0 if there is none): for whoever
+## wants a person in particular, whatever else is under the finger.
 func pick_person(screen: Vector2, touch_radius: float) -> int:
 	if _world == null or _props == null or _props.spatial_index == null:
 		return 0
@@ -199,6 +198,8 @@ func _pick_shape(id: int) -> Variant:
 	var shape: Variant = _props.pick_shape(id) if _props != null else null
 	if shape == null and _loose != null:
 		shape = _loose.pick_shape(id)
+	if shape == null:
+		shape = _people_view.pick_shape(id)
 	return shape
 
 
@@ -316,7 +317,8 @@ func apply_palette(palette: TerrainPalette) -> void:
 	_water_material.set_shader_parameter(&"opacity_deep", palette.water_opacity_deep)
 	_water_material.set_shader_parameter(&"wave_height", palette.water_wave_height)
 	_water_material.set_shader_parameter(&"foam_amount", palette.water_foam_amount)
-	for material: ShaderMaterial in [_terrain_material, _water_material, _prop_material, _people_view.body_material()]:
+	for material: ShaderMaterial in [_terrain_material, _water_material, _prop_material, _people_view.body_material(),
+			_people_view.selected_material()]:
 		material.set_shader_parameter(&"cloud_strength", palette.cloud_shadow_strength)
 		material.set_shader_parameter(&"cloud_scale", 1.0 / maxf(palette.cloud_size_tiles, 1.0))
 

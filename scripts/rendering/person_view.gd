@@ -95,6 +95,18 @@ func dress(person: PersonData, now_tick: int, ticks_per_year: int, config: Peopl
 	_accessory.visible = _accessory.mesh != null
 
 
+## Marks the person as the one the player has selected: an outline around
+## the body (the ring under their feet is the PeopleView's).
+func set_selected(selected: bool, plain: Material, outlined: Material) -> void:
+	var wanted := outlined if selected else plain
+	if _body.material_override != wanted:
+		_body.material_override = wanted
+
+
+func is_outlined(outlined: Material) -> bool:
+	return _body.material_override == outlined
+
+
 ## Shows what the person is busy with.
 func set_pose(pose: PersonData.Pose) -> void:
 	var busy: float = BUSY.get(pose, 0.0)

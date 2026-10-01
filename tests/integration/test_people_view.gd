@@ -502,14 +502,102 @@ func test_reduced_motion_calms_the_bodies() -> void:
 	assert_near(float(material.get_shader_parameter(&"cloud_strength")), Config.terrain_palette.cloud_shadow_strength)
 
 
-func test_people_cannot_be_picked_yet() -> void:
-	# Touching people is M5: until then a finger on a person touches the ground.
+func test_a_finger_on_a_person_finds_them() -> void:
 	_look_at(_home(), 12.0)
 	var person := _with(&"woodcutter")
 	var at := people_view.ground_position(person) + Vector3(0, PersonMeshLibrary.ADULT_HEIGHT * 0.5, 0)
 	var result := view.pick(rig.world_to_screen(at), 24.0)
-	assert_true(result.is_hit())
-	assert_ne(result.entity_id, person.id)
+	assert_eq(result.kind, Picker.Kind.ENTITY)
+	assert_eq(result.entity_id, person.id)
+	assert_eq(result.entity_kind, SpatialIndex.KIND_PERSON)
+	# The hand's grip reaches only for loose things.
+	assert_ne(view.pick(rig.world_to_screen(at), 24.0, SpatialIndex.KIND_LOOSE_OBJECT).entity_id, person.id)
+	# Someone indoors is not there to be touched.
+	person.set_flag(PersonData.FLAG_INDOORS, true)
+	people_view.refresh(0.0)
+	assert_ne(view.pick(rig.world_to_screen(at), 24.0).entity_id, person.id)
+
+
+func test_the_selected_person_is_ringed_and_outlined() -> void:
+	_look_at(_home(), 12.0)
+	var person := _with(&"woodcutter")
+	var other: PersonData = null
+	for p in session.people.all_people():
+		if p.id != person.id and not p.has_flag(PersonData.FLAG_INDOORS):
+			other = p
+	assert_false(people_view.ring_shown())
+	people_view.set_selected(person.id)
+	people_view.refresh(0.0)
+	assert_eq(people_view.selected_id(), person.id)
+	assert_true(people_view.ring_shown())
+	var ring := people_view.ring_position()
+	assert_true(Vector2(ring.x, ring.z).distance_to(person.world2d()) < 0.001, "under their feet")
+	assert_true(ring.y > people_view.ground_position(person).y, "just above the ground")
+	var outlined := people_view.selected_material()
+	assert_true(people_view.view_of(person.id).is_outlined(outlined))
+	assert_false(people_view.view_of(other.id).is_outlined(outlined), "only they")
+	assert_true(outlined.next_pass is ShaderMaterial, "the body, then its outline")
+	assert_true(outlined.shader == people_view.body_material().shader, "the same body under it")
+	# The ring follows them...
+	session.people.place(person, person.position, Vector2(0.3, -0.2), person.facing)
+	_frames(1.0)
+	ring = people_view.ring_position()
+	var body := people_view.view_of(person.id).position
+	assert_true(Vector2(ring.x, ring.z).distance_to(Vector2(body.x, body.z)) < 0.001, "it is under the body, wherever that is drawn")
+	assert_true(Vector2(ring.x, ring.z).distance_to(person.world2d()) < 0.05)
+	# ...stays findable from far away, where they are a marker...
+	var near_scale := (people_view.get_node("SelectionRing") as Node3D).scale.x
+	assert_near(near_scale, PeopleView.RING_RADIUS, 0.001)
+	_look_at(_home(), 200.0)
+	assert_false(people_view.bodies_shown(), "no bodies out here")
+	assert_null(people_view.view_of(person.id))
+	var marked := people_view.ring_position()
+	assert_true(Vector2(marked.x, marked.z).distance_to(person.world2d()) < 0.001, "where they are, body or not")
+	assert_true(people_view.ring_shown())
+	assert_true((people_view.get_node("SelectionRing") as Node3D).scale.x > near_scale * 1.5, "never too small to see")
+	# ...goes indoors with them, and with the selection.
+	_look_at(_home(), 12.0)
+	person.set_flag(PersonData.FLAG_INDOORS, true)
+	people_view.refresh(0.0)
+	assert_false(people_view.ring_shown())
+	person.set_flag(PersonData.FLAG_INDOORS, false)
+	people_view.refresh(0.0)
+	assert_true(people_view.ring_shown())
+	people_view.set_selected(other.id)
+	people_view.refresh(0.0)
+	assert_false(people_view.view_of(person.id).is_outlined(outlined))
+	assert_true(people_view.view_of(other.id).is_outlined(outlined))
+	people_view.set_selected(0)
+	people_view.refresh(0.0)
+	assert_false(people_view.ring_shown())
+	assert_false(people_view.view_of(other.id).is_outlined(outlined))
+	# A view handed on to someone else does not keep the outline.
+	people_view.set_selected(other.id)
+	people_view.refresh(0.0)
+	session.kill_person(other.id)
+	people_view.refresh(0.0)
+	assert_false(people_view.ring_shown(), "gone, and their ring with them")
+	# Reduced motion calms the outline with the body, or it would come off it.
+	people_view.reduced_motion = true
+	assert_eq(outlined.get_shader_parameter(&"motion"), people_view.body_material().get_shader_parameter(&"motion"))
+	assert_eq((outlined.next_pass as ShaderMaterial).get_shader_parameter(&"motion"), people_view.body_material().get_shader_parameter(&"motion"))
+	people_view.reduced_motion = false
+
+
+func test_a_way_is_shown_as_dots() -> void:
+	assert_eq(people_view.trail_size(), 0)
+	var points := PackedVector3Array()
+	for i in 100:
+		points.append(Vector3(i, 1.0, 2.0))
+	people_view.show_trail(points)
+	assert_eq(people_view.trail_size(), 100, "however long")
+	var dots := (people_view.get_node("Trail") as MultiMeshInstance3D).multimesh
+	assert_true(dots.instance_count >= 100)
+	people_view.show_trail(points.slice(0, 3))
+	assert_eq(people_view.trail_size(), 3)
+	people_view.show_trail(PackedVector3Array())
+	assert_eq(people_view.trail_size(), 0)
+	assert_false((people_view.get_node("Trail") as Node3D).visible)
 
 
 func test_the_marker_texture_is_a_rimmed_disc() -> void:

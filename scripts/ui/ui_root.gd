@@ -12,9 +12,16 @@ extends CanvasLayer
 signal home_pressed
 ## The player chose an action in the context menu opened for `target`.
 signal context_action(action: StringName, target: Picker.Result)
+## The player chose to do something with the person on the card (see PersonCard).
+signal person_action(action: StringName, person_id: int)
+## The player picked a person in the UI (family on a card, a marked name).
+signal person_chosen(person_id: int)
+## The card of this person was closed.
+signal person_card_closed(person_id: int)
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
+const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
 const MAX_UI_SCALE := 3.0
@@ -37,6 +44,7 @@ var _panels: Array[UIPanel] = [] # bottom to top
 var _hint_label: HintLabel
 var _hints: HintDirector
 var _tool_bar: ToolBar
+var _pins: PinList
 
 
 func _ready() -> void:
@@ -61,6 +69,12 @@ func _ready() -> void:
 	add_child(_tool_bar)
 	move_child(_tool_bar, _panel_layer.get_index()) # panels draw over the bar
 	_tool_bar.tool_selected.connect(func(_id: StringName) -> void: _tick())
+	_pins = PinList.new()
+	add_child(_pins)
+	move_child(_pins, _panel_layer.get_index()) # panels draw over the list
+	_pins.chosen.connect(func(person_id: int) -> void:
+		_tick()
+		person_chosen.emit(person_id))
 	_hints = HintDirector.new(_hint_label)
 	_hints.name = "HintDirector"
 	add_child(_hints)
@@ -141,12 +155,51 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 	return menu
 
 
+## The names of the people marked as important.
+func pins() -> PinList:
+	return _pins
+
+
+## The card of a person; replaces any card that is already open. If it is
+## their card that is open, it is kept (and raised to `state` if that is
+## higher).
+func open_person_card(session: WorldSession, person_id: int, state: PersonCard.State = PersonCard.State.PEEK) -> PersonCard:
+	var open := person_card()
+	if open != null and open.person_id() == person_id:
+		if state > open.state():
+			open.set_state(state)
+		return open
+	for panel: UIPanel in _panels.duplicate():
+		if panel is InspectCard or panel is PersonCard:
+			panel.close()
+	var card: PersonCard = PERSON_CARD.instantiate()
+	card.setup(session, person_id, state)
+	open_panel(card)
+	card.refresh()
+	card.action.connect(func(action: StringName, id: int) -> void:
+		_tick()
+		person_action.emit(action, id))
+	card.person_chosen.connect(func(id: int) -> void:
+		_tick()
+		person_chosen.emit(id))
+	card.closed.connect(func() -> void: person_card_closed.emit(person_id))
+	return card
+
+
+## The person card that is open (null if none).
+func person_card() -> PersonCard:
+	for panel: UIPanel in _panels:
+		if panel is PersonCard and not panel.is_closing():
+			return panel
+	return null
+
+
 ## Shows the facts about something; replaces a card that is already open.
 func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCard:
 	if report == null:
 		return null
 	for panel: UIPanel in _panels.duplicate():
-		if panel is InspectCard:
+		if panel is InspectCard or panel is PersonCard:
 			panel.close()
 	var card: InspectCard = INSPECT_CARD.instantiate()
 	open_panel(card)

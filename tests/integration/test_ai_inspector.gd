@@ -1,6 +1,7 @@
 extends TestCase
-## The debug AI inspector (M4.6) in the running game: tap a person with the
-## debug overlay up, read what they are doing and why, and the commands.
+## The debug AI inspector (M4.6) in the running game: with the debug overlay
+## up it shows whoever is selected — what they are doing and why — and the
+## commands.
 
 var main: Node
 var ui: UIRoot
@@ -162,12 +163,17 @@ func test_the_inspector_comes_and_goes_with_the_debug_overlay() -> void:
 	assert_false(inspector.button(&"kill").visible, "nobody to kill yet")
 	assert_false(inspector.button(&"think").visible)
 	var person := session.people.all_people()[0]
-	assert_true(inspector.inspect(person.id))
+	assert_true(main.select_person(person.id))
+	await wait_frames(2)
+	assert_eq(inspector.inspected_id(), person.id, "it shows whoever is selected")
 	assert_true(inspector.button(&"kill").visible)
 	await _show_overlay(false)
 	assert_false(inspector.visible)
-	assert_eq(inspector.inspected_id(), 0, "hidden: nobody is inspected")
-	assert_eq(person.sim_tier, TierManager.ACTIVE, "or in focus")
+	assert_eq(main.selected_person_id(), person.id, "hiding the overlay does not let go of them")
+	main.clear_selection()
+	await _show_overlay(true)
+	assert_eq(inspector.inspected_id(), 0)
+	assert_has(inspector.text(), "tap a person")
 	assert_false(inspector.inspect(999_999), "nobody there")
 
 
@@ -180,12 +186,15 @@ func test_tapping_a_person_with_the_overlay_up_inspects_them() -> void:
 	assert_eq(inspector.inspected_id(), person.id)
 	assert_true(inspector.text().begins_with(person.full_name()), inspector.text().get_slice("\n", 0))
 	assert_eq(person.sim_tier, TierManager.FOCUS, "whoever is inspected is simulated most closely")
-	assert_eq(heard.size(), 0, "the tap went to the inspector, not to the ground under them")
-	assert_eq(session.history.total(), 0)
-	# The ring marks them.
-	var ring := view.pick_highlight().get_node("EntityRing") as Node3D
-	assert_true(ring.visible)
-	assert_true(Vector2(ring.position.x, ring.position.z).distance_to(person.world2d()) < 0.01)
+	assert_eq(heard.size(), 1, "the hand touched them")
+	assert_eq(heard[0].person_id, person.id, "them, not the ground under them")
+	# The ring marks them, above their card the inspector.
+	assert_true(view.people_view().ring_shown())
+	var ring := view.people_view().ring_position()
+	assert_true(Vector2(ring.x, ring.z).distance_to(person.world2d()) < 0.01)
+	var card := ui.person_card()
+	assert_not_null(card)
+	assert_true(inspector.get_global_rect().end.y <= card.get_global_rect().position.y, "the inspector sits above the card")
 	# A tap on the ground, away from everyone, is an ordinary tap.
 	var open := Vector3.ZERO
 	for offset: Vector3 in [Vector3(3, 0, 0), Vector3(-3, 0, 0), Vector3(0, 0, 3), Vector3(0, 0, -3), Vector3(3, 0, 3), Vector3(-3, 0, -3)]:
@@ -194,26 +203,34 @@ func test_tapping_a_person_with_the_overlay_up_inspects_them() -> void:
 		for other in session.people.all_people():
 			if other.world2d().distance_to(Vector2(open.x, open.z)) < 2.0:
 				crowded = true
-		if not crowded:
+		# (not under the card or the inspector either)
+		if not crowded and not (main.get_node("InputRouter") as InputRouter).is_over_ui(rig.world_to_screen(open)):
 			break
+	await wait_real_ms(Config.interaction.double_tap_ms + 80) # a separate tap, not a double tap
 	_tap(rig.world_to_screen(open))
 	await wait_frames(2)
 	assert_eq(inspector.inspected_id(), person.id, "still inspecting")
-	assert_eq(heard.size(), 1, "and the ground answered")
+	assert_eq(heard.size(), 2, "and the ground answered")
+	assert_eq(heard[1].person_id, 0)
 	# The close button lets them go.
 	inspector.button(&"close").pressed.emit()
 	assert_eq(inspector.inspected_id(), 0)
+	assert_eq(main.selected_person_id(), 0)
 	assert_eq(person.sim_tier, TierManager.ACTIVE)
+	await wait_frames(2)
+	assert_null(ui.person_card())
 
 
-func test_without_the_overlay_a_tap_on_a_person_touches_the_ground() -> void:
+func test_without_the_overlay_a_tap_on_a_person_selects_them_unseen_by_the_inspector() -> void:
 	var person := _someone()
 	await _look_at(person.world2d())
 	await _show_overlay(false)
 	_tap(_screen_of(person))
 	await wait_frames(2)
-	assert_eq(inspector.inspected_id(), 0, "people cannot be touched or selected yet (M5)")
-	assert_eq(heard.size(), 1)
+	assert_eq(main.selected_person_id(), person.id)
+	assert_false(inspector.visible)
+	await _show_overlay(true)
+	assert_eq(inspector.inspected_id(), person.id, "shown, it shows who is selected")
 
 
 func test_someone_asleep_indoors_cannot_be_tapped() -> void:
@@ -262,8 +279,8 @@ func test_spawn_think_and_kill() -> void:
 	var before := session.people.size()
 	inspector.button(&"spawn").pressed.emit()
 	assert_eq(session.people.size(), before + 1, "someone new")
-	var newcomer := session.people.get_person(inspector.inspected_id())
-	assert_not_null(newcomer, "and they are the one inspected")
+	var newcomer := session.people.get_person(main.selected_person_id())
+	assert_not_null(newcomer, "and they are the one selected")
 	assert_true(newcomer.world2d().distance_to(Vector2(rig.pivot().x, rig.pivot().z)) < 3.0, "where the player is looking")
 	await wait_frames(3)
 	assert_not_null(view.people_view().view_of(newcomer.id), "there to be seen")
@@ -277,6 +294,7 @@ func test_spawn_think_and_kill() -> void:
 	assert_null(session.people.get_person(newcomer.id))
 	assert_eq(session.people.size(), before)
 	assert_eq(inspector.inspected_id(), 0)
+	assert_eq(main.selected_person_id(), 0)
 	assert_has(inspector.text(), "tap a person")
 	assert_false(inspector.button(&"kill").visible)
 
@@ -284,7 +302,7 @@ func test_spawn_think_and_kill() -> void:
 func test_the_inspector_follows_the_person_it_shows() -> void:
 	await _show_overlay(true)
 	var person := session.people.all_people()[0]
-	inspector.inspect(person.id)
+	main.select_person(person.id)
 	person.needs[Needs.Need.HUNGER] = 0.33
 	await wait_real_ms(400) # (the text refreshes four times a second)
 	assert_has(inspector.text(), "0.3")

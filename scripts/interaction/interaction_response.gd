@@ -19,6 +19,8 @@ const LOG_KNOCK := &"log_knock"
 const NUDGE := &"nudge"
 const TREE_UPROOT := &"tree_uproot"
 const INSPECT := &"inspect"
+## A person was touched. (How they take it is theirs to show: M5.3.)
+const PERSON_TOUCH := &"person_touch"
 
 var action: Action = Action.TAP
 var effect: StringName = DUST
@@ -35,6 +37,8 @@ var prop_kind := -1
 var prop_variant := 0
 ## LooseObject.Kind of the touched loose object, or -1.
 var loose_kind := -1
+## Id of the touched person, or 0 (then also `entity_id`).
+var person_id := 0
 ## Height and radius of the touched body (entities only).
 var body := Vector2.ZERO
 ## How strongly the target gives way to a touch: 1 = an ordinary rock; a

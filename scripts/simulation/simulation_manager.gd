@@ -274,8 +274,13 @@ func _on_tiers_changed() -> void:
 
 
 ## The player selected someone (-1: nobody): they are simulated most closely.
+var _selected_id := 0
+
+
 func _on_person_selected(person_id: int) -> void:
-	if person_id < 0:
-		tiers.unfocus()
-	else:
+	# One person is selected at a time: whoever was is let go.
+	if _selected_id > 0 and _selected_id != person_id:
+		tiers.unfocus(_selected_id)
+	_selected_id = maxi(person_id, 0)
+	if person_id > 0:
 		tiers.focus(person_id)
