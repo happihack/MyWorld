@@ -303,5 +303,5 @@ func test_feedback_config_is_valid() -> void:
 	assert_eq(FeedbackConfig.new().validate().size(), 0)
 	var bad := FeedbackConfig.new()
 	bad.haptic_light_ms = 100
-	bad.chirp_min_seconds = 50.0
+	bad.chirp_min_seconds = 250.0
 	assert_eq(bad.validate().size(), 2)

@@ -66,7 +66,7 @@ Debug package: `com.happihack.worldinabox.dev` ("WIAB Dev"). See Appendix 1 of
 All sounds are currently placeholders generated in code (`scripts/audio/sound_synth.gd`).
 To replace one, put a file named after its id in `assets/audio/sfx/` — e.g.
 `assets/audio/sfx/thud.wav` (or `.ogg`). Ids: `thud`, `plip`, `rustle`, `click`, `knock`,
-`crackle`, `hum`, `chirp`, `ui_open`, `ui_tap`, `ui_close`, `wind` (loop). Levels and
+`crackle`, `hum`, `chirp`, `chirp_2`, `chirp_3`, `ui_open`, `ui_tap`, `ui_close`, `wind` (loop). Levels and
 haptic strengths are in `data/configuration/feedback_config.tres`.
 
 ## Project layout

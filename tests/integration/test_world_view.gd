@@ -99,6 +99,45 @@ func test_ambient_life() -> void:
 	assert_true(ambient.bird_position(0).distance_to(ambient.bird_position(6)) > 1.0, "the flock is spread out")
 
 
+func test_bird_calls_are_rare_and_varied() -> void:
+	AudioManager.ensure_sounds()
+	var ambient := view.ambient()
+	var cfg := Config.feedback
+	assert_true(ambient.seconds_until_chirp() >= cfg.chirp_min_seconds * 0.5 - 0.5, "quiet at first")
+	assert_true(cfg.chirp_min_seconds >= 10.0, "long quiet between calls")
+	# Many calls: different sounds, pitches and volumes, always from a bird.
+	var sounds := {}
+	var pitches := {}
+	var volumes := {}
+	for i in 60:
+		AudioManager.stop_all()
+		ambient.chirp()
+		assert_has(AmbientLife.CHIRPS, AudioManager.last_sound)
+		var voice := AudioManager.world_voice(0)
+		sounds[AudioManager.last_sound] = true
+		pitches[snappedf(voice.pitch_scale, 0.01)] = true
+		volumes[snappedf(voice.volume_db, 0.1)] = true
+		assert_true(voice.pitch_scale >= cfg.chirp_pitch_low - 0.001 and voice.pitch_scale <= cfg.chirp_pitch_high + 0.001)
+		assert_true(voice.volume_db <= cfg.chirp_volume_db + 0.001 and voice.volume_db >= cfg.chirp_volume_db - cfg.chirp_volume_spread_db - 0.001)
+		assert_true(voice.position.y > 5.0, "heard from where a bird flies")
+	assert_eq(sounds.size(), AmbientLife.CHIRPS.size(), "every kind of call is used")
+	assert_true(pitches.size() > 15 and volumes.size() > 15, "no two alike")
+	# Waits: mostly long and irregular, sometimes a quick answer.
+	var answers := 0
+	var long_waits := {}
+	for i in 400:
+		var wait := ambient.next_chirp_delay()
+		if wait <= AmbientLife.ANSWER_MAX_SECONDS:
+			answers += 1
+		else:
+			assert_true(wait >= cfg.chirp_min_seconds and wait <= cfg.chirp_max_seconds, "wait %.1f" % wait)
+			long_waits[roundi(wait)] = true
+	assert_true(answers > 60 and answers < 190, "about a third are answers (%d of 400)" % answers)
+	assert_true(long_waits.size() > 25, "waits are spread over the whole range")
+	for id in AmbientLife.CHIRPS:
+		assert_true(AudioManager.has_sound(id), String(id))
+
+
 func test_world_without_a_campfire_has_no_smoke() -> void:
 	var bare := WorldData.create_centered(32, 16)
 	view.show_world(bare)

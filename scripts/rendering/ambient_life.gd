@@ -10,6 +10,11 @@ const BIRD_SHADER := preload("res://assets/shaders/bird.gdshader")
 const FLOCK_LAP_SECONDS := 46.0
 const FLOCK_HEIGHT := 7.5
 const SMOKE_PARTICLES := 14
+## The different calls a bird can make.
+const CHIRPS: Array[StringName] = [&"chirp", &"chirp_2", &"chirp_3"]
+## How soon another bird answers a call.
+const ANSWER_MIN_SECONDS := 0.5
+const ANSWER_MAX_SECONDS := 1.8
 
 var _birds: MultiMeshInstance3D
 var _smoke: CPUParticles3D
@@ -19,12 +24,13 @@ var _time := 0.0
 var _formation: Array[Vector3] = []
 var _bird_positions: Array[Vector3] = []
 ## Seconds until the next bird call.
-var _chirp_in := 4.0
+var _chirp_in := 10.0
 
 
 func _ready() -> void:
 	_build_birds()
 	_build_smoke()
+	_chirp_in = randf_range(Config.feedback.chirp_min_seconds, Config.feedback.chirp_max_seconds) * 0.5
 
 
 ## Fits the flock's path to the box and puts the smoke on the campfire.
@@ -67,16 +73,34 @@ func _process(delta: float) -> void:
 	_update_birds()
 	_chirp_in -= delta
 	if _chirp_in <= 0.0:
-		_chirp_in = randf_range(Config.feedback.chirp_min_seconds, Config.feedback.chirp_max_seconds)
 		chirp()
+		_chirp_in = next_chirp_delay()
 
 
-## One of the birds calls (heard from where it is flying).
+## One of the birds calls (heard from where it is flying). Which bird, which
+## call, how loud and how high are all left to chance, so no two are alike.
 func chirp() -> void:
 	if _bird_positions.is_empty():
 		return
+	var cfg := Config.feedback
 	var bird := randi() % _bird_positions.size()
-	AudioManager.play_at(&"chirp", _bird_positions[bird], Config.feedback.chirp_volume_db, randf_range(0.9, 1.2))
+	var call_id: StringName = CHIRPS[randi() % CHIRPS.size()]
+	AudioManager.play_at(call_id, _bird_positions[bird],
+		cfg.chirp_volume_db - randf() * cfg.chirp_volume_spread_db,
+		randf_range(cfg.chirp_pitch_low, cfg.chirp_pitch_high), false)
+
+
+## Seconds until the next call: usually a long, irregular quiet; now and then
+## another bird answers after a moment.
+func next_chirp_delay() -> float:
+	var cfg := Config.feedback
+	if randf() < cfg.chirp_answer_chance:
+		return randf_range(ANSWER_MIN_SECONDS, ANSWER_MAX_SECONDS)
+	return randf_range(cfg.chirp_min_seconds, cfg.chirp_max_seconds)
+
+
+func seconds_until_chirp() -> float:
+	return _chirp_in
 
 
 func _update_birds() -> void:

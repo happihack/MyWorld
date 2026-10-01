@@ -27,10 +27,17 @@ extends ConfigBase
 
 @export_group("Ambience")
 @export_range(-60.0, 0.0, 0.5) var wind_volume_db: float = -22.0
-## Seconds between bird calls (a random time in this range).
-@export_range(0.5, 120.0, 0.5) var chirp_min_seconds: float = 5.0
-@export_range(0.5, 120.0, 0.5) var chirp_max_seconds: float = 14.0
+## Seconds of quiet between bird calls (a random time in this range).
+@export_range(0.5, 300.0, 0.5) var chirp_min_seconds: float = 14.0
+@export_range(0.5, 300.0, 0.5) var chirp_max_seconds: float = 55.0
+## Chance that another bird answers a call a moment later.
+@export_range(0.0, 1.0, 0.01) var chirp_answer_chance: float = 0.3
 @export_range(-40.0, 6.0, 0.5) var chirp_volume_db: float = -8.0
+## Each call is quieter than chirp_volume_db by a random amount up to this.
+@export_range(0.0, 24.0, 0.5) var chirp_volume_spread_db: float = 7.0
+## Each call is played this much lower or higher (a random pitch in this range).
+@export_range(0.5, 1.0, 0.01) var chirp_pitch_low: float = 0.78
+@export_range(1.0, 2.0, 0.01) var chirp_pitch_high: float = 1.3
 
 
 func validate() -> PackedStringArray:

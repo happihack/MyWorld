@@ -17,7 +17,7 @@ const WIND_SECONDS := 3.0
 ## Every sound this class can make.
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
-	&"chirp", &"ui_open", &"ui_tap", &"ui_close", &"wind",
+	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind",
 ]
 
 
@@ -63,7 +63,17 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 		&"hum":
 			return _finish(_hum(), 0.6)
 		&"chirp":
-			return _finish(_chirp(), 0.5)
+			# Three quick upward whistles.
+			return _finish(_whistles(0.3, [
+				[0.0, 0.07, 2700.0, 3600.0], [0.09, 0.07, 2700.0, 3850.0], [0.18, 0.07, 2700.0, 4100.0]]), 0.5)
+		&"chirp_2":
+			# A falling call and a short answer note.
+			return _finish(_whistles(0.26, [[0.0, 0.11, 3900.0, 2900.0], [0.16, 0.06, 3150.0, 3350.0]]), 0.5)
+		&"chirp_3":
+			# A quick trill.
+			return _finish(_whistles(0.24, [
+				[0.0, 0.03, 3300.0, 3500.0], [0.045, 0.03, 3900.0, 4000.0], [0.09, 0.03, 3300.0, 3500.0],
+				[0.135, 0.03, 3900.0, 4000.0], [0.18, 0.04, 3300.0, 3100.0]]), 0.45)
 		&"ui_open":
 			return _finish(_blip(620.0, 930.0, 0.07), 0.45)
 		&"ui_tap":
@@ -222,21 +232,22 @@ static func _hum() -> PackedFloat32Array:
 	return out
 
 
-## A small bird: three quick upward whistles.
-static func _chirp() -> PackedFloat32Array:
-	var n := int(0.3 * RATE)
+## A small bird: a few short whistles. Each note is
+## [start seconds, length seconds, from Hz, to Hz]; notes must not overlap.
+static func _whistles(seconds: float, notes: Array) -> PackedFloat32Array:
+	var n := int(seconds * RATE)
 	var out := PackedFloat32Array()
 	out.resize(n)
-	var starts: Array[float] = [0.0, 0.09, 0.18]
 	var phase := 0.0
 	for i in n:
 		var t := i / float(RATE)
 		var v := 0.0
-		for j in starts.size():
-			var local := t - starts[j]
-			if local >= 0.0 and local < 0.07:
-				phase += TAU * lerpf(2700.0, 3600.0 + j * 250.0, local / 0.07) / RATE
-				v = sin(phase) * sin(PI * local / 0.07)
+		for note: Array in notes:
+			var local: float = t - note[0]
+			var length: float = note[1]
+			if local >= 0.0 and local < length:
+				phase += TAU * lerpf(note[2], note[3], local / length) / RATE
+				v = sin(phase) * sin(PI * local / length)
 		out[i] = v
 	return out
 
