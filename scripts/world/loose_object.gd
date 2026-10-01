@@ -120,9 +120,12 @@ func is_stone() -> bool:
 
 
 func to_dict() -> Dictionary:
+	# Saved objects are at rest: one that is held or in the air is saved lying
+	# on the ground below it.
+	var above := height_offset if state == State.RESTING else 0.0
 	return {
 		"id": id, "kind": kind, "variant": variant, "position": position,
-		"height_offset": height_offset, "yaw": yaw, "scale_percent": scale_percent,
+		"height_offset": above, "yaw": yaw, "scale_percent": scale_percent,
 		"discovered_by": discovered_by, "placed_by_player": placed_by_player,
 		"moved_count": moved_count,
 	}

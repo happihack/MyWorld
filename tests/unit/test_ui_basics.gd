@@ -32,6 +32,12 @@ func test_loose_object_wording() -> void:
 	assert_eq(UIText.moved_text(4), "4 times")
 
 
+func test_tool_names() -> void:
+	assert_eq(UIText.tool_name(HandTool.ID), "Hand")
+	assert_eq(UIText.tool_name(ObserveTool.ID), "Observe")
+	assert_eq(UIText.tool_name(&"rain_cloud"), "Rain Cloud", "a tool without a name is still readable")
+
+
 func test_subject_name_follows_the_touch() -> void:
 	var r := InteractionResponse.new()
 	r.terrain = ChunkData.Terrain.SAND

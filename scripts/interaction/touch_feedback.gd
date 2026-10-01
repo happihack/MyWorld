@@ -41,6 +41,17 @@ static func play(response: InteractionResponse) -> void:
 	Haptics.pulse(MEDIUM if response.strength < HEAVY_BELOW else cue[3])
 
 
+## A loose object came down at `at`. `give` says how heavy it is (see
+## LooseObject.give), `impact_speed` how fast it fell (tiles/s).
+static func landed(at: Vector3, give: float, impact_speed: float, on_water: bool) -> void:
+	# A drop from carrying height arrives at about 5 tiles/s.
+	var force := clampf(impact_speed / 5.0, 0.25, 1.3)
+	var volume := -12.0 + 9.0 * force + (3.0 if give < HEAVY_BELOW else 0.0)
+	var pitch := clampf(0.5 + 0.5 * give, 0.6, 1.4)
+	AudioManager.play_at(&"plip" if on_water else &"thud", at, volume, pitch)
+	Haptics.pulse(MEDIUM if give < HEAVY_BELOW else LIGHT)
+
+
 ## The sound id of an effect (&"" if it has none).
 static func sound_for(effect: StringName) -> StringName:
 	var cue: Array = CUES.get(effect, [])

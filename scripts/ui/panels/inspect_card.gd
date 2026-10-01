@@ -10,8 +10,8 @@ const MAX_WIDTH := 852.0
 const EDGE_MARGIN := 32.0
 ## Room kept free on the right for the Home button.
 const RESERVED_RIGHT := 196.0
-## Room kept free below (the card's bottom lines up with the Home button's).
-const BOTTOM_MARGIN := 144.0
+## Room kept free below: the card sits above the tool bar's row.
+const BOTTOM_MARGIN := 308.0
 
 @onready var _title: Label = %Title
 @onready var _subtitle: Label = %Subtitle

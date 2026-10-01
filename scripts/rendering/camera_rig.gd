@@ -183,6 +183,18 @@ func double_tap_zoom(focal: Vector2) -> void:
 		zoom_to(_goal_distance / config.double_tap_zoom, focal)
 
 
+## Slides the view over the ground by `delta` (world X/Z), staying inside its
+## limits: no rubber band, no animation. For moves the player does not make
+## with a drag (carrying something to the edge of the screen).
+func pan_world(delta: Vector2) -> void:
+	_fling_velocity = Vector2.ZERO
+	_pivot = _clamp_pivot(_pivot + Vector3(delta.x, 0.0, delta.y), _distance)
+	_raw_pivot = _pivot
+	_goal_pivot = _pivot
+	_goal_distance = _distance
+	_apply()
+
+
 ## Stops any fling. Call the moment a finger touches the world.
 func stop_motion() -> void:
 	_fling_velocity = Vector2.ZERO
@@ -266,6 +278,10 @@ func distance() -> float:
 
 func fit_distance() -> float:
 	return _fit_distance
+
+
+func view_size() -> Vector2:
+	return _view_size
 
 
 func pitch_degrees() -> float:

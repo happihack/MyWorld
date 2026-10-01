@@ -373,6 +373,25 @@ func test_double_tap_zooms_in_toward_the_point_then_back_out() -> void:
 	assert_true(rig.is_framed(), "from the closest zoom a double tap returns to the whole box")
 
 
+func test_pan_world_slides_the_view_within_its_limits() -> void:
+	_zoom_to(20.0)
+	var before := rig.pivot()
+	rig.pan_world(Vector2(2.0, -1.5))
+	assert_near(rig.pivot().x, before.x + 2.0, 0.0001)
+	assert_near(rig.pivot().z, before.z - 1.5, 0.0001)
+	assert_false(rig.is_moving(), "at once, no animation")
+	rig.pan_world(Vector2(5000.0, 0.0))
+	assert_true(rig.pivot().is_equal_approx(rig.clamped_pivot()), "stops at the limit: no rubber band")
+	_run(1.0)
+	assert_true(rig.pivot().is_equal_approx(rig.clamped_pivot()))
+	# With the whole box in view there is nowhere to go.
+	rig.frame_box(false)
+	var framed := rig.pivot()
+	rig.pan_world(Vector2(3.0, 3.0))
+	assert_true(rig.pivot().is_equal_approx(framed))
+	assert_eq(rig.view_size(), Vector2(1080, 1920))
+
+
 func test_double_tap_can_be_left_to_someone_else() -> void:
 	rig.handles_double_tap = false
 	var start_distance := rig.distance()

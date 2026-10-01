@@ -36,6 +36,11 @@ const LOOSE_NAMES := {
 	LooseObject.Kind.STRANGE_OBJECT: "Strange object",
 }
 
+const TOOL_NAMES := {
+	&"hand": "Hand",
+	&"observe": "Observe",
+}
+
 const WATER_NAME := "Water"
 
 ## First-time hints (bible §26.3: quiet, short, curious).
@@ -57,6 +62,10 @@ static func prop_name(kind: int, variant: int = 0) -> String:
 	if kind == PropData.Kind.TREE and variant >= PropData.TREE_CONIFER_FIRST_VARIANT:
 		return "Pine"
 	return PROP_NAMES.get(kind, "Something")
+
+
+static func tool_name(id: StringName) -> String:
+	return TOOL_NAMES.get(id, String(id).capitalize())
 
 
 static func loose_name(kind: int) -> String:

@@ -17,6 +17,17 @@ extends ConfigBase
 ## rotate the view.
 @export_range(0.0, 90.0) var twist_start_deg: float = 12.0
 
+@export_group("Hand")
+## How far above the ground a carried object hovers (tiles); heavy things hang lower.
+@export_range(0.1, 2.0, 0.05) var carry_hover_height: float = 0.55
+## How fast an ordinary rock follows the finger (tiles/s); heavy things are slower.
+@export_range(1.0, 100.0, 0.5) var carry_speed: float = 18.0
+## Carrying something this close to the screen edge (fraction of the shorter
+## side) pans the view.
+@export_range(0.0, 0.4, 0.01) var edge_pan_margin: float = 0.14
+## Speed of that pan at the very edge, in camera distances per second.
+@export_range(0.0, 3.0, 0.05) var edge_pan_speed: float = 0.3
+
 @export_group("Hints")
 ## Idle seconds before the first hint ("Drag to explore.") appears.
 @export_range(0.5, 60.0, 0.5) var hint_idle_seconds: float = 5.0
@@ -27,4 +38,5 @@ extends ConfigBase
 func validate() -> PackedStringArray:
 	var p := PackedStringArray()
 	_check(p, double_tap_ms < long_press_ms, "double_tap_ms should be < long_press_ms")
+	_check(p, grab_hold_ms < long_press_ms, "grab_hold_ms should be < long_press_ms")
 	return p

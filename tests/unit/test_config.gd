@@ -15,6 +15,10 @@ func test_world_and_interaction_defaults() -> void:
 	assert_eq(Config.world.chunk_size, 16)
 	assert_eq(Config.world.initial_world_tiles, 64)
 	assert_eq(Config.interaction.long_press_ms, 450)
+	assert_eq(Config.interaction.grab_hold_ms, 200)
+	var bad := InteractionConfig.new()
+	bad.grab_hold_ms = 900
+	assert_eq(bad.validate().size(), 1, "grabbing must come before the long press")
 
 
 func test_validate_catches_bad_values() -> void:

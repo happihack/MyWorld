@@ -126,8 +126,6 @@ func test_record_round_trip() -> void:
 	o.placed_by_player = true
 	o.moved_count = 7
 	o.discovered_by = PackedInt64Array([11, 12])
-	o.state = LooseObject.State.FALLING # motion is not saved
-	o.velocity = Vector3(1, 2, 3)
 	var back := LooseObject.from_dict(o.to_dict())
 	assert_eq(back.id, o.id)
 	assert_eq(back.kind, LooseObject.Kind.LOG)
@@ -139,8 +137,16 @@ func test_record_round_trip() -> void:
 	assert_true(back.placed_by_player)
 	assert_eq(back.moved_count, 7)
 	assert_eq(back.discovered_by, PackedInt64Array([11, 12]))
-	assert_eq(back.state, LooseObject.State.RESTING, "loaded objects are at rest")
-	assert_eq(back.velocity, Vector3.ZERO)
+	# Motion is not saved: an object in the air is saved lying on the ground.
+	o.state = LooseObject.State.FALLING
+	o.velocity = Vector3(1, 2, 3)
+	var landed := LooseObject.from_dict(o.to_dict())
+	assert_eq(landed.state, LooseObject.State.RESTING, "loaded objects are at rest")
+	assert_eq(landed.velocity, Vector3.ZERO)
+	assert_near(landed.height_offset, 0.0, 0.0)
+	assert_eq(landed.position, o.position)
+	o.state = LooseObject.State.HELD
+	assert_near(LooseObject.from_dict(o.to_dict()).height_offset, 0.0, 0.0, "a held object too")
 
 
 func test_unusable_records_are_rejected() -> void:

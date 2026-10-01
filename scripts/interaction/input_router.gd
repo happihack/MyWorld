@@ -15,6 +15,11 @@ signal gesture_recognized(gesture: Gesture)
 ## A finger touched the world (not the UI). Emitted on contact, before any
 ## gesture is recognized — e.g. to stop a camera fling immediately.
 signal touch_began(position: Vector2)
+## A finger left the world (lifted, or the touch was cancelled). Emitted after
+## any gesture that release produced. Some releases produce no gesture at all
+## (lifting after a long press), so anything that must end when the finger
+## lifts listens to this.
+signal touch_ended(position: Vector2)
 
 const UI_BLOCKER_GROUP := &"ui_blocker"
 const DP_REFERENCE_DPI := 160.0
@@ -71,6 +76,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_cancel_all()
 			return
 		recognizer.touch_up(event.index, event.position, now)
+		touch_ended.emit(event.position)
 	get_viewport().set_input_as_handled()
 
 
@@ -144,7 +150,10 @@ func _on_recognized(gesture: Gesture) -> void:
 func _cancel_all() -> void:
 	_ignored_touches.clear()
 	_right_dragging = false
+	var was_touching := not recognizer.is_idle()
 	recognizer.cancel_all(Time.get_ticks_msec())
+	if was_touching:
+		touch_ended.emit(Vector2.ZERO)
 
 
 func _on_viewport_size_changed() -> void:

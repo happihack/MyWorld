@@ -39,12 +39,17 @@ var loose: LooseObjectRegistry
 var start: WorldSetup.StartInfo
 ## Where every player touch of the world is answered.
 var interactions: InteractionManager
+## Moves the loose objects that are not at rest.
+var loose_system: LooseObjectSystem
 
 
 func _init() -> void:
 	interactions = InteractionManager.new()
 	interactions.name = "InteractionManager"
 	add_child(interactions)
+	loose_system = LooseObjectSystem.new()
+	loose_system.name = "LooseObjectSystem"
+	add_child(loose_system)
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -249,6 +254,7 @@ func _load_template(id: StringName) -> StartTemplate:
 
 func _activate() -> void:
 	interactions.bind(world, props, loose)
+	loose_system.bind(world, loose)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

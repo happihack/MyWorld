@@ -201,6 +201,18 @@ func test_ruin_hums_with_a_ring_and_motes() -> void:
 	assert_true(hum > 0.0 and hum < 0.012, "a faint vibration (%.4f)" % hum)
 
 
+func test_landing_raises_dust_or_a_splash() -> void:
+	effects.play_landing(Vector3(3, 1, 4), ChunkData.Terrain.DIRT, false, 0.26)
+	assert_eq(effects.burst_count(WorldEffects.Burst.DUST), 1)
+	assert_near(effects.last_burst_position(WorldEffects.Burst.DUST).x, 3.0, 0.0001)
+	assert_eq(effects.active_ring_count(), 0, "no ripples on dry land")
+	effects.play_landing(Vector3(8, 1.3, 4), ChunkData.Terrain.RIVERBED, true, 0.26)
+	assert_eq(effects.active_ring_count(), 1)
+	assert_eq(effects.burst_count(WorldEffects.Burst.DUST), 2, "a splash")
+	assert_eq(effects.played[WorldEffects.LANDING], 2)
+	assert_eq(effects.active_impulse_count(), 0)
+
+
 func test_inspect_and_null_show_nothing() -> void:
 	effects.play(null)
 	effects.play(_response(InteractionResponse.INSPECT, 4))

@@ -15,6 +15,7 @@ signal context_action(action: StringName, target: Picker.Result)
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
+const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
 const MAX_UI_SCALE := 3.0
 
@@ -35,6 +36,7 @@ var _panel_layer: Control
 var _panels: Array[UIPanel] = [] # bottom to top
 var _hint_label: HintLabel
 var _hints: HintDirector
+var _tool_bar: ToolBar
 
 
 func _ready() -> void:
@@ -55,6 +57,10 @@ func _ready() -> void:
 	_hint_label.name = "Hint"
 	add_child(_hint_label)
 	move_child(_hint_label, _panel_layer.get_index()) # panels draw over the hint
+	_tool_bar = TOOL_BAR.instantiate()
+	add_child(_tool_bar)
+	move_child(_tool_bar, _panel_layer.get_index()) # panels draw over the bar
+	_tool_bar.tool_selected.connect(func(_id: StringName) -> void: _tick())
 	_hints = HintDirector.new(_hint_label)
 	_hints.name = "HintDirector"
 	add_child(_hints)
@@ -67,6 +73,10 @@ func _exit_tree() -> void:
 
 
 # --- panels ---------------------------------------------------------------------------
+
+func tool_bar() -> ToolBar:
+	return _tool_bar
+
 
 ## First-time hints; feed it what the player does.
 func hints() -> HintDirector:

@@ -3,12 +3,15 @@ extends RefCounted
 ## Turns raw touch points into gestures (bible §23.1). Pure logic: it never reads
 ## Input or the clock itself, so tests drive it with exact timelines.
 ##
-## Feed it touch_down/touch_move/touch_up and call update(now) every frame (long
-## press is time-based). Results arrive through the `recognized` signal.
+## Feed it touch_down/touch_move/touch_up and call update(now) every frame (hold
+## and long press are time-based). Results arrive through the `recognized` signal.
 ##
 ## Policies:
 ## - TAP fires immediately on release; the second tap of a quick pair fires
 ##   DOUBLE_TAP instead of TAP (no added latency on single taps).
+## - A finger resting still fires HOLD after grab_hold_ms, then LONG_PRESS after
+##   long_press_ms. HOLD changes nothing else: releasing after it is still a
+##   TAP, moving after it is still a drag (with hold_ms telling how long it rested).
 ## - A second finger cancels the single-finger gesture (DRAG_END cancelled=true).
 ## - Two-finger components activate independently once they pass a threshold:
 ##   PINCH (finger distance, pinch_slop_dp), TWO_FINGER_DRAG (centroid,
@@ -42,6 +45,7 @@ var _down_pos := Vector2.ZERO
 var _down_time := 0
 var _last_pos := Vector2.ZERO
 var _long_pressed := false
+var _held := false
 var _after_multi := false
 var _samples: Array = [] # [time_ms, Vector2] for velocity
 
@@ -153,8 +157,15 @@ func touch_up(index: int, pos: Vector2, time_ms: int) -> void:
 		_max_touches = 0
 
 
-## Call every frame: fires LONG_PRESS when a finger is held still long enough.
+## Call every frame: fires HOLD, then LONG_PRESS, when a finger is held still
+## long enough.
 func update(time_ms: int) -> void:
+	if _state == State.PENDING and not _held and not _long_pressed and not _after_multi:
+		if time_ms - _down_time >= config.grab_hold_ms:
+			_held = true
+			var hold := _make(Gesture.Type.HOLD, _last_pos, time_ms)
+			hold.hold_ms = time_ms - _down_time
+			_emit(hold)
 	if _state == State.PENDING and not _long_pressed and not _after_multi:
 		if time_ms - _down_time >= config.long_press_ms:
 			_long_pressed = true
@@ -189,6 +200,7 @@ func _begin_single(index: int, pos: Vector2, time_ms: int, after_multi: bool) ->
 	_last_pos = pos
 	_down_time = time_ms
 	_long_pressed = false
+	_held = false
 	_after_multi = after_multi
 	_samples = [[time_ms, pos]]
 

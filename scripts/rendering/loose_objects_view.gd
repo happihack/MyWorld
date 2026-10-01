@@ -23,6 +23,33 @@ var _slots: Dictionary = {} # object id -> [shape key, index in its batch]
 var _meshes: Dictionary = {} # shape key -> ArrayMesh
 ## Objects were added or removed: batches must be rebuilt.
 var _stale := false
+## A soft dark spot on the ground under the object that is off the ground: it
+## shows where the object will come down, also when real shadows are off.
+var _blob: MeshInstance3D
+var _blob_material: StandardMaterial3D
+var _blob_id := 0
+
+const BLOB_ALPHA := 0.30
+## The blob is drawn this far above the surface.
+const BLOB_LIFT := 0.035
+
+
+func _init() -> void:
+	_blob_material = StandardMaterial3D.new()
+	_blob_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_blob_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_blob_material.albedo_texture = AmbientLife.soft_dot()
+	_blob_material.albedo_color = Color(0, 0, 0, BLOB_ALPHA)
+	_blob_material.render_priority = 1 # over the water it may lie on
+	var quad := PlaneMesh.new()
+	quad.size = Vector2(2.0, 2.0)
+	_blob = MeshInstance3D.new()
+	_blob.name = "DropShadow"
+	_blob.mesh = quad
+	_blob.material_override = _blob_material
+	_blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_blob.visible = false
+	add_child(_blob)
 
 
 func setup(library: PropMeshLibrary, material: Material) -> void:
@@ -53,6 +80,8 @@ func clear() -> void:
 	_batches.clear()
 	_slots.clear()
 	_stale = false
+	_blob.visible = false
+	_blob_id = 0
 	_world = null
 	_registry = null
 
@@ -192,10 +221,44 @@ func _mesh_for(key: int) -> ArrayMesh:
 	return mesh
 
 
-func _on_membership_changed(_id: int) -> void:
+func _on_membership_changed(id: int) -> void:
 	_stale = true
+	if id == _blob_id and not _registry.has_object(id):
+		_blob.visible = false
+		_blob_id = 0
 
 
 func _on_object_moved(id: int) -> void:
 	if not _stale:
 		_write(id)
+	_update_blob(id)
+
+
+## Is the drop shadow showing, and under which object (0 = none)?
+func drop_shadow_id() -> int:
+	return _blob_id if _blob.visible else 0
+
+
+func drop_shadow_position() -> Vector3:
+	return _blob.position
+
+
+func _update_blob(id: int) -> void:
+	var object := _registry.get_object(id)
+	if object == null:
+		return
+	var surface := maxf(_world.get_water(object.tile()), 0.0)
+	var above := object.height_offset - surface
+	if above <= 0.02:
+		if id == _blob_id:
+			_blob.visible = false
+			_blob_id = 0
+		return
+	_blob_id = id
+	var ground := _world.get_height(object.tile()) * _world.height_step
+	_blob.position = Vector3(object.position.x, ground + surface + BLOB_LIFT, object.position.y)
+	# Higher up: a wider, fainter shadow.
+	var spread := object.radius() * (1.5 + above * 0.9)
+	_blob.scale = Vector3(spread, 1.0, spread)
+	_blob_material.albedo_color.a = BLOB_ALPHA * clampf(1.0 - above * 0.35, 0.35, 1.0)
+	_blob.visible = true

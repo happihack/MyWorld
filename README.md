@@ -24,6 +24,7 @@ Saves live in `user://saves/<world_id>/` — on Windows:
 |---|---|
 | Left click / drag | Tap (the world answers: dust, ripples, a shaken tree…) / one-finger drag (mouse emulates touch) |
 | Double click | Double tap: look at the thing under the cursor, or zoom toward open ground |
+| Hold left button on a rock, then drag | Pick it up and carry it; release to drop |
 | Hold left button | Long press: menu for what is under the cursor (Inspect / Touch / Look closer) |
 | Mouse wheel | Pinch zoom at the cursor |
 | Right drag | Two-finger drag |

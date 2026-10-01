@@ -47,12 +47,41 @@ func test_far_or_slow_taps_are_not_double() -> void:
 func test_long_press_fires_once_and_suppresses_tap() -> void:
 	r.touch_down(0, P, 5000)
 	r.update(5400)
-	assert_true(got.is_empty())
+	assert_eq(_of(Gesture.Type.LONG_PRESS).size(), 0)
 	r.update(5460)
 	r.update(5600)
 	r.touch_up(0, P, 5700)
-	assert_eq(_names(), ["LONG_PRESS"])
-	assert_eq(got[0].hold_ms, 460)
+	assert_eq(_names(), ["HOLD", "LONG_PRESS"])
+	assert_eq(got[1].hold_ms, 460)
+
+
+func test_hold_fires_once_when_a_finger_rests() -> void:
+	r.touch_down(0, P, 1000)
+	r.update(1150)
+	assert_true(got.is_empty(), "not yet")
+	r.update(1210)
+	r.update(1300)
+	assert_eq(_names(), ["HOLD"])
+	assert_eq(got[0].hold_ms, 210)
+	assert_eq(got[0].position, P)
+	# Letting go before the long press is still a tap.
+	r.touch_up(0, P, 1350)
+	assert_eq(_names(), ["HOLD", "TAP"])
+
+
+func test_no_hold_for_quick_taps_drags_or_second_fingers() -> void:
+	r.touch_down(0, P, 0); r.update(100); r.touch_up(0, P, 120)
+	r.touch_down(0, P, 1000)
+	r.touch_move(0, P + Vector2(40, 0), 1050) # dragging before the hold time
+	r.update(1400)
+	r.touch_up(0, P + Vector2(40, 0), 1500)
+	r.touch_down(0, P, 3000)
+	r.touch_down(1, P + Vector2(200, 0), 3050) # two fingers
+	r.update(3500)
+	r.touch_up(1, P + Vector2(200, 0), 3600)
+	r.update(4200) # the remaining finger rests, but it came from a two-finger gesture
+	r.touch_up(0, P, 4300)
+	assert_eq(_of(Gesture.Type.HOLD).size(), 0, str(_names()))
 
 
 func test_drag_respects_slop_and_reports_deltas() -> void:
@@ -83,8 +112,8 @@ func test_hold_then_drag_reports_hold_time() -> void:
 	r.touch_down(0, P, 0)
 	r.update(300)
 	r.touch_move(0, P + Vector2(30, 0), 350)
-	assert_eq(_names(), ["DRAG_START", "DRAG"])
-	assert_eq(got[0].hold_ms, 350)
+	assert_eq(_names(), ["HOLD", "DRAG_START", "DRAG"])
+	assert_eq(got[1].hold_ms, 350)
 
 
 func test_pinch() -> void:

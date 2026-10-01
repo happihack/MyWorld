@@ -16,6 +16,9 @@ enum Type {
 	TWIST,
 	MULTI_END,
 	THREE_FINGER_TAP,
+	## One finger has rested on the same spot for a moment (shorter than a
+	## long press): the hand closes on what is under it.
+	HOLD,
 }
 
 var type: Type

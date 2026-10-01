@@ -9,6 +9,9 @@ extends Node
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
+## The player's tools (hand, observe, ...).
+var tools: ToolManager
+
 ## The game opens on the whole box, then the camera descends to the settlement
 ## after this many seconds (bible §26.1) — unless the player moves first.
 const OPENING_HOLD_SECONDS := 1.6
@@ -28,12 +31,13 @@ func _ready() -> void:
 	world_view.show_world(session.world, session.props, session.start, session.loose)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
+	_setup_tools()
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
-	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
 	input_router.touch_began.connect(_on_world_touched)
+	input_router.touch_ended.connect(tools.touch_ended)
+	session.loose_system.landed.connect(_on_object_landed)
 	ui_root.context_action.connect(_on_context_action)
 	input_router.gesture_recognized.connect(_on_gesture)
-	input_router.gesture_recognized.connect(ui_root.hints().note_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
 	session.interactions.responded.connect(TouchFeedback.play)
@@ -54,9 +58,34 @@ func _exit_tree() -> void:
 	AudioManager.stop_ambience()
 
 
-## Touches of the world: the view says what is under the finger, the session's
-## InteractionManager decides what that means, the view shows the answer.
+func _setup_tools() -> void:
+	var context := ToolBase.Context.new()
+	context.session = session
+	context.view = world_view
+	context.ui = ui_root
+	context.touch_radius = Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp
+	tools = ToolManager.new()
+	tools.name = "Tools"
+	add_child(tools)
+	tools.setup(context)
+	var bar := ui_root.tool_bar()
+	bar.set_tools(tools.tool_ids())
+	bar.set_current(tools.current_id())
+	bar.tool_selected.connect(tools.select)
+	tools.tool_changed.connect(bar.set_current)
+	EventBus.app_paused.connect(tools.cancel)
+
+
+## Touches of the world. The active tool sees a gesture first and may keep it
+## (a carried rock must not pan the camera); otherwise the camera gets it, and
+## taps and presses are answered: the view says what is under the finger, the
+## tool and the session's InteractionManager decide what that means.
 func _on_gesture(gesture: Gesture) -> void:
+	if tools.handle_gesture(gesture):
+		ui_root.hints().note_touch() # busy, but carrying a rock is not exploring
+		return
+	ui_root.hints().note_gesture(gesture)
+	world_view.camera_rig().handle_gesture(gesture)
 	match gesture.type:
 		Gesture.Type.DRAG_START, Gesture.Type.MULTI_START:
 			ui_root.dismiss_transient_panels() # moving the view puts the menu away
@@ -65,7 +94,9 @@ func _on_gesture(gesture: Gesture) -> void:
 				_tap_closed_menu = false
 				return # that tap only put the menu away
 			var target := pick_at(gesture.position)
-			_note_pick(target, session.interactions.tap(target))
+			var response := tools.tap(target)
+			if response != null or tools.current_id() == HandTool.ID:
+				_note_pick(target, response)
 			if debug_overlay.is_shown():
 				world_view.show_pick(target)
 			else:
@@ -118,6 +149,20 @@ func _on_world_touched(_position: Vector2) -> void:
 	_tap_closed_menu = ui_root.dismiss_transient_panels()
 
 
+## A loose object came to rest: dust or a splash, a thud, a pulse.
+func _on_object_landed(id: int, impact_speed: float) -> void:
+	var object := session.loose.get_object(id)
+	if object == null:
+		return
+	var tile := object.tile()
+	var on_water := session.world.get_water(tile) > WaterMesher.MIN_DEPTH
+	var at := object.world_position(session.world)
+	if on_water:
+		at.y = session.world.get_height(tile) * session.world.height_step + session.world.get_water(tile)
+	world_view.effects().play_landing(at, session.world.get_terrain(tile), on_water, object.radius())
+	TouchFeedback.landed(at, object.give(), impact_speed, on_water)
+
+
 func _on_context_menu_closed() -> void:
 	if not debug_overlay.is_shown():
 		world_view.pick_highlight().clear()
@@ -139,6 +184,7 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 ## What is under a screen position, with the finger-sized forgiveness.
 func pick_at(screen: Vector2) -> Picker.Result:
 	var radius := Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp
+	tools.current().ctx.touch_radius = radius # keeps the tools' reach in step with the screen
 	return world_view.pick(screen, radius)
 
 

@@ -5,7 +5,7 @@ extends PanelContainer
 ## world under it stays touchable.
 
 const FADE_SECONDS := 0.35
-## Distance from the bottom of the screen (clear of the Home button's row).
+## Distance from the bottom of the screen (clear of the tool bar's row).
 const BOTTOM_OFFSET := 400.0
 const FONT_SIZE := 44
 

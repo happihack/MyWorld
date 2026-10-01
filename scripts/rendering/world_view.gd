@@ -147,7 +147,8 @@ func effects() -> WorldEffects:
 
 ## What is under a screen position (viewport units)? `touch_radius` is the
 ## forgiveness around the finger, also in viewport units.
-func pick(screen: Vector2, touch_radius: float) -> Picker.Result:
+## `kind_mask` limits what can be picked (SpatialIndex.KIND_* bits).
+func pick(screen: Vector2, touch_radius: float, kind_mask: int = SpatialIndex.KIND_ALL) -> Picker.Result:
 	if _world == null:
 		return Picker.Result.new()
 	var spatial: SpatialIndex = null
@@ -155,7 +156,7 @@ func pick(screen: Vector2, touch_radius: float) -> Picker.Result:
 		spatial = _props.spatial_index
 	elif _loose != null:
 		spatial = _loose.spatial_index
-	return Picker.pick(screen, _rig, _world, spatial, _pick_shape, touch_radius)
+	return Picker.pick(screen, _rig, _world, spatial, _pick_shape, touch_radius, kind_mask)
 
 
 ## Picking body of anything standing or lying in the world (null if unknown).

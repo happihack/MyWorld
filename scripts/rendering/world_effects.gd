@@ -30,6 +30,8 @@ const RUIN_MOTE := Color(0.70, 1.0, 0.92)
 const SPLASH := Color(0.90, 0.96, 1.0)
 const SPARK := Color(1.0, 0.62, 0.18)
 const DUST_BASE := Color(0.90, 0.86, 0.78)
+## Key in `played` for landings (which are not InteractionResponses).
+const LANDING := &"landing"
 ## Falling leaves are lighter than the canopy so they show against it.
 const LEAF_FALL := Color(0.66, 0.84, 0.38)
 
@@ -164,6 +166,17 @@ func play(response: InteractionResponse) -> void:
 			_shake(response)
 			ring(at, 1.5, 1.6, RUIN_RING)
 			burst(Burst.MOTES, at + Vector3(0.0, 0.25, 0.0), RUIN_MOTE)
+
+
+## Something came down at `at`: dust from the ground it hit, or a splash and
+## ripples if it fell into water. `size` is the radius of what landed.
+func play_landing(at: Vector3, terrain: int, on_water: bool, size: float = 0.25) -> void:
+	played[LANDING] = int(played.get(LANDING, 0)) + 1
+	if on_water:
+		ring(at, 0.6 + size * 1.5, 0.9, WATER_RING)
+		burst(Burst.DUST, at + Vector3(0.0, 0.05, 0.0), SPLASH)
+	else:
+		burst(Burst.DUST, at + Vector3(0.0, 0.05, 0.0), dust_color(terrain))
 
 
 ## Advances shakes and rings. Called every frame; tests call it directly.

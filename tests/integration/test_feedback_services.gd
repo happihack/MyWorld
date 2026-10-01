@@ -299,6 +299,30 @@ func test_heavy_things_sound_lower_and_are_felt_more() -> void:
 	assert_true(AudioManager.world_voice(0).pitch_scale > 1.25, "higher")
 
 
+func test_landings_are_heard_and_felt_by_weight_and_speed() -> void:
+	var spread := Config.feedback.pitch_variation
+	TouchFeedback.landed(Vector3(2, 1, 3), 1.0, 5.0, false) # a rock from carrying height
+	assert_eq(AudioManager.last_sound, &"thud")
+	var rock_voice := AudioManager.world_voice(0)
+	assert_eq(rock_voice.position, Vector3(2, 1, 3))
+	var rock_volume := rock_voice.volume_db
+	assert_near(rock_voice.pitch_scale, 1.0, spread + 0.001)
+	assert_eq(pulses[0][0], Config.feedback.haptic_light_ms)
+	Haptics.reset()
+	AudioManager.stop_all()
+	TouchFeedback.landed(Vector3.ZERO, 0.27, 5.0, false) # a boulder
+	assert_true(AudioManager.world_voice(0).volume_db > rock_volume, "a stronger thud")
+	assert_true(AudioManager.world_voice(0).pitch_scale < 0.75, "and a lower one")
+	assert_eq(pulses[1][0], Config.feedback.haptic_medium_ms)
+	Haptics.reset()
+	AudioManager.stop_all()
+	TouchFeedback.landed(Vector3.ZERO, 1.0, 1.0, false) # set down gently
+	assert_true(AudioManager.world_voice(0).volume_db < rock_volume - 4.0, "a soft landing is quiet")
+	AudioManager.stop_all()
+	TouchFeedback.landed(Vector3.ZERO, 1.0, 5.0, true)
+	assert_eq(AudioManager.last_sound, &"plip", "water")
+
+
 func test_sound_comes_from_the_touched_place() -> void:
 	var r := InteractionResponse.new()
 	r.effect = InteractionResponse.RIPPLE

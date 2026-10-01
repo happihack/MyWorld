@@ -104,3 +104,31 @@ func test_focus_loss_cancels_drag() -> void:
 	EventBus.app_focus_changed.emit(false)
 	assert_eq(got.back(), "DRAG_END")
 	assert_true(router.recognizer.is_idle())
+
+
+func test_touch_ended_is_reported_even_when_no_gesture_is() -> void:
+	var ended := []
+	router.touch_ended.connect(func(pos: Vector2) -> void: ended.append(pos))
+	var at := Vector2(300, 400)
+	_touch(0, at, true)
+	assert_eq(ended.size(), 0)
+	await wait_real_ms(Config.interaction.long_press_ms + 120)
+	assert_has(got, "HOLD")
+	assert_has(got, "LONG_PRESS")
+	var before := got.size()
+	_touch(0, at, false)
+	assert_eq(got.size(), before, "lifting after a long press is no gesture")
+	assert_eq(ended, [at], "but the lift is still reported")
+	# A normal tap: the gesture first, then the lift.
+	var order := []
+	router.gesture_recognized.connect(func(g: Gesture) -> void: order.append(g.type_name()))
+	router.touch_ended.connect(func(_pos: Vector2) -> void: order.append("ended"))
+	_touch(0, at, true)
+	_touch(0, at, false)
+	assert_eq(order, ["TAP", "ended"])
+	# Losing focus with a finger down ends the touch too.
+	_touch(0, at, true)
+	EventBus.app_focus_changed.emit(false)
+	assert_eq(ended.size(), 3)
+	EventBus.app_focus_changed.emit(false)
+	assert_eq(ended.size(), 3, "nothing to end when no finger is down")
