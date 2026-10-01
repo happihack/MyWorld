@@ -432,9 +432,14 @@ func test_the_session_walks_people_as_time_passes() -> void:
 	var person := _adult()
 	var from := person.world2d()
 	var target := _open_tile(5)
+	# (In the running session people live; everyone but the walker is told to stay put.)
+	session.behavior.enabled = true
+	for p in session.people.all_people():
+		p.needs = Needs.full()
+		session.behavior.set_plan(p, BehaviorSystem.ACTIVITY_CALLED, &"",
+			[WalkToStep.make(target), RestStep.make(10000.0)] if p.id == person.id else [RestStep.make(10000.0)])
 	session.set_process(true)
 	session.clock.set_speed(GameClock.SPEED_VERY_FAST)
-	movement.walk_to(person.id, target)
 	await wait_real_ms(400)
 	assert_true(person.world2d().distance_to(from) > 0.5, "time passes, people walk (%.2f tiles)" % person.world2d().distance_to(from))
 	# Paused: nobody moves.
@@ -447,6 +452,7 @@ func test_the_session_walks_people_as_time_passes() -> void:
 	session.clock.set_speed(GameClock.SPEED_VERY_FAST)
 	await wait_real_ms(2500)
 	assert_eq(arrived, [person.id] as Array[int])
+	assert_eq(person.position, target)
 	# Closing the world stops everyone.
 	movement.walk_to(person.id, _open_tile(8))
 	session.shutdown()

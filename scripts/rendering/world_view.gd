@@ -183,6 +183,17 @@ func pick(screen: Vector2, touch_radius: float, kind_mask: int = SpatialIndex.KI
 	return Picker.pick(screen, _rig, _world, spatial, _pick_shape, touch_radius, kind_mask)
 
 
+## The person under a screen position (0 if there is none). People are not
+## among the things pick() finds until they can be touched (M5); this is for
+## whoever wants a person in particular (the debug inspector).
+func pick_person(screen: Vector2, touch_radius: float) -> int:
+	if _world == null or _props == null or _props.spatial_index == null:
+		return 0
+	var result := Picker.pick(screen, _rig, _world, _props.spatial_index, _people_view.pick_shape, touch_radius,
+		SpatialIndex.KIND_PERSON)
+	return result.entity_id if result.kind == Picker.Kind.ENTITY else 0
+
+
 ## Picking body of anything standing or lying in the world (null if unknown).
 func _pick_shape(id: int) -> Variant:
 	var shape: Variant = _props.pick_shape(id) if _props != null else null

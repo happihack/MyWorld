@@ -172,6 +172,23 @@ func visited_count() -> int:
 	return _visited.size()
 
 
+## The squares the band has been to, sorted (for saving).
+func visited_cells() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for cell: Vector2i in _visited:
+		out.append(cell)
+	out.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.x < b.x or (a.x == b.x and a.y < b.y))
+	return out
+
+
+## Restores visited_cells() output (anything else in the list is ignored).
+func set_visited_cells(cells: Array) -> void:
+	_visited.clear()
+	for cell: Variant in cells:
+		if typeof(cell) == TYPE_VECTOR2I:
+			_visited[cell] = true
+
+
 func _cell(tile: Vector2i) -> Vector2i:
 	return Vector2i(floori(float(tile.x) / VISIT_CELL), floori(float(tile.y) / VISIT_CELL))
 

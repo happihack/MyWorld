@@ -12,6 +12,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	1: _v1_to_v2,
 	2: _v2_to_v3,
 	3: _v3_to_v4,
+	4: _v4_to_v5,
 }
 
 
@@ -78,6 +79,22 @@ static func _v3_to_v4(data: Dictionary) -> Dictionary:
 		return data
 	if typeof((state as Dictionary).get("people")) != TYPE_DICTIONARY:
 		(state as Dictionary)["people"] = {}
+	return data
+
+
+## Version 5 (M4.6) adds what people's behaviour keeps about the world (the
+## places the band has been). People themselves need no migrating: what a
+## person saved before M4.4 lacks — needs, a plan — is filled in when they
+## start living (their record always had the fields, empty).
+static func _v4_to_v5(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if typeof((state as Dictionary).get("behavior")) != TYPE_DICTIONARY:
+		(state as Dictionary)["behavior"] = {}
 	return data
 
 

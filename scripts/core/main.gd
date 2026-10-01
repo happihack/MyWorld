@@ -11,6 +11,8 @@ extends Node
 
 ## The player's tools (hand, observe, ...).
 var tools: ToolManager
+## Debug: what one person is doing and why (shown with the debug overlay).
+var inspector: AiInspector
 
 ## The game opens on the whole box, then the camera descends to the settlement
 ## after this many seconds (bible §26.1) — unless the player moves first.
@@ -36,6 +38,7 @@ func _ready() -> void:
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	_setup_tools()
+	_setup_inspector()
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
 	input_router.touch_began.connect(_on_world_touched)
 	input_router.touch_ended.connect(tools.touch_ended)
@@ -62,9 +65,9 @@ func _ready() -> void:
 	debug_overlay.register_section(&"doing", _doing_debug_section)
 	debug_overlay.register_section(&"paths", func() -> String:
 		var finder := session.pathfinder
-		return "paths: %d walking  %d queued  %d found  %d from cache  %.2f ms last  serve %.2f ms" % [
-			session.movement.walking_count(), finder.queue_size(), finder.paths_found, finder.cache_hits,
-			finder.last_path_usec / 1000.0, finder.last_serve_usec / 1000.0])
+		return "paths: %d walking  %d queued  %.2f/frame  %d found  %d from cache  %.2f ms last" % [
+			session.movement.walking_count(), finder.queue_size(), session.simulation.average_paths,
+			finder.paths_found, finder.cache_hits, finder.last_path_usec / 1000.0])
 	debug_overlay.register_section(&"history", func() -> String:
 		var history := session.history
 		return "history %d interventions  %d remembered" % [history.total(), history.entry_count()])
@@ -77,11 +80,37 @@ func _process(_delta: float) -> void:
 	# Whoever the player is looking at is simulated most closely.
 	var pivot := world_view.camera_rig().pivot()
 	session.simulation.tiers.look_at(Vector2(pivot.x, pivot.z))
+	# The inspector is part of the debug overlay; whoever it shows is marked.
+	var debugging := debug_overlay.is_shown()
+	if inspector.visible != debugging:
+		inspector.visible = debugging
+		if not debugging:
+			inspector.clear()
+	var inspected := session.people.get_person(inspector.inspected_id()) if debugging and session.is_active else null
+	if inspected != null and not inspected.has_flag(PersonData.FLAG_INDOORS):
+		world_view.pick_highlight().show_entity(world_view.people_view().ground_position(inspected), 0.3)
 
 
 func _exit_tree() -> void:
 	SaveManager.attach(null)
 	AudioManager.stop_ambience()
+
+
+func _setup_inspector() -> void:
+	inspector = AiInspector.new()
+	debug_overlay.add_child(inspector)
+	inspector.bind(session)
+	inspector.visible = debug_overlay.is_shown()
+	inspector.spawn_requested.connect(_on_spawn_requested)
+	inspector.kill_requested.connect(func(person_id: int) -> void: session.kill_person(person_id))
+
+
+## Debug: a newcomer appears where the player is looking.
+func _on_spawn_requested() -> void:
+	var pivot := world_view.camera_rig().pivot()
+	var person := session.spawn_person(WorldCoords.world2d_to_tile(Vector2(pivot.x, pivot.z)))
+	if person != null:
+		inspector.inspect(person.id)
 
 
 func _setup_tools() -> void:
@@ -119,6 +148,12 @@ func _on_gesture(gesture: Gesture) -> void:
 			if _tap_closed_menu:
 				_tap_closed_menu = false
 				return # that tap only put the menu away
+			# Debug: with the overlay up, a tap on a person inspects them.
+			if debug_overlay.is_shown():
+				var person_id := world_view.pick_person(gesture.position,
+					Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp)
+				if person_id != 0 and inspector.inspect(person_id):
+					return
 			var target := pick_at(gesture.position)
 			var response := tools.tap(target)
 			if response != null or tools.current_id() == HandTool.ID:
@@ -330,11 +365,14 @@ func _doing_debug_section() -> String:
 	var hour := session.clock.hour()
 	var sim := session.simulation
 	var tiers := sim.tiers.counts()
-	return "time %02d:%02d  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d  tiers 4:%d 3:%d 2:%d" % [int(hour), int(fmod(hour, 1.0) * 60.0),
+	return "time %02d:%02d  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d\nactive AI %d  tiers 4:%d 3:%d 2:%d%s" % [int(hour), int(fmod(hour, 1.0) * 60.0),
 		", ".join(parts), session.behavior.decisions, session.behavior.skipped, sim.average_usec / 1000.0,
 		Config.perf.sim_budget_ms_per_frame, sim.average_live_usec / 1000.0, sim.average_paths_usec / 1000.0,
 		sim.average_move_usec / 1000.0, sim.worst_usec / 1000.0, sim.deferred_total,
-		tiers.get(TierManager.FOCUS, 0), tiers.get(TierManager.ACTIVE, 0), tiers.get(TierManager.REGIONAL, 0)]
+		(tiers.get(TierManager.FOCUS, 0) + tiers.get(TierManager.ACTIVE, 0) + tiers.get(TierManager.REGIONAL, 0))
+			if session.behavior.enabled else 0,
+		tiers.get(TierManager.FOCUS, 0), tiers.get(TierManager.ACTIVE, 0), tiers.get(TierManager.REGIONAL, 0),
+		"" if session.behavior.enabled else "  FROZEN"]
 
 
 func _people_debug_section() -> String:

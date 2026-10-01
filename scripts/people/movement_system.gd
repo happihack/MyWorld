@@ -165,6 +165,19 @@ func step_in_turns(minutes: float) -> void:
 	_step(minutes, STRIDE_FRAMES)
 
 
+## Walks everyone the time they are owed (see step_in_turns), now.
+func settle() -> void:
+	if _people == null:
+		return
+	for id: int in _order.duplicate():
+		var walk: Walk = _walks.get(id)
+		var person := _people.get_person(id)
+		if walk != null and person != null and walk.request_id == 0 and walk.owed > 0.0:
+			var owed := walk.owed
+			walk.owed = 0.0
+			_advance(walk, person, owed)
+
+
 func _step(minutes: float, stride: int) -> void:
 	if minutes <= 0.0 or _walks.is_empty() or _people == null:
 		return

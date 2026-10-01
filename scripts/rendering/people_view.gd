@@ -182,6 +182,17 @@ func refresh(delta: float) -> void:
 	_marker_material.albedo_color.a = _marker_alpha
 
 
+## The body a finger can hit (Vector2(height, radius), see Picker), or null
+## for anyone who is not to be seen (indoors, not of this world).
+func pick_shape(person_id: int) -> Variant:
+	var person := _people.get_person(person_id) if _people != null else null
+	if person == null or person.has_flag(PersonData.FLAG_INDOORS):
+		return null
+	var view := _pool.view_of(person_id) as PersonView
+	var height := view.scale.y if view != null else PersonMeshLibrary.ADULT_HEIGHT
+	return Vector2(height, maxf(height * 0.4, 0.16))
+
+
 ## Where a person's feet are in the world.
 func ground_position(person: PersonData) -> Vector3:
 	var at := person.world2d()

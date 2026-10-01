@@ -479,9 +479,9 @@ func test_nobody_weighs_everything_up_when_nothing_could_matter_more() -> void:
 
 func test_walking_is_smooth_whatever_the_turns() -> void:
 	var person := session.people.all_people()[0]
-	session.behavior.enabled = false # (the test says who walks)
 	var target := session.pathfinder.standable_near(session.start.settlement_tile + Vector2i(0, 6), 1)[0]
-	session.movement.walk_to(person.id, target)
+	person.needs = Needs.full()
+	session.behavior.set_plan(person, BehaviorSystem.ACTIVITY_CALLED, &"", [WalkToStep.make(target)]) # (the test says who walks)
 	sim.advance(FRAME)
 	for i in MovementSystem.STRIDE_FRAMES:
 		sim.advance(FRAME)

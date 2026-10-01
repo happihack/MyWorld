@@ -27,6 +27,8 @@ signal worked(person_id: int, kind: StringName, target_id: int)
 ## person last weighed everything up for a look up to be worth another
 ## weighing — until enough time has passed anyway (SimConfig.relaxed_think_factor).
 const LOUDER := 0.05
+## How far (tiles) firm ground is looked for around someone who is stranded.
+const STRANDED_SEARCH := 12
 ## Turns come a hair's breadth short of whole minutes (frames do not divide
 ## them evenly): "every tick" must not become every second one.
 const THINK_SLACK := 0.05
@@ -48,6 +50,8 @@ var ctx: AiContext
 var decisions := 0
 ## Looks up that needed no weighing up (nothing could have mattered more).
 var skipped := 0
+## People moved off ground nobody can stand on (see _rescue_if_stranded).
+var rescues := 0
 ## How often each person has looked up from what they were doing: id -> count.
 var looked_up: Dictionary = {}
 
@@ -99,6 +103,21 @@ func unbind() -> void:
 	_barred.clear()
 	looked_up.clear()
 	_last.clear()
+
+
+# --- saving -------------------------------------------------------------------------------------
+
+## What the behaviour of people keeps about the world, apart from the people
+## themselves (their needs and plans are saved with them).
+func to_dict() -> Dictionary:
+	return {"visited": ctx.places.visited_cells() if ctx != null else []}
+
+
+## Call after bind().
+func from_dict(data: Dictionary) -> void:
+	var visited: Variant = data.get("visited")
+	if ctx != null and typeof(visited) == TYPE_ARRAY:
+		ctx.places.set_visited_cells(visited)
 
 
 # --- questions ----------------------------------------------------------------------------------
@@ -166,6 +185,12 @@ func patience(person: PersonData) -> int:
 	var step_now := current_step(person)
 	var handler := _handler(step_now)
 	return handler.patience(step_now) if handler != null else 1
+
+
+## Forgets the strokes of work not announced yet.
+func discard_strokes() -> void:
+	if ctx != null:
+		ctx.strokes.clear()
 
 
 ## Makes a person look up from what they are doing at their next turn,
@@ -383,6 +408,24 @@ func _on_arrived(person_id: int) -> void:
 
 func _on_blocked(person_id: int) -> void:
 	ctx.note_walk(person_id, &"blocked")
+	_rescue_if_stranded(person_id)
+
+
+## Someone who cannot get anywhere because they stand where nobody can stand
+## (the water rose around them, something was built on them) is put on the
+## nearest ground that can be stood on. It should not happen; when it does it
+## is logged, and the person is not left standing there for ever.
+func _rescue_if_stranded(person_id: int) -> void:
+	var person := ctx.people.get_person(person_id)
+	if person == null or ctx.pathfinder.can_stand(person.position):
+		return
+	var ground := ctx.pathfinder.standable_near(person.position, 1, STRANDED_SEARCH)
+	if ground.is_empty():
+		return
+	Log.warn(Log.Category.AI, "Someone was stranded and has been moved to firm ground",
+		{"person": person.full_name(), "from": person.position, "to": ground[0]})
+	ctx.people.move(person_id, ground[0], Vector2(0.5, 0.5), person.facing)
+	rescues += 1
 
 
 func _on_person_removed(person_id: int) -> void:

@@ -11,6 +11,8 @@ extends Node
 ##   3. queued path requests are answered;
 ##   4. whoever is walking is moved on (each walker every few frames; their
 ##      views glide in between, so walking is smooth).
+## With the AI frozen (BehaviorSystem.enabled = false) the clock runs on but
+## nobody lives and nobody walks; they go on where they were when it thaws.
 ##
 ## **Staggered:** people do not all take their turn in the same frame; each
 ## has their own place in the tick. **Budgeted:** when the time for step 2 is
@@ -28,6 +30,9 @@ var ticks_total := 0
 var last_lived := 0
 var last_deferred := 0
 var deferred_total := 0
+## Path requests answered in the last frame, and smoothed.
+var last_paths := 0
+var average_paths := 0.0
 ## Time the last advance() took, and smoothed over about a second.
 var last_usec := 0
 var average_usec := 0.0
@@ -117,9 +122,11 @@ func advance(delta: float) -> int:
 		_live(minutes, started)
 		var lived := Time.get_ticks_usec()
 		var whole := int(Config.perf.sim_budget_ms_per_frame * 1000.0)
-		_pathfinder.serve(clampi(whole - (lived - started), 0, int(Config.perf.path_budget_ms_per_frame * 1000.0)))
+		last_paths = _pathfinder.serve(clampi(whole - (lived - started), 0, int(Config.perf.path_budget_ms_per_frame * 1000.0)))
+		average_paths = lerpf(average_paths, float(last_paths), 0.03)
 		var served := Time.get_ticks_usec()
-		_movement.step_in_turns(minutes)
+		if _behavior.enabled:
+			_movement.step_in_turns(minutes)
 		average_live_usec = lerpf(average_live_usec, float(lived - started), 0.03)
 		average_paths_usec = lerpf(average_paths_usec, float(served - lived), 0.03)
 		average_move_usec = lerpf(average_move_usec, float(Time.get_ticks_usec() - served), 0.03)
@@ -127,6 +134,25 @@ func advance(delta: float) -> int:
 	average_usec = lerpf(average_usec, float(last_usec), 0.03)
 	worst_usec = maxi(worst_usec, last_usec)
 	return ticks
+
+
+## Lets everyone live the time that has built up for them, now (before a
+## save: what is written is a world in which nobody is behind).
+func settle() -> void:
+	if _behavior == null or _people == null:
+		return
+	if not _behavior.enabled:
+		return # frozen: the world is saved as it stands
+	for index in _order.size():
+		var due := _now - _lived_until[index]
+		var person := _people.get_person(_order[index])
+		if due > 0.0 and person != null:
+			_lived_until[index] = _now
+			_behavior.live(person, due, float(Config.sim.think_ticks(person.sim_tier)))
+	# (Catching up is bookkeeping, not something to be seen and heard — and
+	# the world may be closing.)
+	_behavior.discard_strokes()
+	_movement.settle()
 
 
 ## Game minutes that have built up for a person and are not lived yet.

@@ -64,6 +64,7 @@ var behavior: BehaviorSystem
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
+var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 
 
 func _init() -> void:
@@ -94,6 +95,7 @@ func create_new(seed_value: int = 0) -> void:
 	clock = GameClock.new(Config.time)
 	template_id = DEFAULT_TEMPLATE_ID
 	history = PlayerHistory.new()
+	_saved_behavior = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -133,11 +135,14 @@ func load_from(data: Dictionary) -> bool:
 	var state: Variant = data.get("world_state", {})
 	history = PlayerHistory.new()
 	_saved_water = {}
+	_saved_behavior = {}
 	if typeof(state) == TYPE_DICTIONARY:
 		if typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
 			history.from_dict(state["history"])
 		if typeof((state as Dictionary).get("water")) == TYPE_DICTIONARY:
 			_saved_water = state["water"]
+		if typeof((state as Dictionary).get("behavior")) == TYPE_DICTIONARY:
+			_saved_behavior = state["behavior"]
 	if typeof(state) != TYPE_DICTIONARY or not _restore_world(state):
 		# No usable world state (a migrated version-1 save, or damaged data):
 		# rebuild from the seed. The setup's props take the same low ids they
@@ -155,7 +160,11 @@ func load_from(data: Dictionary) -> bool:
 	return true
 
 
+## Everything about the world that is saved. (Before it is written, everyone
+## lives the time that has built up for them: nobody is saved "behind".)
 func to_dict() -> Dictionary:
+	if is_active:
+		simulation.settle()
 	return {
 		"world_id": world_id,
 		"world_seed": world_seed,
@@ -172,6 +181,7 @@ func to_dict() -> Dictionary:
 			"history": history.to_dict(),
 			"water": water.to_dict(),
 			"people": people.to_dict(),
+			"behavior": behavior.to_dict(),
 			"start": start.to_dict(),
 		},
 	}
@@ -246,6 +256,34 @@ func _restore_people(saved: Dictionary) -> void:
 		Log.debug(Log.Category.SIM, "  %s" % person.full_name(), {
 			"age": person.age_years(clock.tick, Config.time.ticks_per_year()),
 			"occupation": person.occupation_id, "household": person.household_id, "at": person.position})
+
+
+# --- debug commands -----------------------------------------------------------------------------
+
+## Debug: brings someone new into the world, at (or beside) `near`. They join
+## the settlement as a household of their own. Null if there is no settlement.
+func spawn_person(near: Vector2i, stage: PersonData.LifeStage = PersonData.LifeStage.ADULT) -> PersonData:
+	if not is_active or start == null or start.campfire_id == 0:
+		return null
+	var person := PersonFactory.newcomer(ids, rng.stream(&"people"), names, occupations, people, start, pathfinder,
+		clock.tick, near, stage)
+	people.add(person)
+	Log.info(Log.Category.SIM, "Someone arrives", {"person": person.full_name(), "id": person.id, "at": person.position,
+		"occupation": person.occupation_id})
+	EventBus.person_born.emit(person.id)
+	return person
+
+
+## Debug: takes someone out of the world. Those who knew them keep their ids
+## (lineage outlives people).
+func kill_person(person_id: int, cause: StringName = &"debug") -> bool:
+	var person := people.get_person(person_id) if is_active else null
+	if person == null:
+		return false
+	Log.info(Log.Category.SIM, "Someone is gone", {"person": person.full_name(), "id": person_id, "cause": cause})
+	people.remove(person_id)
+	EventBus.person_died.emit(person_id, cause)
+	return true
 
 
 ## Rebuilds the world from saved state: generator output + saved differences.
@@ -351,6 +389,8 @@ func _activate() -> void:
 	ai.places = Places.new(world, props, people, pathfinder, start)
 	ai.rng = rng.stream(&"ai")
 	behavior.bind(ai)
+	behavior.from_dict(_saved_behavior)
+	_saved_behavior = {}
 	simulation.tiers.low_end = GraphicsQuality.current() == GraphicsQuality.Level.LOW
 	simulation.bind(clock, people, behavior, pathfinder, movement)
 	clock.speed_changed.connect(_on_speed_changed)
