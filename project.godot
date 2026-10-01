@@ -18,6 +18,13 @@ config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+Log="*res://scripts/core/log.gd"
+Config="*res://scripts/core/config.gd"
+EventBus="*res://scripts/core/event_bus.gd"
+Settings="*res://scripts/core/settings.gd"
+
 [display]
 
 window/size/viewport_width=1080

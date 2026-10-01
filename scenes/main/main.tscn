@@ -1,6 +1,11 @@
-[gd_scene format=3]
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/core/app_lifecycle.gd" id="1_lifecycle"]
 
 [node name="Main" type="Node"]
+
+[node name="AppLifecycle" type="Node" parent="."]
+script = ExtResource("1_lifecycle")
 
 [node name="UIRoot" type="CanvasLayer" parent="."]
 

@@ -257,15 +257,17 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** headless import clean; settings/actions verification script PASS (F3 matches its action); headless + windowed runs exit 0 with no errors.
 - **Not yet done:** first git commit (awaiting go-ahead); Android device run (M0.8).
 
-### M0.2 Core services (autoloads)
-- [ ] `scripts/core/log.gd` → autoload **Log**: `Log.info(cat, msg, data := {})`, `warn`, `error`, `debug`, `trace`; categories enum (B§31.10); ring buffer (500); file sink `user://logs/wiab_<date>.log` rotating (keep 5); verbose only if `OS.is_debug_build()`.
-- [ ] `scripts/core/config.gd` → autoload **Config**: loads every `data/configuration/*_config.tres` at startup, typed getters (`Config.time`, `Config.world`, …); validates required fields; logs missing.
-- [ ] `scripts/core/config_types/*.gd`: `class_name TimeConfig extends Resource` etc. (only those needed now: `TimeConfig`, `WorldConfig`, `SaveConfig`, `InteractionConfig`, `PerfConfig`).
-- [ ] `scripts/core/event_bus.gd` → autoload **EventBus**: declare the core signal catalogue (B§31.5) with typed args.
-- [ ] `scripts/core/settings.gd` → autoload **Settings**: player settings dictionary, defaults, load/save to `user://settings.cfg` (`ConfigFile`), signal `setting_changed(key, value)`.
-- [ ] `scripts/core/id_allocator.gd` (RefCounted): monotonic int ids, serializable.
-- [ ] `scripts/core/rng_streams.gd` (RefCounted): `stream(name: StringName) -> RandomNumberGenerator` seeded from `world_seed ^ hash(name)`; state serializable.
-- [ ] `scripts/core/app_lifecycle.gd` (node in Main, not autoload): handles `_notification` for `NOTIFICATION_APPLICATION_PAUSED/RESUMED`, `NOTIFICATION_APPLICATION_FOCUS_OUT/IN`, `NOTIFICATION_WM_CLOSE_REQUEST`, `NOTIFICATION_WM_GO_BACK_REQUEST` → emits `EventBus.app_paused/app_resumed`, logs them.
+### M0.2 Core services (autoloads) — ✅ DONE (2026-09-30)
+- [x] `scripts/core/log.gd` → autoload **Log**: `Log.info(Log.Category.X, msg, data := {})`, `warn`, `error`, `debug`, `trace`; Level + Category enums (B§31.10, plus CORE/SIM/ENV/HISTORY); thread-safe (Mutex); ring buffer (500) via `get_recent()`; file sink `user://logs/wiab_<datetime>.log` rotating (keep 5), flushed on WARN+/pause/quit; DEBUG+ in debug builds, WARN+ in release; `line_logged` signal (main thread only).
+- [x] `scripts/core/config.gd` → autoload **Config**: loads `data/configuration/*_config.tres` into typed fields (`Config.time`, `.world`, `.save`, `.interaction`, `.perf`); missing/wrong-type file → class defaults + logged problem (never crashes); `problems` list; `reload()`.
+- [x] `scripts/core/config_types/*.gd`: `ConfigBase` (with `validate()`), `TimeConfig`, `WorldConfig`, `SaveConfig`, `InteractionConfig`, `PerfConfig` — defaults from B§33. `.tres` files generated with `ResourceSaver` (they store only non-default values; **defaults live in the class**, edit values in the inspector).
+- [x] `scripts/core/event_bus.gd` → autoload **EventBus**: full signal catalogue (B§31.5) with typed, id-only payloads, plus `app_focus_changed`, `app_quit_requested`, `back_requested`.
+- [x] `scripts/core/settings.gd` → autoload **Settings**: `DEFAULTS` table defines every key + type; `get_value/set_value` with type coercion (int↔float) and rejection of unknown keys/wrong types; debounced (0.5 s) atomic save (tmp + rename) to `user://settings.cfg`; flush on pause/quit.
+- [x] `scripts/core/id_allocator.gd` (`IdAllocator`): monotonic ids from 1, `reserve_above()`, serializable; 0 = invalid.
+- [x] `scripts/core/rng_streams.gd` (`RngStreams`): named streams seeded with `world_seed ^ fnv1a64(name)` — **own FNV-1a hash instead of `String.hash()`** so seeds stay stable across Godot versions; state serializable; `new_world_seed()`.
+- [x] `scripts/core/app_lifecycle.gd` (`AppLifecycle`, node in Main): pause/resume/focus/close/back notifications → EventBus + logs.
+- **Verified:** clean import; headless smoke test of all services 31/31 PASS (log file + ring + filtering, config load/validate, signal round trip, settings coercion/rejection/atomic overwrite/reload incl. Vector3, id roundtrip, RNG determinism + FNV reference value + state roundtrip, lifecycle → EventBus); windowed run clean. Smoke checks become real unit tests in M0.7.
+- **Note:** `godot --check-only` reports "Identifier not found: Log" for scripts using autoloads — a false positive (check-only doesn't register autoloads). Use real runs/tests for validation.
 
 ### M0.3 Scene architecture
 - [ ] `scenes/main/boot.tscn` + `boot.gd`: init order (Log → Config → Settings → SaveManager) → change to `main.tscn`.

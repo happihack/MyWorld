@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="SaveConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/config_types/save_config.gd" id="1_w35uj"]
+
+[resource]
+script = ExtResource("1_w35uj")

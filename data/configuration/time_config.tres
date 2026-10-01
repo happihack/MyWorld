@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="TimeConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/config_types/time_config.gd" id="1_nuk65"]
+
+[resource]
+script = ExtResource("1_nuk65")
+speed_multipliers = PackedFloat32Array(0, 1, 4, 16)
