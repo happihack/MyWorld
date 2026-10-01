@@ -19,6 +19,19 @@ extends ConfigBase
 ## Height the camera looks at when the whole box is in view.
 @export_range(0.0, 8.0, 0.1) var base_look_height: float = 1.0
 
+@export_group("Feel")
+## How quickly a fling slows down (per second). Higher = stops sooner.
+@export_range(0.5, 20.0, 0.1) var fling_friction: float = 4.2
+## A release slower than this (viewport units per second) does not fling.
+@export_range(0.0, 2000.0, 10.0) var fling_min_speed: float = 180.0
+## How far the view can be dragged past the edge, as a fraction of what is on
+## screen, before it stops giving. It springs back when released.
+@export_range(0.0, 0.5, 0.01) var rubber_band: float = 0.14
+## Zoom factor of one double tap.
+@export_range(1.1, 6.0, 0.1) var double_tap_zoom: float = 2.4
+## Distance the Home button views the settlement from.
+@export_range(4.0, 120.0, 0.5) var home_distance: float = 24.0
+
 
 func validate() -> PackedStringArray:
 	var p := PackedStringArray()

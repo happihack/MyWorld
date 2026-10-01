@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/app_lifecycle.gd" id="2_lifecycle"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" path="res://scripts/interaction/input_router.gd" id="5_router"]
 [ext_resource type="PackedScene" path="res://scenes/debug/debug_overlay.tscn" id="6_overlay"]
 [ext_resource type="Script" path="res://scripts/rendering/world_view.gd" id="7_worldview"]
+[ext_resource type="Script" path="res://scripts/ui/widgets/home_button.gd" id="8_home"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -44,5 +45,20 @@ theme_override_font_sizes/font_size = 24
 text = "v?"
 horizontal_alignment = 2
 vertical_alignment = 2
+
+[node name="HomeButton" type="Button" parent="UIRoot"]
+unique_name_in_owner = true
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -172.0
+offset_top = -284.0
+offset_right = -32.0
+offset_bottom = -144.0
+grow_horizontal = 0
+grow_vertical = 0
+script = ExtResource("8_home")
 
 [node name="DebugOverlay" parent="." instance=ExtResource("6_overlay")]

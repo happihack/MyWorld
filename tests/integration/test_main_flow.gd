@@ -178,3 +178,48 @@ func test_lifecycle_notifications_reach_event_bus() -> void:
 	EventBus.app_resumed.disconnect(on_resumed)
 	EventBus.back_requested.disconnect(on_back)
 	assert_eq(events, ["paused", "resumed", "back"])
+
+
+func test_home_button_returns_to_the_settlement() -> void:
+	var main := await _load_main()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	var session: WorldSession = main.get_node("WorldSession")
+	rig.set_process(false)
+	assert_true(rig.is_framed())
+	var button: Button = main.get_node("UIRoot/HomeButton")
+	assert_true(button.is_in_group(InputRouter.UI_BLOCKER_GROUP), "taps on it never reach the world")
+	assert_true(button.size.x >= 130.0 and button.size.y >= 130.0, "at least a 48 dp touch target on a phone")
+	button.pressed.emit()
+	for i in 300:
+		rig.advance(1.0 / 60.0)
+	assert_near(rig.distance(), Config.camera.home_distance, 0.1)
+	assert_near(rig.pivot().x, session.start.settlement_tile.x + 0.5, 0.2)
+	assert_near(rig.pivot().z, session.start.settlement_tile.y + 0.5, 0.2)
+
+
+func test_touching_the_world_stops_a_fling() -> void:
+	var main := await _load_main()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	rig.set_process(false)
+	rig.zoom_at(8.0, Vector2(540, 960))
+	var start := Gesture.new(Gesture.Type.DRAG_START)
+	rig.handle_gesture(start)
+	var end := Gesture.new(Gesture.Type.DRAG_END)
+	end.position = Vector2(540, 960)
+	end.velocity = Vector2(2500, 0)
+	rig.handle_gesture(end)
+	assert_true(rig.is_flinging())
+	_touch(0, Vector2(400, 1000), true) # a finger lands on the world
+	assert_false(rig.is_flinging())
+	_touch(0, Vector2(400, 1000), false)
+
+
+func test_camera_settings_follow_the_player_settings() -> void:
+	var main := await _load_main()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	assert_false(rig.twist_enabled, "twist-to-rotate is off by default")
+	assert_false(rig.reduced_motion)
+	Settings.set_value(&"camera/twist_rotate", true)
+	Settings.set_value(&"accessibility/reduced_motion", true)
+	assert_true(rig.twist_enabled)
+	assert_true(rig.reduced_motion)

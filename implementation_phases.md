@@ -483,10 +483,19 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 **Goal:** The world is physically interactive; the player can naturally explore entirely through touch. (P:M2, S§6–7, S§10, S§44, B§23.1–23.3, B§26.4)
 **Depends on:** M1.
 
-### M2.1 Gesture completion & camera polish
-- [ ] Recognizer: double tap, swipe classification (velocity > threshold), two-finger drag/twist, gesture cancellation when a second finger lands.
-- [ ] Camera: pan **inertia** (fling with decay), pinch zoom around focal point, **rubber-band** soft bounds, double-tap zoom step (animated), optional two-finger twist yaw (setting), zoom limits (min shows single person clearly; max shows whole box + margin).
-- [ ] **Home button** (HUD, bottom-right): animates camera to settlement center (B§26.4). Camera can never be lost: if pivot leaves bounds (e.g., bug), snap back.
+### M2.1 Gesture completion & camera polish — ✅ DONE (2026-09-30)
+- [x] Recognizer: double tap, swipe classification, two-finger drag/twist, cancellation on a second finger — already built in M0.4 (and given activation thresholds after the hands-on device test).
+- [x] `CameraRig` feel:
+  - **Fling**: a release faster than `fling_min_speed` keeps the world gliding, slowed by `fling_friction` (six times stronger once it pushes past the edge); stops the instant a finger touches the world (new `InputRouter.touch_began` signal); never after a cancelled or after-multi drag; **disabled by the reduced-motion setting**.
+  - **Rubber band**: dragging past the limit follows with growing resistance (asymptotic to `rubber_band` × what is on screen) and springs back on release — also in the framed view, where panning used to do nothing. Implemented with a raw (unsoftened) drag position so resistance does not compound.
+  - **Double tap**: animated zoom step (`double_tap_zoom`) ending with the tapped ground point under the finger; from the closest zoom it returns to the whole box. (M2.3 will make a double tap on an entity focus it instead.)
+  - **Twist to rotate** (setting `camera/twist_rotate`, **off by default**): rotates around the point between the fingers; the fit distance and pan limits account for the rotation.
+  - **Guard**: runs first every frame; a non-finite or far-out-of-range state reframes the box before it can reach the camera transform.
+- [x] `CameraConfig` *Feel* group: `fling_friction`, `fling_min_speed`, `rubber_band`, `double_tap_zoom`, `home_distance`.
+- [x] **Home button** (`scripts/ui/widgets/home_button.gd`, bottom-right of the HUD): self-drawn house glyph (no image asset), 140-unit target (≈ 50 dp on a phone), member of `ui_blocker`; `UIRoot.home_pressed` → `Main.go_home()` glides to the settlement at `home_distance` (frames the box if there is no settlement).
+- [x] `WorldView` syncs `twist_enabled` / `reduced_motion` from Settings live. Desktop right-drag is now bracketed by MULTI_START / MULTI_END like a real two-finger gesture.
+- **Verified:** 15 new rig tests (fling glides/stops/direction/slow release/touch-stop/reduced motion/cancelled, rubber band give + resistance + hold + spring-back, bounded overscroll, fling into the edge, double-tap in and back out, zoom_to anchoring, twist off by default, twist anchoring and direction, rotated framing, guard) + 3 integration tests (Home button, world touch stops a fling, settings sync). Suite: 278 passing, no engine errors. **Phone:** Home tap glides to the settlement; a flick keeps gliding then rests; 60 FPS.
+- **Still to judge by hand:** fling/rubber-band feel and (if enabled) twist-to-rotate.
 
 ### M2.2 Picking
 - [ ] `scripts/interaction/picker.gd`: screen point → ray → march against height grid (DDA over tiles comparing ray height to tile top) → tile; then spatial index query in touch radius (dp → world units at current zoom) → entity by priority (B§23.3). Returns `PickResult {kind, id, tile, world_pos}`.

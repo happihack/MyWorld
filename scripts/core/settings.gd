@@ -30,6 +30,7 @@ const DEFAULTS := {
 	&"graphics/quality": "auto",
 	&"graphics/fps_cap": 60,
 	&"gameplay/gentle_hands": true,
+	&"camera/twist_rotate": false,
 	&"notifications/system_enabled": false,
 	&"debug/enabled": false,
 	&"debug/overlay_visible": false,

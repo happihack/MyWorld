@@ -4,12 +4,16 @@ extends CanvasLayer
 ## For now: title, version, the hidden debug unlock and back-button handling.
 ## The panel stack that the back button closes first arrives in M2.4.
 
+## The player asked to return to the settlement.
+signal home_pressed
+
 ## Tapping the version label this many times within UNLOCK_WINDOW_MS toggles
 ## Settings "debug/enabled" (makes debug tools reachable in release builds).
 const UNLOCK_TAPS := 7
 const UNLOCK_WINDOW_MS := 3000
 
 @onready var _version_label: Label = %VersionLabel
+@onready var _home_button: Button = %HomeButton
 
 ## What "leave the game" does; tests replace it so they don't quit the runner.
 var quit_action: Callable = func() -> void: get_tree().quit()
@@ -23,6 +27,7 @@ func _ready() -> void:
 	_version_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	_version_label.add_to_group(InputRouter.UI_BLOCKER_GROUP)
 	_version_label.gui_input.connect(_on_version_label_input)
+	_home_button.pressed.connect(func() -> void: home_pressed.emit())
 	EventBus.back_requested.connect(_on_back_requested)
 
 

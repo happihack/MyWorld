@@ -12,6 +12,9 @@ extends Node
 ## - Desktop extras: mouse wheel = pinch at the cursor, right-drag = two-finger drag.
 
 signal gesture_recognized(gesture: Gesture)
+## A finger touched the world (not the UI). Emitted on contact, before any
+## gesture is recognized — e.g. to stop a camera fling immediately.
+signal touch_began(position: Vector2)
 
 const UI_BLOCKER_GROUP := &"ui_blocker"
 const DP_REFERENCE_DPI := 160.0
@@ -59,6 +62,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		if is_over_ui(event.position):
 			_ignored_touches[event.index] = true
 			return
+		touch_began.emit(event.position)
 		recognizer.touch_down(event.index, event.position, now)
 	else:
 		if _ignored_touches.erase(event.index):
@@ -94,9 +98,12 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 			if event.pressed and not is_over_ui(event.position):
 				_right_dragging = true
 				_right_drag_last = event.position
+				touch_began.emit(event.position)
+				_emit_synthetic(Gesture.Type.MULTI_START, event.position)
 				get_viewport().set_input_as_handled()
-			elif not event.pressed:
+			elif not event.pressed and _right_dragging:
 				_right_dragging = false
+				_emit_synthetic(Gesture.Type.MULTI_END, event.position)
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
@@ -110,6 +117,14 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 	_right_drag_last = event.position
 	_on_recognized(g)
 	get_viewport().set_input_as_handled()
+
+
+func _emit_synthetic(type: Gesture.Type, position: Vector2) -> void:
+	var g := Gesture.new(type)
+	g.position = position
+	g.touch_count = 2
+	g.time_ms = Time.get_ticks_msec()
+	_on_recognized(g)
 
 
 ## True if `pos` (viewport units) is over a visible UI blocker Control.

@@ -53,6 +53,8 @@ func _ready() -> void:
 	add_child(_rig)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
+	_apply_camera_settings()
+	Settings.setting_changed.connect(_on_setting_changed)
 
 
 ## Shows `world` and what stands on it, replacing whatever was shown before.
@@ -174,6 +176,16 @@ func apply_palette(palette: TerrainPalette) -> void:
 	for material: ShaderMaterial in [_terrain_material, _water_material, _prop_material]:
 		material.set_shader_parameter(&"cloud_strength", palette.cloud_shadow_strength)
 		material.set_shader_parameter(&"cloud_scale", 1.0 / maxf(palette.cloud_size_tiles, 1.0))
+
+
+func _apply_camera_settings() -> void:
+	_rig.twist_enabled = bool(Settings.get_value(&"camera/twist_rotate"))
+	_rig.reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
+
+
+func _on_setting_changed(key: StringName, _value: Variant) -> void:
+	if key == &"camera/twist_rotate" or key == &"accessibility/reduced_motion":
+		_apply_camera_settings()
 
 
 func _on_viewport_resized() -> void:

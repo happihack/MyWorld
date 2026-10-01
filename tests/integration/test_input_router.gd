@@ -92,7 +92,7 @@ func test_right_drag_is_two_finger_drag_until_release() -> void:
 	get_tree().root.push_input(mm, true)
 	_mouse(MOUSE_BUTTON_RIGHT, Vector2(650, 610), false)
 	get_tree().root.push_input(mm, true)
-	assert_eq(got, ["TWO_FINGER_DRAG"])
+	assert_eq(got, ["MULTI_START", "TWO_FINGER_DRAG", "MULTI_END"], "bracketed like a real two-finger gesture")
 
 
 func test_focus_loss_cancels_drag() -> void:

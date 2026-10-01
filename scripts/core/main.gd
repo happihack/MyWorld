@@ -19,6 +19,8 @@ func _ready() -> void:
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
 	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
+	input_router.touch_began.connect(func(_pos: Vector2) -> void: world_view.camera_rig().stop_motion())
+	ui_root.home_pressed.connect(go_home)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
@@ -26,6 +28,16 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	SaveManager.attach(null)
+
+
+## Glides the camera to the settlement (or frames the box if there is none).
+func go_home() -> void:
+	var rig := world_view.camera_rig()
+	if session.start == null or session.start.campfire_id == 0:
+		rig.frame_box()
+		return
+	var tile := session.start.settlement_tile
+	rig.focus_on(Vector3(tile.x + 0.5, 0.0, tile.y + 0.5), Config.camera.home_distance)
 
 
 func _open_world() -> void:
