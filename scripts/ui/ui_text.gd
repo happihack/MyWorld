@@ -24,6 +24,17 @@ const PROP_NAMES := {
 	PropData.Kind.HUT: "Hut",
 	PropData.Kind.CAMPFIRE: "Campfire",
 	PropData.Kind.RUIN: "Old stones",
+	PropData.Kind.CROP: "Field",
+}
+
+## A plot of field by what stands on it (Farming.Stage).
+const CROP_NAMES := {
+	Farming.Stage.SOWN: "Sown field",
+	Farming.Stage.SPROUT: "Sprouting grain",
+	Farming.Stage.GROWING: "Growing grain",
+	Farming.Stage.RIPE: "Ripe grain",
+	Farming.Stage.STUBBLE: "Fallow field",
+	Farming.Stage.FAILED: "Withered crop",
 }
 
 const LOOSE_NAMES := {
@@ -64,6 +75,7 @@ const OCCUPATION_NAMES := {
 	&"forager": "Forager",
 	&"woodcutter": "Woodcutter",
 	&"builder": "Builder",
+	&"farmer": "Farmer",
 	&"child": "Child",
 	&"elder": "Elder",
 }
@@ -248,6 +260,26 @@ static func weight_text(kilograms: float) -> String:
 	elif kilograms < 30.0:
 		word = "Heavy"
 	return "%s (%s kg)" % [word, ("%.1f" % kilograms) if kilograms < 10.0 else str(roundi(kilograms))]
+
+
+## A plot's name by its stage.
+static func crop_name(stage: int) -> String:
+	return CROP_NAMES.get(stage, "Field")
+
+
+## How a crop is doing, in a word or two.
+static func crop_state(stage: int, growth: int, vigor: int, dry: bool) -> String:
+	match stage:
+		Farming.Stage.SOWN, Farming.Stage.SPROUT, Farming.Stage.GROWING:
+			var grown := "%d%% grown" % roundi(growth / 10.0)
+			if dry:
+				return grown + " — wilting"
+			return grown + (" — thirsty" if vigor < 900 else "")
+		Farming.Stage.RIPE:
+			return "Ready to reap" + (" — a poor crop" if dry else "")
+		Farming.Stage.FAILED:
+			return "Dried out"
+	return "Resting"
 
 
 ## The name of a resource: "wood", "berries".

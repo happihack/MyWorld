@@ -8,11 +8,13 @@ extends RefCounted
 
 const GATHER := &"gather"
 const TEND := &"tend"
+const FARM := &"farm"
 
 class Job:
 	extends RefCounted
 	var id := 0
-	## GATHER (bring `resource` in from `node`s) or TEND (keep the fire).
+	## GATHER (bring `resource` in from `node`s), TEND (keep the fire) or
+	## FARM (whatever the field needs).
 	var kind: StringName = GATHER
 	var resource: StringName = &""
 	## What is worked at: "tree", "bush", "fire" (OccupationDef.work_target).
@@ -27,6 +29,8 @@ class Job:
 	func describe() -> String:
 		if kind == TEND:
 			return "keep the %s %.2f" % [node, priority]
+		if kind == FARM:
+			return "the field %.2f" % priority
 		return "%s %.2f (%.0f of %.0f)" % [resource, priority, have, wanted]
 
 
@@ -80,6 +84,11 @@ func refresh(settlement: Settlement, now: int) -> void:
 		# The fire is always there to be kept.
 		if settlement.fire() != null:
 			wanted.append([TEND, &"", &"fire", _config.fire_job_priority, 0.0, 0.0])
+		# The field, as pressing as what it needs (ripe grain above all).
+		if settlement.farming != null and settlement.farming.farmer_count() > 0:
+			var field := maxf(settlement.farming.pressing(now), _config.field_job_floor)
+			if field > 0.0:
+				wanted.append([FARM, &"", &"field", field, 0.0, 0.0])
 	# What was posted and is wanted still keeps its number and its date.
 	var kept: Array[Job] = []
 	for entry: Array in wanted:
@@ -110,42 +119,45 @@ func refresh(settlement: Settlement, now: int) -> void:
 
 
 ## How much a job is one for someone of `trade` (an occupation's
-## work_target): fully if it is their own, partly if it is pressing enough
-## for anyone to lend a hand, not at all otherwise. Keeping the fire is
-## nobody else's work.
-func affinity(job: Job, trade: StringName) -> float:
+## work_target): fully if it is their own; partly if it is something they
+## also do (`also`: OccupationDef.helps_with) or pressing enough for anyone
+## to lend a hand; not at all otherwise. Keeping the fire and working the
+## field are nobody else's work.
+func affinity(job: Job, trade: StringName, also: PackedStringArray = PackedStringArray()) -> float:
 	if job == null or trade == &"":
 		return 0.0
 	if job.node == trade:
 		return 1.0
-	if job.kind == GATHER and job.priority >= _config.urgent_from:
+	if job.kind != GATHER:
+		return 0.0
+	if also.has(String(job.node)) or job.priority >= _config.urgent_from:
 		return _config.other_trade_factor
 	return 0.0
 
 
 ## How strongly the board calls someone of `trade`, 0 … 1: the most
 ## pressing thing on it that is theirs to do.
-func pull_for(trade: StringName) -> float:
+func pull_for(trade: StringName, also: PackedStringArray = PackedStringArray()) -> float:
 	var strongest := 0.0
 	for job in _jobs:
-		strongest = maxf(strongest, job.priority * affinity(job, trade))
+		strongest = maxf(strongest, job.priority * affinity(job, trade, also))
 	return strongest
 
 
 ## What work is worth to someone of `trade`, as a factor on how much they
 ## want to work at all (see SettlementConfig.work_without_jobs).
-func work_factor(trade: StringName) -> float:
-	return lerpf(_config.work_without_jobs, _config.work_with_urgent_job, pull_for(trade))
+func work_factor(trade: StringName, also: PackedStringArray = PackedStringArray()) -> float:
+	return lerpf(_config.work_without_jobs, _config.work_with_urgent_job, pull_for(trade, also))
 
 
 ## The job someone of `trade` takes up now: one of those that are theirs to
 ## do, by weighted dice (never simply the top one). Null if there is none.
-func choose(trade: StringName, rng: RandomNumberGenerator) -> Job:
+func choose(trade: StringName, rng: RandomNumberGenerator, also: PackedStringArray = PackedStringArray()) -> Job:
 	var open: Array[Job] = []
 	var weights := PackedFloat32Array()
 	var total := 0.0
 	for job in _jobs:
-		var weight := job.priority * affinity(job, trade)
+		var weight := job.priority * affinity(job, trade, also)
 		if weight <= 0.0:
 			continue
 		open.append(job)

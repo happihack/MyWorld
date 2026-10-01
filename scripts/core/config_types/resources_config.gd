@@ -6,12 +6,13 @@ extends ConfigBase
 ## What each kind of node yields: node -> {"resource": id, "quantity": units
 ## at 100 % size, "strokes_per_unit": strokes of work for one unit,
 ## "regrow_days": game days from empty to full (0 = never)}.
-## Nodes: "tree", "bush", "rock" (props) and "shoal" (fish: with the
-## animals, M7.4).
+## Nodes: "tree", "bush", "rock" (props), "crop" (a ripe field: what it
+## holds is its harvest, see Farming) and "shoal" (fish: with the animals, M7.4).
 @export var nodes: Dictionary = {
 	&"tree": {"resource": &"wood", "quantity": 16, "strokes_per_unit": 12, "regrow_days": 24.0},
 	&"bush": {"resource": &"berries", "quantity": 8, "strokes_per_unit": 4, "regrow_days": 2.0},
 	&"rock": {"resource": &"stone", "quantity": 10, "strokes_per_unit": 16, "regrow_days": 0.0},
+	&"crop": {"resource": &"grain", "quantity": 6, "strokes_per_unit": 2, "regrow_days": 0.0},
 	&"shoal": {"resource": &"fish", "quantity": 20, "strokes_per_unit": 10, "regrow_days": 4.0},
 }
 ## A felled tree is a stump until this much of it has grown back; then a

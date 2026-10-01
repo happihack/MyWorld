@@ -59,6 +59,12 @@ const GRASS_TIP := Color(0.52, 0.74, 0.34)
 const SEED_HUSK := Color(0.62, 0.50, 0.30)
 const STRANGE := Color(0.20, 0.23, 0.33)
 const STRANGE_GLINT := Color(0.45, 0.80, 0.78)
+const SOIL_DARK := Color(0.36, 0.26, 0.15)
+const CROP_GREEN := Color(0.38, 0.62, 0.22)
+const CROP_GOLD := Color(0.90, 0.74, 0.28)
+const CROP_STRAW := Color(0.78, 0.68, 0.40)
+const CROP_DRY := Color(0.66, 0.56, 0.26)
+const CROP_DEAD := Color(0.42, 0.30, 0.18)
 
 ## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
 const PILE_COLORS := {
@@ -95,6 +101,16 @@ func _init() -> void:
 	_templates[_look_key(PropData.Kind.BUSH, 0, ResourceNodes.Look.BARE)] = _bush(0.26, 0.26, 0)
 	_templates[_look_key(PropData.Kind.BUSH, 1, ResourceNodes.Look.BARE)] = _bush(0.22, 0.31, 0)
 	_templates[_look_key(PropData.Kind.CAMPFIRE, 0, ResourceNodes.Look.BARE)] = _campfire(false)
+	# Crops: a plot of grain at each stage, and the dry look of those that stand.
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.SOWN)] = _crop(0.0, SOIL_DARK, SOIL_DARK, false)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.SPROUT)] = _crop(0.10, CROP_GREEN, CROP_GREEN.lightened(0.15), false)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.GROWING)] = _crop(0.26, CROP_GREEN, CROP_GREEN.lightened(0.2), false)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.RIPE)] = _crop(0.36, CROP_GOLD.darkened(0.15), CROP_GOLD, true)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.STUBBLE)] = _crop(0.05, CROP_STRAW.darkened(0.2), CROP_STRAW, false)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.FAILED)] = _crop(0.13, CROP_DEAD.darkened(0.2), CROP_DEAD, false, 0.5)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.SPROUT + Farming.DRY_VARIANT)] = _crop(0.09, CROP_DRY.darkened(0.1), CROP_DRY, false, 0.2)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.GROWING + Farming.DRY_VARIANT)] = _crop(0.22, CROP_DRY.darkened(0.1), CROP_DRY, false, 0.3)
+	_templates[_key(PropData.Kind.CROP, Farming.Stage.RIPE + Farming.DRY_VARIANT)] = _crop(0.3, CROP_DRY.darkened(0.15), CROP_DRY, true, 0.3)
 	_tuft = _grass_tuft()
 	# Loose objects (things that can be moved). Rocks look like the rock props
 	# they replace; boulders are the same stone, bigger.
@@ -228,6 +244,34 @@ static func _rock(radius: float, height: float, twist: float) -> Template:
 		top[i] += Vector3(radius * 0.12, 0.0, -radius * 0.08)
 	_band(t, base, top, _rgba(STONE_DARK, 0.0), _rgba(STONE, 0.0))
 	_fan(t, top, Vector3(radius * 0.12, height + 0.02, -radius * 0.08), _rgba(STONE, 0.0), _rgba(STONE.lightened(0.1), 0.0))
+	return t
+
+
+## A plot of field: three furrows across the tile with plants of `height`
+## standing in them (none at 0: bare, sown earth). `heads`: ears of grain on
+## top. `lean`: how far the plants hang over (wilting, withered).
+static func _crop(height: float, stalk: Color, top: Color, heads: bool, lean: float = 0.0) -> Template:
+	var t := Template.new()
+	for row in 3:
+		var z := (row - 1) * 0.3
+		# The furrow: a low ridge of darker earth.
+		_box(t, Vector3(0.0, 0.012, z), Vector3(0.44, 0.012, 0.07), _rgba(SOIL_DARK, 0.0))
+		if height <= 0.0:
+			continue
+		for plant in 5:
+			var x := (plant - 2) * 0.19 + (0.05 if row % 2 == 1 else -0.03)
+			var tall := height * (0.85 + 0.15 * (((plant * 7 + row * 3) % 5) / 4.0))
+			var foot := Vector3(x, 0.02, z)
+			var tip := foot + Vector3(lean * tall * (1.0 if (plant + row) % 2 == 0 else -0.6), tall * (1.0 - lean * 0.5), lean * tall * 0.3)
+			var side := Vector3(0.022, 0.0, 0.0)
+			var depth := Vector3(0.0, 0.0, 0.022)
+			var sway := 0.7 if lean < 0.4 else 0.15
+			_quad(t, foot - side, foot + side, tip + side * 0.6, tip - side * 0.6, _rgba(stalk, 0.0), _rgba(stalk, 0.0), _rgba(top, sway), _rgba(top, sway))
+			_quad(t, foot + side, foot - side, tip - side * 0.6, tip + side * 0.6, _rgba(stalk, 0.0), _rgba(stalk, 0.0), _rgba(top, sway), _rgba(top, sway))
+			_quad(t, foot - depth, foot + depth, tip + depth * 0.6, tip - depth * 0.6, _rgba(stalk, 0.0), _rgba(stalk, 0.0), _rgba(top, sway), _rgba(top, sway))
+			_quad(t, foot + depth, foot - depth, tip - depth * 0.6, tip + depth * 0.6, _rgba(stalk, 0.0), _rgba(stalk, 0.0), _rgba(top, sway), _rgba(top, sway))
+			if heads:
+				_diamond(t, tip + Vector3(0.0, 0.02, 0.0), 0.04, _rgba(top.lightened(0.1), sway))
 	return t
 
 

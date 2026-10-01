@@ -43,6 +43,8 @@ var resources: ResourceLibrary
 ## The settlement: its stores and its job board (may be null: then food is
 ## simply there at the fire and every node is worth working at, as before).
 var settlement: Settlement
+## The fields (may be null: nobody farms).
+var farming: Farming
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

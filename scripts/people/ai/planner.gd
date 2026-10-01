@@ -72,9 +72,18 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			# pressing, whoever they are) — or, with nothing posted, their trade.
 			var target := def.work_target
 			if ctx.settlement != null:
-				var job := ctx.settlement.jobs.choose(def.work_target, rng)
+				var job := ctx.settlement.jobs.choose(def.work_target, rng, def.helps_with)
 				if job != null:
 					target = job.node
+			# The field: whatever it needs most right now. With nothing to do
+			# there, a farmer turns to what else they do.
+			if target == &"field":
+				var field_work := _field_work(person, ctx)
+				if not field_work.is_empty():
+					return field_work
+				if def.helps_with.is_empty():
+					return []
+				target = StringName(def.helps_with[0])
 			var place := ctx.places.work_place(person, target, rng)
 			if place.is_empty():
 				return []
@@ -122,6 +131,30 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				return [WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()]
 			return [WalkToStep.make(home, person.sub_tile_offset), RestStep.make(snappedf(rng.randf_range(20.0, 45.0), 1.0), home)]
 	return []
+
+
+## Work on the field: to the plot, do what it needs — and with a harvest,
+## home to the stores with it. [] if the field needs nothing.
+static func _field_work(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.farming == null:
+		return []
+	var task := ctx.farming.task_for(person, ctx.now())
+	if task.is_empty():
+		return []
+	var what: StringName = task["task"]
+	var tile: Vector2i = task["tile"]
+	var work := WorkStep.make(&"field", int(task["id"]), tile, ctx.farming.minutes_for(what))
+	var steps := [WalkToStep.make(tile, Vector2(0.5, 0.82)), work]
+	if what == Farming.HARVEST:
+		# Reaping is gathering: the grain is taken up and carried home.
+		work["gather"] = true
+		var stores: Variant = ctx.places.storage_tile(&"grain")
+		if stores != null:
+			steps.append(WalkToStep.make(stores, STORE_STAND))
+			steps.append(StoreStep.make())
+	else:
+		work["task"] = String(what)
+	return steps
 
 
 ## A tile to stand on next to `tile`, on the side `from` comes from (so that

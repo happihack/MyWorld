@@ -33,6 +33,12 @@ var resource: StringName = &""
 var resource_left := 0
 var resource_capacity := 0
 var look := 0
+## Crops only: Farming.Stage (-1 = not a crop), growth and vigour 0 … 1000,
+## and whether it stands dry.
+var crop_stage := -1
+var crop_growth := 0
+var crop_vigor := 1000
+var crop_dry := false
 ## True if the prop or object came with the world (not placed or built later).
 var generated := false
 

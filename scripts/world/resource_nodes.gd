@@ -21,6 +21,10 @@ const TREE := &"tree"
 const BUSH := &"bush"
 const ROCK := &"rock"
 const SHOAL := &"shoal"
+const CROP := &"crop"
+
+## A ripe crop's last grain was taken (the plot is stubble: see Farming).
+signal reaped(prop_id: int)
 
 var last_settle_tick := -1_000_000
 
@@ -42,6 +46,8 @@ static func key_of(prop: PropData) -> StringName:
 			return BUSH
 		PropData.Kind.ROCK:
 			return ROCK
+		PropData.Kind.CROP:
+			return CROP
 	return &""
 
 
@@ -55,11 +61,16 @@ static func capacity_of(prop: PropData, config: ResourcesConfig = null) -> int:
 	var settings := _settings(prop, config)
 	if settings.is_empty():
 		return 0
+	# (A crop holds what it bears when it is ripe — see Farming — and nothing before.)
+	if prop.kind == PropData.Kind.CROP:
+		return maxi(prop.stock, 0)
 	return maxi(roundi(int(settings.get("quantity", 0)) * prop.scale_percent / 100.0), 1)
 
 
 ## How much is left on it (as of the last time it was looked at: see settle()).
 static func left_of(prop: PropData, config: ResourcesConfig = null) -> int:
+	if prop != null and prop.kind == PropData.Kind.CROP:
+		return maxi(prop.stock, 0) if Farming.stage_of(prop) == Farming.Stage.RIPE else 0
 	var capacity := capacity_of(prop, config)
 	return capacity if prop.stock < 0 else mini(prop.stock, capacity)
 
@@ -125,7 +136,7 @@ func bind(props: PropRegistry, config: ResourcesConfig = null) -> void:
 	if _props == null:
 		return
 	for prop in _props.all_props():
-		if prop.stock >= 0 and key_of(prop) != &"":
+		if prop.stock >= 0 and key_of(prop) != &"" and prop.kind != PropData.Kind.CROP:
 			_tracked[prop.id] = true
 
 
@@ -169,6 +180,13 @@ func take(prop_id: int, units: int, now: int) -> int:
 	var given := mini(units, there)
 	if given <= 0:
 		return 0
+	if prop.kind == PropData.Kind.CROP:
+		# Grain off a ripe crop; with the last of it the plot is reaped.
+		prop.stock -= given
+		_props.touch(prop.id)
+		if prop.stock <= 0:
+			reaped.emit(prop.id)
+		return given
 	var before := look_of(prop, _config)
 	if prop.stock < 0:
 		prop.stock = capacity(prop)
@@ -231,6 +249,8 @@ func debug_text() -> String:
 
 ## Regrowth of one node up to `now`. True if it looks different for it.
 func _settle_one(prop: PropData, now: int) -> bool:
+	if prop.kind == PropData.Kind.CROP:
+		return false # (crops grow by Farming's rules, not by regrowth)
 	if prop.stock < 0:
 		_tracked.erase(prop.id)
 		return false

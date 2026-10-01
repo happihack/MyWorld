@@ -55,6 +55,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.HUT: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.CAMPFIRE: InteractionResponse.FIRE_FLARE,
 	PropData.Kind.RUIN: InteractionResponse.RUIN_HUM,
+	PropData.Kind.CROP: InteractionResponse.BUSH_RUSTLE,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -484,6 +485,11 @@ func inspect(target: Picker.Result) -> InspectReport:
 			report.bears_left = prop.bears_left()
 		report.resource = ResourceNodes.resource_for(prop)
 		report.look = ResourceNodes.look_of(prop)
+		if prop.kind == PropData.Kind.CROP:
+			report.crop_stage = Farming.stage_of(prop)
+			report.crop_growth = prop.growth
+			report.crop_vigor = prop.vigor
+			report.crop_dry = Farming.looks_dry(prop)
 		if report.resource != &"":
 			report.resource_capacity = ResourceNodes.capacity_of(prop)
 			report.resource_left = ResourceNodes.left_of(prop)

@@ -44,7 +44,9 @@ static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i
 	for prop in props.props_in_chunk(coord):
 		# A node that has given up what it had looks it (a stump, a bare bush).
 		var look := ResourceNodes.look_of(prop) if prop.stock >= 0 else ResourceNodes.Look.FULL
-		var template := library.template_for(prop.kind, prop.variant, look)
+		# (A crop's shape is its stage, and the dry look of it.)
+		var variant := Farming.shown_variant(prop) if prop.kind == PropData.Kind.CROP else prop.variant
+		var template := library.template_for(prop.kind, variant, look)
 		if template == null:
 			continue
 		var pos := prop.position2d()
@@ -108,7 +110,7 @@ static func _append(out: Buffers, template: PropMeshLibrary.Template, xform: Tra
 ## Living things vary a little in brightness; built things do not.
 static func _tint(prop: PropData) -> float:
 	match prop.kind:
-		PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.ROCK:
+		PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.ROCK, PropData.Kind.CROP:
 			var n := HashNoise.tile_value(prop.tile.x, prop.tile.y, _TINT_SALT) # 0..65535
 			return 0.88 + n / 65535.0 * 0.24
 		_:

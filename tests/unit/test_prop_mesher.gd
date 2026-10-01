@@ -73,7 +73,9 @@ func test_templates_fit_their_tile_and_stand_on_the_ground() -> void:
 				lo = lo.min(v)
 				hi = hi.max(v)
 			assert_true(lo.y >= -0.001 and lo.y < 0.1, "kind %d/%d base at the ground (%f)" % [kind, variant, lo.y])
-			assert_true(hi.y > 0.1 and hi.y < 2.2, "kind %d/%d sensible height (%f)" % [kind, variant, hi.y])
+			# (A crop's first stages are low: bare furrows, then sprouts.)
+			var least := 0.02 if kind == PropData.Kind.CROP else 0.1
+			assert_true(hi.y > least and hi.y < 2.2, "kind %d/%d sensible height (%f)" % [kind, variant, hi.y])
 			assert_true(maxf(hi.x - lo.x, hi.z - lo.z) < 1.2, "kind %d/%d footprint about a tile" % [kind, variant])
 
 

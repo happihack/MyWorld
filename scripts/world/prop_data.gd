@@ -7,7 +7,7 @@ extends RefCounted
 ##
 ## All fields are integers so generated props are bit-identical everywhere.
 
-enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN }
+enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP }
 
 ## Tree variants 0–1 are broadleaf, 2–3 are conifers (higher ground).
 const TREE_CONIFER_FIRST_VARIANT := 2
@@ -26,6 +26,7 @@ const PICK_BODY := {
 	Kind.HUT: [0.94, 0.50],
 	Kind.CAMPFIRE: [0.36, 0.26],
 	Kind.RUIN: [0.70, 0.42],
+	Kind.CROP: [0.30, 0.42],
 }
 
 var id: int = 0
@@ -49,6 +50,11 @@ var stock_tick: int = 0
 ## A tree whose last wood was taken: a stump, then a sapling, until it has
 ## grown back whole.
 var felled: bool = false
+## Crops only (see Farming): how far it has grown (0 … 1000), how healthy it
+## is (0 … 1000) and when it was last tended. `variant` is its stage.
+var growth: int = 0
+var vigor: int = 1000
+var tended_tick: int = 0
 
 
 static func generated_id(prop_tile: Vector2i) -> int:
@@ -138,12 +144,17 @@ func spatial_kind() -> int:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var record := {
 		"id": id, "kind": kind, "tile": tile, "variant": variant,
 		"rotation_step": rotation_step, "scale_percent": scale_percent,
 		"offset_x": offset_x, "offset_y": offset_y, "taken": taken,
 		"stock": stock, "stock_tick": stock_tick, "felled": felled,
 	}
+	if kind == Kind.CROP:
+		record["growth"] = growth
+		record["vigor"] = vigor
+		record["tended_tick"] = tended_tick
+	return record
 
 
 ## Null if the record is unusable.
@@ -166,4 +177,8 @@ static func from_dict(data: Dictionary) -> PropData:
 	prop.stock = maxi(int(data.get("stock", -1)), -1)
 	prop.stock_tick = int(data.get("stock_tick", 0))
 	prop.felled = bool(data.get("felled", false)) and prop.kind == Kind.TREE and prop.stock >= 0
+	if prop.kind == Kind.CROP:
+		prop.growth = clampi(int(data.get("growth", 0)), 0, 1000)
+		prop.vigor = clampi(int(data.get("vigor", 1000)), 0, 1000)
+		prop.tended_tick = int(data.get("tended_tick", 0))
 	return prop

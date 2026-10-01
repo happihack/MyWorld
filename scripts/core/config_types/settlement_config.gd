@@ -17,6 +17,15 @@ extends ConfigBase
 @export_range(0.0, 30.0, 0.1) var starting_food_days: float = 1.0
 @export_range(0, 1000) var starting_wood: int = 6
 
+@export_group("Farming")
+## A settlement with at least this many grown people who gather for a
+## living, and nobody farming, has one of them take up farming (in a
+## season for sowing).
+@export_range(1, 100) var farmer_from_gatherers: int = 3
+## How pressing the field work is for a farmer with nothing particular to
+## do on it (so that there is always a reason to look after the field).
+@export_range(0.0, 1.0, 0.01) var field_job_floor: float = 0.0
+
 @export_group("Fire")
 ## Pieces of wood the fire burns in a day. Without wood it goes out.
 @export_range(0.0, 100.0, 0.5) var fire_wood_per_day: float = 6.0

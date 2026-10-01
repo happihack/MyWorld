@@ -491,7 +491,7 @@ func test_the_board_posts_what_runs_low() -> void:
 	_refresh()
 	var food_wanted := settlement.food_need_per_day() * config.food_days_wanted
 	var wood_wanted := config.fire_wood_per_day * config.wood_days_wanted
-	assert_eq(board.jobs().size(), 3)
+	assert_eq(board.jobs().size(), 4, "food, wood, the fire and the field")
 	var food_job := board.job_for(&"berries")
 	var wood_job := board.job_for(&"wood")
 	assert_eq(food_job.kind, JobBoard.GATHER)
@@ -502,7 +502,8 @@ func test_the_board_posts_what_runs_low() -> void:
 	assert_near(food_job.priority, 0.5, 0.03)
 	assert_eq(wood_job.node, ResourceNodes.TREE)
 	assert_near(wood_job.priority, 1.0 - config.starting_wood / wood_wanted, 0.001)
-	assert_eq(board.jobs()[0], wood_job, "the most pressing first")
+	for i in range(1, board.jobs().size()):
+		assert_true(board.jobs()[i - 1].priority >= board.jobs()[i].priority, "the most pressing first")
 	assert_true(board.wants(&"wood") and board.wants(&"berries"))
 	assert_false(board.wants(&"stone"))
 	var tend: JobBoard.Job = null
@@ -524,7 +525,7 @@ func test_the_board_posts_what_runs_low() -> void:
 	assert_false(board.wants(&"wood"))
 	assert_false(board.wants(&"berries"))
 	assert_true(closed.has(&"wood") and closed.has(&"berries"))
-	assert_eq(board.jobs().size(), 1, "the fire is always there to keep")
+	assert_eq(board.jobs().size(), 2, "the fire is always there to keep (and the field to sow)")
 	# Low again: posted again, as a new job.
 	posted.clear()
 	stock.take(&"wood", 9)
@@ -780,8 +781,8 @@ func test_version_9_save_gains_a_settlement() -> void:
 	assert_true(s.day_log.entry_count() > 0)
 	# Saved again: the current version, the old file kept; and read back the same.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveManager.SAVE_VERSION, 10)
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 10)
+	assert_true(SaveManager.SAVE_VERSION >= 10)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 9)
 	var again := SaveManager.load_world(V9_ID)
 	assert_true(again.ok, again.error)

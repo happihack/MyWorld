@@ -34,13 +34,17 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 	match report.subject:
 		InspectReport.Subject.PROP:
 			_title.text = UIText.node_name(report.prop_kind, report.prop_variant, report.look)
+			if report.crop_stage >= 0:
+				_title.text = UIText.crop_name(report.crop_stage)
+				_add_row("Crop", UIText.crop_state(report.crop_stage, report.crop_growth, report.crop_vigor, report.crop_dry))
+				_add_row("Soil", "%s · %s" % [UIText.moisture_text(report.moisture), UIText.fertility_text(report.fertility)])
 			_subtitle.text = where
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 			_add_row("Size", UIText.size_text(report.scale_percent))
 			if report.bears >= 0:
 				_add_row("Bears", UIText.bears_text(report.bears_left, report.bears,
 					report.prop_variant >= PropData.TREE_CONIFER_FIRST_VARIANT))
-			if report.resource != &"":
+			if report.resource != &"" and (report.crop_stage < 0 or report.resource_left > 0):
 				_add_row("Holds", UIText.holds_text(report.resource, report.resource_left, report.resource_capacity))
 			if report.prop_kind == PropData.Kind.CAMPFIRE:
 				_add_row("Fire", "Gone out — no wood" if report.look == ResourceNodes.Look.BARE else "Burning")

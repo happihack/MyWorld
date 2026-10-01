@@ -6,7 +6,8 @@ extends ActionStep
 ## it up as they go, and stops when their arms are full or nothing is left).
 ##   {"type": "work", "kind": String, "target": int (prop id), "at": Vector2i,
 ##    "minutes": float, "elapsed": float, "strokes": int,
-##    "gather": bool (optional), "effort": int (strokes towards the next unit)}
+##    "gather": bool (optional), "effort": int (strokes towards the next unit),
+##    "task": String (optional: field work that is done when the time is up — see Farming)}
 
 const TYPE := &"work"
 ## Game minutes between two strokes of work that can be seen and heard.
@@ -41,6 +42,9 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		ctx.strokes.append([person.id, StringName(str(step.get("kind"))), target])
 		if bool(step.get("gather", false)) and gather(ctx, person, step, prop, made):
 			return Status.DONE
+	# Field work other than reaping is done when its time is up.
+	if time_up and step.has("task") and ctx.farming != null and typeof(step.get("at")) == TYPE_VECTOR2I:
+		ctx.farming.finish(StringName(str(step["task"])), step["at"], target, ctx.now())
 	return Status.DONE if time_up else Status.RUNNING
 
 

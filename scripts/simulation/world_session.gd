@@ -75,6 +75,8 @@ var piles: PileStore
 ## The settlement around the fire: its stores, its job board (null in a
 ## world without one).
 var settlement: Settlement
+## The fields and what grows on them.
+var farming: Farming
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## Makes time pass for all of that, in turns and within a budget.
@@ -85,6 +87,7 @@ var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
 var _saved_day_log: Dictionary = {}
 var _saved_settlement: Dictionary = {}
+var _saved_farming: Dictionary = {}
 
 
 func _init() -> void:
@@ -92,6 +95,11 @@ func _init() -> void:
 	observer = ObserverWatch.new()
 	nodes = ResourceNodes.new()
 	piles = PileStore.new()
+	farming = Farming.new()
+	nodes.reaped.connect(func(prop_id: int) -> void:
+		var crop := props.get_prop(prop_id) if props != null else null
+		if crop != null:
+			farming.reaped(crop, clock.tick))
 	interactions = InteractionManager.new()
 	interactions.name = "InteractionManager"
 	add_child(interactions)
@@ -144,6 +152,7 @@ func create_new(seed_value: int = 0) -> void:
 	_activate()
 	if settlement != null:
 		settlement.stock_up(clock.tick)
+		settlement.ensure_farmer(clock.tick)
 	Log.info(Log.Category.WORLD, "New world created", {"world_id": world_id, "seed": world_seed})
 
 
@@ -174,8 +183,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_perception = {}
 	_saved_day_log = {}
 	_saved_settlement = {}
+	_saved_farming = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("farming")) == TYPE_DICTIONARY:
+			_saved_farming = state["farming"]
 		if typeof((state as Dictionary).get("settlement")) == TYPE_DICTIONARY:
 			_saved_settlement = state["settlement"]
 		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
@@ -253,6 +265,7 @@ func to_dict() -> Dictionary:
 			"day_log": day_log.to_dict(),
 			"observer": observer.to_dict(),
 			"settlement": settlement.to_dict() if settlement != null else {},
+			"farming": farming.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -491,12 +504,18 @@ func _activate() -> void:
 	ai.resources = resources
 	ai.places.resources = resources
 	ai.places.nodes = nodes
+	farming.bind(world, props, ids, pathfinder, start, people, occupations, generator, world_seed, Config.farming)
+	farming.from_dict(_saved_farming)
+	_saved_farming = {}
+	ai.farming = farming
 	if settlement != null:
 		settlement.unbind()
 	settlement = null
 	if start != null and start.campfire_id != 0:
 		settlement = Settlement.new()
 		settlement.bind(start, people, props, piles, ai.places, resources, loose, Config.settlement)
+		settlement.farming = farming
+		settlement.occupations = occupations
 		settlement.from_dict(_saved_settlement)
 		settlement.jobs.refresh(settlement, clock.tick)
 	_saved_settlement = {}

@@ -23,6 +23,7 @@ var memory: MemoryConfig
 var day_night: DayNightConfig
 var resources: ResourcesConfig
 var settlement: SettlementConfig
+var farming: FarmingConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -50,6 +51,7 @@ func reload() -> void:
 	day_night = _load("day_night.tres", DayNightConfig) as DayNightConfig
 	resources = _load("resources_config.tres", ResourcesConfig) as ResourcesConfig
 	settlement = _load("settlement_config.tres", SettlementConfig) as SettlementConfig
+	farming = _load("farming_config.tres", FarmingConfig) as FarmingConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

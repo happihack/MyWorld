@@ -9,7 +9,13 @@ extends RefCounted
 signal fire_changed(lit: bool)
 ## Food went bad in a pile (anywhere in the world).
 signal spoiled(resource: StringName, amount: int)
+## Someone took up another occupation (the first farmer).
+signal took_up(person_id: int, occupation: StringName)
 
+## What the first farmer knows of farming when they take it up (a skill, 0 … 1).
+const FIRST_FARMER_SKILL := 0.2
+## How often it is looked at whether someone should take up farming.
+const FARMER_CHECK_MINUTES := 60
 ## At most this many days are made up for at once (a clock set far ahead).
 const MAX_DAYS_AT_ONCE := 30
 const MAX_LOGS_AT_ONCE := 64
@@ -17,6 +23,10 @@ const MAX_LOGS_AT_ONCE := 64
 var id := 0
 var stockpile: Stockpile
 var jobs: JobBoard
+## Its fields (null: this settlement cannot farm).
+var farming: Farming
+## What people can be (null: nobody changes what they are).
+var occupations: OccupationLibrary
 
 var _start: WorldSetup.StartInfo
 var _people: PersonRegistry
@@ -28,6 +38,7 @@ var _config: SettlementConfig
 var _burn_tick := -1
 ## The game day up to which the days' housekeeping (spoilage) is done.
 var _day := -1_000_000
+var _farmer_check_tick := -1_000_000
 
 
 func _init() -> void:
@@ -119,6 +130,49 @@ func days_of_food() -> float:
 	return stockpile.food() / need if need > 0.0 else INF
 
 
+## A settlement of gatherers with nobody farming: in a season for sowing,
+## the one of them best suited to it takes it up (from the trade that has
+## the most people, so that no work is left without anyone). Returns who,
+## or null.
+func ensure_farmer(now: int) -> PersonData:
+	if farming == null or occupations == null or not occupations.has_def(&"farmer") or not farming.sowing_time(now) \
+			or farming.farmer_count() > 0:
+		return null
+	var farmer := occupations.get_def(&"farmer")
+	var by_trade := {}
+	for person in members():
+		var def := occupations.get_def(person.occupation_id)
+		if def == null or def.placeholder or not farmer.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
+			continue
+		if def.work_target != &"tree" and def.work_target != &"bush":
+			continue
+		if not by_trade.has(person.occupation_id):
+			by_trade[person.occupation_id] = []
+		(by_trade[person.occupation_id] as Array).append(person)
+	var gatherers := 0
+	var largest: Array = []
+	var trades: Array = by_trade.keys()
+	trades.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
+	for trade: StringName in trades:
+		var people: Array = by_trade[trade]
+		gatherers += people.size()
+		if people.size() > largest.size():
+			largest = people
+	if gatherers < _config.farmer_from_gatherers or largest.size() < 2:
+		return null
+	var best: PersonData = null
+	for person: PersonData in largest:
+		if best == null or farmer.affinity(person.traits) > farmer.affinity(best.traits) \
+				or (farmer.affinity(person.traits) == farmer.affinity(best.traits) and person.id < best.id):
+			best = person
+	best.occupation_id = farmer.id
+	# (They have seen things grow: not quite a beginner.)
+	best.skills[String(farmer.id)] = maxf(float(best.skills.get(String(farmer.id), 0.0)), FIRST_FARMER_SKILL)
+	took_up.emit(best.id, farmer.id)
+	jobs.refresh(self, now)
+	return best
+
+
 ## What a new settlement begins with: some food and some wood by the fire.
 func stock_up(now: int) -> void:
 	var berries := _library.get_def(&"berries") if _library != null else null
@@ -146,6 +200,11 @@ func step(now: int) -> void:
 		made_up += 1
 		_spoil()
 	_day = today
+	if farming != null:
+		farming.settle(now)
+		if now - _farmer_check_tick >= FARMER_CHECK_MINUTES or now < _farmer_check_tick:
+			_farmer_check_tick = now
+			ensure_farmer(now)
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
 		jobs.refresh(self, now)
 

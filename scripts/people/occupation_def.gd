@@ -20,6 +20,9 @@ extends Resource
 ## What the work is done at: "tree", "bush", "fire" — or nothing (no work to
 ## go to: children, placeholders).
 @export var work_target: StringName = &""
+## Other work they turn to as readily as anyone would to their own second
+## trade (work_targets): a farmer picks berries when the field needs nothing.
+@export var helps_with: PackedStringArray = PackedStringArray()
 ## Something that has no work to do yet (kept so saves and data can refer to it).
 @export var placeholder: bool = false
 ## The shape of a day (bible §13.5), as "HH:MM activity" entries in order:

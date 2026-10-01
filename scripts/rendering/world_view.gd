@@ -292,6 +292,10 @@ func refresh_dirty_props() -> int:
 	for coord: Vector2i in _props_dirty:
 		var view: ChunkView = _chunk_views.get(coord)
 		if view != null:
+			# The ground under them may have changed with them (a plot tilled).
+			var chunk := _world.get_chunk(coord, false)
+			if chunk != null and chunk.is_dirty(ChunkData.DIRTY_MESH):
+				view.rebuild_terrain(_world)
 			view.rebuild_props(_world, _props, _prop_library, _prop_material)
 			rebuilt += 1
 	_props_dirty.clear()

@@ -101,6 +101,8 @@ func _ready() -> void:
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
 	debug_overlay.register_section(&"settlement", func() -> String:
 		return session.settlement.debug_text() if session.settlement != null else "settlement: none")
+	debug_overlay.register_section(&"farming", func() -> String:
+		return session.farming.debug_text(session.clock.tick))
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():

@@ -13,7 +13,7 @@ extends Node
 ## 1: clock, ids, rng. 2: + world_state (modified chunks, prop differences, start info).
 ## 3: + loose objects, changed props, player history, water books (M3).
 ## 4: + people (M4.1). 5: + what the band knows of the world (M4.6).
-const SAVE_VERSION := 10
+const SAVE_VERSION := 11
 const SAVE_FILE := "world.sav"
 
 ## Last save outcome, for the debug overlay.

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="OccupationDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/occupation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"farmer"
+life_stages = Array[int]([2])
+starting_share = 0.0
+trait_weights = {
+"ADVENTURE": -0.5,
+"AMBITION": 0.4,
+"INTELLIGENCE": 0.2
+}
+accessory = &"hoe"
+work_target = &"field"
+helps_with = PackedStringArray("bush")
+placeholder = false
+routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")
