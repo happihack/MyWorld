@@ -82,6 +82,8 @@ var _dirty: Dictionary = {} # tile -> true
 var _obstacles: Dictionary = {} # tile -> how many boulders / logs lie on it
 var _obstacle_tile: Dictionary = {} # object id -> tile
 var _cache: Dictionary = {} # key -> [version, Array[Vector2i]]
+var _shore: Array[Vector2i] = []
+var _shore_version := -1
 var _queue: Array[Request] = []
 var _next_request := 1
 
@@ -302,6 +304,31 @@ func standable_near(tile: Vector2i, count: int, radius: int = 6) -> Array[Vector
 	if found.size() > count:
 		found.resize(count)
 	return found
+
+
+## Water one can drink from: tiles of water with dry ground to stand on
+## beside them. Remembered until the graph changes.
+func shore_tiles() -> Array[Vector2i]:
+	refresh_dirty()
+	if _shore_version == version:
+		return _shore
+	_shore_version = version
+	_shore.clear()
+	var height := _bounds.size.y
+	for id in _width * height:
+		if _water_class[id] == _DRY:
+			continue
+		var x := id % _width
+		@warning_ignore("integer_division")
+		var y := id / _width
+		if (x > 0 and _dry_stand(id - 1)) or (x + 1 < _width and _dry_stand(id + 1)) \
+				or (y > 0 and _dry_stand(id - _width)) or (y + 1 < height and _dry_stand(id + _width)):
+			_shore.append(_tile(id))
+	return _shore
+
+
+func _dry_stand(id: int) -> bool:
+	return _solid[id] == 0 and _water_class[id] == _DRY
 
 
 # --- queue --------------------------------------------------------------------------------------

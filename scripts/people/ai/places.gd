@@ -24,6 +24,19 @@ var _people: PersonRegistry
 var _pathfinder: Pathfinder
 var _start: WorldSetup.StartInfo
 var _visited: Dictionary = {} # cell -> true
+var _company_tick := -1
+# The nearest places of work, remembered until the props change:
+# [kind, center] -> Array of [tile, id].
+var _work_places: Dictionary = {}
+var _work_version := -1
+# Where water can be drunk, remembered for a while (shores move slowly).
+var _shore: Array[Vector2i] = []
+var _shore_tick := -1_000_000
+var _shore_version := -1
+## While water is moving, the shore is looked for again at most this often
+## (game minutes); while it is still, never.
+const SHORE_MINUTES := 120
+var _up_and_about: Dictionary = {} # settlement id -> people up and about
 
 
 func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfinder: Pathfinder,
@@ -50,21 +63,18 @@ func food_tile(_person: PersonData) -> Variant:
 
 ## The nearest water to drink from (a tile of water with dry land beside it),
 ## or null.
-func water_tile(from: Vector2i) -> Variant:
+func water_tile(from: Vector2i, now: int = -1) -> Variant:
+	if _shore_version != _pathfinder.version and (now < 0 or now - _shore_tick >= SHORE_MINUTES or _shore_version < 0):
+		_shore = _pathfinder.shore_tiles()
+		_shore_tick = now
+		_shore_version = _pathfinder.version
 	var best: Variant = null
-	var best_distance := INF
-	var bounds := _world.bounds
-	for y in range(maxi(from.y - WATER_RADIUS, bounds.position.y), mini(from.y + WATER_RADIUS + 1, bounds.end.y)):
-		for x in range(maxi(from.x - WATER_RADIUS, bounds.position.x), mini(from.x + WATER_RADIUS + 1, bounds.end.x)):
-			var tile := Vector2i(x, y)
-			var distance := float((tile - from).length_squared())
-			if distance >= best_distance or _world.get_water(tile) < Pathfinder.WET_DEPTH * 3.0:
-				continue
-			for offset: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				if _pathfinder.can_stand(tile + offset) and _world.get_water(tile + offset) <= Pathfinder.WET_DEPTH:
-					best = tile
-					best_distance = distance
-					break
+	var best_distance := float(WATER_RADIUS * WATER_RADIUS)
+	for tile in _shore:
+		var distance := float((tile - from).length_squared())
+		if distance < best_distance:
+			best = tile
+			best_distance = distance
 	return best
 
 
@@ -101,15 +111,25 @@ func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
 	return others[rng.randi_range(0, mini(others.size(), 3) - 1)]
 
 
-func has_company(person: PersonData) -> bool:
-	for other in _people.in_settlement(person.settlement_id):
-		if other.id != person.id and not other.has_flag(PersonData.FLAG_INDOORS) and other.pose != PersonData.Pose.SLEEP:
-			return true
-	return false
+## Is anyone of the person's settlement (other than themselves) up and
+## about? Counted once per tick and settlement (`now`: the tick), since
+## everyone who decides anything asks.
+func has_company(person: PersonData, now: int = -1) -> bool:
+	if now < 0 or now != _company_tick:
+		_company_tick = now
+		_up_and_about.clear()
+		for other in _people.everyone():
+			if not other.has_flag(PersonData.FLAG_INDOORS) and other.pose != PersonData.Pose.SLEEP:
+				_up_and_about[other.settlement_id] = int(_up_and_about.get(other.settlement_id, 0)) + 1
+	var up := int(_up_and_about.get(person.settlement_id, 0))
+	var me := 0 if person.has_flag(PersonData.FLAG_INDOORS) or person.pose == PersonData.Pose.SLEEP else 1
+	return up - me > 0
 
 
 ## Somewhere to go and look: a tile away from home that can be stood on,
 ## preferably where nobody of the band has been. Null if none was found.
+## (Whether there is a way there is found out by setting off: asking the
+## pathfinder for every candidate would cost more than a frame can spare.)
 func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNumberGenerator) -> Variant:
 	var home: Variant = home_tile(person)
 	var center: Vector2i = home if home != null else person.position
@@ -121,8 +141,7 @@ func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNu
 		var distance := rng.randf_range(nearest, farthest)
 		var tile := center + Vector2i(roundi(cos(angle) * distance), roundi(sin(angle) * distance))
 		if not _pathfinder.can_stand(tile) or _world.get_water(tile) > Pathfinder.WET_DEPTH \
-				or _pathfinder.weight_at(tile) >= Pathfinder.WEIGHT_OBSTACLE \
-				or not _pathfinder.is_reachable(person.position, tile):
+				or _pathfinder.weight_at(tile) >= Pathfinder.WEIGHT_OBSTACLE:
 			continue
 		if not was_visited(tile):
 			return tile
@@ -162,16 +181,26 @@ func _cell(tile: Vector2i) -> Vector2i:
 func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGenerator) -> Dictionary:
 	var home: Variant = home_tile(person)
 	var center: Vector2i = home if home != null else person.position
-	var found: Array[PropData] = []
-	for prop in _props.all_props():
-		if prop.kind == kind and Vector2(prop.tile - center).length() <= WORK_RADIUS \
-				and _world.get_water(prop.tile) <= Pathfinder.WET_DEPTH:
-			found.append(prop)
-	if found.is_empty():
+	if _work_version != _props.version:
+		_work_version = _props.version
+		_work_places.clear()
+	var key := [kind, center]
+	if not _work_places.has(key):
+		var found: Array[PropData] = []
+		for prop in _props.all_props():
+			if prop.kind == kind and Vector2(prop.tile - center).length() <= WORK_RADIUS \
+					and _world.get_water(prop.tile) <= Pathfinder.WET_DEPTH:
+				found.append(prop)
+		found.sort_custom(func(a: PropData, b: PropData) -> bool:
+			var da := (a.tile - center).length_squared()
+			var db := (b.tile - center).length_squared()
+			return da < db or (da == db and a.id < b.id))
+		var nearest: Array = []
+		for i in mini(found.size(), WORK_CHOICES):
+			nearest.append([found[i].tile, found[i].id])
+		_work_places[key] = nearest
+	var places: Array = _work_places[key]
+	if places.is_empty():
 		return {}
-	found.sort_custom(func(a: PropData, b: PropData) -> bool:
-		var da := (a.tile - center).length_squared()
-		var db := (b.tile - center).length_squared()
-		return da < db or (da == db and a.id < b.id))
-	var chosen := found[rng.randi_range(0, mini(found.size(), WORK_CHOICES) - 1)]
-	return {"tile": chosen.tile, "id": chosen.id}
+	var chosen: Array = places[rng.randi_range(0, places.size() - 1)]
+	return {"tile": chosen[0], "id": chosen[1]}

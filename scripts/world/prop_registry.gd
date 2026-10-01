@@ -11,6 +11,9 @@ extends RefCounted
 signal chunk_changed(coord: Vector2i)
 
 var chunk_size: int
+## Goes up whenever a prop is added or removed (for whoever remembers things
+## about the props and needs to know when to look again).
+var version := 0
 ## Optional: kept in sync so entities can be found by position.
 var spatial_index: SpatialIndex
 
@@ -207,6 +210,7 @@ func clear() -> void:
 
 
 func _insert(prop: PropData) -> void:
+	version += 1
 	_props[prop.id] = prop
 	_by_tile[prop.tile] = prop.id
 	var coord := WorldCoords.tile_to_chunk(prop.tile, chunk_size)
@@ -218,6 +222,7 @@ func _insert(prop: PropData) -> void:
 
 
 func _erase(prop: PropData) -> void:
+	version += 1
 	_props.erase(prop.id)
 	_by_tile.erase(prop.tile)
 	var coord := WorldCoords.tile_to_chunk(prop.tile, chunk_size)

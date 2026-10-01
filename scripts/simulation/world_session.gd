@@ -61,6 +61,8 @@ var movement: MovementSystem
 var activities: ActivityLibrary
 ## People living their days: needs, decisions, plans.
 var behavior: BehaviorSystem
+## Makes time pass for all of that, in turns and within a budget.
+var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 
 
@@ -78,6 +80,9 @@ func _init() -> void:
 	pathfinder = Pathfinder.new()
 	movement = MovementSystem.new()
 	behavior = BehaviorSystem.new()
+	simulation = SimulationManager.new()
+	simulation.name = "SimulationManager"
+	add_child(simulation)
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -190,10 +195,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	if is_active:
-		clock.advance(delta)
-		behavior.step(clock.last_advance_minutes)
-		pathfinder.serve(int(Config.perf.path_budget_ms_per_frame * 1000.0))
-		movement.step(clock.last_advance_minutes)
+		simulation.advance(delta)
 
 
 ## Generates terrain, props and the starting settlement for `world_seed`.
@@ -349,6 +351,8 @@ func _activate() -> void:
 	ai.places = Places.new(world, props, people, pathfinder, start)
 	ai.rng = rng.stream(&"ai")
 	behavior.bind(ai)
+	simulation.tiers.low_end = GraphicsQuality.current() == GraphicsQuality.Level.LOW
+	simulation.bind(clock, people, behavior, pathfinder, movement)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

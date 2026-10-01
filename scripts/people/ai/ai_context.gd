@@ -24,14 +24,24 @@ var strokes: Array = []
 # How each person's last walk ended, until the step that asked for it has
 # looked: person id -> &"arrived" / &"blocked".
 var _walk_results: Dictionary = {}
+var _stages: Dictionary = {} # person id -> Vector2i(game day, stage)
 
 
 func now() -> int:
 	return clock.tick if clock != null else 0
 
 
+## The person's stage of life (looked up once per game day and person:
+## everything a person does asks for it).
 func stage_of(person: PersonData) -> PersonData.LifeStage:
-	return person.life_stage(now(), Config.time.ticks_per_year(), Config.people)
+	@warning_ignore("integer_division")
+	var day := now() / TimeConfig.MINUTES_PER_DAY
+	var known: Variant = _stages.get(person.id)
+	if known != null and (known as Vector2i).x == day:
+		return (known as Vector2i).y as PersonData.LifeStage
+	var stage := person.life_stage(now(), Config.time.ticks_per_year(), Config.people)
+	_stages[person.id] = Vector2i(day, stage)
+	return stage
 
 
 func note_walk(person_id: int, result: StringName) -> void:
@@ -47,6 +57,7 @@ func take_walk_result(person_id: int) -> StringName:
 
 func forget(person_id: int) -> void:
 	_walk_results.erase(person_id)
+	_stages.erase(person_id)
 
 
 ## Turns a person to look at a point of the world.

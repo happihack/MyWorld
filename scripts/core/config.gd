@@ -17,6 +17,7 @@ var camera: CameraConfig
 var feedback: FeedbackConfig
 var people: PeopleConfig
 var needs: NeedsConfig
+var sim: SimConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -38,6 +39,7 @@ func reload() -> void:
 	feedback = _load("feedback_config.tres", FeedbackConfig) as FeedbackConfig
 	people = _load("people_config.tres", PeopleConfig) as PeopleConfig
 	needs = _load("needs_config.tres", NeedsConfig) as NeedsConfig
+	sim = _load("sim_config.tres", SimConfig) as SimConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

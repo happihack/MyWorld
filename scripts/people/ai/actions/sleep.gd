@@ -48,5 +48,9 @@ func reluctance(_step: Dictionary) -> float:
 	return 0.5
 
 
+func patience(_step: Dictionary) -> int:
+	return 10
+
+
 func needs_state(_step: Dictionary) -> Needs.State:
 	return Needs.State.SLEEPING

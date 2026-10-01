@@ -71,6 +71,23 @@ func move(id: int, tile: Vector2i, sub_tile_offset: Vector2 = Vector2(0.5, 0.5),
 	return true
 
 
+## move() for whoever walks people about every frame: no checks (the caller
+## vouches for the person and the numbers).
+func place(person: PersonData, tile: Vector2i, sub_tile_offset: Vector2, facing: float) -> void:
+	person.position = tile
+	person.sub_tile_offset = sub_tile_offset
+	person.facing = facing
+	if spatial_index != null:
+		spatial_index.move(person.id, person.world2d())
+	person_moved.emit(person.id)
+
+
+## Everyone, in no particular order (for counting and looking; anything
+## whose result depends on the order must use all_people()).
+func everyone() -> Array:
+	return _people.values()
+
+
 ## Everyone, in order of id (the order they came into the world).
 func all_people() -> Array[PersonData]:
 	var ids: Array = _people.keys()

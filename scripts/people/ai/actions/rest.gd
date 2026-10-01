@@ -21,3 +21,7 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 
 func update(_ctx: AiContext, _person: PersonData, step: Dictionary, minutes: float) -> Status:
 	return Status.DONE if tick(step, minutes) else Status.RUNNING
+
+
+func patience(_step: Dictionary) -> int:
+	return 4

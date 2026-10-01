@@ -17,6 +17,10 @@ signal blocked(person_id: int)
 
 ## A way that closes is looked for again this many times before giving up.
 const MAX_REPATHS := 3
+## In the running game each walker is moved every this many frames, not all
+## in the same one (see step_in_turns). Their views glide between positions,
+## so nothing of it is seen.
+const STRIDE_FRAMES := 3
 
 
 class Walk:
@@ -32,12 +36,22 @@ class Walk:
 	## The graph version the path was found in.
 	var version := 0
 	var repaths := 0
+	## Tiles per game minute on the stretch being walked (to path[index]), and
+	## the index and graph version it was worked out for.
+	var speed := 0.0
+	var speed_index := -1
+	var speed_version := -1
+	var facing := 0.0
+	## Game minutes not walked yet (see step_in_turns).
+	var owed := 0.0
 
 
 var _people: PersonRegistry
 var _pathfinder: Pathfinder
 var _clock: GameClock
 var _walks: Dictionary = {} # person id -> Walk
+var _order: Array[int] = [] # ids of everyone walking, sorted: the same order every time
+var _frame := 0
 ## For the debug overlay.
 var arrivals := 0
 var blocks := 0
@@ -68,6 +82,7 @@ func walk_to(person_id: int, tile: Vector2i, offset: Vector2 = Vector2(0.5, 0.5)
 	walk.target = tile
 	walk.target_offset = offset.clamp(Vector2(0.05, 0.05), Vector2(0.95, 0.95))
 	_walks[person_id] = walk
+	_order.insert(_order.bsearch(person_id), person_id)
 	_ask(walk, person)
 	return true
 
@@ -91,7 +106,7 @@ func stop(person_id: int) -> void:
 		return
 	if walk.request_id != 0:
 		_pathfinder.cancel(walk.request_id)
-	_walks.erase(person_id)
+	_forget(person_id)
 
 
 func stop_all() -> void:
@@ -136,18 +151,41 @@ func speed_of(person: PersonData, tile: Vector2i) -> float:
 		* _pathfinder.speed_factor(tile)
 
 
-## Advances everyone who is walking by `minutes` of game time.
+## Advances everyone who is walking by `minutes` of game time, now.
 func step(minutes: float) -> void:
+	_step(minutes, 1)
+
+
+## The same for the running game, called every frame: each walker is moved
+## every STRIDE_FRAMES frames by the time that has built up for them, and not
+## all walkers in the same frame. Nobody loses time or goes a different way;
+## they are only put down in fewer, larger steps.
+func step_in_turns(minutes: float) -> void:
+	_frame += 1
+	_step(minutes, STRIDE_FRAMES)
+
+
+func _step(minutes: float, stride: int) -> void:
 	if minutes <= 0.0 or _walks.is_empty() or _people == null:
 		return
-	var ids: Array = _walks.keys()
-	ids.sort() # the same order every time
-	for id: int in ids:
+	var count := _order.size()
+	var i := 0
+	while i < count:
+		var id := _order[i]
 		var walk: Walk = _walks.get(id)
-		var person := _people.get_person(id)
-		if walk == null or person == null or walk.request_id != 0:
-			continue
-		_advance(walk, person, minutes)
+		if walk != null and walk.request_id == 0:
+			walk.owed += minutes
+			if stride <= 1 or (_frame + id) % stride == 0:
+				var person := _people.get_person(id)
+				if person != null:
+					var owed := walk.owed
+					walk.owed = 0.0
+					_advance(walk, person, owed)
+		# (Someone who arrived or gave up has left the list.)
+		if _order.size() < count:
+			count = _order.size()
+		else:
+			i += 1
 
 
 # --- internals ----------------------------------------------------------------------------------
@@ -191,15 +229,20 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		var goal := Vector2(tile) + (walk.target_offset if last else Vector2(0.5, 0.5))
 		var to_goal := goal - at
 		var distance := to_goal.length()
-		var speed := speed_of(person, tile)
-		if distance > 0.0001:
-			facing = to_goal.angle()
+		if walk.speed_index != walk.index or walk.speed_version != _pathfinder.version:
+			walk.speed = speed_of(person, tile)
+			walk.speed_index = walk.index
+			walk.speed_version = _pathfinder.version
+			# (The way to a tile centre is straight: the heading holds for the stretch.)
+			walk.facing = to_goal.angle() if distance > 0.0001 else facing
+		var speed := walk.speed
+		facing = walk.facing
 		if distance <= speed * left:
 			at = goal
 			left -= distance / speed
 			if last:
 				_put(person, at, facing)
-				_walks.erase(walk.person_id)
+				_forget(walk.person_id)
 				arrivals += 1
 				arrived.emit(walk.person_id)
 				return
@@ -211,12 +254,17 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 
 
 func _put(person: PersonData, at: Vector2, facing: float) -> void:
-	var tile := WorldCoords.world2d_to_tile(at)
-	_people.move(person.id, tile, at - Vector2(tile), facing)
+	var tile := Vector2i(floori(at.x), floori(at.y))
+	_people.place(person, tile, at - Vector2(tile), facing)
+
+
+func _forget(person_id: int) -> void:
+	_walks.erase(person_id)
+	_order.erase(person_id)
 
 
 func _give_up(walk: Walk) -> void:
-	_walks.erase(walk.person_id)
+	_forget(walk.person_id)
 	blocks += 1
 	blocked.emit(walk.person_id)
 

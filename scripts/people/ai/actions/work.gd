@@ -29,6 +29,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		return Status.DONE
 	Needs.satisfy(person.needs, Needs.Need.PURPOSE, minutes / Config.needs.full_work_minutes)
 	var time_up := tick(step, minutes)
+	# (One stroke per turn at most: a turn that covers several is still one
+	# thing seen and heard.)
 	var strokes := int(float(step["elapsed"]) / STROKE_MINUTES)
 	if strokes > int(step.get("strokes", 0)):
 		step["strokes"] = strokes
@@ -38,3 +40,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 
 func needs_state(_step: Dictionary) -> Needs.State:
 	return Needs.State.WORKING
+
+
+func patience(_step: Dictionary) -> int:
+	return int(STROKE_MINUTES) # a turn for every stroke

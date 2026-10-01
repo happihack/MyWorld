@@ -37,18 +37,27 @@ class Decision:
 ## How much speaks for `def` for this person right now; -1 if it is not
 ## possible for them at all.
 static func score(def: ActivityDef, person: PersonData, ctx: AiContext) -> float:
-	if not def.allows(ctx.stage_of(person)):
+	return _score(def, person, ctx, ctx.stage_of(person), ctx.clock.hour() if ctx.clock != null else 12.0,
+		ActivityDef.voices(person.needs), {})
+
+
+# (The stage of life, the hour, how loudly each need speaks and what is there
+# for the person are the same for every activity of one decision: worked out
+# once by the caller. `met` remembers the requirements already asked about.)
+static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: PersonData.LifeStage, hour: float,
+		spoken: PackedFloat32Array, met: Dictionary) -> float:
+	if not def.allows(stage):
 		return -1.0
 	for requirement in def.requires:
-		if not Planner.can(requirement, person, ctx):
+		var there: Variant = met.get(requirement)
+		if there == null:
+			there = Planner.can(requirement, person, ctx)
+			met[requirement] = there
+		if not there:
 			return -1.0
-	var total := def.base + def.trait_part(person.traits)
-	var parts := def.need_parts(person.needs)
-	for need: int in parts:
-		total += parts[need]
-	total *= def.hour_factor(ctx.clock.hour() if ctx.clock != null else 12.0)
-	if def.repeat_after_minutes > 0.0 and person.activity_log.has(String(def.id)):
-		var since := float(ctx.now() - int(person.activity_log[String(def.id)]))
+	var total := (def.base + def.trait_part(person.traits) + def.need_total_from(spoken)) * def.hour_factor(hour)
+	if def.repeat_after_minutes > 0.0 and person.activity_log.has(def.id_text()):
+		var since := float(ctx.now() - int(person.activity_log[def.id_text()]))
 		total -= REPEAT_PENALTY * clampf(1.0 - since / def.repeat_after_minutes, 0.0, 1.0)
 	return maxf(total, 0.0)
 
@@ -63,8 +72,12 @@ static func decide(person: PersonData, ctx: AiContext, current: StringName = &""
 	var decision := Decision.new()
 	var ids: Array[StringName] = []
 	var values := PackedFloat32Array()
+	var stage := ctx.stage_of(person)
+	var hour := ctx.clock.hour() if ctx.clock != null else 12.0
+	var spoken := ActivityDef.voices(person.needs)
+	var met := {}
 	for id in ctx.activities.ids():
-		var value := -1.0 if barred.has(id) else score(ctx.activities.get_def(id), person, ctx)
+		var value := -1.0 if barred.has(id) else _score(ctx.activities.get_def(id), person, ctx, stage, hour, spoken, met)
 		decision.scores[id] = value
 		if value >= 0.0:
 			ids.append(id)

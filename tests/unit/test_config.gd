@@ -49,5 +49,5 @@ func test_validate_catches_bad_values() -> void:
 
 
 func test_all_default_configs_valid() -> void:
-	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new(), PeopleConfig.new(), NeedsConfig.new()]:
+	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new(), PeopleConfig.new(), NeedsConfig.new(), SimConfig.new()]:
 		assert_eq(cfg.validate().size(), 0, cfg.get_script().resource_path)

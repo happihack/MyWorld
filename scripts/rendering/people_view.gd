@@ -26,8 +26,9 @@ const MAX_VIEWS := 96
 ## A view is checked against its person's age and work every this many frames
 ## (a power of two; people do not change their clothes from one frame to the next).
 const DRESS_CHECK_FRAMES := 16
-## Only people simulated in full are drawn as bodies.
-const MIN_TIER_FOR_VIEW := 3
+## Only people who are simulated as individuals moving about are drawn as
+## bodies (tier 2 and up; the abstract tiers are numbers, not walkers).
+const MIN_TIER_FOR_VIEW := TierManager.REGIONAL
 const REDUCED_MOTION := 0.35
 
 var reduced_motion := false:

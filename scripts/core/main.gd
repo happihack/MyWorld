@@ -73,6 +73,12 @@ func _ready() -> void:
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
 
 
+func _process(_delta: float) -> void:
+	# Whoever the player is looking at is simulated most closely.
+	var pivot := world_view.camera_rig().pivot()
+	session.simulation.tiers.look_at(Vector2(pivot.x, pivot.z))
+
+
 func _exit_tree() -> void:
 	SaveManager.attach(null)
 	AudioManager.stop_ambience()
@@ -322,8 +328,13 @@ func _doing_debug_section() -> String:
 	for activity: StringName in names:
 		parts.append("%s %d" % [activity if activity != &"" else &"nothing", counts[activity]])
 	var hour := session.clock.hour()
-	return "time %02d:%02d  doing: %s  (%d decisions, %.3f ms/frame)" % [int(hour), int(fmod(hour, 1.0) * 60.0),
-		", ".join(parts), session.behavior.decisions, session.behavior.average_step_usec / 1000.0]
+	var sim := session.simulation
+	var tiers := sim.tiers.counts()
+	return "time %02d:%02d  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d  tiers 4:%d 3:%d 2:%d" % [int(hour), int(fmod(hour, 1.0) * 60.0),
+		", ".join(parts), session.behavior.decisions, session.behavior.skipped, sim.average_usec / 1000.0,
+		Config.perf.sim_budget_ms_per_frame, sim.average_live_usec / 1000.0, sim.average_paths_usec / 1000.0,
+		sim.average_move_usec / 1000.0, sim.worst_usec / 1000.0, sim.deferred_total,
+		tiers.get(TierManager.FOCUS, 0), tiers.get(TierManager.ACTIVE, 0), tiers.get(TierManager.REGIONAL, 0)]
 
 
 func _people_debug_section() -> String:

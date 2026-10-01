@@ -21,7 +21,7 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 			var def := ctx.occupations.get_def(person.occupation_id) if ctx.occupations != null else null
 			return def != null and def.work_target != &"" and def.allows(ctx.stage_of(person))
 		&"company":
-			return ctx.places.has_company(person)
+			return ctx.places.has_company(person, ctx.now())
 	return false
 
 
@@ -35,7 +35,7 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				return []
 			return [WalkToStep.make(food, person.sub_tile_offset), EatStep.make(food)]
 		&"drink":
-			var water: Variant = ctx.places.water_tile(person.position)
+			var water: Variant = ctx.places.water_tile(person.position, ctx.now())
 			if water == null:
 				return []
 			return [WalkToStep.make(water), DrinkStep.make(water)]

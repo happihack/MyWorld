@@ -34,6 +34,13 @@ func reluctance(_step: Dictionary) -> float:
 	return 0.0
 
 
+## How many ticks may pass between two turns of someone at this step without
+## anything being missed (1 = every tick). A sleeper's night is the same
+## lived in ten-minute steps; someone walking must be seen to arrive.
+func patience(_step: Dictionary) -> int:
+	return 1
+
+
 ## What the person's needs are subject to while at it.
 func needs_state(_step: Dictionary) -> Needs.State:
 	return Needs.State.AWAKE

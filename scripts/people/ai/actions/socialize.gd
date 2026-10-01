@@ -15,6 +15,10 @@ static func make(partner_id: int, minutes: float) -> Dictionary:
 	return {"type": String(TYPE), "partner": partner_id, "minutes": minutes, "elapsed": 0.0}
 
 
+func patience(_step: Dictionary) -> int:
+	return 2
+
+
 func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	person.pose = PersonData.Pose.TALK
 	var partner := ctx.people.get_person(int(step.get("partner", 0)))

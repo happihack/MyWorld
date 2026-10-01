@@ -10,23 +10,26 @@ extends RefCounted
 ##    "steps": [ {...}, {...} ], "index": 0}
 ## so a world saved in the middle of a meal is restored in the middle of it.
 ##
-## Stepped every frame with fractions of game minutes, but each person lives
-## in whole game minutes (bible 9.3: needs and actions progress per sim tick),
-## and not all in the same frame: at normal speed that is each person twice a
-## second, one or two people per frame. Walking itself is the MovementSystem's
-## and stays smooth. How often who thinks, and within what budget, becomes the
-## SimulationManager's business in M4.5; here everyone who is busy looks up
-## from what they are doing every THINK_MINUTES.
+## Whose turn it is to live, how much time has built up for them, and how
+## much of the frame that may take is the SimulationManager's business: it
+## calls live() person by person. (step() lets everyone live at once — for
+## tests, and wherever there is no frame to keep.) Walking itself is the
+## MovementSystem's and stays smooth.
 
 ## A person's activity changed (&"" = nothing to do).
 signal activity_changed(person_id: int, activity: StringName)
+## A person should take their next turn at once (see prompt()).
+signal prompted(person_id: int)
 ## A stroke of work that can be seen and heard: kind is "tree", "bush", "fire".
 signal worked(person_id: int, kind: StringName, target_id: int)
 
-## People live in steps of this many game minutes.
-const TICK_MINUTES := 1.0
-## Someone busy reconsiders this often (game minutes).
-const THINK_MINUTES := 15.0
+## A need has to have grown this much louder (see ActivityDef.voice) since a
+## person last weighed everything up for a look up to be worth another
+## weighing — until enough time has passed anyway (SimConfig.relaxed_think_factor).
+const LOUDER := 0.05
+## Turns come a hair's breadth short of whole minutes (frames do not divide
+## them evenly): "every tick" must not become every second one.
+const THINK_SLACK := 0.05
 ## Something that turned out not to be possible is not tried again for this long.
 const BARRED_MINUTES := 30
 ## A person with nothing they can do stands about for this long before
@@ -43,14 +46,17 @@ var enabled := true
 var ctx: AiContext
 ## For the debug overlay.
 var decisions := 0
-var last_step_usec := 0
-## Smoothed over about a second of frames.
-var average_step_usec := 0.0
+## Looks up that needed no weighing up (nothing could have mattered more).
+var skipped := 0
+## How often each person has looked up from what they were doing: id -> count.
+var looked_up: Dictionary = {}
 
 var _steps: Dictionary = {} # step type (String) -> ActionStep
 var _begun: Dictionary = {} # person id -> the step Dictionary begin() was called for
-var _since_think: Dictionary = {} # person id -> game minutes since they last thought
-var _pending: Dictionary = {} # person id -> game minutes not yet lived
+var _since_think: Dictionary = {} # person id -> game minutes since they last looked up
+var _since_weighed: Dictionary = {} # person id -> game minutes since they last weighed everything up
+var _loudest_then: Dictionary = {} # person id -> how loud their loudest need was when they did
+var _prompted: Dictionary = {} # person id -> true: weigh everything up at the next turn, whatever
 var _barred: Dictionary = {} # person id -> {activity id -> tick until which it is not tried}
 var _last: Dictionary = {} # person id -> Brain.Decision
 
@@ -73,6 +79,10 @@ func bind(context: AiContext) -> void:
 	ctx.people.person_removed.connect(_on_person_removed)
 	for person in ctx.people.all_people():
 		person.needs = Needs.sanitized(person.needs, person.id)
+	# (Looked up now, while the world is being opened, not in the middle of a
+	# frame when the first of them gets thirsty.)
+	if ctx.start != null:
+		ctx.places.water_tile(ctx.start.settlement_tile, ctx.now())
 
 
 func unbind() -> void:
@@ -83,8 +93,11 @@ func unbind() -> void:
 	ctx = null
 	_begun.clear()
 	_since_think.clear()
-	_pending.clear()
+	_since_weighed.clear()
+	_loudest_then.clear()
+	_prompted.clear()
 	_barred.clear()
+	looked_up.clear()
 	_last.clear()
 
 
@@ -128,23 +141,49 @@ func counts() -> Dictionary:
 
 # --- running ------------------------------------------------------------------------------------
 
-## Lets `minutes` of game time pass for everyone.
+## Lets `minutes` of game time pass for everyone, now.
 func step(minutes: float) -> void:
 	if ctx == null or not enabled or minutes < 0.0:
 		return
-	var started := Time.get_ticks_usec()
 	for person in ctx.people.all_people():
-		var due := float(_pending.get(person.id, _phase(person.id))) + minutes
-		if due < TICK_MINUTES:
-			_pending[person.id] = due
-			continue
-		_pending[person.id] = 0.0
-		_live(person, due)
+		live(person, minutes)
+	announce()
+
+
+## Lets `minutes` of game time pass for one person: their needs run down,
+## what they are doing moves on, and — if they have been at it for
+## `think_every` game minutes since they last looked up — they consider
+## whether something else is more pressing.
+func live(person: PersonData, minutes: float, think_every: float = -1.0) -> void:
+	if ctx == null or not enabled:
+		return
+	_live(person, minutes, think_every if think_every > 0.0 else float(Config.sim.think_ticks_tier3))
+
+
+## How many ticks may pass between two turns of this person without anything
+## being missed (see ActionStep.patience).
+func patience(person: PersonData) -> int:
+	var step_now := current_step(person)
+	var handler := _handler(step_now)
+	return handler.patience(step_now) if handler != null else 1
+
+
+## Makes a person look up from what they are doing at their next turn,
+## whenever they last did (something happened that they should consider: the
+## hook for perception, M5).
+func prompt(person_id: int) -> void:
+	_since_think[person_id] = INF
+	_prompted[person_id] = true
+	prompted.emit(person_id)
+
+
+## Tells the world about the strokes of work done since the last call.
+func announce() -> void:
+	if ctx == null:
+		return
 	for stroke: Array in ctx.strokes:
 		worked.emit(stroke[0], stroke[1], stroke[2])
 	ctx.strokes.clear()
-	last_step_usec = Time.get_ticks_usec() - started
-	average_step_usec = lerpf(average_step_usec, float(last_step_usec), 0.03)
 
 
 ## Makes a person decide now (dropping what they are doing if something else
@@ -182,7 +221,7 @@ func call_to(ids: Array[int], tile: Vector2i) -> int:
 
 # --- internals ----------------------------------------------------------------------------------
 
-func _live(person: PersonData, minutes: float) -> void:
+func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	if person.needs.size() != Needs.COUNT:
 		person.needs = Needs.sanitized(person.needs, person.id)
 	var step_now := current_step(person)
@@ -193,14 +232,42 @@ func _live(person: PersonData, minutes: float) -> void:
 		_think(person, &"")
 		return
 	# Busy people look up from what they are doing now and then.
-	_since_think[person.id] = float(_since_think.get(person.id, _stagger(person.id))) + minutes
-	if _since_think[person.id] >= THINK_MINUTES:
+	_since_think[person.id] = float(_since_think.get(person.id, 0.0)) + minutes
+	_since_weighed[person.id] = float(_since_weighed.get(person.id, 0.0)) + minutes
+	if _since_think[person.id] >= think_every - THINK_SLACK:
 		var before := activity_of(person)
-		if before != ACTIVITY_CALLED:
+		looked_up[person.id] = int(looked_up.get(person.id, 0)) + 1
+		var prompted := _prompted.erase(person.id)
+		if before != ACTIVITY_CALLED and not prompted and ctx.activities.get_def(before) != null \
+				and (_nothing_has_changed(person, think_every) or _nothing_could_matter_more(person, step_now, handler)):
+			# A glance is enough: no need to weigh everything up.
+			_since_think[person.id] = 0.0
+			skipped += 1
+		elif before != ACTIVITY_CALLED:
 			_think(person, before)
 			if activity_of(person) != before:
 				return # something else now: it has been started
 	_carry_on(person, minutes)
+
+
+## Since this person last weighed everything up: has too little time passed
+## for the hour to matter, and has no need grown noticeably louder? Then the
+## answer would be the same.
+func _nothing_has_changed(person: PersonData, think_every: float) -> bool:
+	if not _loudest_then.has(person.id) \
+			or float(_since_weighed.get(person.id, INF)) >= think_every * Config.sim.relaxed_think_factor - THINK_SLACK:
+		return false
+	var loudest := ActivityDef.voice(1.0 - person.needs[Needs.most_urgent(person.needs)])
+	return loudest < float(_loudest_then[person.id]) + LOUDER
+
+
+## Could anything at all make this person drop what they are doing? Not if
+## even the most that could speak for any activity, with their loudest need
+## as loud as it is, stays below what it takes.
+func _nothing_could_matter_more(person: PersonData, step_now: Dictionary, handler: ActionStep) -> bool:
+	var loudest := ActivityDef.voice(1.0 - person.needs[Needs.most_urgent(person.needs)])
+	var bar := float(person.current_action.get("score", 0.0)) + handler.reluctance(step_now) + Brain.HYSTERESIS
+	return ctx.activities.ceiling(loudest) <= bar
 
 
 ## Carries the current step on; moves to the next when it is done; decides
@@ -242,6 +309,9 @@ func _finish(person: PersonData) -> void:
 
 func _think(person: PersonData, current: StringName) -> Brain.Decision:
 	_since_think[person.id] = 0.0
+	_since_weighed[person.id] = 0.0
+	_loudest_then[person.id] = ActivityDef.voice(1.0 - person.needs[Needs.most_urgent(person.needs)]) \
+		if person.needs.size() == Needs.COUNT else 0.0
 	person.mood = Needs.mood(person.needs)
 	person.stress = Needs.stress(person.needs)
 	# What they are doing counts as "current" only if it is something the
@@ -307,17 +377,6 @@ func _barred_now(person_id: int) -> Dictionary:
 	return out
 
 
-## Where in the tick a person lives (0 … TICK_MINUTES): spreads the band
-## over the frames of a tick.
-func _phase(person_id: int) -> float:
-	return float(((person_id * 2654435761) >> 4) & 0xFF) / 256.0 * TICK_MINUTES
-
-
-## So that a band does not all look up in the same minute.
-func _stagger(person_id: int) -> float:
-	return float((person_id * 2654435761) & 0xFF) / 255.0 * THINK_MINUTES
-
-
 func _on_arrived(person_id: int) -> void:
 	ctx.note_walk(person_id, &"arrived")
 
@@ -329,7 +388,10 @@ func _on_blocked(person_id: int) -> void:
 func _on_person_removed(person_id: int) -> void:
 	_begun.erase(person_id)
 	_since_think.erase(person_id)
-	_pending.erase(person_id)
+	_since_weighed.erase(person_id)
+	_loudest_then.erase(person_id)
+	_prompted.erase(person_id)
 	_barred.erase(person_id)
+	looked_up.erase(person_id)
 	_last.erase(person_id)
 	ctx.forget(person_id)
