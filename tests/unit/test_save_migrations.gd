@@ -90,3 +90,21 @@ func test_v3_leaves_saves_without_a_world_alone() -> void:
 	# The whole chain from version 1.
 	var m := SaveMigrations.migrate({"world": {"seed": 5}}, 1, 3)
 	assert_true(m.ok, m.error)
+
+
+# --- 3 -> 4 -----------------------------------------------------------------------------------
+
+func test_v4_marks_worlds_from_before_people() -> void:
+	var m := SaveMigrations.migrate(_v2({"world": {}, "props": {}, "start": {}, "loose": {}}), 3, 4)
+	assert_true(m.ok, m.error)
+	assert_eq(m.data["world"]["world_state"]["people"], {}, "nobody has arrived yet")
+	# People that are already there are left alone.
+	var people := {"persons": [{"id": 9}]}
+	assert_eq(SaveMigrations.migrate(_v2({"world": {}, "people": people}), 3, 4).data["world"]["world_state"]["people"], people)
+	# No world content, nothing to add.
+	assert_eq(SaveMigrations.migrate(_v2({}), 3, 4).data, _v2({}))
+	assert_eq(SaveMigrations.migrate({"world": 3}, 3, 4).data, {"world": 3})
+	# The whole chain.
+	var chain := SaveMigrations.migrate(_v2({"world": {}, "props": {"removed": PackedInt64Array()}, "start": {}}), 2, SaveManager.SAVE_VERSION)
+	assert_true(chain.ok, chain.error)
+	assert_true(chain.data["world"]["world_state"].has("people"))

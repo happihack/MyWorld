@@ -2,6 +2,8 @@ class_name TimeConfig
 extends ConfigBase
 ## Clock, calendar, speeds and offline progression (bible §9, D-04, D-09).
 
+const MINUTES_PER_DAY := 1440
+
 ## Real seconds per game minute at Normal speed (0.5 => a day lasts 12 real minutes).
 @export_range(0.05, 10.0, 0.05) var real_seconds_per_game_minute: float = 0.5
 @export_range(1, 60) var days_per_season: int = 6
@@ -19,6 +21,11 @@ extends ConfigBase
 
 func days_per_year() -> int:
 	return days_per_season * seasons_per_year
+
+
+## One tick is one game minute (see GameClock).
+func ticks_per_year() -> int:
+	return days_per_year() * MINUTES_PER_DAY
 
 
 func validate() -> PackedStringArray:

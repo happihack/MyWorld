@@ -21,6 +21,20 @@ func test_world_and_interaction_defaults() -> void:
 	assert_eq(bad.validate().size(), 1, "grabbing must come before the long press")
 
 
+func test_people_defaults() -> void:
+	assert_eq(Config.time.ticks_per_year(), 24 * 1440)
+	assert_eq(Config.people.band_min_people, 6)
+	assert_eq(Config.people.band_max_people, 8)
+	assert_eq(Config.people.stage_for_age(0), PersonData.LifeStage.CHILD)
+	assert_eq(Config.people.stage_for_age(13), PersonData.LifeStage.ADOLESCENT)
+	assert_eq(Config.people.stage_for_age(18), PersonData.LifeStage.ADULT)
+	assert_eq(Config.people.stage_for_age(55), PersonData.LifeStage.ELDER)
+	var bad := PeopleConfig.new()
+	bad.adult_from_years = 10
+	bad.band_min_people = 9
+	assert_eq(bad.validate().size(), 2)
+
+
 func test_validate_catches_bad_values() -> void:
 	var w := WorldConfig.new()
 	w.initial_world_tiles = 70
@@ -35,5 +49,5 @@ func test_validate_catches_bad_values() -> void:
 
 
 func test_all_default_configs_valid() -> void:
-	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new()]:
+	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new(), PeopleConfig.new()]:
 		assert_eq(cfg.validate().size(), 0, cfg.get_script().resource_path)

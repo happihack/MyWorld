@@ -11,6 +11,7 @@ extends RefCounted
 static var STEPS: Dictionary = { # int from_version -> Callable
 	1: _v1_to_v2,
 	2: _v2_to_v3,
+	3: _v3_to_v4,
 }
 
 
@@ -61,6 +62,22 @@ static func _v2_to_v3(data: Dictionary) -> Dictionary:
 		s["history"] = {}
 	if typeof(s.get("water")) != TYPE_DICTIONARY:
 		s["water"] = {}
+	return data
+
+
+## Version 4 (M4) adds the people. A world saved before it had any gets an
+## empty record — which the loader reads as "nobody has arrived yet" and
+## answers with the starting band (a record with a "persons" list, even an
+## empty one, is a world whose people are known).
+static func _v3_to_v4(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if typeof((state as Dictionary).get("people")) != TYPE_DICTIONARY:
+		(state as Dictionary)["people"] = {}
 	return data
 
 

@@ -19,6 +19,8 @@ const DEFAULT_TEMPLATE_ID := &"river_valley"
 const TEMPLATE_DIR := "res://data/worldgen/"
 ## A random seed whose world is not livable is re-rolled up to this many times.
 const MAX_SEED_ATTEMPTS := 8
+## The culture of the starting band (cultures become entities in M17).
+const FIRST_CULTURE_ID := 1
 
 var world_id: String = ""
 var world_seed: int = 0
@@ -45,6 +47,12 @@ var loose_system: LooseObjectSystem
 var water: WaterSim
 ## What the player has done to this world.
 var history: PlayerHistory
+## Everyone who lives here.
+var people: PersonRegistry
+## Makes names in the sounds of the first culture.
+var names: NameGenerator
+## What people can do with their days (data/occupations).
+var occupations: OccupationLibrary
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 
 
@@ -82,6 +90,7 @@ func create_new(seed_value: int = 0) -> void:
 		Log.warn(Log.Category.WORLD, "World has problems", {"seed": world_seed, "problems": start.problems})
 	world_id = _make_world_id(world_seed, created_unix)
 	rng = RngStreams.new(world_seed)
+	_restore_people({})
 	_activate()
 	Log.info(Log.Category.WORLD, "New world created", {"world_id": world_id, "seed": world_seed})
 
@@ -123,6 +132,8 @@ func load_from(data: Dictionary) -> bool:
 		var setup_ids := IdAllocator.new()
 		_build_new_world(setup_ids)
 		ids.reserve_above(setup_ids.peek() - 1)
+	var saved_people: Variant = (state as Dictionary).get("people") if typeof(state) == TYPE_DICTIONARY else null
+	_restore_people(saved_people if typeof(saved_people) == TYPE_DICTIONARY else {})
 	_activate()
 	Log.info(Log.Category.LOAD, "World loaded", {"world_id": world_id, "tick": clock.tick})
 	return true
@@ -144,6 +155,7 @@ func to_dict() -> Dictionary:
 			"loose": loose.to_dict(),
 			"history": history.to_dict(),
 			"water": water.to_dict(),
+			"people": people.to_dict(),
 			"start": start.to_dict(),
 		},
 	}
@@ -187,6 +199,36 @@ func _build_new_world(setup_ids: IdAllocator) -> void:
 		"loose": loose.size(),
 		"settlement": start.settlement_tile,
 	})
+
+
+## The inhabitants: restored from `saved` (PersonRegistry.to_dict()), or — for
+## a new world, a world saved before it had people, or unusable data — the
+## starting band, made from the world's "people" dice. A world whose people
+## are all gone stays empty: only a missing record brings a new band.
+func _restore_people(saved: Dictionary) -> void:
+	people = PersonRegistry.new(spatial)
+	names = NameGenerator.new(Phonology.from_seed(RngStreams.derive_seed(world_seed, &"culture:%d" % FIRST_CULTURE_ID)))
+	if occupations == null:
+		occupations = OccupationLibrary.load_from()
+	if saved.has("persons"):
+		var skipped := people.from_dict(saved)
+		if skipped >= 0:
+			if skipped > 0:
+				Log.warn(Log.Category.LOAD, "Some saved people were unusable and skipped", {"people": skipped})
+			for person in people.all_people():
+				ids.reserve_above(person.id)
+			return
+		Log.error(Log.Category.LOAD, "Saved people unusable; a new band arrives")
+	if start == null or start.campfire_id == 0:
+		return # nowhere to live (the world has no settlement)
+	var band := StartingBand.spawn(people, ids, rng.stream(&"people"), names, occupations, world, props, start,
+		clock.tick, Config.people, Config.time.ticks_per_year(), loose)
+	Log.info(Log.Category.SIM, "The first band arrives", {
+		"people": band.size(), "households": people.household_ids().size(), "settlement": start.settlement_id})
+	for person in band:
+		Log.debug(Log.Category.SIM, "  %s" % person.full_name(), {
+			"age": person.age_years(clock.tick, Config.time.ticks_per_year()),
+			"occupation": person.occupation_id, "household": person.household_id, "at": person.position})
 
 
 ## Rebuilds the world from saved state: generator output + saved differences.

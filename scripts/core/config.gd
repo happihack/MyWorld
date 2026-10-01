@@ -15,6 +15,7 @@ var perf: PerfConfig
 var terrain_palette: TerrainPalette
 var camera: CameraConfig
 var feedback: FeedbackConfig
+var people: PeopleConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -34,6 +35,7 @@ func reload() -> void:
 	terrain_palette = _load("terrain_palette.tres", TerrainPalette) as TerrainPalette
 	camera = _load("camera_config.tres", CameraConfig) as CameraConfig
 	feedback = _load("feedback_config.tres", FeedbackConfig) as FeedbackConfig
+	people = _load("people_config.tres", PeopleConfig) as PeopleConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

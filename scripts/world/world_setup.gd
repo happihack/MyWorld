@@ -37,6 +37,8 @@ class StartInfo:
 	extends RefCounted
 	var ok := false
 	var settlement_tile := Vector2i.ZERO
+	## Id of the settlement itself (given when its first people arrive; 0 before).
+	var settlement_id := 0
 	var campfire_id := 0
 	var hut_ids: Array[int] = []
 	var ruin_id := 0
@@ -44,7 +46,7 @@ class StartInfo:
 	var problems: PackedStringArray = []
 
 	func to_dict() -> Dictionary:
-		return {"settlement_tile": settlement_tile, "campfire_id": campfire_id,
+		return {"settlement_tile": settlement_tile, "settlement_id": settlement_id, "campfire_id": campfire_id,
 			"hut_ids": hut_ids.duplicate(), "ruin_id": ruin_id, "ruin_tile": ruin_tile}
 
 	## Restores saved start info as-is (it is never recomputed, so later changes
@@ -54,6 +56,7 @@ class StartInfo:
 			return null
 		var info := StartInfo.new()
 		info.settlement_tile = data["settlement_tile"]
+		info.settlement_id = maxi(int(data.get("settlement_id", 0)), 0)
 		info.campfire_id = int(data.get("campfire_id", 0))
 		info.ruin_id = int(data.get("ruin_id", 0))
 		var ruin: Variant = data.get("ruin_tile", Vector2i.ZERO)

@@ -44,11 +44,56 @@ const TOOL_NAMES := {
 
 const WATER_NAME := "Water"
 
+## Words for what stands out in a person (ids from Traits).
+const TRAIT_WORDS := {
+	&"cautious": "Cautious", &"curious": "Curious",
+	&"fearful": "Fearful", &"brave": "Brave",
+	&"selfish": "Selfish", &"generous": "Generous",
+	&"introverted": "Quiet", &"social": "Sociable",
+	&"lazy": "Easygoing", &"ambitious": "Ambitious",
+	&"skeptical": "Skeptical", &"spiritual": "Spiritual",
+	&"peaceful": "Peaceful", &"aggressive": "Hot-tempered",
+	&"trusting": "Trusting", &"suspicious": "Wary",
+	&"homebound": "Homebound", &"adventurous": "Adventurous",
+	&"intelligent": "Clever", &"creative": "Inventive", &"loyal": "Loyal",
+}
+
+const OCCUPATION_NAMES := {
+	&"forager": "Forager",
+	&"woodcutter": "Woodcutter",
+	&"builder": "Builder",
+	&"child": "Child",
+	&"elder": "Elder",
+}
+
+const LIFE_STAGE_NAMES := {
+	PersonData.LifeStage.CHILD: "Child",
+	PersonData.LifeStage.ADOLESCENT: "Youth",
+	PersonData.LifeStage.ADULT: "Adult",
+	PersonData.LifeStage.ELDER: "Elder",
+}
+
 ## First-time hints (bible §26.3: quiet, short, curious).
 const HINTS := {
 	&"drag": "Drag to explore.",
 	&"hold": "Hold to learn more.",
 }
+
+
+## Words for a person's most pronounced traits (see Traits.describe_top).
+static func trait_words(traits: PackedFloat32Array, n: int = 3) -> PackedStringArray:
+	var out := PackedStringArray()
+	for word_id in Traits.describe_top(traits, n):
+		out.append(TRAIT_WORDS.get(StringName(word_id), word_id.capitalize()))
+	return out
+
+
+static func occupation_name(id: StringName) -> String:
+	return OCCUPATION_NAMES.get(id, String(id).capitalize())
+
+
+static func life_stage_name(stage: int) -> String:
+	return LIFE_STAGE_NAMES.get(stage, "")
 
 
 static func hint(id: StringName) -> String:

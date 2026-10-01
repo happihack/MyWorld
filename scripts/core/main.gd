@@ -53,6 +53,7 @@ func _ready() -> void:
 		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms" % [
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
+	debug_overlay.register_section(&"people", _people_debug_section)
 	debug_overlay.register_section(&"history", func() -> String:
 		var history := session.history
 		return "history %d interventions  %d remembered" % [history.total(), history.entry_count()])
@@ -273,6 +274,19 @@ func _camera_debug_section() -> String:
 	var at := rig.pivot()
 	return "camera at (%.1f, %.1f)  dist %.1f / %.1f  pitch %.0f" % [
 		at.x, at.z, rig.distance(), rig.fit_distance(), rig.pitch_degrees()]
+
+
+func _people_debug_section() -> String:
+	if not session.is_active:
+		return "people: none"
+	var year := Config.time.ticks_per_year()
+	var stages := [0, 0, 0, 0]
+	for person in session.people.all_people():
+		stages[person.life_stage(session.clock.tick, year, Config.people)] += 1
+	return "people %d in %d households  (%d children, %d youths, %d adults, %d elders)" % [
+		session.people.size(), session.people.household_ids().size(),
+		stages[PersonData.LifeStage.CHILD], stages[PersonData.LifeStage.ADOLESCENT],
+		stages[PersonData.LifeStage.ADULT], stages[PersonData.LifeStage.ELDER]]
 
 
 func _save_debug_section() -> String:

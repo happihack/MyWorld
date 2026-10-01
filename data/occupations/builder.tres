@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="OccupationDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/occupation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"builder"
+life_stages = Array[int]([2])
+starting_share = 0.0
+trait_weights = {
+"AMBITION": 0.4,
+"CREATIVITY": 0.5
+}
+placeholder = true
