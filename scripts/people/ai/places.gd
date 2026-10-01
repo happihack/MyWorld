@@ -39,6 +39,10 @@ const SHORE_MINUTES := 120
 var _up_and_about: Dictionary = {} # settlement id -> people up and about
 
 
+## What everyone remembers (may be null); see feared().
+var memories: MemoryStore
+
+
 func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfinder: Pathfinder,
 		start: WorldSetup.StartInfo) -> void:
 	_world = world
@@ -143,6 +147,8 @@ func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNu
 		if not _pathfinder.can_stand(tile) or _world.get_water(tile) > Pathfinder.WET_DEPTH \
 				or _pathfinder.weight_at(tile) >= Pathfinder.WEIGHT_OBSTACLE:
 			continue
+		if feared(person, tile):
+			continue # not there again
 		if not was_visited(tile):
 			return tile
 		if fallback == null:
@@ -219,5 +225,18 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 	var places: Array = _work_places[key]
 	if places.is_empty():
 		return {}
+	# Not where something frightening happened, if there is anywhere else.
+	if memories != null and not person.memory_ids.is_empty():
+		var calm: Array = []
+		for place: Array in places:
+			if not feared(person, place[0]):
+				calm.append(place)
+		if not calm.is_empty():
+			places = calm
 	var chosen: Array = places[rng.randi_range(0, places.size() - 1)]
 	return {"tile": chosen[0], "id": chosen[1]}
+
+
+## Does the person keep away from this place, for what they remember of it?
+func feared(person: PersonData, tile: Vector2i) -> bool:
+	return memories != null and memories.fear_at(person, Vector2(tile) + Vector2(0.5, 0.5)) > Config.memory.avoid_from

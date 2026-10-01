@@ -254,6 +254,8 @@ func announce() -> void:
 		for id: int in nudged:
 			prompted.emit(id)
 	_announce_reactions()
+	if ctx.memories != null:
+		ctx.memories.advance(ctx.now())
 
 
 func _announce_reactions() -> void:
@@ -322,6 +324,10 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 		var prompted := _prompted.erase(person.id)
 		# Someone called, or in the middle of reacting, is not asked what else they might do.
 		var held := before == ACTIVITY_CALLED or before == ACTIVITY_REACT
+		# Looking up, they may come upon something that was not there before.
+		if not held and person.pose != PersonData.Pose.SLEEP and not person.has_flag(PersonData.FLAG_INDOORS) \
+				and Discovery.look_around(person, ctx) and _consider_perceptions(person):
+			return
 		if not held and not prompted and ctx.activities.get_def(before) != null \
 				and (_nothing_has_changed(person, think_every) or _nothing_could_matter_more(person, step_now, handler)):
 			# A glance is enough: no need to weigh everything up.
@@ -377,13 +383,24 @@ func _consider_perceptions(person: PersonData) -> bool:
 	var outcome: Reactions.Outcome = null
 	if not busy_reacting:
 		outcome = Reactions.respond(person, chosen, ctx, table)
+	var second_hand := stimulus.type == Stimulus.TOLD
+	var times_before := Interpretation.familiarity(person, stimulus.about if second_hand and stimulus.about != &"" else stimulus.type)
 	# Each of them is an experience (counted after responding: "before" means before).
 	for perception: Dictionary in pending:
 		var seen: Stimulus = perception["stimulus"]
 		Interpretation.note_experience(person, seen.about if seen.type == Stimulus.TOLD and seen.about != &"" else seen.type)
+		# Whoever saw a thing lifted or land does not "find" it later.
+		if seen.object_id != 0 and ctx.loose != null:
+			var object := ctx.loose.get_object(seen.object_id)
+			if object != null:
+				Discovery.note(object, person.id)
 	if outcome == null:
 		return false
-	var second_hand := stimulus.type == Stimulus.TOLD
+	# What was made of it is remembered (bible §15).
+	if ctx.memories != null:
+		var memory := MemoryStore.from_outcome(person, outcome, ctx.stage_of(person), times_before, ctx.now())
+		if memory != null:
+			ctx.memories.remember(person, memory)
 	Interpretation.update_beliefs(person, outcome.interpretation,
 		lerpf(0.4, 1.0, outcome.salience) * (table.secondhand_factor if second_hand else 1.0), table)
 	_outcomes[person.id] = outcome

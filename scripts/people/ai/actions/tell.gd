@@ -33,13 +33,9 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	ctx.face(person, listener.world2d())
 	if not bool(step.get("told", false)):
 		step["told"] = true
-		var telling := Stimulus.telling(person, StringName(str(step.get("about", ""))),
-			StringName(str(step.get("interpretation", ""))), float(step.get("strength", 0.5)), ctx.now())
-		if not ctx.perceptions.has(listener.id):
-			ctx.perceptions[listener.id] = []
-		(ctx.perceptions[listener.id] as Array).append({"stimulus": telling, "salience": telling.intensity,
-			"direct": false, "witnesses": 2})
-		ctx.nudges.append(listener.id)
+		var about := StringName(str(step.get("about", "")))
+		Gossip.tell(ctx, person, listener, about, StringName(str(step.get("interpretation", ""))),
+			float(step.get("strength", 0.5)), Gossip.fidelity_of(ctx, person, about, true))
 		# Company is company, whatever is said.
 		Needs.satisfy(person.needs, Needs.Need.SOCIAL, 0.1)
 	return Status.DONE if tick(step, minutes) else Status.RUNNING

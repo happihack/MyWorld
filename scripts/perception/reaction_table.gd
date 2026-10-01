@@ -57,6 +57,7 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"object_moved": [0.5, 0.9, 9.0, true, false, false],
 	&"water_taken": [0.4, 0.75, 7.0, true, true, false],
 	&"water_poured": [0.45, 0.85, 8.0, true, true, true],
+	&"object_found": [0.3, 0.5, 0.0, true, false, false],
 }
 
 @export_group("Perception")

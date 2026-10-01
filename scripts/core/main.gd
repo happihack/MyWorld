@@ -90,7 +90,8 @@ func _ready() -> void:
 	debug_overlay.register_section(&"people", _people_debug_section)
 	debug_overlay.register_section(&"doing", _doing_debug_section)
 	debug_overlay.register_section(&"perception", func() -> String:
-		return "%s  reactions %d" % [session.perception.debug_text(), session.behavior.reactions])
+		return "%s  reactions %d
+%s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
 	debug_overlay.register_section(&"paths", func() -> String:
 		var finder := session.pathfinder
 		return "paths: %d walking  %d queued  %.2f/frame  %d found  %d from cache  %.2f ms last" % [
@@ -305,7 +306,7 @@ func _update_locate() -> void:
 		var at := rig.world_to_screen(world_view.people_view().ground_position(person))
 		var card := ui_root.person_card()
 		var bottom := card.get_global_rect().position.y if card != null else rig.view_size().y
-		lost = not Rect2(0.0, 0.0, rig.view_size().x, bottom).has_point(at)
+		lost = not Rect2(0.0, 0.0, rig.view_size().x, maxf(bottom, 0.0)).has_point(at)
 	ui_root.follow_banner().set_locate(person.given_name if lost else "")
 
 

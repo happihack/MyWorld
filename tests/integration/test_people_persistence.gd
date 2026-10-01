@@ -101,7 +101,7 @@ func test_version_4_save_migrates_and_its_people_start_living() -> void:
 	# Saved again: the current version; the old file is kept.
 	assert_true(SaveManager.save_world(s, &"test"))
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
-	assert_eq(SaveManager.SAVE_VERSION, 5)
+	assert_eq(SaveManager.SAVE_VERSION, 6)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 4)
 	var again := _session()
 	assert_true(again.load_from(SaveManager.load_world(V4_ID).world))
@@ -109,8 +109,9 @@ func test_version_4_save_migrates_and_its_people_start_living() -> void:
 
 
 func test_every_older_save_still_loads() -> void:
-	# Versions 1 to 4, each written by the build of its day.
-	var fixtures := {1: "w1790000000_fixture1", 2: "w1790835263_88a7bf97", 3: "w1790836236_7409924f", 4: V4_ID}
+	# Versions 1 to 5, each written by the build of its day.
+	var fixtures := {1: "w1790000000_fixture1", 2: "w1790835263_88a7bf97", 3: "w1790836236_7409924f", 4: V4_ID,
+		5: "w1790867949_3c2d625b"}
 	for version: int in fixtures:
 		var path := "res://tests/fixtures/saves/v%d_world.sav" % version
 		var id: String = fixtures[version]

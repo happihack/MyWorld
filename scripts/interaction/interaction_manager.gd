@@ -338,7 +338,9 @@ func _do_move_object(iv: Intervention) -> bool:
 	iv.tile = object.tile()
 	iv.params = {"from": from, "to": object.position, "thrown": velocity.length() > 0.0}
 	object.moved_count += 1
+	object.moved_tick = iv.tick
 	object.placed_by_player = true
+	object.discovered_by = PackedInt64Array() # somewhere new: to be come upon anew
 	_loose.touch(object.id)
 	_awaiting_rest[object.id] = true # where it comes to rest decides whether it can be discovered
 	_motion.drop(object.id, velocity)

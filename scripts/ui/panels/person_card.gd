@@ -3,14 +3,14 @@ extends UIPanel
 ## Who someone is and what they are about (bible §26.6): a sheet at the
 ## bottom of the screen with three heights —
 ##   PEEK  who, and what they are doing and why;
-##   HALF  + age, occupation, mood, needs, nature, what the player can do;
-##   FULL  + family (each of them a tap away).
+##   HALF  + age, occupation, mood, needs, nature, the last thing they
+##         remember, what the player can do;
+##   FULL  + family (each of them a tap away) and what they remember.
 ## The header is a handle: drag it up or down, or tap it. The card follows
 ## the person as they live (refreshed four times a second) and closes with
 ## its ✕, the back button, or when the person is gone.
 ##
-## (Recent memory and the "Today" timeline join when people have memories and
-## days: M5.4, M6.4. What is not there yet is not shown.)
+## (The "Today" timeline joins when people have days: M6.4.)
 
 enum State { PEEK, HALF, FULL }
 
@@ -26,6 +26,8 @@ const MAX_WIDTH := 1016.0
 const EDGE_MARGIN := 32.0
 ## Room kept free below: the card sits above the tool bar's row.
 const BOTTOM_MARGIN := 308.0
+## The lower part of the full card is never squeezed below this.
+const MORE_MIN_HEIGHT := 150.0
 ## A drag of the header by this much (canvas units) changes the height.
 const DRAG_STEP := 70.0
 
@@ -47,7 +49,10 @@ const ACTION_MARK := &"mark"
 @onready var _traits: Label = %Traits
 @onready var _actions: HBoxContainer = %Actions
 @onready var _more: Control = %More
+@onready var _more_scroll: ScrollContainer = %MoreScroll
 @onready var _family: VBoxContainer = %Family
+@onready var _memory: Label = %Memory
+@onready var _memories: VBoxContainer = %Memories
 
 var _session: WorldSession
 var _person_id := 0
@@ -55,9 +60,13 @@ var _state: State = State.PEEK
 var _bars: Array[NeedBar] = []
 var _buttons: Dictionary = {} # action -> Button
 var _family_shown: Array = []
+var _memories_shown := PackedStringArray()
+## How many memories the full card lists.
+const MEMORIES_SHOWN := 5
 var _observing := false
 var _following := false
 var _refresh_timer := 0.0
+var _settling := 0
 var _press_y := NAN
 var _dragged := false
 
@@ -108,6 +117,7 @@ func setup(session: WorldSession, person_id: int, state: State = State.PEEK) -> 
 	_person_id = person_id
 	_state = state
 	_family_shown = []
+	_memories_shown = PackedStringArray(["?"]) # (not what anyone remembers: shown anew)
 	if is_node_ready():
 		_apply_state()
 		refresh()
@@ -187,6 +197,20 @@ func traits_text() -> String:
 	return _traits.text
 
 
+## The last thing they remember, as shown on the half card ("" if nothing).
+func memory_text() -> String:
+	return _memory.text if _memory.visible else ""
+
+
+## What they remember, as listed on the full card (the most recent first).
+func memory_lines() -> PackedStringArray:
+	var out := PackedStringArray()
+	for child in _memories.get_children():
+		if child is Label and not child.is_queued_for_deletion():
+			out.append((child as Label).text)
+	return out
+
+
 ## The needs as shown: one value per Needs.Need.
 func need_values() -> PackedFloat32Array:
 	var out := PackedFloat32Array()
@@ -196,6 +220,11 @@ func need_values() -> PackedFloat32Array:
 
 
 func _process(delta: float) -> void:
+	# Wrapped text only knows how tall it is once it has been given its
+	# width: after anything is rebuilt the card is laid out again for a few frames.
+	if _settling > 0:
+		_settling -= 1
+		layout()
 	_refresh_timer -= delta
 	if _refresh_timer <= 0.0:
 		_refresh_timer = REFRESH_INTERVAL_S
@@ -223,9 +252,16 @@ func refresh() -> void:
 	for need in mini(needs.size(), _bars.size()):
 		_bars[need].value = needs[need]
 	_traits.text = " · ".join(shown["traits"]) if not (shown["traits"] as PackedStringArray).is_empty() else "Unremarkable"
+	var remembered: PackedStringArray = shown["memories"]
+	_memory.visible = not remembered.is_empty() and _state == State.HALF
+	if not remembered.is_empty():
+		_memory.text = remembered[0]
 	if _state == State.FULL and _family_shown != shown["family"]:
 		_family_shown = shown["family"]
 		_show_family(_family_shown)
+	if _state == State.FULL and _memories_shown != remembered:
+		_memories_shown = remembered
+		_show_memories(remembered)
 	layout()
 
 
@@ -235,6 +271,13 @@ func layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	custom_minimum_size.x = clampf(view.x - EDGE_MARGIN * 2.0, 200.0, MAX_WIDTH)
+	# The lower part (family, memories) takes the room there is and scrolls
+	# if that is not enough: the card never leaves the screen.
+	_more_scroll.custom_minimum_size.y = 0.0
+	if _more_scroll.visible:
+		var rest := get_combined_minimum_size().y
+		var room := view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest
+		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room, MORE_MIN_HEIGHT))
 	reset_size()
 	position = Vector2(EDGE_MARGIN, view.y - BOTTOM_MARGIN - size.y)
 
@@ -244,7 +287,8 @@ func layout() -> void:
 ## What the card shows about `person`, as plain values:
 ##   name, age, occupation, activity, mood: String; stage: PersonData.LifeStage;
 ##   needs: PackedFloat32Array; traits: PackedStringArray; marked: bool;
-##   family: Array of [person id, relation, name] (those still in the world).
+##   family: Array of [person id, relation, name] (those still in the world);
+##   memories: PackedStringArray, the most recent first ("Age 23 · Felt …").
 static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 	var now := session.clock.tick
 	var year := Config.time.ticks_per_year()
@@ -273,7 +317,18 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 		"traits": UIText.trait_words(person.traits),
 		"marked": person.has_flag(PersonData.FLAG_MARKED_IMPORTANT),
 		"family": family,
+		"memories": memory_lines_of(session, person, MEMORIES_SHOWN),
 	}
+
+
+## What a person remembers, in lines, the most recent first.
+static func memory_lines_of(session: WorldSession, person: PersonData, count: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	if session.memories == null:
+		return out
+	for memory in session.memories.recent(person, count):
+		out.append(MemoryText.line(memory, person, session.people))
+	return out
 
 
 ## What the person is doing and why, in a line. Someone reacting to
@@ -290,13 +345,15 @@ static func activity_line(person: PersonData) -> String:
 # --- internals ----------------------------------------------------------------------------------
 
 func _apply_state() -> void:
+	_settling = 3
 	_body.visible = _state != State.PEEK
-	_more.visible = _state == State.FULL
+	_more_scroll.visible = _state == State.FULL
 	if _buttons.has(&"more"):
 		(_buttons[&"more"] as Button).text = "Less" if _state == State.FULL else "More"
 
 
 func _show_family(family: Array) -> void:
+	_settling = 3
 	for child in _family.get_children():
 		child.queue_free()
 	if family.is_empty():
@@ -313,6 +370,20 @@ func _show_family(family: Array) -> void:
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 		button.pressed.connect(func() -> void: person_chosen.emit(entry[0]))
 		_family.add_child(button)
+
+
+func _show_memories(lines: PackedStringArray) -> void:
+	_settling = 3
+	for child in _memories.get_children():
+		child.queue_free()
+	if lines.is_empty():
+		lines = PackedStringArray([MemoryText.translate("MEM_NONE")])
+	for text in lines:
+		var label := Label.new()
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
+		_memories.add_child(label)
 
 
 func _on_action_pressed(which: StringName) -> void:

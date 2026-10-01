@@ -19,6 +19,7 @@ var people: PeopleConfig
 var needs: NeedsConfig
 var sim: SimConfig
 var reactions: ReactionTable
+var memory: MemoryConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -42,6 +43,7 @@ func reload() -> void:
 	needs = _load("needs_config.tres", NeedsConfig) as NeedsConfig
 	sim = _load("sim_config.tres", SimConfig) as SimConfig
 	reactions = _load("reactions.tres", ReactionTable) as ReactionTable
+	memory = _load("memory_config.tres", MemoryConfig) as MemoryConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

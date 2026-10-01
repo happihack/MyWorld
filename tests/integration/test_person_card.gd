@@ -304,7 +304,7 @@ func test_a_long_press_opens_the_card_with_what_can_be_done() -> void:
 	assert_eq(ui.panel_count(), 1, "the card, not the menu")
 	assert_eq(heard.size(), 0, "a press is not a touch")
 	assert_true((card.get_node("%Body") as Control).visible)
-	assert_false((card.get_node("%More") as Control).visible)
+	assert_false((card.get_node("%More") as Control).is_visible_in_tree())
 	for which: StringName in [&"observe", &"touch", &"follow", &"focus", &"more", &"mark", &"close"]:
 		assert_not_null(card.button(which), String(which))
 		assert_true(card.button(which).is_visible_in_tree(), String(which))
@@ -371,7 +371,7 @@ func test_the_card_grows_and_shrinks() -> void:
 	assert_eq(card.button(&"more").text, "Less")
 	assert_true(card.size.y > half, "and more")
 	assert_true(card.get_global_rect().position.y > 0.0, "still on the screen")
-	assert_true((card.get_node("%More") as Control).visible)
+	assert_true((card.get_node("%More") as Control).is_visible_in_tree())
 	card.button(&"more").pressed.emit()
 	await wait_frames(2)
 	assert_eq(card.state(), PersonCard.State.HALF)
@@ -674,3 +674,56 @@ func test_the_pin_list_shows_no_more_than_fits() -> void:
 	assert_false(list.visible)
 	assert_eq(list.chips().size(), 0)
 	list.queue_free()
+
+
+func test_the_card_shows_what_they_remember() -> void:
+	var person := _someone()
+	main.select_person(person.id, PersonCard.State.HALF)
+	await wait_frames(2)
+	var card := ui.person_card()
+	assert_eq(card.memory_text(), "", "nothing remembered: nothing said")
+	assert_false((card.get_node("%Memory") as Control).visible)
+	# Something happens to them.
+	var memory := Memory.new()
+	memory.subject = Stimulus.TOUCH
+	memory.interpretation = ReactionTable.SPIRIT
+	memory.importance = 0.6
+	memory.tick = session.clock.tick
+	memory.emotions = PackedFloat32Array([0, 0, 0, 0, 0])
+	session.memories.remember(person, memory)
+	card.refresh()
+	var age := person.age_years(session.clock.tick, Config.time.ticks_per_year())
+	assert_eq(card.memory_text(), "Age %d · Felt the touch of a spirit" % age, "the last thing they remember, on the half card")
+	assert_true((card.get_node("%Memory") as Control).is_visible_in_tree())
+	# The full card lists what they remember, the most recent first.
+	for i in 7:
+		var more := Memory.new()
+		more.subject = [Stimulus.KNOCK, Stimulus.TREE_SHAKEN, Stimulus.WATER_POURED, Stimulus.OBJECT_MOVED, Stimulus.OBJECT_FOUND,
+			Stimulus.TREE_UPROOTED, Stimulus.WATER_TAKEN][i]
+		more.interpretation = ReactionTable.DEITY
+		more.source = Memory.Source.WITNESSED
+		more.importance = 0.5
+		more.tick = session.clock.tick + 1 + i
+		more.emotions = PackedFloat32Array([0, 0, 0, 0, 0])
+		session.memories.remember(person, more)
+	card.set_state(PersonCard.State.FULL)
+	await wait_frames(6)
+	var lines := card.memory_lines()
+	assert_eq(lines.size(), PersonCard.MEMORIES_SHOWN, "the last few")
+	assert_has(lines[0], "Saw water vanish from where it lay", "the most recent first")
+	assert_eq(card.memory_text(), "", "(the single line belongs to the half card)")
+	# However much there is, the card stays on the screen: the lower part scrolls.
+	assert_true(card.get_global_rect().position.y >= 0.0, "on the screen (%s)" % card.get_global_rect())
+	assert_true(card.get_global_rect().end.y < ui.tool_bar().get_global_rect().position.y)
+	var scroll := card.get_node("%MoreScroll") as ScrollContainer
+	assert_true(scroll.is_visible_in_tree())
+	assert_true(scroll.size.y >= PersonCard.MORE_MIN_HEIGHT - 1.0)
+	assert_true(scroll.size.y <= (card.get_node("%More") as Control).get_combined_minimum_size().y + 1.0)
+	# Forgotten: gone from the card.
+	for id in person.memory_ids.duplicate():
+		session.memories.forget(person, id)
+	card.refresh()
+	await wait_frames(2)
+	assert_eq(card.memory_lines(), PackedStringArray(["Nothing worth remembering yet"]))
+	card.set_state(PersonCard.State.HALF)
+	assert_eq(card.memory_text(), "")

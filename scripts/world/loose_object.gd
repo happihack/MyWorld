@@ -49,6 +49,8 @@ var placed_by_player := false
 var discoverable := false
 ## How many times the player has moved it.
 var moved_count := 0
+## The tick at which the player last put it down.
+var moved_tick := 0
 
 
 ## The loose object a generated rock prop turns into: same tile-encoded id,
@@ -133,7 +135,7 @@ func to_dict() -> Dictionary:
 		"height_offset": above, "yaw": yaw, "scale_percent": scale_percent,
 		"discovered_by": discovered_by, "placed_by_player": placed_by_player,
 		"discoverable": discoverable,
-		"moved_count": moved_count,
+		"moved_count": moved_count, "moved_tick": moved_tick,
 	}
 
 
@@ -163,4 +165,5 @@ static func from_dict(data: Dictionary) -> LooseObject:
 	object.placed_by_player = bool(data.get("placed_by_player", false))
 	object.discoverable = bool(data.get("discoverable", false))
 	object.moved_count = maxi(int(data.get("moved_count", 0)), 0)
+	object.moved_tick = int(data.get("moved_tick", 0))
 	return object

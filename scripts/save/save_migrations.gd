@@ -13,6 +13,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	2: _v2_to_v3,
 	3: _v3_to_v4,
 	4: _v4_to_v5,
+	5: _v5_to_v6,
 }
 
 
@@ -95,6 +96,77 @@ static func _v4_to_v5(data: Dictionary) -> Dictionary:
 		return data
 	if typeof((state as Dictionary).get("behavior")) != TYPE_DICTIONARY:
 		(state as Dictionary)["behavior"] = {}
+	return data
+
+
+## Version 6 (M5.4) adds what everyone remembers (`memories`) and the
+## numbering of stimuli (`perception`).
+##
+## Version 5 worlds (M5.3) already had people who had been touched, seen
+## things and been told of them — with convictions and a count of each kind
+## of experience, but no memories. They are given one memory per kind of
+## experience: vaguer than a lived one (nobody knows any more where it was or
+## how it felt), taken the way they are most convinced things are.
+static func _v5_to_v6(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	var s: Dictionary = state
+	if typeof(s.get("perception")) != TYPE_DICTIONARY:
+		s["perception"] = {"next_stimulus_id": 1}
+	if typeof(s.get("memories")) == TYPE_DICTIONARY:
+		return data
+	var clock: Variant = (world as Dictionary).get("clock")
+	var now := int((clock as Dictionary).get("tick", 0)) if typeof(clock) == TYPE_DICTIONARY else 0
+	var list: Array = []
+	var next_id := 1
+	var people: Variant = s.get("people")
+	var persons: Variant = (people as Dictionary).get("persons") if typeof(people) == TYPE_DICTIONARY else null
+	if typeof(persons) == TYPE_ARRAY:
+		for record: Variant in persons:
+			if typeof(record) != TYPE_DICTIONARY or typeof((record as Dictionary).get("id")) != TYPE_INT:
+				continue
+			var person: Dictionary = record
+			var knowledge: Variant = person.get("knowledge")
+			var experienced: Variant = (knowledge as Dictionary).get("experienced") if typeof(knowledge) == TYPE_DICTIONARY else null
+			if typeof(experienced) != TYPE_DICTIONARY:
+				continue
+			# What they are most convinced of (the order of ReactionTable.INTERPRETATIONS in version 5).
+			var order := ["natural", "spirit", "deity", "ancestor", "experiment", "unknown_intelligence",
+				"multiple_entities", "hallucination", "physics"]
+			var beliefs: Variant = person.get("beliefs")
+			var conviction := "natural"
+			if typeof(beliefs) == TYPE_PACKED_FLOAT32_ARRAY:
+				var most := 0.0
+				for i in mini((beliefs as PackedFloat32Array).size(), order.size()):
+					if beliefs[i] > most:
+						most = beliefs[i]
+						conviction = order[i]
+			var ids := PackedInt64Array()
+			var kinds: Array = (experienced as Dictionary).keys()
+			kinds.sort()
+			for kind: Variant in kinds:
+				var times := int((experienced as Dictionary)[kind])
+				if times <= 0:
+					continue
+				var at := Vector2.ZERO
+				if typeof(person.get("position")) == TYPE_VECTOR2I:
+					at = Vector2(person["position"]) + Vector2(0.5, 0.5)
+				var touched := str(kind) == "touch"
+				list.append({
+					"id": next_id, "owner_kind": 0, "owner_id": person["id"], "kind": "experience", "subject": str(kind),
+					"stimulus_id": 0, "event_id": 0, "tick": now, "first_tick": now, "location": at,
+					"interpretation": conviction, "emotions": PackedFloat32Array([0, 0, 0, 0, 0]),
+					"intensity": 0.5, "importance": 0.5 if touched else 0.25, "source": 0 if touched else 1, "told_by": 0,
+					"fidelity": 0.8, "count": times, "stage": 2, "told_tick": -1, "text_key": "", "text_params": {},
+				})
+				ids.append(next_id)
+				next_id += 1
+			person["memory_ids"] = ids
+	s["memories"] = {"next_id": next_id, "faded_day": -1, "memories": list}
 	return data
 
 

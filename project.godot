@@ -94,6 +94,10 @@ sensors/enable_gravity=true
 sensors/enable_gyroscope=true
 pointing/emulate_touch_from_mouse=true
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://data/text/memories.en.translation")
+
 [physics]
 
 common/physics_ticks_per_second=30

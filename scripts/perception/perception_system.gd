@@ -19,23 +19,19 @@ var emitted := 0
 var last: Stimulus
 var last_noticed := 0
 
-var _next_id := 1
-
 
 func bind(context: AiContext) -> void:
 	ctx = context
 	emitted = 0
 	last = null
 	last_noticed = 0
-	_next_id = 1
 
 
 ## Sends a stimulus out into the world. Returns how many people noticed it.
 func emit(stimulus: Stimulus) -> int:
 	if ctx == null or stimulus == null:
 		return 0
-	stimulus.id = _next_id
-	_next_id += 1
+	stimulus.id = ctx.take_stimulus_id()
 	if stimulus.tick == 0:
 		stimulus.tick = ctx.now()
 	emitted += 1

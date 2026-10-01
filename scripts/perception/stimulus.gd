@@ -22,11 +22,13 @@ const OBJECT_MOVED := &"object_moved"
 ## Water vanished from where it lay / fell from a clear sky.
 const WATER_TAKEN := &"water_taken"
 const WATER_POURED := &"water_poured"
+## Something the player moved, come upon where it now lies (see Discovery).
+const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
 const TOLD := &"told"
 
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
-	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, TOLD]
+	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, OBJECT_FOUND, TOLD]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -48,12 +50,17 @@ var intervention_id := 0
 var large := false
 ## Of the kind weather does (water from above, wind in the trees).
 var weatherlike := false
+## The loose object it is about (lifted, moved, found), 0 otherwise.
+var object_id := 0
 
 # --- for TOLD -------------------------------------------------------------------------------
 ## Who tells it, what it was about (a stimulus type) and what they make of it.
 var told_by := 0
 var about: StringName = &""
 var interpretation: StringName = &""
+## How true to what happened the teller's account is (1 = they were there
+## and remember it well).
+var fidelity := 1.0
 
 
 ## The stimulus an intervention gives off (null if it gives off none).
@@ -70,6 +77,7 @@ static func from_intervention(iv: Intervention, table: ReactionTable) -> Stimulu
 	stimulus.tick = iv.tick
 	stimulus.intervention_id = iv.id
 	stimulus.target_id = iv.target_id if kind == TOUCH else 0
+	stimulus.object_id = iv.target_id if kind == OBJECT_LIFTED or kind == OBJECT_MOVED else 0
 	table.describe(stimulus, strength_of(iv))
 	return stimulus
 
@@ -118,7 +126,8 @@ static func strength_of(iv: Intervention) -> float:
 
 
 ## Someone telling a listener of what they experienced.
-static func telling(teller: PersonData, what: StringName, as_what: StringName, strength: float, tick_now: int) -> Stimulus:
+static func telling(teller: PersonData, what: StringName, as_what: StringName, strength: float, tick_now: int,
+		how_true: float = 1.0) -> Stimulus:
 	var stimulus := Stimulus.new()
 	stimulus.type = TOLD
 	stimulus.origin = Origin.PERSON
@@ -130,6 +139,7 @@ static func telling(teller: PersonData, what: StringName, as_what: StringName, s
 	stimulus.told_by = teller.id
 	stimulus.about = what
 	stimulus.interpretation = as_what
+	stimulus.fidelity = clampf(how_true, 0.0, 1.0)
 	return stimulus
 
 

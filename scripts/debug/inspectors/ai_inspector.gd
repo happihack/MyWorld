@@ -193,6 +193,11 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	lines.append("doing: %s  (%s, for %d min, begun at %.2f)" % [
 		PersonCard.activity_line(person) if activity != &"" else "nothing",
 		activity, since, float(person.current_action.get("score", 0.0))])
+	# What they remember.
+	if session.memories != null and not person.memory_ids.is_empty():
+		var latest := session.memories.recent(person, 1)[0]
+		lines.append("remembers %d; last: %s  (imp %.2f fid %.2f, %s)" % [person.memory_ids.size(), MemoryText.text(latest, session.people),
+			latest.importance, latest.fidelity, String(Memory.Source.keys()[latest.source]).to_lower()])
 	# How they took the last thing they noticed.
 	var outcome := session.behavior.last_outcome(person.id)
 	if outcome != null:

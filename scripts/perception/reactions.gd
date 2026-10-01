@@ -41,8 +41,10 @@ static func respond(person: PersonData, perception: Dictionary, ctx: AiContext, 
 	outcome.emotions = emotions(person, outcome.interpretation, stimulus, outcome.salience, outcome.direct, times,
 		float(circumstances.get(&"child", 0.0)) > 0.5, table)
 	var options := options_for(person, stimulus, outcome.direct, ctx, table)
+	# Wonder at the like of it, remembered, draws them closer this time.
+	var wonder := ctx.memories.wonder_about(person, kind) if ctx.memories != null else 0.0
 	outcome.reaction_scores = reaction_scores(person, outcome.interpretation, outcome.emotions, circumstances,
-		outcome.salience, options, table)
+		outcome.salience, options, table, wonder * Config.memory.wonder_weight)
 	var heat := table.reaction_temperature * lerpf(0.7, 1.4, Traits.value(person.traits, Traits.Axis.CREATIVITY))
 	outcome.reaction = Interpretation.draw(outcome.reaction_scores, heat, ctx.rng) if not outcome.reaction_scores.is_empty() \
 		else ReactionTable.LOOK
@@ -112,7 +114,7 @@ static func options_for(person: PersonData, stimulus: Stimulus, direct: bool, ct
 		match reaction:
 			ReactionTable.INVESTIGATE:
 				# What happened to oneself is not somewhere to walk to.
-				if direct or stimulus.position.distance_to(person.world2d()) < 1.5:
+				if direct or stimulus.position.distance_to(person.world2d()) < 0.75:
 					continue
 			ReactionTable.RUN:
 				if flee_tile(person, stimulus, ctx, table) == null:
@@ -126,7 +128,8 @@ static func options_for(person: PersonData, stimulus: Stimulus, direct: bool, ct
 
 ## What speaks for each of `options`: reaction -> score.
 static func reaction_scores(person: PersonData, interpretation: StringName, felt: PackedFloat32Array,
-		circumstances: Dictionary, salience: float, options: Array[StringName], table: ReactionTable) -> Dictionary:
+		circumstances: Dictionary, salience: float, options: Array[StringName], table: ReactionTable,
+		wonder: float = 0.0) -> Dictionary:
 	var out := {}
 	var by_interpretation: Dictionary = table.reaction_by_interpretation.get(interpretation, {})
 	for reaction in options:
@@ -149,6 +152,14 @@ static func reaction_scores(person: PersonData, interpretation: StringName, felt
 					if emotion >= 0:
 						score += weight * felt[emotion]
 		score += float(by_interpretation.get(reaction, 0.0))
+		# What they remember of the like: wonder draws closer, dread drives off.
+		match reaction:
+			ReactionTable.INVESTIGATE:
+				score += wonder
+			ReactionTable.WAVE:
+				score += maxf(wonder, 0.0) * 0.5
+			ReactionTable.RUN:
+				score -= wonder * 0.5
 		# What was barely noticed is not run from or prayed to.
 		if salience < 0.3 and reaction != ReactionTable.LOOK and reaction != ReactionTable.DISMISS:
 			score -= (0.3 - salience) * 3.0

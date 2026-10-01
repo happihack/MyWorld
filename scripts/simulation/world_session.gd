@@ -63,10 +63,14 @@ var activities: ActivityLibrary
 var behavior: BehaviorSystem
 ## Who notices what the player (and the world) does.
 var perception: PerceptionSystem
+## What everyone remembers.
+var memories: MemoryStore
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
+var _saved_memories: Dictionary = {} # likewise what everyone remembers
+var _saved_perception: Dictionary = {}
 
 
 func _init() -> void:
@@ -84,6 +88,7 @@ func _init() -> void:
 	movement = MovementSystem.new()
 	behavior = BehaviorSystem.new()
 	perception = PerceptionSystem.new()
+	memories = MemoryStore.new()
 	interactions.stimulus_emitted.connect(perception.emit)
 	perception.noticed.connect(behavior.notice)
 	simulation = SimulationManager.new()
@@ -101,6 +106,8 @@ func create_new(seed_value: int = 0) -> void:
 	template_id = DEFAULT_TEMPLATE_ID
 	history = PlayerHistory.new()
 	_saved_behavior = {}
+	_saved_memories = {}
+	_saved_perception = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -141,6 +148,8 @@ func load_from(data: Dictionary) -> bool:
 	history = PlayerHistory.new()
 	_saved_water = {}
 	_saved_behavior = {}
+	_saved_memories = {}
+	_saved_perception = {}
 	if typeof(state) == TYPE_DICTIONARY:
 		if typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
 			history.from_dict(state["history"])
@@ -148,6 +157,10 @@ func load_from(data: Dictionary) -> bool:
 			_saved_water = state["water"]
 		if typeof((state as Dictionary).get("behavior")) == TYPE_DICTIONARY:
 			_saved_behavior = state["behavior"]
+		if typeof((state as Dictionary).get("memories")) == TYPE_DICTIONARY:
+			_saved_memories = state["memories"]
+		if typeof((state as Dictionary).get("perception")) == TYPE_DICTIONARY:
+			_saved_perception = state["perception"]
 	if typeof(state) != TYPE_DICTIONARY or not _restore_world(state):
 		# No usable world state (a migrated version-1 save, or damaged data):
 		# rebuild from the seed. The setup's props take the same low ids they
@@ -187,6 +200,8 @@ func to_dict() -> Dictionary:
 			"water": water.to_dict(),
 			"people": people.to_dict(),
 			"behavior": behavior.to_dict(),
+			"memories": memories.to_dict(),
+			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
 	}
@@ -395,6 +410,16 @@ func _activate() -> void:
 	ai.places = Places.new(world, props, people, pathfinder, start)
 	ai.rng = rng.stream(&"ai")
 	ai.world_seed = world_seed
+	memories.bind(people)
+	var unusable := memories.from_dict(_saved_memories)
+	if unusable > 0:
+		Log.warn(Log.Category.LOAD, "Some saved memories were unusable and skipped", {"memories": unusable})
+	_saved_memories = {}
+	ai.memories = memories
+	ai.loose = loose
+	ai.places.memories = memories
+	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
+	_saved_perception = {}
 	behavior.bind(ai)
 	perception.bind(ai)
 	behavior.from_dict(_saved_behavior)

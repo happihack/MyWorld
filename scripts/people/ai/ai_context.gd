@@ -28,11 +28,23 @@ var world_seed := 0
 var perceptions: Dictionary = {}
 ## People who should take their next turn at once (someone is talking to them).
 var nudges: Array[int] = []
+## What everyone remembers (may be null: nobody remembers anything).
+var memories: MemoryStore
+## The things lying about (for coming upon what the player moved; may be null).
+var loose: LooseObjectRegistry
+## The number the next stimulus gets (saved with the world: memories refer
+## to the stimulus they came from).
+var next_stimulus_id := 1
 
 # How each person's last walk ended, until the step that asked for it has
 # looked: person id -> &"arrived" / &"blocked".
 var _walk_results: Dictionary = {}
 var _stages: Dictionary = {} # person id -> Vector2i(game day, stage)
+
+
+func take_stimulus_id() -> int:
+	next_stimulus_id += 1
+	return next_stimulus_id - 1
 
 
 func now() -> int:

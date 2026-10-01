@@ -78,22 +78,46 @@ layout_mode = 2
 theme_type_variation = &"DimLabel"
 text = "traits"
 
+[node name="Memory" type="Label" parent="Content/Body"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+text = "what they remember"
+autowrap_mode = 3
+text_overrun_behavior = 3
+max_lines_visible = 2
+
 [node name="Actions" type="HBoxContainer" parent="Content/Body"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="More" type="VBoxContainer" parent="Content/Body"]
+[node name="MoreScroll" type="ScrollContainer" parent="Content/Body"]
 unique_name_in_owner = true
 layout_mode = 2
+horizontal_scroll_mode = 0
 
-[node name="Separator" type="HSeparator" parent="Content/Body/More"]
+[node name="More" type="VBoxContainer" parent="Content/Body/MoreScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Separator" type="HSeparator" parent="Content/Body/MoreScroll/More"]
 layout_mode = 2
 
-[node name="FamilyTitle" type="Label" parent="Content/Body/More"]
+[node name="FamilyTitle" type="Label" parent="Content/Body/MoreScroll/More"]
 layout_mode = 2
 theme_type_variation = &"DimLabel"
 text = "Family"
 
-[node name="Family" type="VBoxContainer" parent="Content/Body/More"]
+[node name="Family" type="VBoxContainer" parent="Content/Body/MoreScroll/More"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="MemoriesTitle" type="Label" parent="Content/Body/MoreScroll/More"]
+layout_mode = 2
+theme_type_variation = &"DimLabel"
+text = "Remembers"
+
+[node name="Memories" type="VBoxContainer" parent="Content/Body/MoreScroll/More"]
 unique_name_in_owner = true
 layout_mode = 2
