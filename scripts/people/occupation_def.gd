@@ -14,6 +14,9 @@ extends Resource
 ## Which traits draw people to it: Traits.Axis name -> weight (negative = the
 ## opposite end of the axis).
 @export var trait_weights: Dictionary = {}
+## What someone with this occupation carries ("staff", "basket", "axe" — see
+## PersonMeshLibrary), or nothing.
+@export var accessory: StringName = &""
 ## Something that has no work to do yet (kept so saves and data can refer to it).
 @export var placeholder: bool = false
 

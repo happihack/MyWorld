@@ -11,4 +11,5 @@ trait_weights = {
 "AMBITION": 0.5,
 "BRAVERY": 0.3
 }
+accessory = &"axe"
 placeholder = false

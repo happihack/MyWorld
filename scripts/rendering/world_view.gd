@@ -25,6 +25,7 @@ var _highlight: PickHighlight
 var _effects: WorldEffects
 var _loose: LooseObjectRegistry
 var _loose_view: LooseObjectsView
+var _people_view: PeopleView
 var _chunk_order: Array[Vector2i] = []
 var _water_cursor := 0
 var _water_wait := 0
@@ -61,10 +62,14 @@ func _ready() -> void:
 	_ambient = AmbientLife.new()
 	_ambient.name = "AmbientLife"
 	add_child(_ambient)
+	_people_view = PeopleView.new()
+	_people_view.name = "People"
+	add_child(_people_view)
 	apply_palette(Config.terrain_palette)
 	_rig = CameraRig.new(Config.camera)
 	_rig.name = "CameraRig"
 	add_child(_rig)
+	_people_view.setup(_rig, _prop_material)
 	_highlight = PickHighlight.new()
 	_highlight.name = "PickHighlight"
 	add_child(_highlight)
@@ -108,7 +113,13 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
 
 
+## Shows the people of the world that is being shown (call after show_world).
+func show_people(people: PersonRegistry, clock: GameClock, occupations: OccupationLibrary) -> void:
+	_people_view.show_people(_world, people, clock, occupations)
+
+
 func clear() -> void:
+	_people_view.clear()
 	if _props != null and _props.chunk_changed.is_connected(_on_props_changed):
 		_props.chunk_changed.disconnect(_on_props_changed)
 	for view: ChunkView in _chunk_views.values():
@@ -147,6 +158,10 @@ func pick_highlight() -> PickHighlight:
 
 func loose_view() -> LooseObjectsView:
 	return _loose_view
+
+
+func people_view() -> PeopleView:
+	return _people_view
 
 
 ## Visual answers to touches (connect InteractionManager.responded to effects().play).
@@ -290,7 +305,7 @@ func apply_palette(palette: TerrainPalette) -> void:
 	_water_material.set_shader_parameter(&"opacity_deep", palette.water_opacity_deep)
 	_water_material.set_shader_parameter(&"wave_height", palette.water_wave_height)
 	_water_material.set_shader_parameter(&"foam_amount", palette.water_foam_amount)
-	for material: ShaderMaterial in [_terrain_material, _water_material, _prop_material]:
+	for material: ShaderMaterial in [_terrain_material, _water_material, _prop_material, _people_view.body_material()]:
 		material.set_shader_parameter(&"cloud_strength", palette.cloud_shadow_strength)
 		material.set_shader_parameter(&"cloud_scale", 1.0 / maxf(palette.cloud_size_tiles, 1.0))
 
@@ -299,6 +314,7 @@ func _apply_camera_settings() -> void:
 	_rig.twist_enabled = bool(Settings.get_value(&"camera/twist_rotate"))
 	_rig.reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
 	_effects.reduced_motion = _rig.reduced_motion
+	_people_view.reduced_motion = _rig.reduced_motion
 
 
 func _on_setting_changed(key: StringName, _value: Variant) -> void:

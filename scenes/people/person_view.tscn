@@ -1,0 +1,17 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/rendering/person_view.gd" id="1_view"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_shadow"]
+size = Vector2(0.62, 0.62)
+
+[node name="PersonView" type="Node3D"]
+script = ExtResource("1_view")
+
+[node name="Body" type="MeshInstance3D" parent="."]
+
+[node name="Accessory" type="MeshInstance3D" parent="."]
+
+[node name="Shadow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
+mesh = SubResource("PlaneMesh_shadow")

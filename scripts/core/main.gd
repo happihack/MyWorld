@@ -29,6 +29,7 @@ var _player_has_touched := false
 func _ready() -> void:
 	_open_world()
 	world_view.show_world(session.world, session.props, session.start, session.loose)
+	world_view.show_people(session.people, session.clock, session.occupations)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	_setup_tools()
@@ -283,10 +284,12 @@ func _people_debug_section() -> String:
 	var stages := [0, 0, 0, 0]
 	for person in session.people.all_people():
 		stages[person.life_stage(session.clock.tick, year, Config.people)] += 1
-	return "people %d in %d households  (%d children, %d youths, %d adults, %d elders)" % [
+	return "people %d in %d households  (%d children, %d youths, %d adults, %d elders)
+  drawn: %s" % [
 		session.people.size(), session.people.household_ids().size(),
 		stages[PersonData.LifeStage.CHILD], stages[PersonData.LifeStage.ADOLESCENT],
-		stages[PersonData.LifeStage.ADULT], stages[PersonData.LifeStage.ELDER]]
+		stages[PersonData.LifeStage.ADULT], stages[PersonData.LifeStage.ELDER],
+		world_view.people_view().debug_text()]
 
 
 func _save_debug_section() -> String:
