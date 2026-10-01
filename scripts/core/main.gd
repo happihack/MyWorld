@@ -99,7 +99,8 @@ func _ready() -> void:
 			finder.paths_found, finder.cache_hits, finder.last_path_usec / 1000.0])
 	debug_overlay.register_section(&"history", func() -> String:
 		var history := session.history
-		return "history %d interventions  %d remembered" % [history.total(), history.entry_count()])
+		return "history %d interventions  %d remembered  %d people touched  achievements: %s" % [history.total(),
+			history.entry_count(), history.people_touched(), ", ".join(history.achievements().keys())])
 	debug_overlay.register_section(&"feedback", func() -> String:
 		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])

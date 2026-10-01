@@ -22,6 +22,7 @@ signal person_card_closed(person_id: int)
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
 const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
+const HISTORY_CARD := preload("res://scenes/ui/panels/history_card.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
 const MAX_UI_SCALE := 3.0
@@ -46,6 +47,7 @@ var _hints: HintDirector
 var _tool_bar: ToolBar
 var _pins: PinList
 var _follow_banner: FollowBanner
+var _journal_button: JournalButton
 
 
 func _ready() -> void:
@@ -76,6 +78,21 @@ func _ready() -> void:
 	_pins.chosen.connect(func(person_id: int) -> void:
 		_tick()
 		person_chosen.emit(person_id))
+	# The journal: above the Home button, the same size.
+	_journal_button = JournalButton.new()
+	_journal_button.anchor_left = 1.0
+	_journal_button.anchor_right = 1.0
+	_journal_button.anchor_top = 1.0
+	_journal_button.anchor_bottom = 1.0
+	_journal_button.offset_left = _home_button.offset_left
+	_journal_button.offset_right = _home_button.offset_right
+	_journal_button.offset_bottom = _home_button.offset_top - 24.0
+	_journal_button.offset_top = _journal_button.offset_bottom - (_home_button.offset_bottom - _home_button.offset_top)
+	add_child(_journal_button)
+	move_child(_journal_button, _panel_layer.get_index())
+	_journal_button.pressed.connect(func() -> void:
+		_tick()
+		toggle_history())
 	_follow_banner = FollowBanner.new()
 	add_child(_follow_banner)
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
@@ -181,7 +198,7 @@ func open_person_card(session: WorldSession, person_id: int, state: PersonCard.S
 			open.set_state(state)
 		return open
 	for panel: UIPanel in _panels.duplicate():
-		if panel is InspectCard or panel is PersonCard:
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard:
 			panel.close()
 	var card: PersonCard = PERSON_CARD.instantiate()
 	card.setup(session, person_id, state)
@@ -197,6 +214,42 @@ func open_person_card(session: WorldSession, person_id: int, state: PersonCard.S
 	return card
 
 
+## The button that opens the player's history.
+func journal_button() -> JournalButton:
+	return _journal_button
+
+
+## The player's history, in place of any other card.
+func open_history(session: WorldSession = null) -> HistoryCard:
+	var open := history_card()
+	if open != null:
+		return open
+	for panel: UIPanel in _panels.duplicate():
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard:
+			panel.close()
+	var card: HistoryCard = HISTORY_CARD.instantiate()
+	card.setup(session if session != null else _session)
+	open_panel(card)
+	card.layout()
+	return card
+
+
+## Opens the history, or closes it if it is open.
+func toggle_history() -> void:
+	var open := history_card()
+	if open != null:
+		open.close()
+	else:
+		open_history()
+
+
+func history_card() -> HistoryCard:
+	for panel: UIPanel in _panels:
+		if panel is HistoryCard and not panel.is_closing():
+			return panel
+	return null
+
+
 ## The person card that is open (null if none).
 func person_card() -> PersonCard:
 	for panel: UIPanel in _panels:
@@ -210,7 +263,7 @@ func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCar
 	if report == null:
 		return null
 	for panel: UIPanel in _panels.duplicate():
-		if panel is InspectCard or panel is PersonCard:
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard:
 			panel.close()
 	var card: InspectCard = INSPECT_CARD.instantiate()
 	open_panel(card)

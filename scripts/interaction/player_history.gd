@@ -14,11 +14,19 @@ extends RefCounted
 
 const MAX_ENTRIES := 400
 
+## Achievements the history can unlock so far (bible §27.4; they are shown
+## from M25 on — until then they are only kept).
+const FIRST_CONTACT := &"first_contact"
+
 var _next_id := 1
 var _counts: Dictionary = {} # type -> int
 var _keys: Dictionary = {} # "type:subject" -> int
 var _totals: Dictionary = {} # stat name -> float (sums: distance, water, ...)
 var _entries: Array[Dictionary] = []
+var _people: Dictionary = {} # person id -> how often they were touched
+var _achievements: Dictionary = {} # id (String) -> {"tick": int, "intervention": int}
+## Achievements unlocked and not yet announced (see take_unlocked()).
+var _unlocked: Array[StringName] = []
 
 
 ## The number the next recorded intervention gets.
@@ -48,6 +56,9 @@ func record(iv: Intervention) -> bool:
 		Intervention.TOUCH:
 			if iv.response != null and not iv.response.dropped.is_empty():
 				_add(&"fruit_shaken", iv.response.dropped.size())
+			if iv.subject == &"person" and iv.target_id != 0:
+				_people[iv.target_id] = int(_people.get(iv.target_id, 0)) + 1
+				unlock(FIRST_CONTACT, iv.tick, iv.id)
 	if not first and iv.severity == Intervention.Severity.GENTLE:
 		return false
 	var entry := iv.to_record()
@@ -79,6 +90,44 @@ func total_of(stat: StringName) -> float:
 	return float(_totals.get(String(stat), 0.0))
 
 
+## How many different people the player has touched (they count for ever,
+## whatever becomes of them).
+func people_touched() -> int:
+	return _people.size()
+
+
+## How often this person was touched.
+func touches_of(person_id: int) -> int:
+	return int(_people.get(person_id, 0))
+
+
+# --- achievements -------------------------------------------------------------------------------
+
+## Unlocks an achievement (once). Returns true if it was not unlocked before.
+func unlock(id: StringName, tick: int, intervention_id: int = 0) -> bool:
+	if _achievements.has(String(id)):
+		return false
+	_achievements[String(id)] = {"tick": tick, "intervention": intervention_id}
+	_unlocked.append(id)
+	return true
+
+
+func has_achievement(id: StringName) -> bool:
+	return _achievements.has(String(id))
+
+
+## Everything unlocked: id (String) -> {"tick", "intervention"}.
+func achievements() -> Dictionary:
+	return _achievements.duplicate(true)
+
+
+## The achievements unlocked since this was last asked (for whoever announces them).
+func take_unlocked() -> Array[StringName]:
+	var out := _unlocked.duplicate()
+	_unlocked.clear()
+	return out
+
+
 ## The log, oldest first. Each entry: id, type, subject, tool, tick, tile,
 ## target_id, magnitude, severity, first.
 func entries() -> Array[Dictionary]:
@@ -94,6 +143,7 @@ func stats() -> Dictionary:
 	return {
 		"total_interactions": total(),
 		"touches": count(Intervention.TOUCH),
+		"people_touched": people_touched(),
 		"objects_moved": count(Intervention.MOVE_OBJECT),
 		"objects_thrown": int(total_of(&"objects_thrown")),
 		"distance_moved": total_of(&"distance_moved"),
@@ -114,6 +164,8 @@ func to_dict() -> Dictionary:
 		"keys": _keys.duplicate(),
 		"totals": _totals.duplicate(),
 		"entries": _entries.duplicate(true),
+		"people": _people.duplicate(),
+		"achievements": _achievements.duplicate(true),
 	}
 
 
@@ -125,6 +177,9 @@ func from_dict(data: Dictionary) -> bool:
 	_keys = {}
 	_totals = {}
 	_entries = []
+	_people = {}
+	_achievements = {}
+	_unlocked = []
 	if data.is_empty():
 		return false
 	_next_id = maxi(int(data.get("next_id", 1)), 1)
@@ -139,6 +194,18 @@ func from_dict(data: Dictionary) -> bool:
 				_next_id = maxi(_next_id, int(entry["id"]) + 1)
 	if _entries.size() > MAX_ENTRIES:
 		_entries = _entries.slice(_entries.size() - MAX_ENTRIES)
+	var people: Variant = data.get("people")
+	if typeof(people) == TYPE_DICTIONARY:
+		for id: Variant in people:
+			if typeof(id) == TYPE_INT and typeof((people as Dictionary)[id]) == TYPE_INT and int(people[id]) > 0:
+				_people[id] = int(people[id])
+	var unlocked: Variant = data.get("achievements")
+	if typeof(unlocked) == TYPE_DICTIONARY:
+		for id: Variant in unlocked:
+			var record: Variant = (unlocked as Dictionary)[id]
+			if typeof(record) == TYPE_DICTIONARY:
+				_achievements[str(id)] = {"tick": int((record as Dictionary).get("tick", 0)),
+					"intervention": int((record as Dictionary).get("intervention", 0))}
 	return true
 
 

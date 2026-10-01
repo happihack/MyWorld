@@ -14,6 +14,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	3: _v3_to_v4,
 	4: _v4_to_v5,
 	5: _v5_to_v6,
+	6: _v6_to_v7,
 }
 
 
@@ -167,6 +168,55 @@ static func _v5_to_v6(data: Dictionary) -> Dictionary:
 				next_id += 1
 			person["memory_ids"] = ids
 	s["memories"] = {"next_id": next_id, "faded_day": -1, "memories": list}
+	return data
+
+
+## Version 7 (M5.5) adds to the player's history: who was touched (and how
+## often) and the achievements unlocked. Both can be told from what a
+## version-6 world holds: people carry the mark of having been touched (and
+## a count of it), and the history's log has the first touch of a person.
+static func _v6_to_v7(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	var history: Variant = (state as Dictionary).get("history")
+	if typeof(history) != TYPE_DICTIONARY or (history as Dictionary).is_empty():
+		return data
+	var h: Dictionary = history
+	if typeof(h.get("people")) != TYPE_DICTIONARY:
+		var touched := {}
+		var people: Variant = (state as Dictionary).get("people")
+		var persons: Variant = (people as Dictionary).get("persons") if typeof(people) == TYPE_DICTIONARY else null
+		if typeof(persons) == TYPE_ARRAY:
+			for record: Variant in persons:
+				if typeof(record) != TYPE_DICTIONARY or typeof((record as Dictionary).get("id")) != TYPE_INT:
+					continue
+				if (int((record as Dictionary).get("flags", 0)) & 4) == 0: # PersonData.FLAG_TOUCHED_BY_PLAYER
+					continue
+				var times := 1
+				var knowledge: Variant = (record as Dictionary).get("knowledge")
+				var experienced: Variant = (knowledge as Dictionary).get("experienced") if typeof(knowledge) == TYPE_DICTIONARY else null
+				if typeof(experienced) == TYPE_DICTIONARY:
+					times = maxi(int((experienced as Dictionary).get("touch", 1)), 1)
+				touched[int(record["id"])] = times
+		h["people"] = touched
+	if typeof(h.get("achievements")) != TYPE_DICTIONARY:
+		var unlocked := {}
+		var keys: Variant = h.get("keys")
+		if typeof(keys) == TYPE_DICTIONARY and int((keys as Dictionary).get("touch:person", 0)) > 0:
+			var first := {"tick": 0, "intervention": 0}
+			var entries: Variant = h.get("entries")
+			if typeof(entries) == TYPE_ARRAY:
+				for entry: Variant in entries:
+					if typeof(entry) == TYPE_DICTIONARY and str((entry as Dictionary).get("type", "")) == "touch" \
+							and str((entry as Dictionary).get("subject", "")) == "person":
+						first = {"tick": int((entry as Dictionary).get("tick", 0)), "intervention": int((entry as Dictionary).get("id", 0))}
+						break
+			unlocked["first_contact"] = first
+		h["achievements"] = unlocked
 	return data
 
 

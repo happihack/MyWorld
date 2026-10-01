@@ -30,6 +30,7 @@ signal entity_selected(kind: StringName, entity_id: int)
 
 # --- Player ---
 signal tool_changed(tool_id: StringName)
+signal achievement_unlocked(achievement_id: StringName)
 signal intervention_applied(intervention_id: int)
 signal stimulus_emitted(stimulus_id: int)
 

@@ -811,7 +811,7 @@ func test_memories_are_kept_across_saves() -> void:
 	assert_true(SaveManager.save_world(session, &"test"))
 	var loaded := SaveManager.load_world(session.world_id)
 	assert_true(loaded.ok, loaded.error)
-	assert_eq(SaveManager.SAVE_VERSION, 6)
+	assert_true(SaveManager.SAVE_VERSION >= 6)
 	var again: WorldSession = SessionScript.new()
 	add_child(again)
 	assert_true(again.load_from(loaded.world))
@@ -922,7 +922,7 @@ func test_version_5_save_migrates_and_its_people_remember() -> void:
 	assert_eq(s.memories.times(thrice, Stimulus.TOUCH), 4)
 	# Saved again: the current version, the old file kept.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 6)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 5)
 	s.queue_free()
 

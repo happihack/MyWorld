@@ -154,6 +154,9 @@ func apply_intervention(iv: Intervention) -> Intervention:
 	if iv.recorded:
 		history.record(iv)
 		EventBus.intervention_applied.emit(iv.id)
+		for achievement in history.take_unlocked():
+			Log.info(Log.Category.WORLD, "Achievement unlocked", {"achievement": achievement, "tick": iv.tick})
+			EventBus.achievement_unlocked.emit(achievement)
 	intervention_applied.emit(iv)
 	var stimulus := Stimulus.from_intervention(iv, Config.reactions)
 	if stimulus != null:
