@@ -327,6 +327,7 @@ func refresh(delta: float) -> void:
 			if view != null:
 				view.advance(delta, feet, person.facing)
 				view.set_pose(person.pose)
+				view.set_load(person.carrying if person.carrying_amount > 0 else &"")
 				view.set_selected(id == _selected_id, _body_material, _selected_material)
 		elif view != null:
 			view.unbind()

@@ -35,6 +35,11 @@ var bedtimes: Array[int] = []
 var memories: MemoryStore
 ## What everyone has been doing lately (may be null: nothing is written down).
 var day_log: DayLog
+## The world's resource nodes, its piles, and what resources there are (may
+## be null: then work yields nothing, as before there were resources).
+var nodes: ResourceNodes
+var piles: PileStore
+var resources: ResourceLibrary
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer
@@ -78,6 +83,47 @@ func take_walk_result(person_id: int) -> StringName:
 	var result: StringName = _walk_results.get(person_id, &"")
 	_walk_results.erase(person_id)
 	return result
+
+
+## How many units of `resource` someone carries at once.
+func carry_capacity(resource: StringName) -> int:
+	var def := resources.get_def(resource) if resources != null else null
+	if def == null:
+		return 1
+	return def.units_carried(Config.resources.carry_weight, Config.resources.carry_units_max)
+
+
+## What working at a prop would yield right now: the resource — or &"" if
+## it has nothing to give, or the settlement's stores of it are full (then
+## work is only work, as it was before there were resources).
+func gatherable(prop_id: int) -> StringName:
+	if nodes == null or piles == null or props == null or places == null:
+		return &""
+	var prop := props.get_prop(prop_id)
+	if prop == null or nodes.available(prop) <= 0:
+		return &""
+	var resource := nodes.resource_of(prop)
+	if resource == &"" or (resources != null and not resources.has_def(resource)):
+		return &""
+	var store: Variant = places.storage_tile(resource)
+	if store == null or piles.room(resource, Places.middle_of(store)) <= 0:
+		return &""
+	return resource
+
+
+## The person puts what they carry down at the settlement's stores. Returns
+## how much it was.
+func put_down(person: PersonData) -> int:
+	var amount := person.carrying_amount
+	var resource := person.carrying
+	person.carrying = &""
+	person.carrying_amount = 0
+	if amount <= 0 or resource == &"" or piles == null or places == null:
+		return 0
+	var store: Variant = places.storage_tile(resource)
+	var at := Places.middle_of(store) if store != null else person.world2d()
+	piles.add(resource, amount, at)
+	return amount
 
 
 func forget(person_id: int) -> void:

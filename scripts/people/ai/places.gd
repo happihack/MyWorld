@@ -10,6 +10,9 @@ const WATER_RADIUS := 26
 const WORK_RADIUS := 16.0
 ## Work is done at one of the nearest few places, not always the very nearest.
 const WORK_CHOICES := 5
+## How many of the nearest are kept in mind, to choose those among them that
+## still have something to give.
+const WORK_CANDIDATES := 14
 ## Exploring goes this far from home (grown people / children).
 const EXPLORE_MIN := 6.0
 const EXPLORE_MAX := 20.0
@@ -41,6 +44,10 @@ var _up_and_about: Dictionary = {} # settlement id -> people up and about
 
 ## What everyone remembers (may be null); see feared().
 var memories: MemoryStore
+## What resources there are and what the nodes still hold (set by whoever
+## owns the world; without them every node is as good as another).
+var resources: ResourceLibrary
+var nodes: ResourceNodes
 
 
 func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfinder: Pathfinder,
@@ -56,6 +63,27 @@ func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfi
 func home_tile(person: PersonData) -> Variant:
 	var home := _props.get_prop(person.home_building_id) if _props != null else null
 	return home.tile if home != null else null
+
+
+## The middle of a tile, on the ground plane.
+static func middle_of(tile: Vector2i) -> Vector2:
+	return Vector2(tile) + Vector2(0.5, 0.5)
+
+
+## Where the settlement keeps `resource`: a tile near the fire, one for each
+## kind of thing (see ResourcesConfig.storage_offsets). Null if there is no
+## settlement or nowhere to stand there.
+func storage_tile(resource: StringName) -> Variant:
+	var fire := _props.get_prop(_start.campfire_id) if _props != null and _start != null else null
+	if fire == null:
+		return null
+	var def := resources.get_def(resource) if resources != null else null
+	var category := def.category if def != null else ResourceDef.Category.MATERIAL
+	var tile := fire.tile + Config.resources.storage_offset(category)
+	if _pathfinder == null or _pathfinder.can_stand(tile):
+		return tile
+	var near := _pathfinder.standable_near(tile, 1)
+	return near[0] if not near.is_empty() else null
 
 
 ## Where there is something to eat: the settlement's fire (the band's shared
@@ -252,12 +280,30 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 			var db := (b.tile - center).length_squared()
 			return da < db or (da == db and a.id < b.id))
 		var nearest: Array = []
-		for i in mini(found.size(), WORK_CHOICES):
+		for i in mini(found.size(), WORK_CANDIDATES):
 			nearest.append([found[i].tile, found[i].id])
 		_work_places[key] = nearest
 	var places: Array = _work_places[key]
 	if places.is_empty():
 		return {}
+	# Where there is still something to take, if there is such a place among
+	# them; the nearest few of those.
+	if nodes != null:
+		var giving: Array = []
+		var begun: Array = []
+		for place: Array in places:
+			var prop := _props.get_prop(place[1])
+			if nodes.available(prop) > 0:
+				giving.append(place)
+				# A tree somebody has begun to cut is cut down before the next
+				# one is begun (bushes are picked wherever there are berries).
+				if kind == PropData.Kind.TREE and prop.stock >= 0:
+					begun.append(place)
+		if not begun.is_empty():
+			places = begun
+		elif not giving.is_empty():
+			places = giving
+	places = places.slice(0, WORK_CHOICES)
 	# Not where something frightening happened, if there is anywhere else.
 	if memories != null and not person.memory_ids.is_empty():
 		var calm: Array = []

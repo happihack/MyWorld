@@ -358,9 +358,12 @@ static func activity_line(person: PersonData) -> String:
 	var doing := BehaviorSystem.activity_of(person)
 	if doing == BehaviorSystem.ACTIVITY_REACT:
 		return UIText.reaction_phrase(BehaviorSystem.reaction_of(person), BehaviorSystem.reason_of(person))
-	if doing == &"":
-		return UIText.ACTIVITY_NAMES[&"idle"]
-	return UIText.activity_phrase(doing, BehaviorSystem.reason_of(person))
+	var line: String = UIText.ACTIVITY_NAMES[&"idle"] if doing == &"" else UIText.activity_phrase(doing, BehaviorSystem.reason_of(person))
+	# What they have in their arms.
+	if person.carrying_amount > 0:
+		line += " · " + String(TranslationServer.translate("RES_CARRYING")).format(
+			{"what": UIText.resource_amount(person.carrying, person.carrying_amount)})
+	return line
 
 
 # --- internals ----------------------------------------------------------------------------------

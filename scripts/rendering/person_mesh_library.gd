@@ -47,6 +47,7 @@ const _EYE := Color(0, 0, 0, 1.0)
 
 static var _body: ArrayMesh
 static var _accessories: Dictionary = {} # StringName -> ArrayMesh
+static var _loads: Dictionary = {} # resource id -> ArrayMesh
 
 
 ## The body everyone shares.
@@ -64,6 +65,16 @@ static func accessory(kind: StringName) -> ArrayMesh:
 	if not _accessories.has(kind):
 		_accessories[kind] = _build_accessory(kind)
 	return _accessories[kind]
+
+
+## What someone carrying `resource` has in their arms: logs on the
+## shoulder, a stone held low, or an armful in a carrying cloth. Null for &"".
+static func load_mesh(resource: StringName) -> ArrayMesh:
+	if resource == &"":
+		return null
+	if not _loads.has(resource):
+		_loads[resource] = _build_load(resource)
+	return _loads[resource]
 
 
 static func skin(index: int) -> Color:
@@ -205,6 +216,28 @@ static func _build_accessory(kind: StringName) -> ArrayMesh:
 		&"axe": # carried over the right shoulder
 			PropMeshLibrary._box(t, Vector3(-0.02, 0.675, 0.20), Vector3(0.20, 0.014, 0.014), _plain(WOOD))
 			PropMeshLibrary._box(t, Vector3(-0.19, 0.695, 0.20), Vector3(0.03, 0.06, 0.02), _plain(STONE))
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = t.vertices
+	arrays[Mesh.ARRAY_NORMAL] = t.normals
+	arrays[Mesh.ARRAY_COLOR] = t.colors
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+static func _build_load(resource: StringName) -> ArrayMesh:
+	var t := PropMeshLibrary.Template.new()
+	match resource:
+		&"wood": # two short logs over the left shoulder
+			PropMeshLibrary._box(t, Vector3(0.0, 0.705, -0.19), Vector3(0.23, 0.032, 0.032), _plain(WOOD))
+			PropMeshLibrary._box(t, Vector3(0.03, 0.755, -0.17), Vector3(0.2, 0.028, 0.028), _plain(WOOD.darkened(0.18)), 0.12)
+		&"stone": # held low in both hands
+			PropMeshLibrary._box(t, Vector3(0.16, 0.4, 0.0), Vector3(0.06, 0.05, 0.075), _plain(STONE), 0.3)
+		_: # an armful in a cloth, held to the chest
+			var color: Color = PropMeshLibrary.PILE_COLORS.get(resource, STONE)
+			PropMeshLibrary._box(t, Vector3(0.155, 0.5, 0.0), Vector3(0.05, 0.035, 0.085), _plain(WICKER_DARK))
+			PropMeshLibrary._box(t, Vector3(0.155, 0.545, 0.0), Vector3(0.038, 0.022, 0.07), _plain(color))
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = t.vertices

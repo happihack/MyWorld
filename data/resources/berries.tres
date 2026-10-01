@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"berries"
+category = 0
+stack = 24
+spoil_days = 6.0
+weight = 0.25
+color = Color(0.8, 0.16, 0.3, 1)
+defined_only = false

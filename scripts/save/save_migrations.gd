@@ -16,6 +16,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	5: _v5_to_v6,
 	6: _v6_to_v7,
 	7: _v7_to_v8,
+	8: _v8_to_v9,
 }
 
 
@@ -259,4 +260,14 @@ static func _v7_to_v8(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["day_log"] = {"logs": {}}
 	if not (state as Dictionary).has("observer"):
 		(state as Dictionary)["observer"] = {}
+	return data
+
+
+## Version 9 (M7.1) adds resources: what a tree, bush or rock still holds
+## (props: "stock", "stock_tick", "felled"), piles of what was gathered (loose
+## objects of a new kind, with "resource" and "amount") and what people carry
+## ("carrying", "carrying_amount"). An older world has none of it: every node
+## is whole, nothing lies in piles, nobody carries anything — which is what
+## records without those fields mean, so there is nothing to rewrite.
+static func _v8_to_v9(data: Dictionary) -> Dictionary:
 	return data

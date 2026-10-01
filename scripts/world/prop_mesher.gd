@@ -42,13 +42,16 @@ static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i
 	var step := world.height_step
 
 	for prop in props.props_in_chunk(coord):
-		var template := library.template_for(prop.kind, prop.variant)
+		# A node that has given up what it had looks it (a stump, a bare bush).
+		var look := ResourceNodes.look_of(prop) if prop.stock >= 0 else ResourceNodes.Look.FULL
+		var template := library.template_for(prop.kind, prop.variant, look)
 		if template == null:
 			continue
 		var pos := prop.position2d()
 		var ground := world.get_height(prop.tile) * step
+		var shown := prop.scale() * (ResourceNodes.look_scale(prop) if prop.stock >= 0 else 1.0)
 		var xform := Transform3D(
-			Basis(Vector3.UP, prop.rotation_radians()).scaled(Vector3.ONE * prop.scale()),
+			Basis(Vector3.UP, prop.rotation_radians()).scaled(Vector3.ONE * shown),
 			Vector3(pos.x - origin.x, ground, pos.y - origin.y))
 		_append(out, template, xform, _tint(prop))
 

@@ -585,7 +585,8 @@ func test_everyone_s_work_is_their_own() -> void:
 				person = p
 		assert_not_null(person, String(occupation))
 		var steps := Planner.plan(&"work", person, ctx)
-		assert_eq(steps.size(), 2)
+		# (Work at a tree or a bush brings something home: two more steps.)
+		assert_eq(steps.size(), 2 if occupation == &"elder" else 4)
 		var target := session.props.get_prop(int(steps[1]["target"]))
 		assert_eq(target.kind, kinds[occupation], "a %s works at a %s" % [occupation, PropData.Kind.keys()[kinds[occupation]]])
 		assert_true(Vector2(target.tile - session.start.settlement_tile).length() <= Places.WORK_RADIUS + 6.0, "near home")

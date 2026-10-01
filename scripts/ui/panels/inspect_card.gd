@@ -33,18 +33,23 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 	var where := "tile %d, %d" % [report.tile.x, report.tile.y]
 	match report.subject:
 		InspectReport.Subject.PROP:
-			_title.text = UIText.prop_name(report.prop_kind, report.prop_variant)
+			_title.text = UIText.node_name(report.prop_kind, report.prop_variant, report.look)
 			_subtitle.text = where
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 			_add_row("Size", UIText.size_text(report.scale_percent))
 			if report.bears >= 0:
 				_add_row("Bears", UIText.bears_text(report.bears_left, report.bears,
 					report.prop_variant >= PropData.TREE_CONIFER_FIRST_VARIANT))
+			if report.resource != &"":
+				_add_row("Holds", UIText.holds_text(report.resource, report.resource_left, report.resource_capacity))
 			_add_row("Ground height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 		InspectReport.Subject.LOOSE:
 			_title.text = UIText.loose_name(report.loose_kind)
 			_subtitle.text = where
+			if report.resource != &"":
+				_title.text = String(TranslationServer.translate("RES_PILE")).format({"name": UIText.resource_name(report.resource)})
+				_add_row("Holds", UIText.resource_amount(report.resource, report.resource_left))
 			_add_row("Lies on", UIText.terrain_name(report.terrain))
 			_add_row("Weight", UIText.weight_text(report.mass))
 			_add_row("Moved", UIText.moved_text(report.moved_count))

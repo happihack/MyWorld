@@ -293,8 +293,10 @@ func _do_uproot(iv: Intervention) -> bool:
 	response.effect = InteractionResponse.TREE_UPROOT
 	response.description = "TREE uprooted at %s" % tree.tile
 	var size := tree.scale_percent
+	# (A stump or a sapling has no trunk to leave lying.)
+	var has_trunk := not tree.felled
 	_props.remove(tree.id)
-	if can_spawn():
+	if can_spawn() and has_trunk:
 		var rng := _rng.stream(RNG_STREAM)
 		var heading := rng.randf() * TAU
 		var log := _spawn(LooseObject.Kind.LOG, Vector2(response.position.x, response.position.z), 0.35, size)
@@ -480,6 +482,11 @@ func inspect(target: Picker.Result) -> InspectReport:
 		if prop.kind == PropData.Kind.TREE:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()
+		report.resource = ResourceNodes.resource_for(prop)
+		if report.resource != &"":
+			report.resource_capacity = ResourceNodes.capacity_of(prop)
+			report.resource_left = ResourceNodes.left_of(prop)
+			report.look = ResourceNodes.look_of(prop)
 	elif object != null:
 		report.subject = InspectReport.Subject.LOOSE
 		report.entity_id = object.id
@@ -489,6 +496,9 @@ func inspect(target: Picker.Result) -> InspectReport:
 		report.mass = object.mass()
 		report.moved_count = object.moved_count
 		report.placed_by_player = object.placed_by_player
+		if object.is_pile():
+			report.resource = object.resource
+			report.resource_left = object.amount
 	elif target.kind == Picker.Kind.WATER:
 		report.subject = InspectReport.Subject.WATER
 	return report

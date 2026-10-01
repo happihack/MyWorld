@@ -203,6 +203,11 @@ func pick_highlight() -> PickHighlight:
 	return _highlight
 
 
+## The view of one chunk (null if it is not shown).
+func chunk_view(coord: Vector2i) -> ChunkView:
+	return _chunk_views.get(coord)
+
+
 func loose_view() -> LooseObjectsView:
 	return _loose_view
 

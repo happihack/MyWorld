@@ -5,6 +5,9 @@ extends RefCounted
 ## right now — nothing to eat, nowhere to sleep, nobody to talk to.
 
 const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent"]
+## Where on the storage tile someone stands to put things down (the piles
+## lie around its middle).
+const STORE_STAND := Vector2(0.5, 0.88)
 
 
 ## Is what an activity requires there for this person? (Cheap: asked for
@@ -54,11 +57,24 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var def := ctx.occupations.get_def(person.occupation_id) if ctx.occupations != null else null
 			if def == null or def.work_target == &"":
 				return []
+			# What is still in their arms goes to the stores first.
+			if person.carrying_amount > 0 and ctx.piles != null:
+				var stores: Variant = ctx.places.storage_tile(person.carrying)
+				if stores != null:
+					return [WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 			var place := ctx.places.work_place(person, def.work_target, rng)
 			if place.is_empty():
 				return []
-			return [WalkToStep.make(place["tile"], person.sub_tile_offset),
+			var steps := [WalkToStep.make(place["tile"], person.sub_tile_offset),
 				WorkStep.make(def.work_target, place["id"], place["tile"], snappedf(rng.randf_range(50.0, 110.0), 1.0))]
+			# If it yields something the settlement has room for, they take
+			# it up as they work and carry it home.
+			var yields := ctx.gatherable(place["id"])
+			if yields != &"":
+				steps[1]["gather"] = true
+				steps.append(WalkToStep.make(ctx.places.storage_tile(yields), STORE_STAND))
+				steps.append(StoreStep.make())
+			return steps
 		&"socialize":
 			var partner := ctx.places.company(person, rng)
 			if partner == null:

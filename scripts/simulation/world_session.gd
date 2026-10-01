@@ -67,6 +67,11 @@ var perception: PerceptionSystem
 var memories: MemoryStore
 ## What everyone has been doing lately (the card's "Today").
 var day_log: DayLog
+## What resources there are (data/resources), what the world's nodes still
+## hold, and the piles of what has been gathered.
+var resources: ResourceLibrary
+var nodes: ResourceNodes
+var piles: PileStore
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## Makes time pass for all of that, in turns and within a budget.
@@ -81,6 +86,8 @@ var _saved_day_log: Dictionary = {}
 func _init() -> void:
 	day_log = DayLog.new()
 	observer = ObserverWatch.new()
+	nodes = ResourceNodes.new()
+	piles = PileStore.new()
 	interactions = InteractionManager.new()
 	interactions.name = "InteractionManager"
 	add_child(interactions)
@@ -264,6 +271,23 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if is_active:
 		simulation.advance(delta)
+		if nodes.due(clock.tick):
+			nodes.settle(clock.tick)
+
+
+## Where the settlement keeps `resource` (the middle of its storage tile),
+## or Vector2.INF if it has no such place.
+func storage_place(resource: StringName) -> Vector2:
+	var places := behavior.ctx.places if behavior.ctx != null else null
+	var tile: Variant = places.storage_tile(resource) if places != null else null
+	return Places.middle_of(tile) if tile != null else Vector2.INF
+
+
+## How much of `resource` the settlement has in store: what lies in piles at
+## its storage place (a pile carried off is no longer its own).
+func stored(resource: StringName) -> int:
+	var at := storage_place(resource)
+	return piles.total(resource, at, Config.resources.storage_radius) if at != Vector2.INF else 0
 
 
 ## Generates terrain, props and the starting settlement for `world_seed`.
@@ -446,6 +470,15 @@ func _activate() -> void:
 	ai.occupations = occupations
 	ai.activities = activities
 	ai.places = Places.new(world, props, people, pathfinder, start)
+	if resources == null:
+		resources = ResourceLibrary.load_from()
+	nodes.bind(props, Config.resources)
+	piles.bind(loose, ids, resources, Config.resources)
+	ai.nodes = nodes
+	ai.piles = piles
+	ai.resources = resources
+	ai.places.resources = resources
+	ai.places.nodes = nodes
 	ai.rng = rng.stream(&"ai")
 	ai.world_seed = world_seed
 	memories.bind(people)

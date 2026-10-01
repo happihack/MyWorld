@@ -75,6 +75,7 @@ func _ready() -> void:
 	session.interactions.responded.connect(world_view.effects().play)
 	session.behavior.worked.connect(_on_person_worked)
 	session.behavior.reacted.connect(_on_person_reacted)
+	session.nodes.depleted.connect(_on_node_depleted)
 	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
 		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
 			ui_root.hints().complete(HintDirector.TOUCH))
@@ -95,6 +96,13 @@ func _ready() -> void:
 	debug_overlay.register_section(&"perception", func() -> String:
 		return "%s  reactions %d
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
+	debug_overlay.register_section(&"resources", func() -> String:
+		var carried := 0
+		for person: PersonData in session.people.all_people():
+			carried += person.carrying_amount
+		var fire := session.props.get_prop(session.start.campfire_id) if session.start != null else null
+		return "%s  carried %d\n%s" % [session.piles.debug_text(fire.position2d() if fire != null else Vector2.INF, 4.0),
+			carried, session.nodes.debug_text()])
 	debug_overlay.register_section(&"paths", func() -> String:
 		var finder := session.pathfinder
 		return "paths: %d walking  %d queued  %.2f/frame  %d found  %d from cache  %.2f ms last" % [
@@ -684,6 +692,23 @@ func voice_pitch(person: PersonData, reaction: StringName = &"") -> float:
 	elif reaction == ReactionTable.PRAY:
 		pitch *= 0.9
 	return pitch
+
+
+## A node has given up the last of what it had: a tree comes down.
+func _on_node_depleted(prop_id: int) -> void:
+	var prop := session.props.get_prop(prop_id)
+	if prop == null or prop.kind != PropData.Kind.TREE:
+		return
+	var answer := InteractionResponse.new()
+	answer.effect = InteractionResponse.TREE_UPROOT
+	answer.entity_id = prop.id
+	answer.tile = prop.tile
+	var at := prop.position2d()
+	answer.position = Vector3(at.x, session.world.get_height(prop.tile) * session.world.height_step, at.y)
+	answer.body = Vector2(1.5, 0.4) * prop.scale() # (the tree that was)
+	answer.strength = 0.6
+	world_view.effects().play(answer)
+	AudioManager.play_at(&"rustle", answer.position, -6.0, 0.7)
 
 
 func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void:

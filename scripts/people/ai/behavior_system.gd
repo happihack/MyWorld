@@ -80,7 +80,7 @@ func _init() -> void:
 	for step: Array in [[WalkToStep.TYPE, WalkToStep.new()], [EatStep.TYPE, EatStep.new()],
 			[DrinkStep.TYPE, DrinkStep.new()], [SleepStep.TYPE, SleepStep.new()], [WorkStep.TYPE, WorkStep.new()],
 			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()],
-			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()]]:
+			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()]]:
 		_steps[String(step[0])] = step[1]
 
 
@@ -318,6 +318,9 @@ func _note_change(person: PersonData, activity: StringName, steps: Array) -> voi
 			"eat":
 				if bool((step as Dictionary).get("meal", false)):
 					detail = "meal"
+			"store":
+				if detail == "":
+					detail = "haul" # only carrying something home
 	if was_asleep and to_bed:
 		return # (sleeping on)
 	if was_asleep:

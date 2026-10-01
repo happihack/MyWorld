@@ -1,8 +1,9 @@
 class_name PropData
 extends RefCounted
 ## A static thing standing on a tile: tree, rock, bush, hut, campfire, ruin
-## (bible §8.3). At most one prop per tile. Resource semantics (quantity,
-## regrowth) arrive in M7; buildings become real Building entities in M12.
+## (bible §8.3). At most one prop per tile. Trees, bushes and rocks are
+## resource nodes (see ResourceNodes); buildings become real Building
+## entities in M12.
 ##
 ## All fields are integers so generated props are bit-identical everywhere.
 
@@ -38,8 +39,16 @@ var scale_percent: int = 100
 var offset_x: int = 0
 var offset_y: int = 0
 ## How much of what the prop bears has been taken (fruit shaken from a tree).
-## Regrowth arrives with resources in M7.
 var taken: int = 0
+## Resource node (see ResourceNodes): units left of what it yields, or -1 for
+## one that is whole (nothing taken, or all grown back) — which is how every
+## prop is made, so untouched nodes need not be saved.
+var stock: int = -1
+## The tick up to which regrowth has been worked out (while stock >= 0).
+var stock_tick: int = 0
+## A tree whose last wood was taken: a stump, then a sapling, until it has
+## grown back whole.
+var felled: bool = false
 
 
 static func generated_id(prop_tile: Vector2i) -> int:
@@ -83,9 +92,9 @@ func bears() -> int:
 	return 1 + int(h % 2) if is_conifer() else 2 + int(h % 3)
 
 
-## What is still on the tree.
+## What is still on the tree (nothing on a stump or a sapling).
 func bears_left() -> int:
-	return maxi(bears() - taken, 0)
+	return 0 if felled else maxi(bears() - taken, 0)
 
 
 func is_conifer() -> bool:
@@ -108,9 +117,13 @@ func collision_radius() -> float:
 	return float(COLLISION_RADIUS.get(kind, 0.0)) * scale()
 
 
+## What a finger can hit of a felled tree: the stump, or the young tree.
+const FELLED_BODY: Array = [0.5, 0.2]
+
+
 ## Height and radius of the body a finger can hit (Vector2(height, radius)).
 func pick_shape() -> Vector2:
-	var body: Array = PICK_BODY.get(kind, [0.5, 0.3])
+	var body: Array = FELLED_BODY if felled else PICK_BODY.get(kind, [0.5, 0.3])
 	return Vector2(body[0], body[1]) * scale()
 
 
@@ -129,6 +142,7 @@ func to_dict() -> Dictionary:
 		"id": id, "kind": kind, "tile": tile, "variant": variant,
 		"rotation_step": rotation_step, "scale_percent": scale_percent,
 		"offset_x": offset_x, "offset_y": offset_y, "taken": taken,
+		"stock": stock, "stock_tick": stock_tick, "felled": felled,
 	}
 
 
@@ -149,4 +163,7 @@ static func from_dict(data: Dictionary) -> PropData:
 	prop.offset_x = clampi(int(data.get("offset_x", 0)), -128, 128)
 	prop.offset_y = clampi(int(data.get("offset_y", 0)), -128, 128)
 	prop.taken = maxi(int(data.get("taken", 0)), 0)
+	prop.stock = maxi(int(data.get("stock", -1)), -1)
+	prop.stock_tick = int(data.get("stock_tick", 0))
+	prop.felled = bool(data.get("felled", false)) and prop.kind == Kind.TREE and prop.stock >= 0
 	return prop

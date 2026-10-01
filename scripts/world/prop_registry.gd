@@ -140,6 +140,16 @@ func touch(id: int) -> void:
 		_changed_generated[id] = true
 
 
+## A prop looks different from before (a tree felled, a bush picked bare):
+## it is saved, and whoever draws its chunk draws it again.
+func changed(id: int) -> void:
+	var prop: PropData = _props.get(id)
+	if prop == null:
+		return
+	touch(id)
+	chunk_changed.emit(WorldCoords.tile_to_chunk(prop.tile, chunk_size))
+
+
 func changed_generated_count() -> int:
 	return _changed_generated.size() + _saved_changes.size()
 

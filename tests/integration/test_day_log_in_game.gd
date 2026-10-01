@@ -250,8 +250,8 @@ func test_version_7_save_gains_a_day_log() -> void:
 	assert_eq(s.day_log.people_count(), s.people.size())
 	# Saved again: the current version, the old file kept; and read back the same.
 	assert_true(SaveManager.save_world(s, &"test"))
-	assert_eq(SaveManager.SAVE_VERSION, 8)
-	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], 8)
+	assert_true(SaveManager.SAVE_VERSION >= 8)
+	assert_eq(SaveContainer.read_header(dir.path_join("world.sav")).header["save_version"], SaveManager.SAVE_VERSION)
 	assert_eq(SaveContainer.read_header(dir.path_join("world.sav.bak1")).header["save_version"], 7)
 	var again := SaveManager.load_world(V7_ID)
 	assert_true(again.ok, again.error)

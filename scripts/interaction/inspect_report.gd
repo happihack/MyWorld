@@ -27,6 +27,12 @@ var scale_percent := 100
 ## (-1 for anything that bears nothing).
 var bears_left := -1
 var bears := -1
+## Resource nodes and piles: what it holds, how much is left and (nodes)
+## how much it holds whole; how a node looks for it (ResourceNodes.Look).
+var resource: StringName = &""
+var resource_left := 0
+var resource_capacity := 0
+var look := 0
 ## True if the prop or object came with the world (not placed or built later).
 var generated := false
 

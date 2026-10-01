@@ -29,6 +29,9 @@ var walk := 0.0
 var _body: MeshInstance3D
 var _accessory: MeshInstance3D
 var _shadow: MeshInstance3D
+## What they have in their arms (a resource id; &"" = nothing shown).
+var _load: MeshInstance3D
+var _load_shown: StringName = &""
 
 var _velocity := Vector3.ZERO
 var _shown_walk := -1.0
@@ -61,6 +64,11 @@ func setup(body_material: Material, accessory_material: Material, shadow_materia
 	_accessory.material_override = accessory_material
 	_shadow.material_override = shadow_material
 	_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_load = MeshInstance3D.new()
+	_load.name = "Load"
+	_load.material_override = accessory_material
+	_load.visible = false
+	add_child(_load)
 
 
 ## Makes this the view of `person`, standing at `at` (world position of the feet).
@@ -99,6 +107,20 @@ func dress(person: PersonData, now_tick: int, ticks_per_year: int, config: Peopl
 	accessory = def.accessory if def != null else &""
 	_accessory.mesh = PersonMeshLibrary.accessory(accessory)
 	_accessory.visible = _accessory.mesh != null
+
+
+## Shows what the person carries (a resource id; &"" = empty-handed).
+func set_load(resource: StringName) -> void:
+	if resource == _load_shown:
+		return
+	_load_shown = resource
+	_load.mesh = PersonMeshLibrary.load_mesh(resource)
+	_load.visible = _load.mesh != null
+
+
+## What is shown in their arms (&"" = nothing).
+func load_shown() -> StringName:
+	return _load_shown
 
 
 ## Marks the person as the one the player has selected: an outline around

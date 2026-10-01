@@ -34,6 +34,7 @@ const LOOSE_NAMES := {
 	LooseObject.Kind.FRUIT: "Fruit",
 	LooseObject.Kind.SEED: "Seed",
 	LooseObject.Kind.STRANGE_OBJECT: "Strange object",
+	LooseObject.Kind.PILE: "Pile",
 }
 
 const TOOL_NAMES := {
@@ -247,6 +248,37 @@ static func weight_text(kilograms: float) -> String:
 	elif kilograms < 30.0:
 		word = "Heavy"
 	return "%s (%s kg)" % [word, ("%.1f" % kilograms) if kilograms < 10.0 else str(roundi(kilograms))]
+
+
+## The name of a resource: "wood", "berries".
+static func resource_name(resource: StringName) -> String:
+	var key := "RES_" + String(resource).to_upper()
+	var word := String(TranslationServer.translate(key))
+	return word if word != key else String(TranslationServer.translate("RES_UNKNOWN"))
+
+
+## "3 wood"
+static func resource_amount(resource: StringName, amount: int) -> String:
+	return String(TranslationServer.translate("RES_AMOUNT")).format({"amount": amount, "name": resource_name(resource)})
+
+
+## What a node still holds: "12 of 16 wood"; "None left" when it is empty.
+static func holds_text(resource: StringName, left: int, capacity: int) -> String:
+	if left <= 0:
+		return "No %s left" % resource_name(resource)
+	return "%d of %d %s" % [left, capacity, resource_name(resource)]
+
+
+## The name of a prop as it looks now: a felled tree is a stump, then a sapling.
+static func node_name(kind: int, variant: int, look: int) -> String:
+	match look:
+		ResourceNodes.Look.STUMP:
+			return "Tree stump"
+		ResourceNodes.Look.SAPLING:
+			return "Young tree"
+		ResourceNodes.Look.BARE:
+			return "Bare bush"
+	return prop_name(kind, variant)
 
 
 ## What a tree still bears: fruit on a broadleaf, cones on a conifer.

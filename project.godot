@@ -96,7 +96,7 @@ pointing/emulate_touch_from_mouse=true
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://data/text/memories.en.translation", "res://data/text/history.en.translation", "res://data/text/time.en.translation", "res://data/text/daylog.en.translation")
+locale/translations=PackedStringArray("res://data/text/memories.en.translation", "res://data/text/history.en.translation", "res://data/text/time.en.translation", "res://data/text/daylog.en.translation", "res://data/text/resources.en.translation")
 
 [physics]
 

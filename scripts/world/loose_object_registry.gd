@@ -125,6 +125,15 @@ func move(id: int, position: Vector2, height_offset: float = NAN, yaw: float = N
 	return true
 
 
+## An object is different from before without having moved (a pile grown
+## or shrunk): whoever draws it draws it again.
+func changed(id: int) -> void:
+	if not _objects.has(id):
+		return
+	touch(id)
+	object_moved.emit(id)
+
+
 ## Marks an object as changed from how it was generated, so it is saved.
 ## Call after changing any field directly (state flags, counters, ...).
 func touch(id: int) -> void:

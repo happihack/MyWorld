@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"grain"
+category = 0
+stack = 40
+spoil_days = 120.0
+weight = 0.5
+color = Color(0.86, 0.72, 0.32, 1)
+defined_only = false

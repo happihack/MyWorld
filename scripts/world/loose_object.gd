@@ -1,7 +1,8 @@
 class_name LooseObject
 extends RefCounted
 ## A thing that lies in the world and can be moved (bible §8.3, §23.2): a
-## pebble, a rock, a boulder, a log, a fruit, a seed, a strange object.
+## pebble, a rock, a boulder, a log, a fruit, a seed, a strange object — or a
+## pile of something gathered (see PileStore).
 ## Unlike props, loose objects are not tied to one tile: several can share a
 ## tile, and they can be carried, dropped, pushed and washed away (M3.2–M3.5).
 ##
@@ -9,7 +10,7 @@ extends RefCounted
 ## `height_offset` above whatever it rests on, so an object lying on the ground
 ## follows the ground if the terrain under it changes.
 
-enum Kind { PEBBLE, ROCK, BOULDER, LOG, FRUIT, SEED, STRANGE_OBJECT }
+enum Kind { PEBBLE, ROCK, BOULDER, LOG, FRUIT, SEED, STRANGE_OBJECT, PILE }
 enum State { RESTING, HELD, FALLING, SLIDING }
 
 ## Per kind at 100 % size: body radius and height in tiles, mass in kilograms,
@@ -25,7 +26,13 @@ const SPECS := {
 	Kind.FRUIT: {"radius": 0.07, "height": 0.12, "mass": 0.15, "floats": true, "bounce": 0.3, "friction": 4.0, "roll": 1.0},
 	Kind.SEED: {"radius": 0.04, "height": 0.05, "mass": 0.01, "floats": true, "bounce": 0.2, "friction": 6.0, "roll": 0.6},
 	Kind.STRANGE_OBJECT: {"radius": 0.13, "height": 0.24, "mass": 2.0, "floats": false, "bounce": 0.3, "friction": 5.0, "roll": 0.8},
+	Kind.PILE: {"radius": 0.24, "height": 0.2, "mass": 18.0, "floats": false, "bounce": 0.05, "friction": 12.0, "roll": 0.15},
 }
+
+## The resources piles are drawn for, in the order of their looks
+## (`variant` of a pile; PropMeshLibrary has a shape for each). Part of the
+## save format: append, never reorder.
+const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs"]
 
 ## A generated rock at least this big (PropData.scale_percent) is a boulder.
 const BOULDER_FROM_SCALE := 110
@@ -51,6 +58,18 @@ var discoverable := false
 var moved_count := 0
 ## The tick at which the player last put it down.
 var moved_tick := 0
+## Piles only: what it is a pile of, and how many units.
+var resource: StringName = &""
+var amount := 0
+
+
+## The look (`variant`) of a pile of `resource_id`.
+static func pile_variant(resource_id: StringName) -> int:
+	return maxi(PILE_RESOURCES.find(resource_id), 0)
+
+
+func is_pile() -> bool:
+	return kind == Kind.PILE
 
 
 ## The loose object a generated rock prop turns into: same tile-encoded id,
@@ -136,6 +155,7 @@ func to_dict() -> Dictionary:
 		"discovered_by": discovered_by, "placed_by_player": placed_by_player,
 		"discoverable": discoverable,
 		"moved_count": moved_count, "moved_tick": moved_tick,
+		"resource": String(resource), "amount": amount,
 	}
 
 
@@ -166,4 +186,8 @@ static func from_dict(data: Dictionary) -> LooseObject:
 	object.discoverable = bool(data.get("discoverable", false))
 	object.moved_count = maxi(int(data.get("moved_count", 0)), 0)
 	object.moved_tick = int(data.get("moved_tick", 0))
+	object.resource = StringName(str(data.get("resource", "")))
+	object.amount = maxi(int(data.get("amount", 0)), 0)
+	if object.kind == Kind.PILE and (object.resource == &"" or object.amount <= 0):
+		return null # a pile of nothing
 	return object

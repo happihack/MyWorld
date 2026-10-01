@@ -60,6 +60,16 @@ const SEED_HUSK := Color(0.62, 0.50, 0.30)
 const STRANGE := Color(0.20, 0.23, 0.33)
 const STRANGE_GLINT := Color(0.45, 0.80, 0.78)
 
+## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
+const PILE_COLORS := {
+	&"berries": BERRY, &"meat": Color(0.62, 0.22, 0.20), &"fish": Color(0.55, 0.66, 0.74),
+	&"grain": Color(0.86, 0.72, 0.32), &"water": Color(0.35, 0.58, 0.85), &"clay": Color(0.66, 0.44, 0.32),
+	&"herbs": Color(0.40, 0.62, 0.36),
+}
+## Looks of a prop that has been worked on (ResourceNodes.Look), as an
+## offset to the key of the shape.
+const _LOOK_SHIFT := 1024
+
 var _templates: Dictionary = {} # key -> Template
 var _loose: Dictionary = {} # loose key -> Template
 var _tuft: Template
@@ -77,6 +87,13 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.HUT, 0)] = _hut()
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
+	# What is left of nodes that have given up what they had.
+	for variant in 4:
+		_templates[_look_key(PropData.Kind.TREE, variant, ResourceNodes.Look.STUMP)] = _stump(0.095 if variant < 2 else 0.08, 0.16)
+	_templates[_look_key(PropData.Kind.BUSH, 0, ResourceNodes.Look.SPARSE)] = _bush(0.26, 0.26, 2)
+	_templates[_look_key(PropData.Kind.BUSH, 1, ResourceNodes.Look.SPARSE)] = _bush(0.22, 0.31, 2)
+	_templates[_look_key(PropData.Kind.BUSH, 0, ResourceNodes.Look.BARE)] = _bush(0.26, 0.26, 0)
+	_templates[_look_key(PropData.Kind.BUSH, 1, ResourceNodes.Look.BARE)] = _bush(0.22, 0.31, 0)
 	_tuft = _grass_tuft()
 	# Loose objects (things that can be moved). Rocks look like the rock props
 	# they replace; boulders are the same stone, bigger.
@@ -90,6 +107,16 @@ func _init() -> void:
 	_loose[loose_key(LooseObject.Kind.FRUIT, 0)] = _gem(0.06, 0.07, BERRY, BERRY.lightened(0.25))
 	_loose[loose_key(LooseObject.Kind.SEED, 0)] = _gem(0.03, 0.03, SEED_HUSK, SEED_HUSK.lightened(0.2))
 	_loose[loose_key(LooseObject.Kind.STRANGE_OBJECT, 0)] = _gem(0.11, 0.13, STRANGE, STRANGE_GLINT)
+	# Piles of what has been gathered.
+	for variant in LooseObject.PILE_RESOURCES.size():
+		var resource := LooseObject.PILE_RESOURCES[variant]
+		match resource:
+			&"wood":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _wood_pile()
+			&"stone":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _stone_pile()
+			_:
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
 
 
 ## Key of a loose object's shape (kind + variant).
@@ -116,8 +143,16 @@ func all_loose_templates() -> Array[Template]:
 	return out
 
 
-## The shape for a prop. Unknown variants fall back to variant 0 of the kind.
-func template_for(kind: PropData.Kind, variant: int) -> Template:
+## The shape for a prop — for how it looks now, if it has been worked on
+## (ResourceNodes.Look; looks without a shape of their own use the whole
+## one). Unknown variants fall back to variant 0 of the kind.
+func template_for(kind: PropData.Kind, variant: int, look: int = 0) -> Template:
+	if look != 0:
+		var worked: Template = _templates.get(_look_key(kind, variant, look))
+		if worked == null:
+			worked = _templates.get(_look_key(kind, 0, look))
+		if worked != null:
+			return worked
 	var t: Template = _templates.get(_key(kind, variant))
 	if t == null:
 		t = _templates.get(_key(kind, 0))
@@ -138,6 +173,10 @@ func all_templates() -> Array[Template]:
 
 static func _key(kind: int, variant: int) -> int:
 	return kind * 16 + variant
+
+
+static func _look_key(kind: int, variant: int, look: int) -> int:
+	return _key(kind, variant) + look * _LOOK_SHIFT
 
 
 # --- shapes ----------------------------------------------------------------------
@@ -191,14 +230,65 @@ static func _rock(radius: float, height: float, twist: float) -> Template:
 	return t
 
 
-static func _bush(radius: float, height: float) -> Template:
+## What is left of a felled tree: a short trunk with a pale cut top.
+static func _stump(radius: float, height: float) -> Template:
+	var t := Template.new()
+	var base := _ring(0.0, radius * 1.15, 6, 0.0)
+	var top := _ring(height, radius, 6, 0.0)
+	_band(t, base, top, _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.0))
+	_fan(t, top, Vector3(0.0, height + 0.005, 0.0), _rgba(WALL_DARK, 0.0), _rgba(WALL, 0.0))
+	return t
+
+
+## A stack of cut logs: three on the ground, two on top.
+static func _wood_pile() -> Template:
+	var t := Template.new()
+	var radius := 0.055
+	var log := _log(0.5, radius)
+	for i in 3:
+		_merge(t, log, Transform3D(Basis(Vector3.UP, 0.04 * (i - 1)), Vector3(0.0, 0.0, (i - 1) * radius * 2.05)))
+	for i in 2:
+		_merge(t, log, Transform3D(Basis(Vector3.UP, -0.06 + 0.1 * i), Vector3(0.02, radius * 1.72, (i - 0.5) * radius * 2.05)))
+	return t
+
+
+## A heap of gathered stones.
+static func _stone_pile() -> Template:
+	var t := Template.new()
+	var places := [Vector3(-0.12, 0.0, -0.05), Vector3(0.11, 0.0, -0.08), Vector3(0.0, 0.0, 0.12), Vector3(0.0, 0.09, 0.0)]
+	for i in places.size():
+		_merge(t, _rock(0.12 - 0.01 * i, 0.11, 0.3 * i), Transform3D(Basis(Vector3.UP, 0.9 * i), places[i]))
+	return t
+
+
+## A heap of something small (berries, grain, ...) on a mat.
+static func _heap(color: Color) -> Template:
+	var t := Template.new()
+	var mat := _ring(0.012, 0.25, 7, 0.0)
+	_fan(t, mat, Vector3(0.0, 0.02, 0.0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	var skirt := _ring(0.02, 0.2, 7, 0.5)
+	var shoulder := _ring(0.1, 0.11, 7, 0.0)
+	_band(t, skirt, shoulder, _rgba(color.darkened(0.25), 0.0), _rgba(color, 0.0))
+	_fan(t, shoulder, Vector3(0.0, 0.16, 0.0), _rgba(color, 0.0), _rgba(color.lightened(0.2), 0.0))
+	return t
+
+
+## Adds another shape to `t`, moved and turned.
+static func _merge(t: Template, other: Template, xform: Transform3D) -> void:
+	for i in other.vertices.size():
+		t.vertices.append(xform * other.vertices[i])
+		t.normals.append(xform.basis * other.normals[i])
+		t.colors.append(other.colors[i])
+
+
+static func _bush(radius: float, height: float, berries: int = 4) -> Template:
 	var t := Template.new()
 	var base := _ring(0.02, radius * 0.75, 6, 0.0)
 	var middle := _ring(height * 0.55, radius, 6, 0.5)
 	_band(t, base, middle, _rgba(BUSH, 0.1), _rgba(BUSH, 0.35))
 	_fan(t, middle, Vector3(0, height, 0), _rgba(BUSH, 0.35), _rgba(BUSH_LIGHT, 0.5))
 	# Berries: tiny bright diamonds sitting on the foliage.
-	for i in 4:
+	for i in berries:
 		var angle := TAU * (i + 0.3) / 4.0
 		var p := Vector3(cos(angle) * radius * 0.78, height * (0.45 + 0.12 * (i % 2)), sin(angle) * radius * 0.78)
 		_diamond(t, p, 0.045, _rgba(BERRY, 0.35))
