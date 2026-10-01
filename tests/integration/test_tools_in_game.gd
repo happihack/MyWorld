@@ -200,6 +200,8 @@ func test_grab_carry_and_drop_with_a_real_finger() -> void:
 	assert_eq(pulses.size(), 2)
 	assert_eq(heard.size(), 0, "carrying is not tapping")
 	assert_false(ui.hints().is_completed(HintDirector.DRAG), "nor is it exploring: the drag hint is still owed")
+	assert_eq(session.history.count(Intervention.MOVE_OBJECT, &"rock"), 1, "the move is in the player's history")
+	assert_eq(session.history.total(), 1)
 	assert_false(rig.is_flinging(), "letting go never flings the view")
 
 

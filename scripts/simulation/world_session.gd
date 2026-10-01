@@ -43,6 +43,8 @@ var interactions: InteractionManager
 var loose_system: LooseObjectSystem
 ## Moves the water.
 var water: WaterSim
+## What the player has done to this world.
+var history: PlayerHistory
 
 
 func _init() -> void:
@@ -66,6 +68,7 @@ func create_new(seed_value: int = 0) -> void:
 	created_unix = int(Time.get_unix_time_from_system())
 	clock = GameClock.new(Config.time)
 	template_id = DEFAULT_TEMPLATE_ID
+	history = PlayerHistory.new()
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -102,6 +105,9 @@ func load_from(data: Dictionary) -> bool:
 	rng.from_dict(data["rng"])
 
 	var state: Variant = data.get("world_state", {})
+	history = PlayerHistory.new()
+	if typeof(state) == TYPE_DICTIONARY and typeof((state as Dictionary).get("history")) == TYPE_DICTIONARY:
+		history.from_dict(state["history"])
 	if typeof(state) != TYPE_DICTIONARY or not _restore_world(state):
 		# No usable world state (a migrated version-1 save, or damaged data):
 		# rebuild from the seed. The setup's props take the same low ids they
@@ -131,6 +137,7 @@ func to_dict() -> Dictionary:
 			"world": world.to_dict(),
 			"props": props.to_dict(),
 			"loose": loose.to_dict(),
+			"history": history.to_dict(),
 			"start": start.to_dict(),
 		},
 	}
@@ -259,9 +266,13 @@ func _load_template(id: StringName) -> StartTemplate:
 
 
 func _activate() -> void:
-	interactions.bind(world, props, loose, loose_system, ids, rng)
 	water.bind(world, generator)
 	loose_system.bind(world, loose, props, water.current_at)
+	interactions.bind(world, props, loose, loose_system, ids, rng)
+	var settlement := Vector2.INF
+	if start != null and start.campfire_id != 0:
+		settlement = Vector2(start.settlement_tile) + Vector2(0.5, 0.5)
+	interactions.bind_session(water, clock, history, settlement)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

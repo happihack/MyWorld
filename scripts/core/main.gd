@@ -53,6 +53,9 @@ func _ready() -> void:
 		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms" % [
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
+	debug_overlay.register_section(&"history", func() -> String:
+		var history := session.history
+		return "history %d interventions  %d remembered" % [history.total(), history.entry_count()])
 	debug_overlay.register_section(&"feedback", func() -> String:
 		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
@@ -194,9 +197,9 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 		InteractionManager.ACTION_INSPECT:
 			ui_root.open_inspect(session.interactions.inspect(target), session.world.height_step)
 		InteractionManager.ACTION_TOUCH:
-			_note_pick(target, session.interactions.tap(target))
+			_note_pick(target, session.interactions.tap(target, tools.current_id()))
 		InteractionManager.ACTION_REMOVE:
-			_note_pick(target, session.interactions.uproot(target))
+			_note_pick(target, session.interactions.uproot(target, tools.current_id()))
 		InteractionManager.ACTION_FOCUS:
 			var what := session.interactions.describe(target)
 			if what != null:

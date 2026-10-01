@@ -167,6 +167,9 @@ func test_the_water_tool_moves_water_without_making_or_losing_any() -> void:
 	assert_true(session.world.get_water(dry) > 0.0, "poured onto the ground")
 	_run(30.0)
 	assert_near(session.water.total_volume() + tool.bucket, before, 0.005, "nothing made, nothing lost")
+	assert_eq(session.history.count(Intervention.SCOOP_WATER), 2, "the history knows what the tool did")
+	assert_eq(session.history.count(Intervention.POUR_WATER), 1)
+	assert_eq(session.history.entries()[-1]["tool"], "water")
 	# The bucket has a brim.
 	target.tile = river
 	target.kind = Picker.Kind.WATER

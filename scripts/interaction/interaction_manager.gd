@@ -1,15 +1,25 @@
 class_name InteractionManager
 extends Node
-## Decides what a player touch means (bible §10, §14.6, §23). Lives in the
-## WorldSession: it knows the world, not the screen. The view layer picks what
-## is under the finger and hands the result here; this node answers with an
-## InteractionResponse and announces it through `responded`.
+## The one place where the player changes the world (bible §10, §14.6, §23).
+## Lives in the WorldSession: it knows the world, not the screen.
 ##
-## v0 (M2.3): touches only produce feedback. This is the seed of the single
-## choke point for player interventions — world changes, the player history
-## and stimuli for inhabitants are added here in M3.6.
+## Everything the player does is an Intervention and goes through
+## apply_intervention(), which
+##   1. validates it (is there such a target? is it allowed?),
+##   2. has the owning system carry it out (props, loose objects, water),
+##   3. announces what the world did in answer (`responded`: effects, sound,
+##      haptics; later also the stimulus the inhabitants perceive),
+##   4. writes it into the player's history and statistics.
+## No tool changes world state by itself. tap(), uproot(), grab(), release(),
+## scoop() and pour() are conveniences that build the Intervention.
+##
+## Looking is not an intervention: long_press(), describe() and inspect()
+## change nothing and are not recorded.
 
 signal responded(response: InteractionResponse)
+## An intervention was carried out (and, unless it is part of a longer act,
+## recorded in the history).
+signal intervention_applied(intervention: Intervention)
 
 ## Things the player can choose to do with a target (context menu).
 const ACTION_INSPECT := &"inspect"
@@ -24,6 +34,15 @@ const SHAKE_DROP_CHANCE := 0.6
 ## nearest by this speed (tiles/s).
 const RIPPLE_REACH := 1.6
 const RIPPLE_PUSH := 1.6
+## An object counts as moved if it is put down at least this far (tiles) from
+## where it was picked up.
+const MOVED_MIN_DISTANCE := 0.2
+## Moving something lighter than this (kg) is a Gentle intervention; heavier
+## things (rocks, boulders, logs) are Moderate (bible §23.4).
+const SMALL_OBJECT_KG := 5.0
+## An object the player put down within this many tiles of the settlement is
+## marked for its inhabitants to discover (M4+).
+const DISCOVER_RADIUS := 14.0
 ## Random stream for what touches bring about (which shake drops a fruit).
 const RNG_STREAM := &"interaction"
 
@@ -36,8 +55,11 @@ const _PROP_EFFECTS := {
 	PropData.Kind.RUIN: InteractionResponse.RUIN_HUM,
 }
 
-## Touches since this world was opened (not saved yet; player history is M3.6).
+## Touches and long presses since this world was opened (debug overlay).
 var interaction_count := 0
+## What the player has done to this world. The session supplies its saved
+## history; on its own the manager keeps a private one.
+var history := PlayerHistory.new()
 
 var _world: WorldData
 var _props: PropRegistry
@@ -45,42 +67,206 @@ var _loose: LooseObjectRegistry
 var _motion: LooseObjectSystem
 var _ids: IdAllocator
 var _rng: RngStreams
+var _water: WaterSim
+var _clock: GameClock
+var _settlement := Vector2.INF
 var _shakes: Dictionary = {} # tree id -> shakes since the world was opened
+var _in_hand: Dictionary = {} # object id -> where it was picked up (Vector2)
+var _awaiting_rest: Dictionary = {} # object id -> true: moved by the player, still on its way
 
 
 ## `motion`, `ids` and `rng` let touches bring new things into the world
 ## (fruit from a shaken tree); without them touches only produce feedback.
 func bind(world: WorldData, props: PropRegistry, loose: LooseObjectRegistry = null,
 		motion: LooseObjectSystem = null, ids: IdAllocator = null, rng: RngStreams = null) -> void:
+	if _motion != null and _motion.settled.is_connected(_on_object_settled):
+		_motion.settled.disconnect(_on_object_settled)
 	_world = world
 	_props = props
 	_loose = loose
 	_motion = motion
 	_ids = ids
 	_rng = rng
+	_water = null
+	_clock = null
+	_settlement = Vector2.INF
 	_shakes.clear()
+	_in_hand.clear()
+	_awaiting_rest.clear()
 	interaction_count = 0
+	history = PlayerHistory.new()
+	if _motion != null:
+		_motion.settled.connect(_on_object_settled)
 
+
+## The rest of what a session offers: its water, its clock (for the tick of
+## each intervention), its saved history and where its settlement is.
+func bind_session(water: WaterSim, clock: GameClock, saved_history: PlayerHistory, settlement: Vector2 = Vector2.INF) -> void:
+	_water = water
+	_clock = clock
+	_settlement = settlement
+	if saved_history != null:
+		history = saved_history
+
+
+# --- the choke point ----------------------------------------------------------------------
+
+## Carries out an intervention. Returns it with `applied` (and `rejected`,
+## `severity`, `subject`, `response`, `id`) filled in.
+func apply_intervention(iv: Intervention) -> Intervention:
+	if iv == null:
+		return null
+	iv.applied = false
+	iv.rejected = &""
+	iv.tick = _clock.tick if _clock != null else 0
+	if _world == null:
+		iv.rejected = &"no_world"
+		return iv
+	var done := false
+	match iv.type:
+		Intervention.TOUCH:
+			done = _do_touch(iv)
+		Intervention.UPROOT:
+			done = _do_uproot(iv)
+		Intervention.GRAB:
+			done = _do_grab(iv)
+		Intervention.MOVE_OBJECT:
+			done = _do_move_object(iv)
+		Intervention.SCOOP_WATER, Intervention.POUR_WATER:
+			done = _do_water(iv)
+		_:
+			iv.rejected = &"unknown_type"
+	if not done:
+		if iv.rejected == &"":
+			iv.rejected = &"invalid"
+		return iv
+	iv.applied = true
+	if iv.recorded:
+		history.record(iv)
+		EventBus.intervention_applied.emit(iv.id)
+	intervention_applied.emit(iv)
+	return iv
+
+
+## Is an intervention of this severity allowed? "Gentle hands" (a player
+## setting, on by default) keeps Major ones from happening by accident.
+static func severity_allowed(severity: Intervention.Severity, gentle_hands: bool) -> bool:
+	return severity != Intervention.Severity.MAJOR or not gentle_hands
+
+
+## Sets what the intervention is done to and how severe it is; refuses it if
+## the player's settings do not allow that. Call before changing anything.
+func _admit(iv: Intervention, subject: StringName, severity: Intervention.Severity) -> bool:
+	iv.subject = subject
+	iv.severity = severity
+	if not severity_allowed(severity, bool(Settings.get_value(&"gameplay/gentle_hands"))):
+		iv.rejected = &"gentle_hands"
+		return false
+	return true
+
+
+# --- what the player can do -------------------------------------------------------------------
 
 ## A tap on `target`. Returns the response, or null if nothing was touched.
-func tap(target: Picker.Result) -> InteractionResponse:
-	var response := _respond(target, InteractionResponse.Action.TAP, false)
-	if response == null:
-		return null
-	if response.prop_kind == PropData.Kind.TREE:
-		_shake_tree(response)
-	elif response.effect == InteractionResponse.RIPPLE:
-		_disturb_water(response)
-	_announce(response)
-	return response
+func tap(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
+	return apply_intervention(Intervention.create(Intervention.TOUCH, tool, target)).response
 
 
 ## Uproots the tree at `target`: the tree is gone for good and its trunk is
 ## left lying as a log. Null if the target is not a tree.
-func uproot(target: Picker.Result) -> InteractionResponse:
-	var response := _respond(target, InteractionResponse.Action.TAP, false)
-	if response == null or response.prop_kind != PropData.Kind.TREE or _props == null:
+func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
+	var iv := apply_intervention(Intervention.create(Intervention.UPROOT, tool, target))
+	return iv.response if iv.applied else null
+
+
+## Takes a loose object in hand. False if there is no such object, or it is
+## already held.
+func grab(object_id: int, tool: StringName = &"hand") -> bool:
+	var iv := Intervention.create(Intervention.GRAB, tool)
+	iv.target_id = object_id
+	return apply_intervention(iv).applied
+
+
+## Moves the object in hand to `position`, `height_offset` above the ground.
+## False if it is not in hand.
+func carry(object_id: int, position: Vector2, height_offset: float) -> bool:
+	if not _in_hand.has(object_id) or _loose == null:
+		return false
+	var object := _loose.get_object(object_id)
+	if object == null or object.state != LooseObject.State.HELD:
+		return false
+	return _loose.move(object_id, position, height_offset)
+
+
+## Lets go of the object in hand, with `velocity` if it is thrown. Returns the
+## MOVE_OBJECT intervention if it ended up somewhere else than it was picked
+## up, or null if it was only put back (which is no intervention).
+func release(object_id: int, velocity: Vector3 = Vector3.ZERO, tool: StringName = &"hand") -> Intervention:
+	if not _in_hand.has(object_id):
 		return null
+	var object := _loose.get_object(object_id) if _loose != null else null
+	if object == null or object.position.distance_to(_in_hand[object_id]) < MOVED_MIN_DISTANCE:
+		_in_hand.erase(object_id)
+		if object != null and _motion != null:
+			_motion.drop(object_id, velocity)
+		return null
+	var iv := Intervention.create(Intervention.MOVE_OBJECT, tool)
+	iv.target_id = object_id
+	iv.params["velocity"] = velocity
+	return apply_intervention(iv)
+
+
+## Is this object in the player's hand?
+func is_in_hand(object_id: int) -> bool:
+	return _in_hand.has(object_id)
+
+
+## Takes up to `amount` of water from a tile. Returns how much was taken.
+func scoop(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
+	var iv := Intervention.create(Intervention.SCOOP_WATER, tool)
+	iv.tile = tile
+	iv.magnitude = amount
+	apply_intervention(iv)
+	return iv.magnitude if iv.applied else 0.0
+
+
+## Pours `amount` of water onto a tile. Returns how much was poured.
+func pour(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
+	var iv := Intervention.create(Intervention.POUR_WATER, tool)
+	iv.tile = tile
+	iv.magnitude = amount
+	apply_intervention(iv)
+	return iv.magnitude if iv.applied else 0.0
+
+
+# --- carrying out ---------------------------------------------------------------------------
+
+func _do_touch(iv: Intervention) -> bool:
+	var response := _respond(iv.target, InteractionResponse.Action.TAP, false)
+	if response == null:
+		iv.rejected = &"nothing_there"
+		return false
+	if not _admit(iv, subject_of(response), Intervention.Severity.GENTLE):
+		return false
+	if response.prop_kind == PropData.Kind.TREE:
+		_shake_tree(response)
+	elif response.effect == InteractionResponse.RIPPLE:
+		_disturb_water(response)
+	iv.response = response
+	iv.position = response.position
+	iv.tile = response.tile
+	iv.target_id = response.entity_id
+	_announce(response)
+	return true
+
+
+func _do_uproot(iv: Intervention) -> bool:
+	var response := _respond(iv.target, InteractionResponse.Action.TAP, false)
+	if response == null or response.prop_kind != PropData.Kind.TREE or _props == null:
+		iv.rejected = &"not_a_tree"
+		return false
+	if not _admit(iv, &"tree", Intervention.Severity.MODERATE):
+		return false
 	var tree := _props.get_prop(response.entity_id)
 	response.effect = InteractionResponse.TREE_UPROOT
 	response.description = "TREE uprooted at %s" % tree.tile
@@ -93,8 +279,99 @@ func uproot(target: Picker.Result) -> InteractionResponse:
 		log.yaw = heading
 		_motion.drop(log.id, Vector3(cos(heading), 0.0, sin(heading)) * 0.9)
 		response.dropped.append(log.id)
+	iv.response = response
+	iv.position = response.position
+	iv.tile = response.tile
+	iv.target_id = response.entity_id
 	_announce(response)
-	return response
+	return true
+
+
+func _do_grab(iv: Intervention) -> bool:
+	iv.recorded = false # the move is history once the object is put down
+	var object := _loose.get_object(iv.target_id) if _loose != null else null
+	if object == null or _motion == null or _in_hand.has(object.id) or object.state == LooseObject.State.HELD:
+		iv.rejected = &"cannot_grab"
+		return false
+	if not _admit(iv, loose_subject(object.kind), Intervention.Severity.GENTLE):
+		return false
+	_motion.hold(object.id)
+	_in_hand[object.id] = object.position
+	_awaiting_rest.erase(object.id)
+	iv.position = object.world_position(_world)
+	iv.tile = object.tile()
+	return true
+
+
+func _do_move_object(iv: Intervention) -> bool:
+	var object := _loose.get_object(iv.target_id) if _loose != null else null
+	if object == null or _motion == null or not _in_hand.has(object.id):
+		iv.rejected = &"not_in_hand"
+		return false
+	var severity := Intervention.Severity.GENTLE if object.mass() < SMALL_OBJECT_KG else Intervention.Severity.MODERATE
+	if not _admit(iv, loose_subject(object.kind), severity):
+		return false
+	var from: Vector2 = _in_hand[object.id]
+	_in_hand.erase(object.id)
+	var velocity: Vector3 = iv.params.get("velocity", Vector3.ZERO)
+	iv.magnitude = object.position.distance_to(from)
+	iv.position = object.world_position(_world)
+	iv.tile = object.tile()
+	iv.params = {"from": from, "to": object.position, "thrown": velocity.length() > 0.0}
+	object.moved_count += 1
+	object.placed_by_player = true
+	_loose.touch(object.id)
+	_awaiting_rest[object.id] = true # where it comes to rest decides whether it can be discovered
+	_motion.drop(object.id, velocity)
+	return true
+
+
+func _do_water(iv: Intervention) -> bool:
+	if _water == null or not _world.is_in_bounds(iv.tile) or iv.magnitude <= 0.0 or not is_finite(iv.magnitude):
+		iv.rejected = &"no_water"
+		return false
+	if not _admit(iv, &"water", Intervention.Severity.MODERATE):
+		return false
+	var moved := 0.0
+	if iv.type == Intervention.SCOOP_WATER:
+		moved = _water.take_water(iv.tile, iv.magnitude)
+	else:
+		moved = _water.add_water(iv.tile, iv.magnitude)
+	if moved <= 0.0:
+		iv.rejected = &"nothing_moved"
+		return false
+	iv.magnitude = moved
+	iv.position = Vector3(iv.tile.x + 0.5, _world.get_height(iv.tile) * _world.height_step + _world.get_water(iv.tile), iv.tile.y + 0.5)
+	return true
+
+
+## An object the player moved has come to rest: near the settlement it is
+## something its inhabitants may come upon (hook for M4/M5).
+func _on_object_settled(id: int) -> void:
+	if not _awaiting_rest.erase(id) or _loose == null:
+		return
+	var object := _loose.get_object(id)
+	if object == null:
+		return
+	var near := _settlement != Vector2.INF and object.position.distance_to(_settlement) <= DISCOVER_RADIUS
+	if object.discoverable != near:
+		object.discoverable = near
+		_loose.touch(id)
+
+
+## What a touch landed on, as the history names it: "tree", "water", "rock", ...
+static func subject_of(response: InteractionResponse) -> StringName:
+	if response.loose_kind >= 0:
+		return loose_subject(response.loose_kind)
+	if response.prop_kind >= 0:
+		return StringName(String(PropData.Kind.keys()[response.prop_kind]).to_lower())
+	if response.touch_effect == InteractionResponse.RIPPLE:
+		return &"water"
+	return &"ground"
+
+
+static func loose_subject(kind: int) -> StringName:
+	return StringName(String(LooseObject.Kind.keys()[kind]).to_lower())
 
 
 ## True if touches can bring new loose objects into the world.

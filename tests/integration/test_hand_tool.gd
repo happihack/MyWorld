@@ -260,6 +260,9 @@ func test_letting_go_drops_the_rock_where_it_is() -> void:
 	assert_true(landings[0][1] > 2.0, "it hits the ground with some speed (%.1f)" % landings[0][1])
 	assert_eq(view.loose_view().drop_shadow_id(), 0, "the drop shadow is gone")
 	# The world remembers that the player moved it.
+	assert_eq(session.history.count(Intervention.MOVE_OBJECT, &"rock"), 1, "in the player's history")
+	assert_eq(session.history.entries()[-1]["tool"], "hand")
+	assert_true(rock.discoverable, "and it lies where the settlement may find it")
 	assert_eq(rock.moved_count, 1)
 	assert_true(rock.placed_by_player)
 	assert_eq(session.loose.saved_count(), 1, "a moved rock is saved")
@@ -316,6 +319,7 @@ func test_putting_it_back_is_not_a_move() -> void:
 	assert_eq(rock.moved_count, 0)
 	assert_false(rock.placed_by_player)
 	assert_eq(session.interactions.interaction_count, 0, "and is not a touch of the rock")
+	assert_eq(session.history.total(), 0, "nothing for the history")
 
 
 func test_holding_still_opens_the_menu_with_the_rock_still_in_hand() -> void:
@@ -435,6 +439,8 @@ func test_hand_tap_touches_and_observe_tap_does_not() -> void:
 	var response := tools.tap(target)
 	assert_eq(response.effect, InteractionResponse.ROCK_WOBBLE)
 	assert_eq(session.interactions.interaction_count, 1)
+	assert_eq(session.history.total(), 1)
 	tools.select(ObserveTool.ID)
 	assert_null(tools.tap(target), "observing leaves the world alone")
 	assert_eq(session.interactions.interaction_count, 1)
+	assert_eq(session.history.total(), 1, "and leaves no trace in the history")

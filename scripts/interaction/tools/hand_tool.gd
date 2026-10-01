@@ -10,9 +10,6 @@ extends ToolBase
 ## lifting the finger puts it back down.
 
 const ID := &"hand"
-## A carried object counts as moved if it is let go at least this far (tiles)
-## from where it was picked up.
-const MOVED_MIN_DISTANCE := 0.2
 ## How fast a held object rises to (and follows) its hover height, tiles/s.
 const LIFT_SPEED := 4.5
 ## A held object keeps at least this far above the surface.
@@ -86,7 +83,7 @@ func touch_ended() -> void:
 
 
 func tap(target: Picker.Result) -> InteractionResponse:
-	return ctx.session.interactions.tap(target)
+	return ctx.session.interactions.tap(target, ID)
 
 
 func double_tap_touches() -> bool:
@@ -101,7 +98,7 @@ func grab_at(screen: Vector2) -> bool:
 	if target.kind != Picker.Kind.ENTITY:
 		return false
 	var object := ctx.session.loose.get_object(target.entity_id)
-	if object == null or not ctx.session.loose_system.hold(object.id):
+	if object == null or not ctx.session.interactions.grab(object.id, ID):
 		return false
 	_held_id = object.id
 	_finger = screen
@@ -125,18 +122,11 @@ func release() -> void:
 		return
 	var id_was := _held_id
 	_held_id = 0
-	var loose := ctx.session.loose
-	var object := loose.get_object(id_was)
-	if object == null:
-		return
-	if object.position.distance_to(_grab_from) >= MOVED_MIN_DISTANCE:
-		object.moved_count += 1
-		object.placed_by_player = true
-		loose.touch(id_was)
 	var throw := _carry_velocity.limit_length(Config.interaction.throw_max_speed)
 	if throw.length() < THROW_MIN_SPEED:
 		throw = Vector2.ZERO # set down, not thrown
-	ctx.session.loose_system.drop(id_was, Vector3(throw.x, 0.0, throw.y))
+	# The move (if it was one) is the intervention; the manager records it.
+	ctx.session.interactions.release(id_was, Vector3(throw.x, 0.0, throw.y), ID)
 
 
 func update(delta: float) -> void:
@@ -163,7 +153,7 @@ func update(delta: float) -> void:
 	if delta > 0.0:
 		var moving := (position - object.position) / delta
 		_carry_velocity = _carry_velocity.lerp(moving, clampf(delta * THROW_SMOOTHING, 0.0, 1.0))
-	ctx.session.loose.move(_held_id, position, _base_y - ground)
+	ctx.session.interactions.carry(_held_id, position, _base_y - ground)
 
 
 ## How high above the surface an object is carried: heavy things hang low.

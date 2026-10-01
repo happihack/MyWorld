@@ -33,15 +33,15 @@ func double_tap_moves_camera() -> bool:
 func tap(target: Picker.Result) -> InteractionResponse:
 	if target == null or not target.is_hit() or ctx == null:
 		return null
-	var water := ctx.session.water
+	var interactions := ctx.session.interactions
 	var world := ctx.session.world
 	var tile := target.tile
 	var moved := 0.0
 	if world.get_water(tile) >= SCOOP_FROM and bucket < BUCKET:
-		moved = water.take_water(tile, minf(SCOOP, BUCKET - bucket))
+		moved = interactions.scoop(tile, minf(SCOOP, BUCKET - bucket), ID)
 		bucket += moved
 	elif bucket > 0.0:
-		moved = water.add_water(tile, minf(SCOOP, bucket))
+		moved = interactions.pour(tile, minf(SCOOP, bucket), ID)
 		bucket -= moved
 	if moved > 0.0:
 		var at := Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step + world.get_water(tile), tile.y + 0.5)

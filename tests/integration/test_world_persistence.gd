@@ -365,3 +365,48 @@ func test_an_uprooted_tree_stays_gone_and_its_log_stays() -> void:
 	var back := again.loose.get_object(log.id)
 	assert_eq(back.kind, LooseObject.Kind.LOG)
 	assert_eq(back.position, log.position)
+
+
+# --- player history -------------------------------------------------------------------------
+
+func test_the_players_history_is_saved_with_the_world() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.loose_system.set_process(false)
+	assert_eq(s.history.total(), 0, "a new world has no history")
+	var tree := _first_tree(s)
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = tree.id
+	target.tile = tree.tile
+	s.interactions.tap(target)
+	s.interactions.tap(target)
+	s.interactions.uproot(target)
+	assert_eq(s.history.total(), 3)
+
+	var again := _save_and_reload(s)
+	assert_eq(again.history.total(), 3)
+	assert_eq(again.history.count(Intervention.TOUCH, &"tree"), 2)
+	assert_eq(again.history.count(Intervention.UPROOT), 1)
+	assert_eq(again.history.entry_count(), s.history.entry_count())
+	assert_true(again.interactions.history == again.history, "the manager writes into the saved history")
+	# What is done next continues the numbering.
+	var ground := Picker.Result.new()
+	ground.kind = Picker.Kind.TILE
+	ground.tile = again.start.settlement_tile
+	again.interactions.tap(ground)
+	assert_eq(again.history.entries()[-1]["id"], 4)
+	# Another new world starts with a clean slate.
+	again.create_new(777)
+	assert_eq(again.history.total(), 0)
+
+
+func test_a_save_without_history_loads_with_an_empty_one() -> void:
+	var s := _session()
+	s.create_new(12345)
+	var data := s.to_dict()
+	(data["world_state"] as Dictionary).erase("history")
+	var old := _session()
+	assert_true(old.load_from(data))
+	assert_eq(old.history.total(), 0)
+	assert_eq(old.history.peek_next_id(), 1)

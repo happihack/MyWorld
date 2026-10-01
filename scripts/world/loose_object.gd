@@ -45,6 +45,8 @@ var state: State = State.RESTING
 ## Ids of inhabitants who know about this object (M4+).
 var discovered_by := PackedInt64Array()
 var placed_by_player := false
+## The player put it where inhabitants of the settlement may come upon it.
+var discoverable := false
 ## How many times the player has moved it.
 var moved_count := 0
 
@@ -130,6 +132,7 @@ func to_dict() -> Dictionary:
 		"id": id, "kind": kind, "variant": variant, "position": position,
 		"height_offset": above, "yaw": yaw, "scale_percent": scale_percent,
 		"discovered_by": discovered_by, "placed_by_player": placed_by_player,
+		"discoverable": discoverable,
 		"moved_count": moved_count,
 	}
 
@@ -158,5 +161,6 @@ static func from_dict(data: Dictionary) -> LooseObject:
 	if typeof(known) == TYPE_PACKED_INT64_ARRAY:
 		object.discovered_by = known
 	object.placed_by_player = bool(data.get("placed_by_player", false))
+	object.discoverable = bool(data.get("discoverable", false))
 	object.moved_count = maxi(int(data.get("moved_count", 0)), 0)
 	return object
