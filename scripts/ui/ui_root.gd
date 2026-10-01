@@ -45,6 +45,7 @@ var _hint_label: HintLabel
 var _hints: HintDirector
 var _tool_bar: ToolBar
 var _pins: PinList
+var _follow_banner: FollowBanner
 
 
 func _ready() -> void:
@@ -75,6 +76,11 @@ func _ready() -> void:
 	_pins.chosen.connect(func(person_id: int) -> void:
 		_tick()
 		person_chosen.emit(person_id))
+	_follow_banner = FollowBanner.new()
+	add_child(_follow_banner)
+	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
+	for pressed: Signal in [_follow_banner.follow_pressed, _follow_banner.stop_pressed, _follow_banner.locate_pressed]:
+		pressed.connect(_tick)
 	_hints = HintDirector.new(_hint_label)
 	_hints.name = "HintDirector"
 	add_child(_hints)
@@ -153,6 +159,11 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 		_tick()
 		context_action.emit(action, target))
 	return menu
+
+
+## Who the camera follows, and who can be found (top of the screen).
+func follow_banner() -> FollowBanner:
+	return _follow_banner
 
 
 ## The names of the people marked as important.

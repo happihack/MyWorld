@@ -15,7 +15,7 @@ extends UIPanel
 enum State { PEEK, HALF, FULL }
 
 ## The player chose to do something with the person: &"observe", &"touch",
-## &"focus", &"mark".
+## &"follow", &"focus", &"mark".
 signal action(action: StringName, person_id: int)
 ## The player tapped one of the person's family.
 signal person_chosen(person_id: int)
@@ -31,6 +31,7 @@ const DRAG_STEP := 70.0
 
 const ACTION_OBSERVE := &"observe"
 const ACTION_TOUCH := &"touch"
+const ACTION_FOLLOW := &"follow"
 const ACTION_FOCUS := &"focus"
 const ACTION_MARK := &"mark"
 
@@ -55,6 +56,7 @@ var _bars: Array[NeedBar] = []
 var _buttons: Dictionary = {} # action -> Button
 var _family_shown: Array = []
 var _observing := false
+var _following := false
 var _refresh_timer := 0.0
 var _press_y := NAN
 var _dragged := false
@@ -72,10 +74,17 @@ func _ready() -> void:
 		var bar := NeedBar.new()
 		_needs.add_child(bar)
 		_bars.append(bar)
-	for entry: Array in [[ACTION_OBSERVE, "Observe"], [ACTION_TOUCH, "Touch"], [ACTION_FOCUS, "Focus"]]:
+	_actions.add_theme_constant_override(&"separation", 0)
+	for entry: Array in [[ACTION_OBSERVE, "Observe"], [ACTION_TOUCH, "Touch"], [ACTION_FOLLOW, "Follow"], [ACTION_FOCUS, "Focus"]]:
 		var button := Button.new()
 		button.text = entry[1]
 		button.focus_mode = Control.FOCUS_NONE
+		if entry[0] == ACTION_OBSERVE or entry[0] == ACTION_FOLLOW:
+			# On or off: shown by a rim around the word, not by another word
+			# (five words have to fit in a row).
+			button.toggle_mode = true
+			button.add_theme_stylebox_override(&"pressed", _on_style())
+			button.add_theme_stylebox_override(&"hover_pressed", _on_style())
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_action_pressed.bind(entry[0]))
@@ -125,14 +134,25 @@ func set_state(new_state: State) -> void:
 func set_observing(observing: bool) -> void:
 	_observing = observing
 	if _buttons.has(ACTION_OBSERVE):
-		(_buttons[ACTION_OBSERVE] as Button).text = "Observing" if observing else "Observe"
+		(_buttons[ACTION_OBSERVE] as Button).set_pressed_no_signal(observing)
 
 
 func is_observing() -> bool:
 	return _observing
 
 
-## One of the buttons: &"observe", &"touch", &"focus", &"more", &"mark",
+## Lights the Follow button while the camera follows the person.
+func set_following(following: bool) -> void:
+	_following = following
+	if _buttons.has(ACTION_FOLLOW):
+		(_buttons[ACTION_FOLLOW] as Button).set_pressed_no_signal(following)
+
+
+func is_following() -> bool:
+	return _following
+
+
+## One of the buttons: &"observe", &"touch", &"follow", &"focus", &"more", &"mark",
 ## &"close" (for tests).
 func button(which: StringName) -> Button:
 	if which == &"mark":
@@ -285,7 +305,25 @@ func _show_family(family: Array) -> void:
 
 
 func _on_action_pressed(which: StringName) -> void:
+	# A toggle shows what is so, not what was pressed: whoever answers the
+	# action says which it is (set_observing, set_following).
+	if which == ACTION_OBSERVE:
+		(_buttons[which] as Button).set_pressed_no_signal(_observing)
+	elif which == ACTION_FOLLOW:
+		(_buttons[which] as Button).set_pressed_no_signal(_following)
 	action.emit(which, _person_id)
+
+
+## The look of a button whose action is going on.
+static func _on_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(1.0, 0.82, 0.36, 0.16)
+	style.border_color = StarButton.LIT
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(20)
+	style.content_margin_left = UITheme.BUTTON_PAD
+	style.content_margin_right = UITheme.BUTTON_PAD
+	return style
 
 
 ## The header is a handle: a tap toggles between the short card and the

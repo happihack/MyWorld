@@ -305,7 +305,7 @@ func test_a_long_press_opens_the_card_with_what_can_be_done() -> void:
 	assert_eq(heard.size(), 0, "a press is not a touch")
 	assert_true((card.get_node("%Body") as Control).visible)
 	assert_false((card.get_node("%More") as Control).visible)
-	for which: StringName in [&"observe", &"touch", &"focus", &"more", &"mark", &"close"]:
+	for which: StringName in [&"observe", &"touch", &"follow", &"focus", &"more", &"mark", &"close"]:
 		assert_not_null(card.button(which), String(which))
 		assert_true(card.button(which).is_visible_in_tree(), String(which))
 		assert_true(card.button(which).get_global_rect().size.y >= UITheme.TOUCH_TARGET * 0.7, "%s is big enough for a finger" % which)
@@ -487,10 +487,10 @@ func test_observing_shows_the_way_they_are_going() -> void:
 	var card := ui.person_card()
 	var people_view := view.people_view()
 	assert_false(main.is_observing())
-	assert_eq(card.button(&"observe").text, "Observe")
+	assert_false(card.button(&"observe").button_pressed)
 	card.button(&"observe").pressed.emit()
 	assert_true(main.is_observing())
-	assert_eq(card.button(&"observe").text, "Observing")
+	assert_true(card.button(&"observe").button_pressed, "the button shows it")
 	await wait_frames(2)
 	assert_eq(people_view.trail_size(), 0, "standing still: no way to show")
 	# They set off.
@@ -507,7 +507,7 @@ func test_observing_shows_the_way_they_are_going() -> void:
 	await wait_frames(2)
 	assert_false(main.is_observing())
 	assert_eq(people_view.trail_size(), 0)
-	assert_eq(ui.person_card().button(&"observe").text, "Observe")
+	assert_false(ui.person_card().button(&"observe").button_pressed)
 	# On and off again.
 	main.select_person(person.id, PersonCard.State.HALF)
 	await wait_frames(2)

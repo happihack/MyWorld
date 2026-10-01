@@ -31,6 +31,12 @@ var _player_has_touched := false
 var _selected_id := 0
 ## The selected person is being observed: the way they are going is shown.
 var _observing := false
+## Who the camera follows, and whether it is with them (see CameraFollow).
+var follow := CameraFollow.new()
+## Where the followed person was seen last frame (INF: not yet).
+var _follow_seen := Vector3.INF
+## The camera never aims further ahead of a followed person than this (tiles).
+const FOLLOW_LEAD_MAX := 1.5
 ## People at work are heard and seen at most this often (real time).
 const WORK_EFFECT_GAP_MSEC := 350
 var _last_work_effect_msec := 0
@@ -55,6 +61,12 @@ func _ready() -> void:
 	ui_root.person_card_closed.connect(_on_person_card_closed)
 	session.people.person_removed.connect(_on_person_removed)
 	_refresh_pins()
+	follow.changed.connect(_on_follow_changed)
+	var banner := ui_root.follow_banner()
+	banner.follow_pressed.connect(_on_follow_banner_pressed)
+	banner.stop_pressed.connect(stop_following)
+	banner.locate_pressed.connect(func() -> void: focus_on_person(_selected_id))
+	_restore_follow()
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
@@ -86,12 +98,14 @@ func _ready() -> void:
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# Whoever the player is looking at is simulated most closely.
 	var pivot := world_view.camera_rig().pivot()
 	session.simulation.tiers.look_at(Vector2(pivot.x, pivot.z))
 	if _observing:
 		world_view.people_view().show_trail(_way_of(_selected_id))
+	_advance_follow(delta)
+	_update_locate()
 	# The inspector is part of the debug overlay; it shows whoever is selected.
 	var debugging := debug_overlay.is_shown()
 	inspector.visible = debugging
@@ -144,6 +158,7 @@ func select_person(person_id: int, card_state: PersonCard.State = PersonCard.Sta
 		EventBus.person_selected.emit(person_id)
 	var card := ui_root.open_person_card(session, person_id, card_state)
 	card.set_observing(_observing)
+	card.set_following(follow.is_following() and follow.person_id == person_id)
 	return true
 
 
@@ -170,12 +185,122 @@ func is_observing() -> bool:
 
 
 ## Looks at a person, no further away than the settlement is seen from.
+## Looking at the person who is followed takes the following up again;
+## looking at anyone else leaves it for later.
 func focus_on_person(person_id: int) -> void:
 	var person := session.people.get_person(person_id)
 	if person == null:
 		return
+	if follow.person_id == person_id:
+		follow.resume()
+	else:
+		follow.pause()
 	var rig := world_view.camera_rig()
 	rig.focus_on(world_view.people_view().ground_position(person), minf(rig.distance(), Config.camera.home_distance))
+
+
+# --- following ----------------------------------------------------------------------------------
+
+## The camera follows a person from now on (and comes closer if it is far
+## away). Whoever was followed before is let go. False if there is no such
+## person.
+func follow_person(person_id: int) -> bool:
+	var person := session.people.get_person(person_id) if session.is_active else null
+	if person == null:
+		return false
+	if follow.person_id != person_id:
+		_unflag_followed()
+		person.set_flag(PersonData.FLAG_FOLLOWED, true)
+		SaveManager.note_world_changed()
+		follow.start(person_id)
+		EventBus.person_followed.emit(person_id)
+	else:
+		follow.resume()
+	var rig := world_view.camera_rig()
+	rig.focus_on(world_view.people_view().ground_position(person), minf(rig.distance(), Config.camera.home_distance))
+	return true
+
+
+## Nobody is followed any more.
+func stop_following() -> void:
+	if not follow.is_active():
+		return
+	_unflag_followed()
+	SaveManager.note_world_changed()
+	follow.stop()
+	EventBus.person_followed.emit(-1)
+
+
+func _unflag_followed() -> void:
+	var was := session.people.get_person(follow.person_id)
+	if was != null:
+		was.set_flag(PersonData.FLAG_FOLLOWED, false)
+
+
+## Whoever was followed when the world was saved is offered again: not with
+## the camera on them (the game opens on the settlement), but a tap away.
+func _restore_follow() -> void:
+	for person: PersonData in session.people.all_people():
+		if not person.has_flag(PersonData.FLAG_FOLLOWED):
+			continue
+		if follow.is_active():
+			person.set_flag(PersonData.FLAG_FOLLOWED, false) # one at a time
+			continue
+		follow.start(person.id)
+		follow.pause()
+		EventBus.person_followed.emit(person.id)
+
+
+## Keeps the followed person in the part of the screen that is free.
+func _advance_follow(delta: float) -> void:
+	if not follow.is_following() or tools.is_busy():
+		_follow_seen = Vector3.INF
+		return
+	var person := session.people.get_person(follow.person_id) if session.is_active else null
+	if person == null:
+		stop_following()
+		return
+	var rig := world_view.camera_rig()
+	var card := ui_root.person_card()
+	var free_bottom := card.get_global_rect().position.y if card != null else ui_root.tool_bar().get_global_rect().position.y
+	var at := world_view.people_view().shown_position(person) + Vector3(0.0, PersonMeshLibrary.ADULT_HEIGHT * 0.5, 0.0)
+	# The view glides after its goal and so trails a walker by a little: aim
+	# that little ahead of them, and they stay where they are meant to be.
+	var lead := Vector3.ZERO
+	if _follow_seen != Vector3.INF and delta > 0.0:
+		lead = ((at - _follow_seen) / delta / Config.camera.smoothing).limit_length(FOLLOW_LEAD_MAX)
+		lead.y = 0.0
+	_follow_seen = at
+	rig.track(at + lead, CameraFollow.anchor(rig.view_size(), ui_root.follow_banner().bottom(), free_bottom))
+
+
+func _on_follow_changed() -> void:
+	var person := session.people.get_person(follow.person_id)
+	ui_root.follow_banner().set_following(person.given_name if person != null else "", follow.state == CameraFollow.State.PAUSED)
+	var card := ui_root.person_card()
+	if card != null:
+		card.set_following(follow.is_following() and card.person_id() == follow.person_id)
+
+
+## The banner's text: while following it shows who; paused, it resumes.
+func _on_follow_banner_pressed() -> void:
+	if follow.state == CameraFollow.State.PAUSED:
+		follow_person(follow.person_id)
+	else:
+		select_person(follow.person_id)
+
+
+## "Find …" is offered while the selected person is out of sight.
+func _update_locate() -> void:
+	var person := session.people.get_person(_selected_id) if _selected_id != 0 and session.is_active else null
+	var lost := false
+	if person != null and not (follow.is_following() and follow.person_id == _selected_id):
+		var rig := world_view.camera_rig()
+		var at := rig.world_to_screen(world_view.people_view().ground_position(person))
+		var card := ui_root.person_card()
+		var bottom := card.get_global_rect().position.y if card != null else rig.view_size().y
+		lost = not Rect2(0.0, 0.0, rig.view_size().x, bottom).has_point(at)
+	ui_root.follow_banner().set_locate(person.given_name if lost else "")
 
 
 ## The id of the person a pick found (0 if it found something else).
@@ -225,6 +350,11 @@ func _on_person_action(action: StringName, person_id: int) -> void:
 				card.set_observing(_observing)
 		PersonCard.ACTION_TOUCH:
 			_touch_person(person_id)
+		PersonCard.ACTION_FOLLOW:
+			if follow.is_following() and follow.person_id == person_id:
+				stop_following()
+			else:
+				follow_person(person_id)
 		PersonCard.ACTION_FOCUS:
 			focus_on_person(person_id)
 		PersonCard.ACTION_MARK:
@@ -251,6 +381,9 @@ func _on_person_card_closed(person_id: int) -> void:
 func _on_person_removed(person_id: int) -> void:
 	if person_id == _selected_id:
 		clear_selection()
+	if person_id == follow.person_id:
+		follow.stop()
+		EventBus.person_followed.emit(-1)
 	_refresh_pins()
 
 
@@ -295,6 +428,10 @@ func _on_gesture(gesture: Gesture) -> void:
 	match gesture.type:
 		Gesture.Type.DRAG_START, Gesture.Type.MULTI_START:
 			ui_root.dismiss_transient_panels() # moving the view puts the menu away
+			# Dragging the view away leaves the followed person to walk on alone
+			# (two fingers zoom; the view comes back to them).
+			if gesture.type == Gesture.Type.DRAG_START:
+				follow.pause()
 		Gesture.Type.TAP:
 			if _tap_closed_menu:
 				_tap_closed_menu = false
@@ -344,6 +481,7 @@ func _on_gesture(gesture: Gesture) -> void:
 				var what := session.interactions.describe(target)
 				var rig := world_view.camera_rig()
 				if what != null and what.is_entity():
+					follow.pause()
 					rig.focus_on(what.position, minf(rig.distance(), Config.camera.home_distance))
 				else:
 					rig.double_tap_zoom(gesture.position)
@@ -419,6 +557,7 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 		InteractionManager.ACTION_FOCUS:
 			var what := session.interactions.describe(target)
 			if what != null:
+				follow.pause()
 				var rig := world_view.camera_rig()
 				rig.focus_on(what.position, minf(rig.distance() * LOOK_CLOSER_FACTOR, Config.camera.home_distance))
 
@@ -440,6 +579,7 @@ func _note_pick(target: Picker.Result, response: InteractionResponse) -> void:
 
 ## Glides the camera to the settlement (or frames the box if there is none).
 func go_home() -> void:
+	follow.pause()
 	var rig := world_view.camera_rig()
 	if session.start == null or session.start.campfire_id == 0:
 		rig.frame_box()

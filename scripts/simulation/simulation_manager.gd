@@ -80,6 +80,8 @@ func bind(clock: GameClock, people: PersonRegistry, behavior: BehaviorSystem, pa
 		tiers.changed.connect(_on_tiers_changed)
 	if not EventBus.person_selected.is_connected(_on_person_selected):
 		EventBus.person_selected.connect(_on_person_selected)
+	if not EventBus.person_followed.is_connected(_on_person_followed):
+		EventBus.person_followed.connect(_on_person_followed)
 
 
 func unbind() -> void:
@@ -105,6 +107,8 @@ func unbind() -> void:
 func _exit_tree() -> void:
 	if EventBus.person_selected.is_connected(_on_person_selected):
 		EventBus.person_selected.disconnect(_on_person_selected)
+	if EventBus.person_followed.is_connected(_on_person_followed):
+		EventBus.person_followed.disconnect(_on_person_followed)
 
 
 ## Lets `delta` real seconds pass. Returns the whole ticks that elapsed.
@@ -275,12 +279,23 @@ func _on_tiers_changed() -> void:
 
 ## The player selected someone (-1: nobody): they are simulated most closely.
 var _selected_id := 0
+## ...and so is whoever the camera follows.
+var _followed_id := 0
 
 
 func _on_person_selected(person_id: int) -> void:
-	# One person is selected at a time: whoever was is let go.
-	if _selected_id > 0 and _selected_id != person_id:
+	# One person is selected at a time: whoever was is let go (unless followed).
+	if _selected_id > 0 and _selected_id != person_id and _selected_id != _followed_id:
 		tiers.unfocus(_selected_id)
 	_selected_id = maxi(person_id, 0)
+	if person_id > 0:
+		tiers.focus(person_id)
+
+
+## The camera follows someone (-1: nobody).
+func _on_person_followed(person_id: int) -> void:
+	if _followed_id > 0 and _followed_id != person_id and _followed_id != _selected_id:
+		tiers.unfocus(_followed_id)
+	_followed_id = maxi(person_id, 0)
 	if person_id > 0:
 		tiers.focus(person_id)

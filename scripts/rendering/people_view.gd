@@ -284,6 +284,13 @@ func ground_position(person: PersonData) -> Vector3:
 	return Vector3(at.x, _world.get_height(person.position) * _world.height_step, at.y)
 
 
+## Where a person is seen right now: their body's place if they have one
+## (it trails the person by a step), else where they are.
+func shown_position(person: PersonData) -> Vector3:
+	var body := _pool.view_of(person.id) as PersonView
+	return body.position if body != null else ground_position(person)
+
+
 # --- queries (debug, tests) ---------------------------------------------------------------
 
 ## People drawn as bodies right now.

@@ -115,6 +115,15 @@ func focus_on(point: Vector3, distance: float = -1.0, animate: bool = true) -> v
 		_snap()
 
 
+## Keeps a world point under a screen position (viewport units): the view
+## glides after it. For following something that moves — call it every frame.
+## Does nothing while a finger has the view or it is still flung.
+func track(point: Vector3, screen: Vector2) -> void:
+	if _touching or _fling_velocity != Vector2.ZERO:
+		return
+	_goal_pivot = _clamp_pivot(_anchored_pivot(screen, point, _goal_pivot, _goal_distance), _goal_distance)
+
+
 ## Drags the world: the ground point that was under `from` ends up under `to`
 ## (screen positions in viewport units). Past the edge the view gives a little
 ## with growing resistance; call settle() (or release the finger) to spring back.
