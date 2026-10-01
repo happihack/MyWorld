@@ -14,9 +14,13 @@ var chunk_size: int
 ## Box interior in tiles (grows when the box unfolds).
 var bounds: Rect2i
 ## Callable(coord: Vector2i) -> ChunkData. Must be deterministic.
+## Prefer set_generator(): a Callable does not keep its object alive, and a
+## freed generator would silently produce flat fallback chunks.
 var generator: Callable
 
 var _chunks: Dictionary = {} # Vector2i -> ChunkData
+var _generator_owner: RefCounted # keeps the generator object alive
+var _generator_expected := false
 
 
 func _init(tile_bounds: Rect2i = Rect2i(), world_chunk_size: int = 16) -> void:
@@ -29,6 +33,14 @@ func _init(tile_bounds: Rect2i = Rect2i(), world_chunk_size: int = 16) -> void:
 static func create_centered(size_tiles: int, world_chunk_size: int) -> WorldData:
 	var half := size_tiles / 2
 	return WorldData.new(Rect2i(-half, -half, size_tiles, size_tiles), world_chunk_size)
+
+
+## Installs a generator object (anything with `generate_chunk(coord) -> ChunkData`)
+## and keeps it alive for as long as this world exists.
+func set_generator(generator_object: RefCounted) -> void:
+	_generator_owner = generator_object
+	_generator_expected = generator_object != null
+	generator = Callable(generator_object, &"generate_chunk") if generator_object != null else Callable()
 
 
 # --- bounds ------------------------------------------------------------------------
@@ -65,6 +77,9 @@ func get_chunk(coord: Vector2i, generate_if_missing: bool = true) -> ChunkData:
 		return chunk
 	if generator.is_valid():
 		chunk = generator.call(coord) as ChunkData
+	elif _generator_expected:
+		# Never fall back silently once a real generator was installed.
+		push_error("WorldData: generator is gone; chunk %s falls back to flat terrain" % coord)
 	if chunk == null:
 		chunk = ChunkData.new(coord, chunk_size)
 		chunk.height.fill(DEFAULT_HEIGHT)

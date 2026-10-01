@@ -375,13 +375,22 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** 32 new unit tests (negative-coordinate roundtrip over 6,400 tiles with unique slots, chunk routing across borders, sparse save roundtrip through bytes, snapshot independence, corrupt-record handling, spatial queries checked against brute force with 2,000 entities). Suite: 132 passing.
 - Wiring into `WorldSession` and the save format happens in M1.8 once the generator (M1.2) exists.
 
-### M1.2 World generation
-- [ ] `scripts/world/world_generator.gd`: `generate_chunk(coord, seed, template) -> ChunkData` deterministic; uses `FastNoiseLite` with seeds derived from named streams; height shaped by **start template** masks; terrain type from height/moisture; initial vegetation; river carving (template-driven path from inflow to basin); lake basin.
-- [ ] `scripts/world/start_templates.gd` + `data/worldgen/*.tres`: River Valley (first world default) implemented fully; other five stubbed with parameters (implemented in M32).
-- [ ] Resource/prop placement pass: trees (clusters), rocks, berry bushes — placed as **entity records** (`PropData`/resource nodes minimal: id, type, tile, variant) into registry + spatial index (full resource semantics in M7).
-- [ ] Starting settlement placeholder: choose site by scoring (flat, near water, not flood-prone, near trees) → 3 hut **building records** (static for now) + a campfire.
-- [ ] Mysteries seeding stub: reserve generator stage `seed_mysteries()` that places 1 ruin record at a far tile (dormant, simple mesh) — proves the pipeline early (full in M18).
-- [ ] Validation function `WorldGenerator.validate(world) -> Array[String]` (water reachable from settlement, ≥ N food sources, ≥ M buildable tiles, path connectivity via flood fill).
+### M1.2 World generation — split into M1.2a (terrain) and M1.2b (contents)
+
+#### M1.2a Terrain generation — ✅ DONE (2026-09-30)
+- [x] `scripts/world/hash_noise.gd` (`HashNoise`): **integer-only** hash, per-tile value, smooth value noise, fBm and fixed-point smoothstep. Used instead of `FastNoiseLite` so worlds are bit-identical on every platform and Godot version (float noise can differ in the last bit between x86 and ARM, which would change rounded height levels). Reference values pinned in tests.
+- [x] `scripts/world/start_template.gd` (`StartTemplate`, a `ConfigBase` resource) + `data/worldgen/river_valley.tres`: shape enum (River Valley implemented; Island, Mountain Basin, Forest Clearing, Coastal Plain, Desert Oasis reserved for M32), valley/hill/river/pond/surface/contents parameters with validation (incl. a "meander too steep → river could break" check).
+- [x] `scripts/world/world_generator.gd` (`WorldGenerator`): `generate_chunk(coord)` — every tile is a **pure function of (seed, template, tile)** in fixed-point integer math: meandering river along Z with ponds, lowered shallow banks, flat fertile valley floor, hills whose foot is warped by noise and whose height varies (some stay grassy, some turn to rock), dirt patches, moisture/fertility/vegetation layers, cooler high ground. Defined in world coordinates, so terrain never changes when the box unfolds. `sample_tile()`, `river_center_fp()`, `distance_to_river_fp()` for placement logic. **`GENERATOR_VERSION := 1`** — must be bumped (and old output kept reproducible) whenever output changes, because unmodified chunks are regenerated rather than saved.
+- [x] `WorldData.set_generator(obj)`: keeps the generator object alive (a bare `Callable` does not — found when all test seeds produced the same flat world) and reports an error instead of silently falling back if it ever disappears.
+- [x] `scripts/debug/world_preview.gd` (`WorldPreview`): top-down image of a world (terrain colour, height shading, water depth, optional markers) — used to review generation visually; basis for the minimap (M13).
+- **Verified:** preview images of 6 seeds reviewed and tuned (first pass was a straight river between two grey rock walls). 23 new tests: noise determinism/range/smoothness/uniformity/pinned values; generator determinism, seed variety, **generation-order independence**, **unload → regenerate identical**, **64×64 centre identical inside a 128×128 box**, valid values for 8 seeds, **river connected top-to-bottom by flood fill**, ≥ 35% grass, golden checksum per generator version, speed. A 64×64 world generates in ~90 ms on desktop. Suite: 155 passing.
+- **To verify in M1.8:** the golden checksum on the phone (ARM) once the world is wired into the game — the reason for the integer design.
+
+#### M1.2b World contents
+- [ ] Resource/prop placement pass: trees (clusters via forest noise), rocks, berry bushes as **entity records** with stable generated ids derived from the tile (no allocator ids needed; only *changes* to generated props are saved) + registry + spatial index (full resource semantics in M7).
+- [ ] Starting settlement placeholder: choose a site by scoring (flat, near water, not flood-prone, near trees) → 3 hut **building records** (static for now) + a campfire.
+- [ ] Mysteries seeding stub: `seed_mysteries()` places 1 dormant ruin record at a far tile — proves the pipeline early (full in M18).
+- [ ] Validation function `WorldGenerator.validate(world) -> Array[String]` (water reachable from the settlement, ≥ N food sources, ≥ M buildable tiles, path connectivity via flood fill) + test over many seeds.
 
 ### M1.3 Terrain rendering
 - [ ] `scripts/world/terrain_mesher.gd`: build one `ArrayMesh` per chunk: top faces per tile at height, side faces where neighbour lower (stepped blocks), bevel option, vertex colours from terrain type palette, normals. Use `SurfaceTool` or raw arrays (raw arrays faster) — target < 3 ms per chunk on desktop.

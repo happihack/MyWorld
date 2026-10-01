@@ -119,6 +119,27 @@ func test_bad_save_data_is_handled() -> void:
 	assert_eq(copy.get_height(Vector2i(0, 0)), 4)
 
 
+class CountingGenerator:
+	extends RefCounted
+	var calls := 0
+
+	func generate_chunk(coord: Vector2i) -> ChunkData:
+		calls += 1
+		var c := ChunkData.new(coord, 16)
+		c.height.fill(7)
+		c.mark_pristine()
+		return c
+
+
+func test_set_generator_keeps_the_generator_alive() -> void:
+	# A bare Callable does not keep its object alive; set_generator() must, or
+	# the world would silently fall back to flat chunks.
+	var w := WorldData.create_centered(32, 16)
+	w.set_generator(CountingGenerator.new()) # no other reference to the object
+	assert_eq(w.get_height(Vector2i(0, 0)), 7)
+	assert_eq(w.get_height(Vector2i(-16, -16)), 7)
+
+
 func test_missing_generator_gives_flat_chunks() -> void:
 	var bare := WorldData.create_centered(32, 16)
 	assert_eq(bare.get_height(Vector2i(3, 3)), WorldData.DEFAULT_HEIGHT)
