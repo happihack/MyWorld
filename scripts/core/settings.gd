@@ -32,6 +32,9 @@ const DEFAULTS := {
 	&"gameplay/gentle_hands": true,
 	&"camera/twist_rotate": false,
 	&"notifications/system_enabled": false,
+	## First-time hints whose action the player has already done, as a
+	## comma-separated list of hint ids (HintDirector).
+	&"ftue/completed": "",
 	&"debug/enabled": false,
 	&"debug/overlay_visible": false,
 }

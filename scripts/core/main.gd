@@ -9,6 +9,9 @@ extends Node
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
+## The game opens on the whole box, then the camera descends to the settlement
+## after this many seconds (bible §26.1) — unless the player moves first.
+const OPENING_HOLD_SECONDS := 1.6
 ## "Look closer" moves in to this fraction of the current distance.
 const LOOK_CLOSER_FACTOR := 0.6
 
@@ -16,6 +19,8 @@ var _world_fingerprint := ""
 var _last_pick := "-"
 ## The touch in progress closed the context menu; its tap does nothing else.
 var _tap_closed_menu := false
+## The player has touched the world: the camera is theirs, no opening glide.
+var _player_has_touched := false
 
 
 func _ready() -> void:
@@ -28,10 +33,12 @@ func _ready() -> void:
 	input_router.touch_began.connect(_on_world_touched)
 	ui_root.context_action.connect(_on_context_action)
 	input_router.gesture_recognized.connect(_on_gesture)
+	input_router.gesture_recognized.connect(ui_root.hints().note_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
+	_begin_opening()
 	ui_root.home_pressed.connect(go_home)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
@@ -84,8 +91,30 @@ func _on_gesture(gesture: Gesture) -> void:
 				rig.double_tap_zoom(gesture.position)
 
 
+## Opening shot: the box on its table, then down to where the people live —
+## close enough that dragging explores. With reduced motion the view simply
+## starts there.
+func _begin_opening() -> void:
+	if session.start == null or session.start.campfire_id == 0:
+		return
+	if bool(Settings.get_value(&"accessibility/reduced_motion")):
+		var tile := session.start.settlement_tile
+		world_view.camera_rig().focus_on(Vector3(tile.x + 0.5, 0.0, tile.y + 0.5), Config.camera.home_distance, false)
+		return
+	get_tree().create_timer(OPENING_HOLD_SECONDS).timeout.connect(_opening_glide)
+
+
+func _opening_glide() -> void:
+	# Not if the player (or anything else) has already taken the camera.
+	if _player_has_touched or not world_view.camera_rig().is_framed():
+		return
+	go_home()
+
+
 func _on_world_touched(_position: Vector2) -> void:
+	_player_has_touched = true
 	world_view.camera_rig().stop_motion()
+	ui_root.hints().note_touch()
 	_tap_closed_menu = ui_root.dismiss_transient_panels()
 
 

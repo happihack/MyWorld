@@ -17,6 +17,12 @@ extends ConfigBase
 ## rotate the view.
 @export_range(0.0, 90.0) var twist_start_deg: float = 12.0
 
+@export_group("Hints")
+## Idle seconds before the first hint ("Drag to explore.") appears.
+@export_range(0.5, 60.0, 0.5) var hint_idle_seconds: float = 5.0
+## Idle seconds before a follow-up hint appears once it has become relevant.
+@export_range(0.5, 60.0, 0.5) var hint_follow_up_seconds: float = 2.5
+
 
 func validate() -> PackedStringArray:
 	var p := PackedStringArray()

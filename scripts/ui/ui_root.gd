@@ -33,6 +33,8 @@ var _session: WorldSession
 var _unlock_taps: Array[int] = []
 var _panel_layer: Control
 var _panels: Array[UIPanel] = [] # bottom to top
+var _hint_label: HintLabel
+var _hints: HintDirector
 
 
 func _ready() -> void:
@@ -49,6 +51,13 @@ func _ready() -> void:
 	_panel_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_panel_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE # only panels take touches
 	add_child(_panel_layer)
+	_hint_label = HintLabel.new()
+	_hint_label.name = "Hint"
+	add_child(_hint_label)
+	move_child(_hint_label, _panel_layer.get_index()) # panels draw over the hint
+	_hints = HintDirector.new(_hint_label)
+	_hints.name = "HintDirector"
+	add_child(_hints)
 	get_window().size_changed.connect(_apply_ui_scale)
 	_apply_ui_scale()
 
@@ -59,9 +68,15 @@ func _exit_tree() -> void:
 
 # --- panels ---------------------------------------------------------------------------
 
+## First-time hints; feed it what the player does.
+func hints() -> HintDirector:
+	return _hints
+
+
 ## Puts a panel on top of the stack and shows it.
 func open_panel(panel: UIPanel) -> void:
 	_panels.append(panel)
+	_hints.set_suppressed(true) # one thing at a time
 	panel.closed.connect(_on_panel_closed.bind(panel))
 	_panel_layer.add_child(panel)
 
@@ -131,6 +146,7 @@ func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCar
 
 func _on_panel_closed(panel: UIPanel) -> void:
 	_panels.erase(panel)
+	_hints.set_suppressed(not _panels.is_empty())
 	if not panel.transient:
 		AudioManager.play_ui(&"ui_close")
 

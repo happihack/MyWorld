@@ -356,3 +356,59 @@ func test_panel_stack_basics() -> void:
 	assert_eq(ui.panel_count(), 0)
 	await wait_frames(2)
 	assert_eq(ui.get_node("Panels").get_child_count(), 0, "closed panels are freed")
+
+
+# --- first-time hints in the game ---------------------------------------------------------------
+
+func _drag(from: Vector2, to: Vector2) -> void:
+	_touch(0, from, true)
+	for i in range(1, 9):
+		var d := InputEventScreenDrag.new()
+		d.index = 0
+		d.position = from.lerp(to, i / 8.0)
+		d.relative = (to - from) / 8.0
+		get_tree().root.push_input(d, true)
+	_touch(0, to, false)
+
+
+func test_drag_hint_shows_when_idle_and_goes_with_the_first_pan() -> void:
+	var hints := ui.hints()
+	hints.set_process(false)
+	var hint: HintLabel = ui.get_node("Hint")
+	assert_false(hint.is_showing())
+	hints.advance(Config.interaction.hint_idle_seconds + 0.1)
+	assert_true(hint.is_showing())
+	assert_eq(hint.text(), "Drag to explore.")
+	await wait_frames(1)
+	assert_false(router.is_over_ui(hint.get_global_rect().get_center()), "the hint does not block the world")
+	assert_true(hint.get_index() < ui.get_node("Panels").get_index(), "panels draw over the hint")
+	# A real one-finger pan.
+	_drag(Vector2(540, 900), Vector2(300, 1100))
+	assert_false(hint.is_showing())
+	assert_true(hints.is_completed(HintDirector.DRAG))
+
+
+func test_hold_hint_goes_when_the_menu_opens() -> void:
+	var hints := ui.hints()
+	hints.set_process(false)
+	hints.complete(HintDirector.DRAG)
+	var fire := session.props.get_prop(session.start.campfire_id)
+	_tap(_prop_screen(fire, 0.15))
+	hints.advance(Config.interaction.hint_follow_up_seconds + 0.1)
+	assert_eq(hints.current(), HintDirector.HOLD)
+	_long_press(_prop_screen(_hut(), 0.7))
+	assert_eq(hints.current(), &"")
+	assert_true(hints.is_completed(HintDirector.HOLD))
+	assert_eq(ui.panel_count(), 1)
+
+
+func test_no_hint_while_a_panel_is_open() -> void:
+	var hints := ui.hints()
+	hints.set_process(false)
+	Settings.set_value(HintDirector.SETTING, "hold") # only the drag hint is left
+	_press(_long_press(_prop_screen(_hut(), 0.7)), "Inspect")
+	hints.advance(60.0)
+	assert_eq(hints.current(), &"", "the card has the player's attention")
+	ui.close_all_panels()
+	hints.advance(Config.interaction.hint_idle_seconds + 0.1)
+	assert_eq(hints.current(), HintDirector.DRAG)

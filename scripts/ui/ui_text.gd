@@ -28,6 +28,16 @@ const PROP_NAMES := {
 
 const WATER_NAME := "Water"
 
+## First-time hints (bible §26.3: quiet, short, curious).
+const HINTS := {
+	&"drag": "Drag to explore.",
+	&"hold": "Hold to learn more.",
+}
+
+
+static func hint(id: StringName) -> String:
+	return HINTS.get(id, "")
+
 
 static func terrain_name(terrain: int) -> String:
 	return TERRAIN_NAMES.get(terrain, "Ground")

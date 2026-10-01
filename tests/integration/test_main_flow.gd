@@ -374,6 +374,52 @@ func test_touches_are_heard_and_felt() -> void:
 	Haptics.vibrate_action = real_vibrate
 
 
+func test_opening_shows_the_box_then_descends_to_the_settlement() -> void:
+	var main := await _load_main_on_known_world()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	var session: WorldSession = main.get_node("WorldSession")
+	assert_true(rig.is_framed(), "opens on the whole box")
+	await wait_real_ms(1600 + 300) # Main.OPENING_HOLD_SECONDS
+	assert_false(rig.is_framed(), "then moves in by itself")
+	rig.set_process(false)
+	for i in 400:
+		rig.advance(1.0 / 60.0)
+	assert_near(rig.distance(), Config.camera.home_distance, 0.1)
+	assert_near(rig.pivot().x, session.start.settlement_tile.x + 0.5, 0.2)
+	assert_near(rig.pivot().z, session.start.settlement_tile.y + 0.5, 0.2)
+	# Close enough that a drag really moves the view (the first hint's promise).
+	var before := rig.pivot()
+	rig.handle_gesture(Gesture.new(Gesture.Type.DRAG_START))
+	rig.pan_screen(Vector2(540, 900), Vector2(240, 900))
+	rig.settle()
+	for i in 200:
+		rig.advance(1.0 / 60.0)
+	assert_true(rig.pivot().distance_to(before) > 1.0, "dragging explores from here")
+
+
+func test_opening_glide_is_the_players_to_cancel() -> void:
+	var main := await _load_main_on_known_world()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	_touch(0, Vector2(540, 900), true) # the player touches the world first
+	_touch(0, Vector2(540, 900), false)
+	await wait_real_ms(1600 + 300)
+	assert_true(rig.is_framed(), "the camera stays where the player has it")
+
+
+func test_opening_with_reduced_motion_starts_at_the_settlement() -> void:
+	var first := WorldSession.new()
+	add_child(first)
+	first.create_new(12345)
+	SaveManager.save_world(first, &"test")
+	first.queue_free()
+	await wait_frames(2)
+	Settings.set_value(&"accessibility/reduced_motion", true)
+	var main := await _load_main()
+	var rig: CameraRig = main.get_node("WorldView").camera_rig()
+	assert_near(rig.distance(), Config.camera.home_distance, 0.1, "no glide: already there")
+	assert_false(rig.is_moving())
+
+
 func test_camera_settings_follow_the_player_settings() -> void:
 	var main := await _load_main()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()

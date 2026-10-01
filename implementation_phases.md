@@ -563,8 +563,23 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Phone (Note20):** the system reports an active audio track for the app, and its vibration log shows the pulses exactly as configured — 14 ms at 0.35 for taps on the fire and a tree, **24 ms at 0.6 for the knock on the hut**. 60 FPS.
 - **To judge by ear and hand (cannot be automated):** whether the placeholder sounds are pleasant and the levels right (wind at −22 dB, world sounds −4…−9 dB), and whether the light tick is noticeable. All of it is in `feedback_config.tres` and the volume settings.
 
-### M2.6 FTUE hint v0 (Track T8)
-- [ ] `ftue_state` in Settings (per install) + per world; hint "Drag to explore." after 5 s idle; disappears after first pan.
+### M2.6 FTUE hint v0 (Track T8) — ✅ DONE (2026-09-30)
+- [x] `scripts/ui/hint_director.gd` (`HintDirector`, in `UIRoot` as `hints()`): shows one quiet hint at a time, only when relevant, only until the player has done the thing once (bible §26.3).
+  - **"Drag to explore."** after `hint_idle_seconds` (5 s) without a touch; gone for good after the first pan (one- or two-finger).
+  - **"Hold to learn more."** (the bible's next hint; possible now that long press exists) `hint_follow_up_seconds` (2.5 s) after the first tap of the world; gone for good after the first long press.
+  - In order, never two at once; a player who does the thing before its hint appears never sees it; no hints while a panel is open (the wait restarts when it closes).
+- [x] State per install: Settings `ftue/completed` (comma-separated hint ids), so it survives new worlds. Resetting settings brings the hints back.
+- [x] `scripts/ui/widgets/hint_label.gd` (`HintLabel`): a soft pill near the bottom centre that fades in and out; it ignores input and is not a UI blocker, so the world under it stays touchable; panels draw over it. Wording in `UIText.HINTS`.
+- [x] **Opening shot** (found while testing the hint on the phone): the game opened on the whole box, where a one-finger drag only rubber-bands — so "Drag to explore." asked for something that did nothing. Now, as in bible §26.1 ("the camera descends into the open box"), the game opens on the box and after `OPENING_HOLD_SECONDS` (1.6 s) glides to the settlement, where dragging explores. Touching the world first cancels the glide; with reduced motion the view simply starts at the settlement.
+- **Deferred:** the *per-world* half of `ftue_state`. No hint is per-world yet (the first will be the discovery hint, M19+); storing unused state in every save would only be dead weight. Added when its first hint is.
+- **Verified:** 13 director/label tests (timing, touch restarts the wait, pan completes and persists across sessions, tap does not dismiss, early pan / early long press skip the hint, order, suppression by panels, settings reset, no label, label placement and fade, hint wording style) + 3 in the main scene (real one-finger drag completes the hint; long press completes "hold"; no hint under an open card) + 3 opening tests (box → settlement and a drag then really moves the view; touch cancels; reduced motion). Suite: **409 passing**, no engine errors.
+- **Phone (Note20):** launch → box → glide to the settlement → "Drag to explore." at 7 s; swipe → view moves, hint gone; tap → "Hold to learn more."; long press → gone, menu open. The hint state on the phone was reset afterwards, so the next launch shows the hints again.
+
+### M2 — Completion summary
+All six sub-phases are done (M2.1–M2.6): gestures and camera feel, picking, tap responses, the long-press menu with inspect card and panel stack, sound and haptics, first-time hints and the opening shot. **409 automated tests**, 60 FPS on the test phone throughout.
+- **Exit criterion** — *"The player can naturally explore the world entirely through touch. Hand the phone to someone without instruction — do they pan/zoom/tap within 20 s?"* — is a hands-on judgement: **pending the owner's verdict**.
+- **Still to judge by hand:** double tap (cannot be injected through adb), fling / rubber-band feel, whether the placeholder sounds are pleasant and the haptic tick noticeable.
+- **Moved out of M2:** swipe-through-water ripples and the tile-info trail (→ M9.5 / tool modes); per-world hint state (→ with the first per-world hint).
 
 ### M2 — Tests & checks
 **Automated:** `test_gestures_extended` (double tap timing, swipe vs drag, pinch focal), `test_camera_bounds` (pan clamp, zoom clamp, rubber-band returns, home), `test_picker` (tile under ray on synthetic height grid; priority ordering; touch radius scaling with zoom).
@@ -1492,6 +1507,7 @@ Done when:
 | KI-2 | M0.8 | Low | Debug overlay sits at the top-left edge; on devices with corner cut-outs it should respect `DisplayServer.get_display_safe_area()` (M24). | Open |
 | KI-4 | M1.8 | Info | Godot logs `Couldn't present to Vulkan queue (VK_ERROR_SURFACE_LOST_KHR)` when the app is sent to the background on Android. Engine-level (the OS removes the surface); no data loss and the app resumes normally. Watch for it in M24 lifecycle testing. | Open |
 | KI-3 | M0.8 | Info | Project is built with the .NET (mono) Godot editor/templates although it is pure GDScript; standard build recommended (pending decision D-15). | Open |
+| KI-5 | M2.6 | Low (cosmetic) | With the camera at the settlement, birds passing between the camera and the ground look like large dark shards (they are two flat dark triangles each, drawn for the far-away framed view). Needs smaller/lighter birds or a fade when close to the camera (M1.5 ambient life; revisit with wildlife in M10). | Open |
 
 ## Appendix 7 — Immediate next steps
 
