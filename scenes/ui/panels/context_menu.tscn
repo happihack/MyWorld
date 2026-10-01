@@ -1,0 +1,22 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/panels/context_menu.gd" id="1_menu"]
+
+[node name="ContextMenu" type="PanelContainer"]
+script = ExtResource("1_menu")
+
+[node name="Content" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"TitleLabel"
+text = "Something"
+
+[node name="Separator" type="HSeparator" parent="Content"]
+layout_mode = 2
+
+[node name="Options" type="VBoxContainer" parent="Content"]
+unique_name_in_owner = true
+layout_mode = 2

@@ -12,7 +12,6 @@ const RING_SEGMENTS := 24
 
 var _tile: MeshInstance3D
 var _ring: MeshInstance3D
-var _seconds_left := 0.0
 
 
 func _init() -> void:
@@ -38,20 +37,6 @@ func show_entity(base: Vector3, radius: float) -> void:
 func clear() -> void:
 	_tile.visible = false
 	_ring.visible = false
-	_seconds_left = 0.0
-	set_process(false)
-
-
-## Clears the highlight by itself after `seconds`.
-func clear_after(seconds: float) -> void:
-	_seconds_left = seconds
-	set_process(seconds > 0.0)
-
-
-func _process(delta: float) -> void:
-	_seconds_left -= delta
-	if _seconds_left <= 0.0:
-		clear()
 
 
 func tile_visible() -> bool:

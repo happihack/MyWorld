@@ -11,6 +11,11 @@ extends Node
 
 signal responded(response: InteractionResponse)
 
+## Things the player can choose to do with a target (context menu).
+const ACTION_INSPECT := &"inspect"
+const ACTION_TOUCH := &"touch"
+const ACTION_FOCUS := &"focus"
+
 const _PROP_EFFECTS := {
 	PropData.Kind.TREE: InteractionResponse.TREE_SHAKE,
 	PropData.Kind.BUSH: InteractionResponse.BUSH_RUSTLE,
@@ -52,6 +57,50 @@ func describe(target: Picker.Result) -> InteractionResponse:
 	return _respond(target, InteractionResponse.Action.DOUBLE_TAP, false)
 
 
+## What the player can do with a target right now, in menu order (bible §26.6
+## lists more per target; an action appears here once it works). Empty for a miss.
+func actions_for(target: Picker.Result) -> Array[StringName]:
+	var actions: Array[StringName] = []
+	if target == null or not target.is_hit() or _world == null:
+		return actions
+	actions.append(ACTION_INSPECT)
+	actions.append(ACTION_TOUCH)
+	actions.append(ACTION_FOCUS)
+	return actions
+
+
+## The facts about a target (the inspect card). Null for a miss. Looking does
+## not touch the world: nothing is announced.
+func inspect(target: Picker.Result) -> InspectReport:
+	if target == null or not target.is_hit() or _world == null:
+		return null
+	var report := InspectReport.new()
+	var prop: PropData = null
+	if target.kind == Picker.Kind.ENTITY and _props != null:
+		prop = _props.get_prop(target.entity_id)
+	report.tile = prop.tile if prop != null else target.tile
+	var chunk := _world.chunk_at_tile(report.tile)
+	if chunk == null:
+		return null
+	var i := _world.index_at_tile(report.tile)
+	report.terrain = chunk.terrain[i]
+	report.height_level = chunk.height[i]
+	report.moisture = chunk.moisture[i]
+	report.fertility = chunk.fertility[i]
+	report.vegetation = chunk.vegetation[i]
+	report.water_depth = chunk.water[i]
+	if prop != null:
+		report.subject = InspectReport.Subject.PROP
+		report.entity_id = prop.id
+		report.prop_kind = prop.kind
+		report.prop_variant = prop.variant
+		report.scale_percent = prop.scale_percent
+		report.generated = prop.is_generated()
+	elif target.kind == Picker.Kind.WATER:
+		report.subject = InspectReport.Subject.WATER
+	return report
+
+
 func _respond(target: Picker.Result, action: InteractionResponse.Action, announce: bool = true) -> InteractionResponse:
 	if target == null or not target.is_hit() or _world == null:
 		return null
@@ -69,6 +118,7 @@ func _respond(target: Picker.Result, action: InteractionResponse.Action, announc
 		var at := prop.position2d()
 		response.entity_id = prop.id
 		response.prop_kind = prop.kind
+		response.prop_variant = prop.variant
 		response.body = prop.pick_shape()
 		response.tile = prop.tile
 		response.position = Vector3(at.x, _world.get_height(prop.tile) * _world.height_step, at.y)
@@ -85,6 +135,7 @@ func _respond(target: Picker.Result, action: InteractionResponse.Action, announc
 		response.description = "%s at %s  height %d" % [
 			ChunkData.Terrain.keys()[response.terrain], target.tile, _world.get_height(target.tile)]
 
+	response.touch_effect = response.effect
 	if announce:
 		_announce(response)
 	return response

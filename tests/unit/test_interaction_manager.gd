@@ -156,6 +156,74 @@ func test_describe_tells_without_touching() -> void:
 	assert_eq(manager.interaction_count, 0)
 
 
+func test_actions_offered_for_a_target() -> void:
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	var expected: Array[StringName] = [
+		InteractionManager.ACTION_INSPECT, InteractionManager.ACTION_TOUCH, InteractionManager.ACTION_FOCUS]
+	assert_eq(manager.actions_for(_entity_target(tree)), expected)
+	assert_eq(manager.actions_for(_tile_target(Vector2i(0, 0))), expected)
+	assert_eq(manager.actions_for(Picker.Result.new()).size(), 0, "nothing to do with nothing")
+	assert_eq(manager.actions_for(null).size(), 0)
+	assert_eq(heard.size(), 0)
+
+
+func test_long_press_remembers_what_touching_would_do() -> void:
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	tree.variant = 2
+	var response := manager.long_press(_entity_target(tree))
+	assert_eq(response.effect, InteractionResponse.INSPECT)
+	assert_eq(response.touch_effect, InteractionResponse.TREE_SHAKE)
+	assert_eq(response.prop_variant, 2)
+	assert_eq(manager.tap(_tile_target(Vector2i(0, 0))).touch_effect, InteractionResponse.DUST)
+
+
+func test_inspect_reports_the_facts_of_a_prop() -> void:
+	var rock := _add(PropData.Kind.ROCK, Vector2i(-3, 5), 130)
+	rock.variant = 1
+	world.set_height(rock.tile, 6)
+	world.set_terrain(rock.tile, ChunkData.Terrain.DIRT)
+	var chunk := world.chunk_at_tile(rock.tile)
+	chunk.set_moisture(world.index_at_tile(rock.tile), 200)
+	var report := manager.inspect(_entity_target(rock))
+	assert_eq(report.subject, InspectReport.Subject.PROP)
+	assert_true(report.is_prop())
+	assert_eq(report.entity_id, rock.id)
+	assert_eq(report.prop_kind, PropData.Kind.ROCK)
+	assert_eq(report.prop_variant, 1)
+	assert_eq(report.scale_percent, 130)
+	assert_false(report.generated)
+	assert_eq(report.tile, rock.tile, "the prop's tile, not where the ray landed")
+	assert_eq(report.terrain, ChunkData.Terrain.DIRT)
+	assert_eq(report.height_level, 6)
+	assert_eq(report.moisture, 200)
+	assert_eq(heard.size(), 0, "looking is not touching")
+	assert_eq(manager.interaction_count, 0)
+
+
+func test_inspect_reports_ground_and_water() -> void:
+	var tile := Vector2i(7, -7)
+	var chunk := world.chunk_at_tile(tile)
+	var i := world.index_at_tile(tile)
+	chunk.set_fertility(i, 90)
+	chunk.set_vegetation(i, 180)
+	var ground := manager.inspect(_tile_target(tile))
+	assert_eq(ground.subject, InspectReport.Subject.GROUND)
+	assert_eq(ground.fertility, 90)
+	assert_eq(ground.vegetation, 180)
+	assert_eq(ground.height_level, 2)
+	assert_near(ground.water_depth, 0.0, 0.0)
+	world.set_water(tile, 0.45)
+	world.set_terrain(tile, ChunkData.Terrain.RIVERBED)
+	var target := _tile_target(tile)
+	target.kind = Picker.Kind.WATER
+	var water := manager.inspect(target)
+	assert_eq(water.subject, InspectReport.Subject.WATER)
+	assert_near(water.water_depth, 0.45, 0.0001)
+	assert_eq(water.terrain, ChunkData.Terrain.RIVERBED)
+	assert_null(manager.inspect(Picker.Result.new()))
+	assert_null(manager.inspect(null))
+
+
 func test_unbound_manager_ignores_touches() -> void:
 	var fresh := InteractionManager.new()
 	add_child(fresh)

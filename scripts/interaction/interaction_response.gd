@@ -19,6 +19,9 @@ const INSPECT := &"inspect"
 
 var action: Action = Action.TAP
 var effect: StringName = DUST
+## What touching the target does (same as `effect` for a tap; kept when the
+## action itself is something else, e.g. a long press).
+var touch_effect: StringName = DUST
 ## Where the effect happens: the touched point for ground/water, the base of
 ## the prop for entities.
 var position := Vector3.ZERO
@@ -26,6 +29,7 @@ var tile := Vector2i.ZERO
 var entity_id := 0
 ## PropData.Kind of the touched prop, or -1.
 var prop_kind := -1
+var prop_variant := 0
 ## Height and radius of the touched body (entities only).
 var body := Vector2.ZERO
 ## Terrain type under the touch (ChunkData.Terrain), for tinting.

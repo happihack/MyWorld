@@ -333,29 +333,6 @@ func test_double_tap_on_open_ground_zooms_in() -> void:
 	assert_near(rig.distance(), before / Config.camera.double_tap_zoom, 0.1)
 
 
-func test_long_press_marks_its_target_for_a_moment() -> void:
-	var main := await _load_main_on_known_world()
-	var parts := _look_at_settlement(main)
-	var rig: CameraRig = parts[0]
-	var view: WorldView = parts[1]
-	var session: WorldSession = parts[2]
-	var heard: Array[InteractionResponse] = []
-	session.interactions.responded.connect(func(r: InteractionResponse) -> void: heard.append(r))
-	var hut := session.props.get_prop(session.start.hut_ids[0])
-	var roof := _prop_screen(rig, session, hut, 0.7)
-	_touch(0, roof, true)
-	await wait_real_ms(Config.interaction.long_press_ms + 150)
-	assert_eq(heard.size(), 1)
-	assert_eq(heard[0].effect, InteractionResponse.INSPECT)
-	assert_eq(heard[0].entity_id, hut.id)
-	assert_true(view.pick_highlight().entity_visible(), "the pressed thing is marked")
-	assert_false(view.effects().is_shaking(hut.id), "inspecting does not knock")
-	_touch(0, roof, false)
-	assert_eq(heard.size(), 1, "releasing a long press is not a tap")
-	await wait_real_ms(1200 + 500) # Main.LONG_PRESS_MARK_SECONDS and a margin
-	assert_false(view.pick_highlight().entity_visible(), "the mark fades by itself")
-
-
 func test_camera_settings_follow_the_player_settings() -> void:
 	var main := await _load_main()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()

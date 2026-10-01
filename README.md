@@ -24,7 +24,8 @@ Saves live in `user://saves/<world_id>/` — on Windows:
 |---|---|
 | Left click / drag | Tap (the world answers: dust, ripples, a shaken tree…) / one-finger drag (mouse emulates touch) |
 | Double click | Double tap: look at the thing under the cursor, or zoom toward open ground |
-| Hold left button | Long press (marks what it would inspect) |
+| Hold left button | Long press: menu for what is under the cursor (Inspect / Touch / Look closer) |
+| Escape | Back: closes the top panel, then leaves the game |
 | Mouse wheel | Pinch zoom at the cursor |
 | Right drag | Two-finger drag |
 | F3 | Toggle debug overlay (debug builds; on device: three-finger tap) |

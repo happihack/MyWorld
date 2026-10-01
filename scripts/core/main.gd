@@ -9,11 +9,13 @@ extends Node
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
-## How long a long press keeps its target marked.
-const LONG_PRESS_MARK_SECONDS := 1.2
+## "Look closer" moves in to this fraction of the current distance.
+const LOOK_CLOSER_FACTOR := 0.6
 
 var _world_fingerprint := ""
 var _last_pick := "-"
+## The touch in progress closed the context menu; its tap does nothing else.
+var _tap_closed_menu := false
 
 
 func _ready() -> void:
@@ -23,7 +25,8 @@ func _ready() -> void:
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
 	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
-	input_router.touch_began.connect(func(_pos: Vector2) -> void: world_view.camera_rig().stop_motion())
+	input_router.touch_began.connect(_on_world_touched)
+	ui_root.context_action.connect(_on_context_action)
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
@@ -42,7 +45,12 @@ func _exit_tree() -> void:
 ## InteractionManager decides what that means, the view shows the answer.
 func _on_gesture(gesture: Gesture) -> void:
 	match gesture.type:
+		Gesture.Type.DRAG_START, Gesture.Type.MULTI_START:
+			ui_root.dismiss_transient_panels() # moving the view puts the menu away
 		Gesture.Type.TAP:
+			if _tap_closed_menu:
+				_tap_closed_menu = false
+				return # that tap only put the menu away
 			var target := pick_at(gesture.position)
 			_note_pick(target, session.interactions.tap(target))
 			if debug_overlay.is_shown():
@@ -51,11 +59,15 @@ func _on_gesture(gesture: Gesture) -> void:
 				world_view.pick_highlight().clear()
 		Gesture.Type.LONG_PRESS:
 			var target := pick_at(gesture.position)
-			_note_pick(target, session.interactions.long_press(target))
-			# Until the context panel (M2.4): mark what was pressed for a moment.
+			var what := session.interactions.long_press(target)
+			_note_pick(target, what)
+			if what == null:
+				return
+			# The pressed thing stays marked while its menu is open.
 			world_view.show_pick(target)
-			if not debug_overlay.is_shown():
-				world_view.pick_highlight().clear_after(LONG_PRESS_MARK_SECONDS)
+			var menu := ui_root.open_context_menu(gesture.position, target, what,
+				session.interactions.actions_for(target))
+			menu.closed.connect(_on_context_menu_closed)
 		Gesture.Type.DOUBLE_TAP:
 			# On a thing: look at it. On open ground or water: zoom toward it.
 			var what := session.interactions.describe(pick_at(gesture.position))
@@ -64,6 +76,29 @@ func _on_gesture(gesture: Gesture) -> void:
 				rig.focus_on(what.position, minf(rig.distance(), Config.camera.home_distance))
 			else:
 				rig.double_tap_zoom(gesture.position)
+
+
+func _on_world_touched(_position: Vector2) -> void:
+	world_view.camera_rig().stop_motion()
+	_tap_closed_menu = ui_root.dismiss_transient_panels()
+
+
+func _on_context_menu_closed() -> void:
+	if not debug_overlay.is_shown():
+		world_view.pick_highlight().clear()
+
+
+func _on_context_action(action: StringName, target: Picker.Result) -> void:
+	match action:
+		InteractionManager.ACTION_INSPECT:
+			ui_root.open_inspect(session.interactions.inspect(target), session.world.height_step)
+		InteractionManager.ACTION_TOUCH:
+			_note_pick(target, session.interactions.tap(target))
+		InteractionManager.ACTION_FOCUS:
+			var what := session.interactions.describe(target)
+			if what != null:
+				var rig := world_view.camera_rig()
+				rig.focus_on(what.position, minf(rig.distance() * LOOK_CLOSER_FACTOR, Config.camera.home_distance))
 
 
 ## What is under a screen position, with the finger-sized forgiveness.
