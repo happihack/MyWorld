@@ -294,9 +294,15 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** headless smoke 29/29 PASS — 21 recognizer timelines (tap, double/non-double taps, long press, slop, deltas, rest vs fling, swipe, hold-then-drag, pinch, drag cancel, after-multi drag, twist, 3-finger tap + moved variant, cancel, missed release, leftover finger) + router via real pushed InputEvents (tap, ui_blocker, emulated-mouse ignore, wheel, right-drag) + Main wiring; windowed run clean.
 - **To try on desktop:** run the project, click (tap), double-click, hold (long press), drag, flick, mouse-wheel, right-drag — the top-left label shows each gesture. Multi-touch needs a device (M0.8).
 
-### M0.5 Debug overlay v0
-- [ ] `scenes/debug/debug_overlay.tscn`: FPS, frame ms (`Performance.get_monitor`), static memory, draw calls, build type, world tick, last gesture. Toggle with F3 / 3-finger tap on device.
-- [ ] Debug features enabled only when `OS.is_debug_build()` or `Settings.debug_enabled` (hidden 7-tap on version label in release).
+### M0.5 Debug overlay v0 — ✅ DONE (2026-09-30)
+- [x] `scenes/debug/debug_overlay.tscn` + `scripts/debug/debug_overlay.gd` (`DebugOverlay`, CanvasLayer 100, `mouse_filter` IGNORE so it never blocks touches). Generic **`register_section(name, provider: Callable)`** — every later milestone adds its lines here (track T1); invalid providers are skipped.
+- [x] Built-in sections: engine (FPS, frame ms, process/physics ms, draw calls, render objects/primitives, static memory (debug builds only), VRAM, object/node counts, build type) and input (last gesture with details). Main registers the world section (tick, speed, seed).
+- [x] Refreshes at 4 Hz; `set_process(false)` while hidden (zero cost).
+- [x] Toggle: F3 (`debug_toggle_overlay`) or THREE_FINGER_TAP; visibility persisted in new setting `debug/overlay_visible`.
+- [x] Available when `OS.is_debug_build()` or Settings `debug/enabled`; **hidden unlock: 7 taps on the version label within 3 s** toggles `debug/enabled` (label is a `ui_blocker`, enlarged hit area).
+- [x] The M0.4 gesture label moved into the overlay.
+- **Verified:** headless smoke 17/17 PASS (layer/input passthrough, hidden+not processing by default, toggle/persist, all sections, custom/invalid sections, F3, real 3-finger tap, last gesture, unlock: 6 taps / 7 taps / slow taps / re-toggle / 7 real clicks on the label, label clicks never reach the world); windowed screenshot reviewed.
+- **Note:** `Performance.TIME_PROCESS` includes the vsync wait — it is labelled "process", not "cpu". True CPU/GPU render times (viewport render-time measurement) are part of M23.
 
 ### M0.6 Save skeleton (Track T3)
 - [ ] `scripts/save/save_container.gd`: header + ZSTD `var_to_bytes` payload + SHA-256 (`HashingContext`) (D-07). `write(path, dict) -> Error`, `read(path) -> {ok, data, error}`.

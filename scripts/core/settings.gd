@@ -32,6 +32,7 @@ const DEFAULTS := {
 	&"gameplay/gentle_hands": true,
 	&"notifications/system_enabled": false,
 	&"debug/enabled": false,
+	&"debug/overlay_visible": false,
 }
 
 var _values: Dictionary = {}

@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/app_lifecycle.gd" id="2_lifecycle"]
 [ext_resource type="Script" path="res://scripts/simulation/world_session.gd" id="3_session"]
 [ext_resource type="Script" path="res://scripts/ui/ui_root.gd" id="4_uiroot"]
 [ext_resource type="Script" path="res://scripts/interaction/input_router.gd" id="5_router"]
+[ext_resource type="PackedScene" path="res://scenes/debug/debug_overlay.tscn" id="6_overlay"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -61,24 +62,15 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = -240.0
-offset_top = -64.0
+offset_top = -112.0
 offset_right = -24.0
-offset_bottom = -24.0
+offset_bottom = -16.0
 grow_horizontal = 0
 grow_vertical = 0
-mouse_filter = 2
 theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 0.4)
 theme_override_font_sizes/font_size = 24
 text = "v?"
 horizontal_alignment = 2
+vertical_alignment = 2
 
-[node name="GestureDebugLabel" type="Label" parent="UIRoot"]
-unique_name_in_owner = true
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 1056.0
-offset_bottom = 120.0
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 0.75)
-theme_override_font_sizes/font_size = 28
-text = "gesture: -"
+[node name="DebugOverlay" parent="." instance=ExtResource("6_overlay")]
