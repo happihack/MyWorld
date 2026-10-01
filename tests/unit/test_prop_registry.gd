@@ -173,3 +173,101 @@ func test_solid_parts_of_props() -> void:
 	assert_near(tree.collision_radius(), 0.18, 0.0001, "a trunk, scaled with the tree")
 	assert_true(tree.collision_radius() < tree.pick_shape().y, "much thinner than its canopy")
 	assert_near(bush.collision_radius(), 0.0, 0.0, "bushes give way")
+
+
+# --- changed generated props (a tree that lost its fruit) ---------------------------------------
+
+func _tree_at(tile: Vector2i) -> PropData:
+	var p := PropData.new()
+	p.kind = PropData.Kind.TREE
+	p.tile = tile
+	p.id = PropData.generated_id(tile)
+	return p
+
+
+func test_what_a_tree_bears() -> void:
+	var counts := {}
+	for x in 40:
+		var tree := _tree_at(Vector2i(x, 3))
+		assert_true(tree.bears() >= 2 and tree.bears() <= 4)
+		assert_eq(tree.bears(), _tree_at(Vector2i(x, 3)).bears(), "decided by its tile")
+		counts[tree.bears()] = true
+		var pine := _tree_at(Vector2i(x, 3))
+		pine.variant = PropData.TREE_CONIFER_FIRST_VARIANT
+		assert_true(pine.bears() >= 1 and pine.bears() <= 2)
+	assert_eq(counts.size(), 3, "trees differ")
+	var tree := _tree_at(Vector2i(1, 1))
+	tree.taken = 1
+	assert_eq(tree.bears_left(), tree.bears() - 1)
+	tree.taken = 99
+	assert_eq(tree.bears_left(), 0)
+	assert_eq(PropData.from_dict(tree.to_dict()).taken, 99)
+	var rock := PropData.new()
+	rock.kind = PropData.Kind.ROCK
+	assert_eq(rock.bears(), 0)
+
+
+func test_a_changed_generated_prop_is_saved_and_restored() -> void:
+	var chunk := Vector2i(0, 0)
+	props.populate_chunk(chunk, [_tree_at(Vector2i(1, 1)), _tree_at(Vector2i(2, 2))])
+	assert_eq((props.to_dict()["changed"] as Array).size(), 0, "untouched: nothing to save")
+	var id := PropData.generated_id(Vector2i(1, 1))
+	props.get_prop(id).taken = 2
+	props.touch(id)
+	assert_eq(props.changed_generated_count(), 1)
+	var data: Dictionary = bytes_to_var(var_to_bytes(props.to_dict()))
+	assert_eq((data["changed"] as Array).size(), 1)
+
+	var restored := PropRegistry.new(16, SpatialIndex.new(16))
+	assert_eq(restored.from_dict(data), 0)
+	restored.populate_chunk(chunk, [_tree_at(Vector2i(1, 1)), _tree_at(Vector2i(2, 2))])
+	assert_eq(restored.size(), 2)
+	assert_eq(restored.get_prop(id).taken, 2, "as it was left")
+	assert_eq(restored.get_prop(PropData.generated_id(Vector2i(2, 2))).taken, 0, "untouched: regenerated")
+	assert_eq(var_to_bytes(restored.to_dict()), var_to_bytes(props.to_dict()), "saving again gives the same")
+
+
+func test_changes_survive_their_chunk_being_unloaded() -> void:
+	var chunk := Vector2i(0, 0)
+	props.populate_chunk(chunk, [_tree_at(Vector2i(1, 1))])
+	var id := PropData.generated_id(Vector2i(1, 1))
+	props.get_prop(id).taken = 1
+	props.touch(id)
+	props.depopulate_chunk(chunk)
+	assert_eq(props.size(), 0)
+	assert_eq((props.to_dict()["changed"] as Array).size(), 1, "still in the save while unloaded")
+	props.populate_chunk(chunk, [_tree_at(Vector2i(1, 1))])
+	assert_eq(props.get_prop(id).taken, 1)
+
+
+func test_a_removed_prop_is_not_also_saved_as_changed() -> void:
+	props.populate_chunk(Vector2i(0, 0), [_tree_at(Vector2i(1, 1))])
+	var id := PropData.generated_id(Vector2i(1, 1))
+	props.touch(id)
+	props.remove(id)
+	assert_eq(props.changed_generated_count(), 0)
+	assert_eq((props.to_dict()["changed"] as Array).size(), 0)
+	# Touching an added (non-generated) prop does nothing: those are saved anyway.
+	var hut := PropData.new()
+	hut.id = 5
+	hut.kind = PropData.Kind.HUT
+	hut.tile = Vector2i(3, 3)
+	props.add(hut)
+	props.touch(5)
+	assert_eq(props.changed_generated_count(), 0)
+
+
+func test_bad_changed_records_are_skipped() -> void:
+	var good := _tree_at(Vector2i(1, 1))
+	good.taken = 1
+	var wrong_id := _tree_at(Vector2i(2, 2)).to_dict()
+	wrong_id["id"] = PropData.generated_id(Vector2i(9, 9)) # does not belong to its tile
+	var not_generated := good.to_dict()
+	not_generated["id"] = 12
+	var skipped := props.from_dict({
+		"removed": PackedInt64Array([PropData.generated_id(Vector2i(4, 4))]), "added": [],
+		"changed": [good.to_dict(), wrong_id, not_generated, "junk", _tree_at(Vector2i(4, 4)).to_dict()],
+	})
+	assert_eq(skipped, 4, "wrong id, not generated, junk, and one that was removed")
+	assert_eq(props.changed_generated_count(), 1)
+	assert_eq(props.from_dict({"removed": PackedInt64Array(), "added": []}), 0, "older saves have no changed list")

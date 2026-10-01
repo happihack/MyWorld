@@ -171,7 +171,7 @@ func test_menu_words_fit_the_target() -> void:
 	_look_at(tree.position2d())
 	var menu := _long_press(_prop_screen(tree, 0.9))
 	assert_has(["Tree", "Pine"], menu.title_text())
-	assert_eq(_labels(menu), ["Inspect", "Shake", "Look closer"])
+	assert_eq(_labels(menu), ["Inspect", "Shake", "Uproot", "Look closer"])
 	# Open ground.
 	_look_at(Vector2(session.start.settlement_tile) + Vector2(0.5, 0.5))
 	menu = _long_press(_open_ground())
@@ -412,3 +412,61 @@ func test_no_hint_while_a_panel_is_open() -> void:
 	ui.close_all_panels()
 	hints.advance(Config.interaction.hint_idle_seconds + 0.1)
 	assert_eq(hints.current(), HintDirector.DRAG)
+
+
+# --- trees in the game -------------------------------------------------------------------------
+
+func test_shaking_a_tree_from_the_menu_brings_fruit_down() -> void:
+	var tree := _nearest(PropData.Kind.TREE)
+	_look_at(tree.position2d())
+	var before := session.loose.size()
+	var screen := _prop_screen(tree, 0.9)
+	for i in 60:
+		_press(_long_press(screen), "Shake")
+		if session.loose.size() > before:
+			break
+	assert_eq(session.loose.size(), before + 1, "a fruit (or cone) fell")
+	assert_eq(tree.taken, 1)
+	await wait_real_ms(1200)
+	var fallen: LooseObject = null
+	for o in session.loose.all_objects():
+		if o.kind == LooseObject.Kind.FRUIT or o.kind == LooseObject.Kind.SEED:
+			fallen = o
+	assert_not_null(fallen)
+	assert_eq(fallen.state, LooseObject.State.RESTING, "it lies on the ground")
+	assert_true(view.loose_view().is_shown(fallen.id), "and is drawn")
+	# The card tells what is left.
+	_press(_long_press(screen), "Inspect")
+	var card := ui.top_panel() as InspectCard
+	assert_has(card.rows(), "Bears")
+	assert_eq(card.rows()["Bears"], UIText.bears_text(tree.bears_left(), tree.bears(), tree.is_conifer()))
+
+
+func test_uprooting_a_tree_from_the_menu() -> void:
+	var tree := _nearest(PropData.Kind.TREE)
+	var tree_id := tree.id
+	var at := tree.position2d()
+	_look_at(at)
+	var chunk := WorldCoords.tile_to_chunk(tree.tile, session.world.chunk_size)
+	var mesh_before := view.get_chunk_view(chunk).props_mesh()
+	var logs_before := 0
+	_press(_long_press(_prop_screen(tree, 0.9)), "Uproot")
+	assert_null(session.props.get_prop(tree_id), "the tree is gone")
+	assert_eq(heard[-1].effect, InteractionResponse.TREE_UPROOT)
+	assert_eq(AudioManager.last_sound, &"rustle")
+	assert_eq(view.effects().burst_count(WorldEffects.Burst.LEAVES), 2)
+	await wait_real_ms(1200)
+	assert_true(view.get_chunk_view(chunk).props_mesh() != mesh_before, "and no longer drawn")
+	var log: LooseObject = null
+	for o in session.loose.all_objects():
+		if o.kind == LooseObject.Kind.LOG:
+			log = o
+			logs_before += 1
+	assert_eq(logs_before, 1, "one log lies where it stood")
+	assert_true(log.position.distance_to(at) < 1.5)
+	assert_eq(log.state, LooseObject.State.RESTING)
+	# The log can be touched like anything else: wood knocks.
+	var menu := _long_press(rig.world_to_screen(log.world_position(session.world) + Vector3(0, 0.1, 0)))
+	assert_eq(menu.title_text(), "Log")
+	_press(menu, "Touch")
+	assert_eq(heard[-1].effect, InteractionResponse.LOG_KNOCK)

@@ -213,6 +213,18 @@ func test_landing_raises_dust_or_a_splash() -> void:
 	assert_eq(effects.active_impulse_count(), 0)
 
 
+func test_an_uprooted_tree_goes_in_a_cloud_of_leaves_and_earth() -> void:
+	effects.play(_response(InteractionResponse.TREE_UPROOT, 3, Vector3(2, 1, 3), Vector2(1.5, 0.4)))
+	assert_eq(effects.burst_count(WorldEffects.Burst.LEAVES), 2)
+	assert_eq(effects.burst_count(WorldEffects.Burst.DUST), 1)
+	assert_near(effects.last_burst_position(WorldEffects.Burst.DUST).y, 1.08, 0.001, "earth at its foot")
+	assert_eq(effects.active_impulse_count(), 0, "nothing left to shake")
+	# Wood and small things answer a tap in their own way.
+	effects.play(_response(InteractionResponse.LOG_KNOCK, 4, Vector3(6, 1, 3), Vector2(0.22, 0.45)))
+	effects.play(_response(InteractionResponse.NUDGE, 5, Vector3(9, 1, 3), Vector2(0.12, 0.07)))
+	assert_true(effects.is_shaking(4) and effects.is_shaking(5))
+
+
 func test_inspect_and_null_show_nothing() -> void:
 	effects.play(null)
 	effects.play(_response(InteractionResponse.INSPECT, 4))

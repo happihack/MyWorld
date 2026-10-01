@@ -253,7 +253,7 @@ func _load_template(id: StringName) -> StartTemplate:
 
 
 func _activate() -> void:
-	interactions.bind(world, props, loose)
+	interactions.bind(world, props, loose, loose_system, ids, rng)
 	loose_system.bind(world, loose, props)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true

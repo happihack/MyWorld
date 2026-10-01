@@ -184,6 +184,8 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 			ui_root.open_inspect(session.interactions.inspect(target), session.world.height_step)
 		InteractionManager.ACTION_TOUCH:
 			_note_pick(target, session.interactions.tap(target))
+		InteractionManager.ACTION_REMOVE:
+			_note_pick(target, session.interactions.uproot(target))
 		InteractionManager.ACTION_FOCUS:
 			var what := session.interactions.describe(target)
 			if what != null:

@@ -20,6 +20,9 @@ const CUES := {
 	InteractionResponse.BUILDING_KNOCK: [&"knock", -4.0, 1.0, MEDIUM],
 	InteractionResponse.FIRE_FLARE: [&"crackle", -6.0, 1.0, LIGHT],
 	InteractionResponse.RUIN_HUM: [&"hum", -5.0, 1.0, MEDIUM],
+	InteractionResponse.LOG_KNOCK: [&"knock", -7.0, 0.85, LIGHT],
+	InteractionResponse.NUDGE: [&"thud", -12.0, 1.6, LIGHT],
+	InteractionResponse.TREE_UPROOT: [&"rustle", -2.0, 0.7, MEDIUM],
 }
 
 

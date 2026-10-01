@@ -23,6 +23,10 @@ var entity_id := 0
 var prop_kind := -1
 var prop_variant := 0
 var scale_percent := 100
+## Trees only: fruit or cones still on it, and how many it bears untouched
+## (-1 for anything that bears nothing).
+var bears_left := -1
+var bears := -1
 ## True if the prop or object came with the world (not placed or built later).
 var generated := false
 

@@ -2,9 +2,10 @@ class_name PropRegistry
 extends RefCounted
 ## All props of the world, at most one per tile (bible §8.3).
 ##
-## Generated props (trees, rocks, bushes from WorldGenerator) are never saved:
-## they regenerate with their chunk. Only the differences are saved —
-## which generated props were removed, and which props were added.
+## Generated props (trees, rocks, bushes from WorldGenerator) are not saved while
+## untouched: they regenerate with their chunk. Only the differences are saved —
+## which generated props were removed, which were changed (a tree that has
+## lost its fruit), and which props were added.
 
 ## Emitted when the props standing on a chunk change (views rebuild that chunk).
 signal chunk_changed(coord: Vector2i)
@@ -17,6 +18,8 @@ var _props: Dictionary = {} # id -> PropData
 var _by_tile: Dictionary = {} # Vector2i -> id
 var _by_chunk: Dictionary = {} # Vector2i -> Array[int]
 var _removed_generated: Dictionary = {} # generated id -> true
+var _changed_generated: Dictionary = {} # generated id -> true (saved in full)
+var _saved_changes: Dictionary = {} # generated id -> PropData from the save, until its chunk is populated
 var _populated: Dictionary = {} # chunk coord -> true
 
 
@@ -75,7 +78,14 @@ func populate_chunk(coord: Vector2i, generated: Array[PropData]) -> void:
 	for prop in generated:
 		if _removed_generated.has(prop.id) or _by_tile.has(prop.tile):
 			continue
-		_insert(prop)
+		# A prop that was changed is restored as it was saved, not as generated.
+		var saved: PropData = _saved_changes.get(prop.id)
+		if saved != null and saved.tile == prop.tile:
+			_saved_changes.erase(prop.id)
+			_changed_generated[prop.id] = true
+			_insert(saved)
+		else:
+			_insert(prop)
 	chunk_changed.emit(coord)
 
 
@@ -87,6 +97,8 @@ func depopulate_chunk(coord: Vector2i) -> void:
 	_populated.erase(coord)
 	for prop in props_in_chunk(coord):
 		if prop.is_generated():
+			if _changed_generated.erase(prop.id):
+				_saved_changes[prop.id] = prop # its changes wait for the chunk to come back
 			_erase(prop)
 	chunk_changed.emit(coord)
 
@@ -107,6 +119,7 @@ func remove(id: int) -> bool:
 		return false
 	if prop.is_generated():
 		_removed_generated[id] = true
+		_changed_generated.erase(id)
 	_erase(prop)
 	chunk_changed.emit(WorldCoords.tile_to_chunk(prop.tile, chunk_size))
 	return true
@@ -114,6 +127,18 @@ func remove(id: int) -> bool:
 
 func removed_generated_count() -> int:
 	return _removed_generated.size()
+
+
+## Marks a generated prop as changed from how it was generated, so it is
+## saved. Call after changing any of its fields.
+func touch(id: int) -> void:
+	var prop: PropData = _props.get(id)
+	if prop != null and prop.is_generated():
+		_changed_generated[id] = true
+
+
+func changed_generated_count() -> int:
+	return _changed_generated.size() + _saved_changes.size()
 
 
 func to_dict() -> Dictionary:
@@ -125,7 +150,17 @@ func to_dict() -> Dictionary:
 	for prop: PropData in _props.values():
 		if not prop.is_generated():
 			added.append(prop.to_dict())
-	return {"removed": removed, "added": added}
+	var changed: Array = []
+	var changed_ids: Array = _changed_generated.keys()
+	changed_ids.sort()
+	for id: int in changed_ids:
+		changed.append((_props[id] as PropData).to_dict())
+	# Changes of chunks that are not loaded right now are kept as they came.
+	var waiting: Array = _saved_changes.keys()
+	waiting.sort()
+	for id: int in waiting:
+		changed.append((_saved_changes[id] as PropData).to_dict())
+	return {"removed": removed, "added": added, "changed": changed}
 
 
 ## Restores the saved differences. Call before populating chunks. Returns the
@@ -146,6 +181,15 @@ func from_dict(data: Dictionary) -> int:
 		var prop: PropData = PropData.from_dict(record) if typeof(record) == TYPE_DICTIONARY else null
 		if not add(prop):
 			skipped += 1
+	var changed: Variant = data.get("changed", [])
+	if typeof(changed) == TYPE_ARRAY:
+		for record: Variant in changed:
+			var prop: PropData = PropData.from_dict(record) if typeof(record) == TYPE_DICTIONARY else null
+			if prop == null or not prop.is_generated() or _removed_generated.has(prop.id) \
+					or prop.id != PropData.generated_id(prop.tile):
+				skipped += 1
+				continue
+			_saved_changes[prop.id] = prop
 	return skipped
 
 
@@ -157,6 +201,8 @@ func clear() -> void:
 	_by_tile.clear()
 	_by_chunk.clear()
 	_removed_generated.clear()
+	_changed_generated.clear()
+	_saved_changes.clear()
 	_populated.clear()
 
 

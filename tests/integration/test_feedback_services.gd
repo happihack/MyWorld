@@ -251,6 +251,7 @@ func test_every_tap_effect_has_a_sound_and_a_pulse() -> void:
 		InteractionResponse.DUST, InteractionResponse.RIPPLE, InteractionResponse.TREE_SHAKE,
 		InteractionResponse.BUSH_RUSTLE, InteractionResponse.ROCK_WOBBLE, InteractionResponse.BUILDING_KNOCK,
 		InteractionResponse.FIRE_FLARE, InteractionResponse.RUIN_HUM,
+		InteractionResponse.LOG_KNOCK, InteractionResponse.NUDGE, InteractionResponse.TREE_UPROOT,
 	]
 	for effect: StringName in effects:
 		var sound := TouchFeedback.sound_for(effect)

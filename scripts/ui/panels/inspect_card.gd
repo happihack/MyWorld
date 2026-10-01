@@ -37,6 +37,9 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 			_subtitle.text = where
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 			_add_row("Size", UIText.size_text(report.scale_percent))
+			if report.bears >= 0:
+				_add_row("Bears", UIText.bears_text(report.bears_left, report.bears,
+					report.prop_variant >= PropData.TREE_CONIFER_FIRST_VARIANT))
 			_add_row("Ground height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 		InspectReport.Subject.LOOSE:

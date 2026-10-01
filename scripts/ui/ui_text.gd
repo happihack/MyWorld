@@ -82,6 +82,18 @@ static func weight_text(kilograms: float) -> String:
 	return "%s (%s kg)" % [word, ("%.1f" % kilograms) if kilograms < 10.0 else str(roundi(kilograms))]
 
 
+## What a tree still bears: fruit on a broadleaf, cones on a conifer.
+static func bears_text(left: int, of: int, conifer: bool) -> String:
+	var what := "cones" if conifer else "fruit"
+	if of <= 0:
+		return "None"
+	if left <= 0:
+		return "No %s left" % what
+	if conifer and left == 1:
+		what = "cone"
+	return "%d %s" % [left, what]
+
+
 static func moved_text(times: int) -> String:
 	if times <= 0:
 		return "Never"
@@ -109,6 +121,8 @@ static func action_label(action: StringName, touch_effect: StringName = &"") -> 
 			return "Inspect"
 		InteractionManager.ACTION_FOCUS:
 			return "Look closer"
+		InteractionManager.ACTION_REMOVE:
+			return "Uproot"
 		InteractionManager.ACTION_TOUCH:
 			match touch_effect:
 				InteractionResponse.TREE_SHAKE, InteractionResponse.BUSH_RUSTLE:

@@ -15,6 +15,9 @@ const ROCK_WOBBLE := &"rock_wobble"
 const BUILDING_KNOCK := &"building_knock"
 const FIRE_FLARE := &"fire_flare"
 const RUIN_HUM := &"ruin_hum"
+const LOG_KNOCK := &"log_knock"
+const NUDGE := &"nudge"
+const TREE_UPROOT := &"tree_uproot"
 const INSPECT := &"inspect"
 
 var action: Action = Action.TAP
@@ -39,6 +42,9 @@ var body := Vector2.ZERO
 var strength := 1.0
 ## Terrain type under the touch (ChunkData.Terrain), for tinting.
 var terrain := 0
+## Ids of loose objects this touch brought into the world (fruit shaken from
+## a tree, the log of an uprooted one).
+var dropped: Array[int] = []
 ## Short human-readable description ("TREE at (7, -4)").
 var description := ""
 

@@ -32,6 +32,16 @@ func test_loose_object_wording() -> void:
 	assert_eq(UIText.moved_text(4), "4 times")
 
 
+func test_tree_wording() -> void:
+	assert_eq(UIText.action_label(InteractionManager.ACTION_REMOVE), "Uproot")
+	assert_eq(UIText.bears_text(3, 3, false), "3 fruit")
+	assert_eq(UIText.bears_text(1, 3, false), "1 fruit")
+	assert_eq(UIText.bears_text(0, 3, false), "No fruit left")
+	assert_eq(UIText.bears_text(2, 2, true), "2 cones")
+	assert_eq(UIText.bears_text(1, 2, true), "1 cone")
+	assert_eq(UIText.bears_text(0, 0, false), "None")
+
+
 func test_tool_names() -> void:
 	assert_eq(UIText.tool_name(HandTool.ID), "Hand")
 	assert_eq(UIText.tool_name(ObserveTool.ID), "Observe")

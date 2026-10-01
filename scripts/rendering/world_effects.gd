@@ -44,6 +44,8 @@ const SHAKES := {
 	InteractionResponse.BUILDING_KNOCK: {"lean": 0.022, "lift": 0.0, "hz": 11.0, "seconds": 0.4, "reach": 1.5},
 	InteractionResponse.FIRE_FLARE: {"lean": 0.04, "lift": 0.0, "hz": 8.0, "seconds": 0.5, "reach": 1.3},
 	InteractionResponse.RUIN_HUM: {"lean": 0.010, "lift": 0.0, "hz": 14.0, "seconds": 1.4, "reach": 1.5},
+	InteractionResponse.LOG_KNOCK: {"lean": 0.02, "lift": 0.0, "hz": 10.0, "seconds": 0.35, "reach": 1.3},
+	InteractionResponse.NUDGE: {"lean": 0.03, "lift": 0.04, "hz": 8.0, "seconds": 0.4, "reach": 1.4},
 }
 
 
@@ -162,6 +164,14 @@ func play(response: InteractionResponse) -> void:
 		InteractionResponse.FIRE_FLARE:
 			_shake(response)
 			burst(Burst.SPARKS, at + Vector3(0.0, 0.2, 0.0), SPARK)
+		InteractionResponse.LOG_KNOCK, InteractionResponse.NUDGE:
+			_shake(response)
+		InteractionResponse.TREE_UPROOT:
+			# The tree is gone at once; what is seen is its leaves coming down
+			# and the earth it was torn from.
+			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.7, 0.0), LEAF_FALL)
+			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.4, 0.0), LEAF_FALL)
+			burst(Burst.DUST, at + Vector3(0.0, 0.08, 0.0), dust_color(ChunkData.Terrain.DIRT))
 		InteractionResponse.RUIN_HUM:
 			_shake(response)
 			ring(at, 1.5, 1.6, RUIN_RING)

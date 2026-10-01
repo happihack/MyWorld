@@ -160,7 +160,10 @@ func test_actions_offered_for_a_target() -> void:
 	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
 	var expected: Array[StringName] = [
 		InteractionManager.ACTION_INSPECT, InteractionManager.ACTION_TOUCH, InteractionManager.ACTION_FOCUS]
-	assert_eq(manager.actions_for(_entity_target(tree)), expected)
+	var for_a_tree: Array[StringName] = [InteractionManager.ACTION_INSPECT, InteractionManager.ACTION_TOUCH,
+		InteractionManager.ACTION_REMOVE, InteractionManager.ACTION_FOCUS]
+	assert_eq(manager.actions_for(_entity_target(tree)), for_a_tree, "a tree can also be uprooted")
+	assert_eq(manager.actions_for(_entity_target(_add(PropData.Kind.HUT, Vector2i(8, 8)))), expected)
 	assert_eq(manager.actions_for(_tile_target(Vector2i(0, 0))), expected)
 	assert_eq(manager.actions_for(Picker.Result.new()).size(), 0, "nothing to do with nothing")
 	assert_eq(manager.actions_for(null).size(), 0)
@@ -314,3 +317,181 @@ func test_a_removed_loose_object_falls_back_to_the_ground() -> void:
 	assert_eq(response.effect, InteractionResponse.DUST)
 	assert_eq(response.loose_kind, -1)
 	assert_eq(manager.inspect(target).subject, InspectReport.Subject.GROUND)
+
+
+# --- trees: shaking and uprooting -----------------------------------------------------------
+
+var _motion: LooseObjectSystem
+
+
+## Binds the manager with everything it needs to bring new objects into the world.
+func _spawning_setup(seed_value: int = 42) -> LooseObjectRegistry:
+	var loose := LooseObjectRegistry.new(16, props.spatial_index)
+	if _motion == null or not is_instance_valid(_motion):
+		_motion = LooseObjectSystem.new()
+		add_child(_motion)
+		_motion.set_process(false)
+	_motion.bind(world, loose, props)
+	manager.bind(world, props, loose, _motion, ids, RngStreams.new(seed_value))
+	return loose
+
+
+## Shakes `tree` until nothing more can fall (at most `limit` times); returns
+## every response.
+func _shake_bare(tree: PropData, limit: int = 80) -> Array[InteractionResponse]:
+	var out: Array[InteractionResponse] = []
+	for i in limit:
+		out.append(manager.tap(_entity_target(tree)))
+		if tree.bears_left() == 0:
+			break
+	return out
+
+
+func test_repeated_shakes_bring_the_fruit_down() -> void:
+	var loose := _spawning_setup()
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	var bears := tree.bears()
+	assert_true(bears >= 2 and bears <= 4, "a broadleaf bears a few fruit (%d)" % bears)
+	var first := manager.tap(_entity_target(tree))
+	assert_eq(first.effect, InteractionResponse.TREE_SHAKE)
+	assert_eq(first.dropped.size(), 0, "the first shake only rustles it")
+	assert_eq(loose.size(), 0)
+	var responses := _shake_bare(tree)
+	assert_eq(tree.bears_left(), 0, "shaken bare after %d more shakes" % responses.size())
+	assert_eq(loose.size(), bears, "every fruit came down, and no more")
+	assert_true(responses.size() > bears - 1, "not one per shake: it takes some shaking")
+	var dropped := 0
+	for r in responses:
+		assert_true(r.dropped.size() <= 1, "one at a time")
+		dropped += r.dropped.size()
+	assert_eq(dropped, bears)
+	# Bare now: more shaking only shakes.
+	for i in 10:
+		assert_eq(manager.tap(_entity_target(tree)).dropped.size(), 0)
+	assert_eq(loose.size(), bears)
+	assert_eq(manager.shakes_of(tree.id), responses.size() + 11)
+
+
+func test_fruit_falls_from_the_crown_and_comes_to_rest() -> void:
+	var loose := _spawning_setup()
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	_shake_bare(tree)
+	var body := tree.pick_shape()
+	for fruit in loose.all_objects():
+		assert_eq(fruit.kind, LooseObject.Kind.FRUIT)
+		assert_true(fruit.id > 0 and not fruit.is_generated())
+		assert_true(fruit.height_offset > body.x * 0.3 or fruit.state != LooseObject.State.FALLING, "it starts up in the crown")
+		assert_true(_motion.is_moving(fruit.id), "and is falling")
+	for i in 600:
+		_motion.step(LooseObjectSystem.STEP_SECONDS)
+	for fruit in loose.all_objects():
+		assert_eq(fruit.state, LooseObject.State.RESTING)
+		assert_near(fruit.height_offset, 0.0, 0.0001)
+		var away := fruit.position.distance_to(tree.position2d())
+		assert_true(away > tree.collision_radius() and away < 2.5, "on the ground around the tree (%.2f)" % away)
+
+
+func test_conifers_drop_cones() -> void:
+	var loose := _spawning_setup()
+	var pine := _add(PropData.Kind.TREE, Vector2i(-6, 3))
+	pine.variant = PropData.TREE_CONIFER_FIRST_VARIANT
+	assert_true(pine.is_conifer())
+	assert_true(pine.bears() >= 1 and pine.bears() <= 2)
+	_shake_bare(pine)
+	assert_eq(loose.size(), pine.bears())
+	for cone in loose.all_objects():
+		assert_eq(cone.kind, LooseObject.Kind.SEED)
+
+
+func test_the_same_world_drops_fruit_on_the_same_shakes() -> void:
+	var runs: Array = []
+	for run in 2:
+		_spawning_setup(777)
+		var tree := _add(PropData.Kind.TREE, Vector2i(2 + run * 6, -5))
+		tree.taken = 0
+		var pattern := []
+		for r in _shake_bare(tree):
+			pattern.append(r.dropped.size())
+		runs.append(pattern)
+	# Different trees bear different amounts; compare what both runs share.
+	var n := mini(runs[0].size(), runs[1].size())
+	assert_true(n >= 1)
+	assert_eq(runs[0].slice(0, n - 1), runs[1].slice(0, n - 1), "same seed, same luck")
+
+
+func test_shaking_without_a_way_to_spawn_only_shakes() -> void:
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	assert_false(manager.can_spawn())
+	for i in 20:
+		assert_eq(manager.tap(_entity_target(tree)).dropped.size(), 0)
+	assert_eq(tree.taken, 0)
+	assert_eq(heard.size(), 20)
+
+
+func test_uprooting_a_tree_leaves_a_log() -> void:
+	var loose := _spawning_setup()
+	var tree := _add(PropData.Kind.TREE, Vector2i(5, -2), 120)
+	world.set_height(tree.tile, 4)
+	var at := tree.position2d()
+	var response := manager.uproot(_entity_target(tree))
+	assert_eq(response.effect, InteractionResponse.TREE_UPROOT)
+	assert_eq(response.position, Vector3(at.x, 2.0, at.y), "where the tree stood")
+	assert_true(response.body.x > 1.0, "the size of the tree that fell")
+	assert_null(props.get_prop(tree.id), "the tree is gone")
+	assert_false(props.has_prop_at(Vector2i(5, -2)))
+	assert_eq(heard.size(), 1)
+	assert_eq(heard[0].effect, InteractionResponse.TREE_UPROOT)
+	assert_eq(loose.size(), 1)
+	var log := loose.get_object(response.dropped[0])
+	assert_eq(log.kind, LooseObject.Kind.LOG)
+	assert_eq(log.scale_percent, 120, "a big tree leaves a big log")
+	assert_true(log.position.distance_to(at) < 0.01)
+	assert_true(_motion.is_moving(log.id), "it topples")
+	for i in 600:
+		_motion.step(LooseObjectSystem.STEP_SECONDS)
+	assert_eq(log.state, LooseObject.State.RESTING)
+	assert_near(log.height_offset, 0.0, 0.0001)
+	# Tapping the log knocks on wood.
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = log.id
+	target.tile = log.tile()
+	assert_eq(manager.tap(target).effect, InteractionResponse.LOG_KNOCK)
+
+
+func test_only_trees_can_be_uprooted() -> void:
+	_spawning_setup()
+	var hut := _add(PropData.Kind.HUT, Vector2i(2, 2))
+	assert_null(manager.uproot(_entity_target(hut)))
+	assert_null(manager.uproot(_tile_target(Vector2i(0, 0))))
+	assert_null(manager.uproot(Picker.Result.new()))
+	assert_not_null(props.get_prop(hut.id))
+	assert_eq(heard.size(), 0)
+
+
+func test_uprooting_without_a_way_to_spawn_still_removes_the_tree() -> void:
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	var response := manager.uproot(_entity_target(tree))
+	assert_not_null(response)
+	assert_eq(response.dropped.size(), 0)
+	assert_null(props.get_prop(tree.id))
+
+
+func test_inspecting_a_tree_tells_what_it_bears() -> void:
+	_spawning_setup()
+	var tree := _add(PropData.Kind.TREE, Vector2i(4, 4))
+	var report := manager.inspect(_entity_target(tree))
+	assert_eq(report.bears, tree.bears())
+	assert_eq(report.bears_left, tree.bears())
+	_shake_bare(tree)
+	assert_eq(manager.inspect(_entity_target(tree)).bears_left, 0)
+	var hut := _add(PropData.Kind.HUT, Vector2i(9, 9))
+	assert_eq(manager.inspect(_entity_target(hut)).bears, -1, "huts bear nothing")
+
+
+func test_small_loose_things_are_nudged() -> void:
+	var loose := _spawning_setup()
+	var fruit := _loose_object(loose, LooseObject.Kind.FRUIT, Vector2(1.5, 1.5))
+	var response := manager.tap(_loose_target(fruit))
+	assert_eq(response.effect, InteractionResponse.NUDGE)
+	assert_true(response.strength > 1.5, "light: it jumps")

@@ -37,6 +37,9 @@ var scale_percent: int = 100
 ## Offset from the tile centre in 256ths of a tile (each axis roughly ±77).
 var offset_x: int = 0
 var offset_y: int = 0
+## How much of what the prop bears has been taken (fruit shaken from a tree).
+## Regrowth arrives with resources in M7.
+var taken: int = 0
 
 
 static func generated_id(prop_tile: Vector2i) -> int:
@@ -67,6 +70,26 @@ func rotation_radians() -> float:
 
 func scale() -> float:
 	return scale_percent / 100.0
+
+
+const _BEARS_SALT := 0xF2017
+
+## How many fruit (broadleaf) or cones (conifer) a tree bears when untouched.
+## Decided by its tile, so it is the same on every device.
+func bears() -> int:
+	if kind != Kind.TREE:
+		return 0
+	var h := HashNoise.hash2(tile.x, tile.y, _BEARS_SALT)
+	return 1 + int(h % 2) if is_conifer() else 2 + int(h % 3)
+
+
+## What is still on the tree.
+func bears_left() -> int:
+	return maxi(bears() - taken, 0)
+
+
+func is_conifer() -> bool:
+	return kind == Kind.TREE and variant >= TREE_CONIFER_FIRST_VARIANT
 
 
 ## Radius (tiles, at 100 % scale) of the part of each kind that loose objects
@@ -105,7 +128,7 @@ func to_dict() -> Dictionary:
 	return {
 		"id": id, "kind": kind, "tile": tile, "variant": variant,
 		"rotation_step": rotation_step, "scale_percent": scale_percent,
-		"offset_x": offset_x, "offset_y": offset_y,
+		"offset_x": offset_x, "offset_y": offset_y, "taken": taken,
 	}
 
 
@@ -125,4 +148,5 @@ static func from_dict(data: Dictionary) -> PropData:
 	prop.scale_percent = clampi(int(data.get("scale_percent", 100)), 10, 400)
 	prop.offset_x = clampi(int(data.get("offset_x", 0)), -128, 128)
 	prop.offset_y = clampi(int(data.get("offset_y", 0)), -128, 128)
+	prop.taken = maxi(int(data.get("taken", 0)), 0)
 	return prop

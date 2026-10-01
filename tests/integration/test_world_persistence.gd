@@ -298,3 +298,61 @@ func test_damaged_loose_data_falls_back_to_the_seed() -> void:
 	var again := _session()
 	assert_true(again.load_from(data), "still loads")
 	assert_eq(again.loose.size(), s.loose.size(), "rebuilt from the seed")
+
+
+# --- trees ----------------------------------------------------------------------------------
+
+func _shake_until_drop(s: WorldSession, tree: PropData) -> int:
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = tree.id
+	target.tile = tree.tile
+	for i in 60:
+		var response := s.interactions.tap(target)
+		if not response.dropped.is_empty():
+			return response.dropped[0]
+	return 0
+
+
+func test_shaken_fruit_and_the_trees_loss_survive() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.loose_system.set_process(false)
+	var tree := _first_tree(s)
+	var fruit_id := _shake_until_drop(s, tree)
+	assert_true(fruit_id != 0, "a fruit came down")
+	for i in 600:
+		s.loose_system.step(LooseObjectSystem.STEP_SECONDS)
+	var fruit := s.loose.get_object(fruit_id)
+	assert_eq(fruit.state, LooseObject.State.RESTING)
+	var state: Dictionary = s.to_dict()["world_state"]
+	assert_eq((state["props"]["changed"] as Array).size(), 1, "only the shaken tree")
+
+	var again := _save_and_reload(s)
+	assert_eq(again.props.get_prop(tree.id).taken, 1, "the tree is one fruit poorer")
+	var back := again.loose.get_object(fruit_id)
+	assert_not_null(back, "and the fruit lies where it fell")
+	assert_eq(back.kind, fruit.kind)
+	assert_eq(back.position, fruit.position)
+	assert_true(again.rng.to_dict() == s.rng.to_dict(), "the dice continue where they stopped")
+
+
+func test_an_uprooted_tree_stays_gone_and_its_log_stays() -> void:
+	var s := _session()
+	s.create_new(12345)
+	s.loose_system.set_process(false)
+	var tree := _first_tree(s)
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = tree.id
+	target.tile = tree.tile
+	var response := s.interactions.uproot(target)
+	for i in 600:
+		s.loose_system.step(LooseObjectSystem.STEP_SECONDS)
+	var log := s.loose.get_object(response.dropped[0])
+	var again := _save_and_reload(s)
+	assert_null(again.props.get_prop(tree.id))
+	assert_eq(again.props.size(), s.props.size())
+	var back := again.loose.get_object(log.id)
+	assert_eq(back.kind, LooseObject.Kind.LOG)
+	assert_eq(back.position, log.position)
