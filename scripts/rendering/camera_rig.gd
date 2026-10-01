@@ -314,6 +314,13 @@ func world_to_screen(point: Vector3) -> Vector2:
 	return _project(point, camera_transform())
 
 
+## How many world units one viewport unit covers at `point` (perspective makes
+## nearer things bigger). Converts touch radii and body sizes between spaces.
+func world_units_per_screen_unit(point: Vector3) -> float:
+	var depth := -(camera_transform().affine_inverse() * point).z
+	return maxf(depth, 0.01) * 2.0 * tan(deg_to_rad(config.fov_degrees) * 0.5) / _view_size.y
+
+
 ## The pivot position with no overscroll for the current zoom.
 func clamped_pivot() -> Vector3:
 	return _clamp_pivot(_pivot, _distance)

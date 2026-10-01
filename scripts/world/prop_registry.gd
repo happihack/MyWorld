@@ -37,6 +37,12 @@ func prop_at(tile: Vector2i) -> PropData:
 	return _props.get(_by_tile.get(tile, 0))
 
 
+## Picking body of a prop (see Picker), or null if `id` is not a prop here.
+func pick_shape(id: int) -> Variant:
+	var prop: PropData = _props.get(id)
+	return prop.pick_shape() if prop != null else null
+
+
 func has_prop_at(tile: Vector2i) -> bool:
 	return _by_tile.has(tile)
 

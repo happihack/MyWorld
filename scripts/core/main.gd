@@ -10,6 +10,7 @@ extends Node
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
 var _world_fingerprint := ""
+var _last_pick := "-"
 
 
 func _ready() -> void:
@@ -20,7 +21,9 @@ func _ready() -> void:
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
 	input_router.gesture_recognized.connect(world_view.camera_rig().handle_gesture)
 	input_router.touch_began.connect(func(_pos: Vector2) -> void: world_view.camera_rig().stop_motion())
+	input_router.gesture_recognized.connect(_on_gesture)
 	ui_root.home_pressed.connect(go_home)
+	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
@@ -28,6 +31,35 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	SaveManager.attach(null)
+
+
+## TEMPORARY until the InteractionManager (M2.3): taps are picked and reported
+## in the debug overlay, with a highlight while the overlay is shown.
+func _on_gesture(gesture: Gesture) -> void:
+	if gesture.type != Gesture.Type.TAP:
+		return
+	var radius := Config.interaction.touch_radius_dp * input_router.recognizer.units_per_dp
+	var result := world_view.pick(gesture.position, radius)
+	_last_pick = describe_pick(result)
+	if debug_overlay.is_shown():
+		world_view.show_pick(result)
+	else:
+		world_view.pick_highlight().clear()
+
+
+## One-line description of a pick result (debug overlay).
+func describe_pick(result: Picker.Result) -> String:
+	match result.kind:
+		Picker.Kind.ENTITY:
+			var prop := session.props.get_prop(result.entity_id)
+			var label: String = PropData.Kind.keys()[prop.kind] if prop != null else "entity"
+			return "%s at %s%s" % [label, result.tile, "" if result.direct else " (near)"]
+		Picker.Kind.WATER:
+			return "WATER at %s  depth %.2f" % [result.tile, session.world.get_water(result.tile)]
+		Picker.Kind.TILE:
+			var terrain: String = ChunkData.Terrain.keys()[session.world.get_terrain(result.tile)]
+			return "%s at %s  height %d" % [terrain, result.tile, session.world.get_height(result.tile)]
+	return "nothing"
 
 
 ## Glides the camera to the settlement (or frames the box if there is none).

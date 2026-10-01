@@ -497,9 +497,15 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** 15 new rig tests (fling glides/stops/direction/slow release/touch-stop/reduced motion/cancelled, rubber band give + resistance + hold + spring-back, bounded overscroll, fling into the edge, double-tap in and back out, zoom_to anchoring, twist off by default, twist anchoring and direction, rotated framing, guard) + 3 integration tests (Home button, world touch stops a fling, settings sync). Suite: 278 passing, no engine errors. **Phone:** Home tap glides to the settlement; a flick keeps gliding then rests; 60 FPS.
 - **Still to judge by hand:** fling/rubber-band feel and (if enabled) twist-to-rotate.
 
-### M2.2 Picking
-- [ ] `scripts/interaction/picker.gd`: screen point → ray → march against height grid (DDA over tiles comparing ray height to tile top) → tile; then spatial index query in touch radius (dp → world units at current zoom) → entity by priority (B§23.3). Returns `PickResult {kind, id, tile, world_pos}`.
-- [ ] Debug: draw picked tile outline + entity highlight.
+### M2.2 Picking — ✅ DONE (2026-09-30)
+- [x] `scripts/interaction/picker.gd` (`Picker`, pure/static — no physics, no colliders):
+  - `raycast_terrain(world, origin, dir)`: DDA march over the height grid; hits block tops **and the sides of steps** (high ground hides what is behind it), enters through the box rim from outside, treats a water surface as the hit; returns tile, position, distance, `is_side`, `is_water`.
+  - `pick(screen, rig, world, spatial, shape_for, touch_radius, kind_mask)` → `Result {kind NONE/TILE/WATER/ENTITY, tile, position, entity_id, entity_kind, direct}`. Entities are picked **in screen space**: each candidate's body (base→top segment + radius) is projected with the rig's own math and compared with the finger — a tap on a tree's canopy selects the tree although the ray lands on the ground behind it. Candidates come from the spatial index around the ray's ground track; entities hidden behind nearer terrain are skipped.
+  - Selection rule: **direct hit > kind priority (person, animal, loose object, mystery, resource node, building) > screen distance > id**. Near misses count within `touch_radius` (from `InteractionConfig.touch_radius_dp`).
+- [x] `PropData.pick_shape()` / `PICK_BODY` (height, radius per kind, scaled) and `PropRegistry.pick_shape(id)` as the shape provider; `CameraRig.world_units_per_screen_unit(point)`.
+- [x] `scripts/rendering/pick_highlight.gd` (`PickHighlight`): tile outline + ring under the entity, drawn on top (no depth test). `WorldView.pick()` / `show_pick()`.
+- [x] Temporary wiring in Main (until the InteractionManager, M2.3): a TAP is picked, described in the overlay ("pick HUT at (7, 2)", "pick WATER at … depth …", "… (near)") and highlighted while the overlay is shown.
+- **Verified:** 20 picker tests (ray march: straight down, angled vs analytic plane, side of a raised block, top of a block, entry through the rim, misses, water; through the camera: visible tiles pick themselves, outside the world, water, prop base, **tree canopy**, near miss within/outside the touch radius, direct hit beats priority, priority between near misses, nearest among equals, kind mask, removed props, prop hidden behind a wall, no provider) + 2 integration tests on the generated world (campfire, hut roof, bare ground; highlight). Suite: 300 passing, no engine errors. **Phone:** taps on a hut, the campfire, a tree's canopy and grass each report the right target with the highlight in place.
 
 ### M2.3 Tap responses (contextual micro-feedback)
 - [ ] `scripts/interaction/interaction_manager.gd` (node in WorldSession) v0: `on_tap(pick)`, `on_long_press(pick)`, `on_double_tap(pick)`, `on_swipe(path, velocity)`.

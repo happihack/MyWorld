@@ -178,3 +178,51 @@ func test_shadow_range_follows_the_camera() -> void:
 	await wait_frames(2)
 	assert_true(lighting.shadow_range() < framed_range * 0.5, "a shorter range keeps close-up shadows sharp")
 	assert_true(lighting.shadow_range() > rig.distance() * 2.0)
+
+
+func test_pick_on_the_generated_world() -> void:
+	var rig := view.camera_rig()
+	rig.set_process(false)
+	rig.set_view_size(Vector2(1080, 1920))
+	rig.focus_on(Vector3(start.settlement_tile.x + 0.5, 0, start.settlement_tile.y + 0.5), 16.0, false)
+	for i in 120:
+		rig.advance(1.0 / 60.0)
+	# The campfire sits in the middle of the cleared glade: tap it.
+	var fire := props.get_prop(start.campfire_id)
+	var ground := world.get_height(fire.tile) * world.height_step
+	var screen := rig.world_to_screen(Vector3(fire.tile.x + 0.5, ground + 0.15, fire.tile.y + 0.5))
+	var result := view.pick(screen, 40.0)
+	assert_eq(result.kind, Picker.Kind.ENTITY)
+	assert_eq(result.entity_id, start.campfire_id)
+	# A hut, tapped on its roof.
+	var hut := props.get_prop(start.hut_ids[0])
+	var hut_ground := world.get_height(hut.tile) * world.height_step
+	var roof := rig.world_to_screen(Vector3(hut.tile.x + 0.5, hut_ground + 0.7, hut.tile.y + 0.5))
+	assert_eq(view.pick(roof, 40.0).entity_id, hut.id)
+	# Bare ground inside the glade, one tile from the fire.
+	var bare := fire.tile + Vector2i(1, 0)
+	var bare_screen := rig.world_to_screen(Vector3(bare.x + 0.5, world.get_height(bare) * world.height_step, bare.y + 0.5))
+	var ground_pick := view.pick(bare_screen, 0.0)
+	assert_eq(ground_pick.kind, Picker.Kind.TILE)
+	assert_eq(ground_pick.tile, bare)
+
+
+func test_pick_highlight_follows_the_result() -> void:
+	var rig := view.camera_rig()
+	rig.set_process(false)
+	rig.set_view_size(Vector2(1080, 1920))
+	rig.focus_on(Vector3(start.settlement_tile.x + 0.5, 0, start.settlement_tile.y + 0.5), 16.0, false)
+	for i in 120:
+		rig.advance(1.0 / 60.0)
+	var highlight := view.pick_highlight()
+	assert_false(highlight.tile_visible())
+	var fire := props.get_prop(start.campfire_id)
+	var ground := world.get_height(fire.tile) * world.height_step
+	var result := view.pick(rig.world_to_screen(Vector3(fire.tile.x + 0.5, ground + 0.15, fire.tile.y + 0.5)), 40.0)
+	view.show_pick(result)
+	assert_true(highlight.tile_visible() and highlight.entity_visible())
+	assert_near(highlight.entity_position().x, fire.tile.x + 0.5, 0.01)
+	assert_near(highlight.tile_position().x, float(fire.tile.x), 0.01, "outline sits on the tile's corner")
+	assert_true(highlight.tile_position().y > ground, "just above the surface")
+	view.show_pick(Picker.Result.new())
+	assert_false(highlight.tile_visible() or highlight.entity_visible(), "a miss clears the highlight")

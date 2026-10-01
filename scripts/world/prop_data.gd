@@ -17,6 +17,16 @@ const GENERATED_ID_BIT := 1 << 62
 const _COORD_BIAS := 1 << 23 # supports tiles in ±8,388,608
 const _COORD_MASK := (1 << 24) - 1
 
+## Body used for picking, per kind: [height, radius] in tiles at 100% scale.
+const PICK_BODY := {
+	Kind.TREE: [1.5, 0.40],
+	Kind.ROCK: [0.24, 0.26],
+	Kind.BUSH: [0.30, 0.28],
+	Kind.HUT: [0.94, 0.50],
+	Kind.CAMPFIRE: [0.36, 0.26],
+	Kind.RUIN: [0.70, 0.42],
+}
+
 var id: int = 0
 var kind: Kind = Kind.TREE
 var tile: Vector2i
@@ -57,6 +67,12 @@ func rotation_radians() -> float:
 
 func scale() -> float:
 	return scale_percent / 100.0
+
+
+## Height and radius of the body a finger can hit (Vector2(height, radius)).
+func pick_shape() -> Vector2:
+	var body: Array = PICK_BODY.get(kind, [0.5, 0.3])
+	return Vector2(body[0], body[1]) * scale()
 
 
 func spatial_kind() -> int:

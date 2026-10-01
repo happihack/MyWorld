@@ -21,6 +21,7 @@ var _frame: BoxFrame
 var _lighting: WorldLighting
 var _water_material: ShaderMaterial
 var _rig: CameraRig
+var _highlight: PickHighlight
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
@@ -51,6 +52,9 @@ func _ready() -> void:
 	_rig = CameraRig.new(Config.camera)
 	_rig.name = "CameraRig"
 	add_child(_rig)
+	_highlight = PickHighlight.new()
+	_highlight.name = "PickHighlight"
+	add_child(_highlight)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -90,6 +94,7 @@ func clear() -> void:
 		view.queue_free()
 	_chunk_views.clear()
 	_props_dirty.clear()
+	_highlight.clear()
 	_world = null
 	_props = null
 
@@ -108,6 +113,35 @@ func lighting() -> WorldLighting:
 
 func camera_rig() -> CameraRig:
 	return _rig
+
+
+func pick_highlight() -> PickHighlight:
+	return _highlight
+
+
+## What is under a screen position (viewport units)? `touch_radius` is the
+## forgiveness around the finger, also in viewport units.
+func pick(screen: Vector2, touch_radius: float) -> Picker.Result:
+	if _world == null:
+		return Picker.Result.new()
+	var spatial: SpatialIndex = _props.spatial_index if _props != null else null
+	var shapes := Callable(_props, &"pick_shape") if _props != null else Callable()
+	return Picker.pick(screen, _rig, _world, spatial, shapes, touch_radius)
+
+
+## Draws the debug highlight for a pick result (or clears it for a miss).
+func show_pick(result: Picker.Result) -> void:
+	_highlight.clear()
+	if _world == null or not result.is_hit():
+		return
+	var surface := _world.get_height(result.tile) * _world.height_step + _world.get_water(result.tile)
+	_highlight.show_tile(result.tile, surface, _world.get_water(result.tile) > WaterMesher.MIN_DEPTH)
+	if result.kind == Picker.Kind.ENTITY and _props != null:
+		var prop := _props.get_prop(result.entity_id)
+		if prop != null:
+			var at := prop.position2d()
+			var ground := _world.get_height(prop.tile) * _world.height_step
+			_highlight.show_entity(Vector3(at.x, ground, at.y), prop.pick_shape().y * 1.15)
 
 
 ## Rebuilds the prop meshes of chunks whose props changed; returns how many.
