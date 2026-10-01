@@ -366,12 +366,14 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 **Goal:** Make the game visually compelling before simulation. "This is a tiny world." (P:M1, S§3–5, S§46, S§58–59, B§7–8, B§28)
 **Depends on:** M0. **Decision required before start:** confirm D-01 (3D stepped diorama).
 
-### M1.1 World data model (chunked from day one — D-13)
-- [ ] `scripts/world/world_coords.gd`: static funcs `tile_to_chunk(v: Vector2i)`, `tile_to_local`, `chunk_origin`, `tile_to_world3d(tile, height)`, `world3d_to_tile`, all floor-correct for negatives.
-- [ ] `scripts/world/chunk_data.gd` (RefCounted): `coord: Vector2i`, layers per B§8.3 as packed arrays of 256; `get_/set_` accessors by local index; `dirty_flags` (mesh, water, save); `modified: bool`; `to_dict()/from_dict()` storing only if modified.
-- [ ] `scripts/world/world_data.gd` (RefCounted): `bounds: Rect2i` (box interior), `chunks: Dictionary[Vector2i, ChunkData]` ⚠ typed dicts (4.4+), `get_chunk(coord, generate_if_missing := true)`, tile-level accessors that route to chunks, `is_in_bounds(tile)`, `modified_chunks()`.
-- [ ] `scripts/world/spatial_index.gd` (RefCounted): chunk-bucketed `id → tile` and `chunk → PackedInt64Array ids`, `query_radius(center, r, type_mask)`, `move(id, from, to)`.
-- [ ] `data/configuration/world_config.tres` (`WorldConfig`: chunk_size, initial_world_tiles, height_levels, height_step, max_world_tiles).
+### M1.1 World data model (chunked from day one — D-13) — ✅ DONE (2026-09-30)
+- [x] `scripts/world/world_coords.gd` (`WorldCoords`, static, chunk size passed in): `floor_div`, `tile_to_chunk`, `tile_to_local`, `local_to_index`/`index_to_local`, `tile_to_index`, `chunk_origin`, `chunk_local_to_tile`, `chunk_rect`, `chunks_in_rect`, `tile_to_world3d` (tile-top centre), `world3d_to_tile`, `world2d_to_tile` — all floor-correct for negatives.
+- [x] `scripts/world/chunk_data.gd` (`ChunkData`): layers per B§8.3 as packed arrays (height, terrain, water, moisture, fertility, vegetation, traffic, temperature offset (signed, stored biased), flags); `Terrain` enum; `FLAG_*` tile bits; clamping setters that mark `modified` + per-tile `FLAG_MODIFIED` + dirty bits (`DIRTY_MESH/WATER/SAVE`); `mark_pristine()` for generators; `to_dict()` (independent copies) / `from_dict()` (null on missing/wrong-size/wrong-type data).
+- [x] `scripts/world/world_data.gd` (`WorldData`): `bounds: Rect2i` (box interior; `create_centered()` puts the world around the origin, e.g. −32…31), chunk dictionary, **`generator: Callable(coord) -> ChunkData`** called on demand (flat fallback without one), tile accessors routed to chunks, out-of-bounds reads return defaults and writes are ignored (no chunks created outside the box), `modified_chunks()`, `unload_chunk()` (drops unmodified chunks only), `to_dict()` (**modified chunks only**) / `from_dict()` (skips bad/out-of-bounds/wrong-size chunk records and reports the count).
+- [x] `scripts/world/spatial_index.gd` (`SpatialIndex`): id → exact `Vector2` position + kind bit (`KIND_PERSON/ANIMAL/LOOSE_OBJECT/RESOURCE_NODE/BUILDING/MYSTERY`), chunk buckets, `insert/move/remove`, `query_radius(center, r, kind_mask)` nearest-first with deterministic tie-break, `query_chunk`; unknown ids safe; not saved (rebuilt from registries).
+- [x] `data/configuration/world_config.tres` already provides chunk_size / world sizes / height step (M0.2).
+- **Verified:** 32 new unit tests (negative-coordinate roundtrip over 6,400 tiles with unique slots, chunk routing across borders, sparse save roundtrip through bytes, snapshot independence, corrupt-record handling, spatial queries checked against brute force with 2,000 entities). Suite: 132 passing.
+- Wiring into `WorldSession` and the save format happens in M1.8 once the generator (M1.2) exists.
 
 ### M1.2 World generation
 - [ ] `scripts/world/world_generator.gd`: `generate_chunk(coord, seed, template) -> ChunkData` deterministic; uses `FastNoiseLite` with seeds derived from named streams; height shaped by **start template** masks; terrain type from height/moisture; initial vegetation; river carving (template-driven path from inflow to basin); lake basin.
