@@ -2,8 +2,9 @@ class_name CallTool
 extends ToolBase
 ## PROTOTYPE, debug builds only: a tap calls everyone to that spot, to try
 ## pathfinding and walking by hand before people decide for themselves where
-## to go (M4.4). Not an intervention: it leaves no trace in the history and
-## nobody remembers being called.
+## to go. They come, stand about for a while, and then go back to their own
+## business. Not an intervention: it leaves no trace in the history and nobody
+## remembers being called.
 
 const ID := &"call"
 
@@ -27,7 +28,7 @@ func tap(target: Picker.Result) -> InteractionResponse:
 	var ids: Array[int] = []
 	for person in session.people.all_people():
 		ids.append(person.id)
-	if session.movement.gather(ids, target.tile) > 0:
+	if session.behavior.call_to(ids, target.tile) > 0:
 		var world := session.world
 		var at := Vector3(target.tile.x + 0.5, world.get_height(target.tile) * world.height_step + world.get_water(target.tile),
 			target.tile.y + 0.5)

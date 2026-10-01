@@ -14,6 +14,11 @@ const FLAG_MARKED_IMPORTANT := 1 << 0
 const FLAG_FOLLOWED := 1 << 1
 const FLAG_TOUCHED_BY_PLAYER := 1 << 2
 const FLAG_QUARANTINED := 1 << 3
+## Inside a building (asleep at home): there, but not to be seen.
+const FLAG_INDOORS := 1 << 4
+
+## How someone holds themselves while doing something (what the view shows).
+enum Pose { IDLE, WORK, EAT, TALK, SLEEP }
 
 ## How many skin, hair and clothing colours an appearance can index (the
 ## palettes themselves belong to the rendering, M4.2).
@@ -53,8 +58,11 @@ var memory_ids: PackedInt64Array = PackedInt64Array()
 var beliefs: PackedFloat32Array = PackedFloat32Array()
 var knowledge: Dictionary = {}
 var goals: Array = []
-## The step being carried out, as plain data (M4.4).
+## What they are doing: the activity, why, and its steps, as plain data
+## (see BehaviorSystem). Empty = nothing decided yet.
 var current_action: Dictionary = {}
+## Activity id (String) -> the tick they last finished doing it.
+var activity_log: Dictionary = {}
 ## The tile stood on, where on it (0 … 1 across the tile) and the direction
 ## faced (radians; 0 looks along +X, a quarter turn looks along +Z).
 var position := Vector2i.ZERO
@@ -62,6 +70,8 @@ var sub_tile_offset := Vector2(0.5, 0.5)
 var facing := 0.0
 ## How closely this person is simulated right now. Runtime only, never saved.
 var sim_tier := 3
+## Runtime only: set by whatever they are doing, shown by their view.
+var pose: Pose = Pose.IDLE
 var significance := 0.0
 var flags := 0
 ## Body and colours: "height" and "build" (scale factors), "skin", "hair" and
@@ -109,6 +119,7 @@ func to_dict() -> Dictionary:
 		"memory_ids": memory_ids.duplicate(), "beliefs": beliefs.duplicate(),
 		"knowledge": knowledge.duplicate(true), "goals": goals.duplicate(true),
 		"current_action": current_action.duplicate(true),
+		"activity_log": activity_log.duplicate(),
 		"position": position, "sub_tile_offset": sub_tile_offset, "facing": facing,
 		"significance": significance, "flags": flags,
 		"appearance": appearance.duplicate(),
@@ -150,6 +161,7 @@ static func from_dict(data: Dictionary) -> PersonData:
 	p.knowledge = _dict(data.get("knowledge"))
 	p.goals = _array(data.get("goals"))
 	p.current_action = _dict(data.get("current_action"))
+	p.activity_log = _dict(data.get("activity_log"))
 	p.position = data["position"]
 	var offset: Variant = data.get("sub_tile_offset")
 	if typeof(offset) == TYPE_VECTOR2 and is_finite((offset as Vector2).x) and is_finite((offset as Vector2).y):

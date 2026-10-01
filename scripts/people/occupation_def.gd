@@ -17,6 +17,9 @@ extends Resource
 ## What someone with this occupation carries ("staff", "basket", "axe" — see
 ## PersonMeshLibrary), or nothing.
 @export var accessory: StringName = &""
+## What the work is done at: "tree", "bush", "fire" — or nothing (no work to
+## go to: children, placeholders).
+@export var work_target: StringName = &""
 ## Something that has no work to do yet (kept so saves and data can refer to it).
 @export var placeholder: bool = false
 

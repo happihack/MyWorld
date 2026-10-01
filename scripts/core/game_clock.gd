@@ -65,6 +65,12 @@ func tick_fraction() -> float:
 	return _accumulator
 
 
+## The time of day, in hours (0 … 24, fractions included). The calendar
+## proper — days, seasons, years — arrives in M6.
+func hour() -> float:
+	return (_config.minute_of_day(tick) + _accumulator) / 60.0
+
+
 func to_dict() -> Dictionary:
 	return {"tick": tick, "speed_index": speed_index, "accumulator": _accumulator}
 

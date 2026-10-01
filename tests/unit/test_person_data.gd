@@ -87,11 +87,11 @@ func test_life_stages_follow_age() -> void:
 	var p := _person()
 	p.birth_tick = 0
 	assert_eq(p.life_stage(0, YEAR, config), PersonData.LifeStage.CHILD)
-	assert_eq(p.life_stage(12 * YEAR, YEAR, config), PersonData.LifeStage.CHILD)
-	assert_eq(p.life_stage(13 * YEAR, YEAR, config), PersonData.LifeStage.ADOLESCENT)
-	assert_eq(p.life_stage(18 * YEAR, YEAR, config), PersonData.LifeStage.ADULT)
-	assert_eq(p.life_stage(54 * YEAR, YEAR, config), PersonData.LifeStage.ADULT)
-	assert_eq(p.life_stage(55 * YEAR, YEAR, config), PersonData.LifeStage.ELDER)
+	assert_eq(p.life_stage(11 * YEAR, YEAR, config), PersonData.LifeStage.CHILD)
+	assert_eq(p.life_stage(12 * YEAR, YEAR, config), PersonData.LifeStage.ADOLESCENT)
+	assert_eq(p.life_stage(16 * YEAR, YEAR, config), PersonData.LifeStage.ADULT, "grown at 16 (bible 9.1)")
+	assert_eq(p.life_stage(47 * YEAR, YEAR, config), PersonData.LifeStage.ADULT)
+	assert_eq(p.life_stage(48 * YEAR, YEAR, config), PersonData.LifeStage.ELDER)
 	config.elder_from_years = 40
 	assert_eq(p.life_stage(41 * YEAR, YEAR, config), PersonData.LifeStage.ELDER, "the ages of life are data")
 

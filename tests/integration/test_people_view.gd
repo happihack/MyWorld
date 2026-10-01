@@ -18,6 +18,7 @@ func before_each() -> void:
 	session = SessionScript.new()
 	add_child(session)
 	session.create_new(12345)
+	session.behavior.enabled = false # people stand where the tests put them
 	view = ViewScript.new()
 	add_child(view)
 	view.show_world(session.world, session.props, session.start, session.loose)
@@ -125,7 +126,7 @@ func test_children_grow_and_elders_stoop() -> void:
 	assert_near(PersonMeshLibrary.height_factor(30, config), 1.0)
 	assert_true(PersonMeshLibrary.height_factor(1, config) < 0.5)
 	assert_true(PersonMeshLibrary.height_factor(8, config) > PersonMeshLibrary.height_factor(3, config))
-	assert_true(PersonMeshLibrary.height_factor(16, config) < 1.0)
+	assert_true(PersonMeshLibrary.height_factor(config.adult_from_years - 2, config) < 1.0)
 	assert_true(PersonMeshLibrary.height_factor(70, config) < 1.0)
 	assert_true(PersonMeshLibrary.stoop_for(PersonData.LifeStage.ELDER) > 0.0)
 	assert_eq(PersonMeshLibrary.stoop_for(PersonData.LifeStage.ADULT), 0.0)
@@ -428,6 +429,53 @@ func test_a_crowd_is_cheap_to_keep_up_with() -> void:
 	assert_eq(people_view.marker_count(), session.people.size(), "but every one of them has a marker")
 
 
+func test_what_people_are_busy_with_shows() -> void:
+	_look_at(_home(), 24.0)
+	var person := _with(&"woodcutter")
+	var shown := people_view.view_of(person.id)
+	assert_eq(shown.busy(), 0.0, "standing about")
+	person.pose = PersonData.Pose.WORK
+	people_view.refresh(0.016)
+	assert_eq(shown.busy(), 1.0, "hard at work")
+	assert_eq(float(shown.body_color(&"busy")), 1.0, "and the shader knows")
+	person.pose = PersonData.Pose.EAT
+	people_view.refresh(0.016)
+	assert_true(shown.busy() > 0.0 and shown.busy() < 1.0, "eating is gentler")
+	person.pose = PersonData.Pose.TALK
+	people_view.refresh(0.016)
+	assert_true(shown.busy() > 0.0 and shown.busy() < 0.45, "talking gentler still")
+	person.pose = PersonData.Pose.IDLE
+	people_view.refresh(0.016)
+	assert_eq(shown.busy(), 0.0)
+	# A view handed to someone else shows what they are doing, not the last one.
+	person.pose = PersonData.Pose.WORK
+	people_view.refresh(0.016)
+	_look_at(_home() + Vector2(-30.0, 25.0), 9.0)
+	person.pose = PersonData.Pose.IDLE
+	_look_at(_home(), 24.0)
+	assert_eq(people_view.view_of(person.id).busy(), 0.0)
+
+
+func test_someone_indoors_is_not_seen() -> void:
+	_look_at(_home(), 24.0)
+	var person := _with(&"forager")
+	assert_not_null(people_view.view_of(person.id))
+	person.set_flag(PersonData.FLAG_INDOORS, true) # asleep in their hut
+	people_view.refresh(0.016)
+	assert_null(people_view.view_of(person.id), "no body")
+	assert_eq(people_view.shown_count(), session.people.size() - 1)
+	rig.frame_box(false)
+	for i in 90:
+		rig.advance(1.0 / 60.0)
+	people_view.refresh(0.0)
+	assert_eq(people_view.marker_count(), session.people.size() - 1, "and no marker")
+	person.set_flag(PersonData.FLAG_INDOORS, false)
+	people_view.refresh(0.0)
+	assert_eq(people_view.marker_count(), session.people.size(), "up again: there again")
+	_look_at(_home(), 24.0)
+	assert_not_null(people_view.view_of(person.id))
+
+
 func test_another_world_shows_other_people() -> void:
 	_look_at(_home(), 24.0)
 	assert_true(people_view.shown_count() > 0)
@@ -486,15 +534,22 @@ func test_the_running_game_draws_its_people() -> void:
 	var game_session: WorldSession = main.get_node("WorldSession")
 	var game_view: WorldView = main.get_node("WorldView")
 	var game_rig := game_view.camera_rig()
-	# The game opens on the whole box: everyone is a marker.
-	assert_eq(game_view.people_view().marker_count(), game_session.people.size())
+	# The game opens on the whole box: everyone who is up is a marker.
+	game_session.behavior.enabled = false
+	var up := 0
+	for p in game_session.people.all_people():
+		if not p.has_flag(PersonData.FLAG_INDOORS):
+			up += 1
+	await wait_frames(1)
+	assert_true(up >= game_session.people.size() - 2, "(a late riser may still be in bed at six)")
+	assert_eq(game_view.people_view().marker_count(), up)
 	var home := Vector2(game_session.start.settlement_tile) + Vector2(0.5, 0.5)
 	game_rig.set_process(false)
 	game_rig.focus_on(Vector3(home.x, 0, home.y), 24.0, false)
 	for i in 90:
 		game_rig.advance(1.0 / 60.0)
 	await wait_frames(3)
-	assert_eq(game_view.people_view().shown_count(), game_session.people.size(), "at home, everyone is there")
+	assert_eq(game_view.people_view().shown_count(), up, "at home, everyone is there")
 	assert_eq(game_view.people_view().marker_count(), 0)
 	get_tree().unload_current_scene()
 	await wait_frames(2)

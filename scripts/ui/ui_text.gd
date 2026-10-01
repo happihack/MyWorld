@@ -67,6 +67,30 @@ const OCCUPATION_NAMES := {
 	&"elder": "Elder",
 }
 
+## What people are doing, and why (bible 13.4: "Going home - tired").
+const ACTIVITY_NAMES := {
+	&"eat": "Eating",
+	&"drink": "Drinking",
+	&"sleep": "Sleeping",
+	&"work": "Working",
+	&"socialize": "Talking",
+	&"explore": "Exploring",
+	&"play": "Playing",
+	&"go_home": "Resting at home",
+	&"called": "Answering a call",
+	&"idle": "Standing about",
+}
+
+## How a need feels when it is the reason for something (ids from Needs).
+const NEED_WORDS := {
+	&"hunger": "hungry",
+	&"thirst": "thirsty",
+	&"sleep": "tired",
+	&"social": "lonely",
+	&"purpose": "restless",
+	&"safety": "uneasy",
+}
+
 const LIFE_STAGE_NAMES := {
 	PersonData.LifeStage.CHILD: "Child",
 	PersonData.LifeStage.ADOLESCENT: "Youth",
@@ -91,6 +115,14 @@ static func trait_words(traits: PackedFloat32Array, n: int = 3) -> PackedStringA
 
 static func occupation_name(id: StringName) -> String:
 	return OCCUPATION_NAMES.get(id, String(id).capitalize())
+
+
+## "Eating - hungry", "Working" (no reason worth a word: habit, their nature).
+static func activity_phrase(activity: StringName, reason: StringName = &"") -> String:
+	var what: String = ACTIVITY_NAMES.get(activity, String(activity).capitalize())
+	if activity == &"":
+		return ""
+	return "%s — %s" % [what, NEED_WORDS[reason]] if NEED_WORDS.has(reason) else what
 
 
 static func life_stage_name(stage: int) -> String:

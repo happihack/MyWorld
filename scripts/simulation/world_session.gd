@@ -57,6 +57,10 @@ var occupations: OccupationLibrary
 var pathfinder: Pathfinder
 ## Walks people along those ways.
 var movement: MovementSystem
+## What people can decide to do (data/activities).
+var activities: ActivityLibrary
+## People living their days: needs, decisions, plans.
+var behavior: BehaviorSystem
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 
 
@@ -73,6 +77,7 @@ func _init() -> void:
 	water.tiles_changed.connect(loose_system.on_water_changed)
 	pathfinder = Pathfinder.new()
 	movement = MovementSystem.new()
+	behavior = BehaviorSystem.new()
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -186,6 +191,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if is_active:
 		clock.advance(delta)
+		behavior.step(clock.last_advance_minutes)
 		pathfinder.serve(int(Config.perf.path_budget_ms_per_frame * 1000.0))
 		movement.step(clock.last_advance_minutes)
 
@@ -328,6 +334,21 @@ func _activate() -> void:
 	interactions.bind_session(water, clock, history, settlement)
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
+	if activities == null:
+		activities = ActivityLibrary.load_from()
+	var ai := AiContext.new()
+	ai.world = world
+	ai.props = props
+	ai.people = people
+	ai.pathfinder = pathfinder
+	ai.movement = movement
+	ai.clock = clock
+	ai.start = start
+	ai.occupations = occupations
+	ai.activities = activities
+	ai.places = Places.new(world, props, people, pathfinder, start)
+	ai.rng = rng.stream(&"ai")
+	behavior.bind(ai)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

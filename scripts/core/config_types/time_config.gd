@@ -8,6 +8,8 @@ const MINUTES_PER_DAY := 1440
 @export_range(0.05, 10.0, 0.05) var real_seconds_per_game_minute: float = 0.5
 @export_range(1, 60) var days_per_season: int = 6
 @export_range(1, 12) var seasons_per_year: int = 4
+## The hour of the day at which a new world begins (tick 0).
+@export_range(0.0, 23.75, 0.25) var start_hour: float = 6.0
 ## Pause, Normal, Fast, Very Fast.
 @export var speed_multipliers: PackedFloat32Array = PackedFloat32Array([0.0, 1.0, 4.0, 16.0])
 ## Longest real frame time the clock will consume at once (prevents a huge
@@ -21,6 +23,11 @@ const MINUTES_PER_DAY := 1440
 
 func days_per_year() -> int:
 	return days_per_season * seasons_per_year
+
+
+## Minutes since midnight at `tick`.
+func minute_of_day(tick: int) -> int:
+	return posmod(tick + roundi(start_hour * 60.0), MINUTES_PER_DAY)
 
 
 ## One tick is one game minute (see GameClock).

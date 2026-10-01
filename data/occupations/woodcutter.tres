@@ -12,4 +12,5 @@ trait_weights = {
 "BRAVERY": 0.3
 }
 accessory = &"axe"
+work_target = &"tree"
 placeholder = false

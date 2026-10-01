@@ -12,4 +12,5 @@ trait_weights = {
 "CURIOSITY": 0.4
 }
 accessory = &"basket"
+work_target = &"bush"
 placeholder = false

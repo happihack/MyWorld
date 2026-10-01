@@ -398,12 +398,84 @@ func test_the_call_tool_brings_everyone_to_the_tapped_spot() -> void:
 			seen_walking += 1
 	assert_true(moved >= session.people.size() - 1, "they are on their way (%d moved)" % moved)
 	assert_true(seen_walking > 0, "and are seen walking")
-	await wait_real_ms(3500)
-	assert_eq(session.movement.walking_count(), 0, "everyone has arrived")
+	# Everyone gets there and stands about for a while.
+	var there := {}
+	for frame in 400:
+		for p in session.people.all_people():
+			if BehaviorSystem.activity_of(p) == BehaviorSystem.ACTIVITY_CALLED 					and str(BehaviorSystem.current_step(p).get("type")) == "rest":
+				there[p.id] = (p.position - spot).length()
+		if there.size() == session.people.size():
+			break
+		await wait_frames(1)
+	assert_eq(there.size(), session.people.size(), "everyone has arrived")
+	for id: int in there:
+		assert_true(there[id] <= 3.0, "by the spot (%.1f tiles)" % there[id])
+	# Then they go back to their own business.
+	await wait_real_ms(1500)
+	var own_business := 0
 	for p in session.people.all_people():
-		assert_true((p.position - spot).length() <= 3.0, "%s stands by the spot" % p.given_name)
+		if BehaviorSystem.activity_of(p) != BehaviorSystem.ACTIVITY_CALLED:
+			own_business += 1
+	assert_eq(own_business, session.people.size(), "nobody stands there for ever")
 	# The hand does not call anyone.
 	tools.select(HandTool.ID)
 	_touch(at, true)
 	_touch(at, false)
-	assert_eq(session.movement.walking_count(), 0)
+	for p in session.people.all_people():
+		assert_ne(BehaviorSystem.activity_of(p), BehaviorSystem.ACTIVITY_CALLED)
+
+
+# --- people living by themselves ------------------------------------------------------------------
+
+func test_in_the_running_game_people_go_about_their_day() -> void:
+	session.clock.set_speed(GameClock.SPEED_VERY_FAST)
+	var before := {}
+	for p in session.people.all_people():
+		before[p.id] = p.world2d()
+	await wait_real_ms(2500) # more than an hour of game time
+	var busy := 0
+	var moved := 0
+	for p in session.people.all_people():
+		if session.activities.get_def(BehaviorSystem.activity_of(p)) != null:
+			busy += 1
+		if p.world2d().distance_to(before[p.id]) > 1.0:
+			moved += 1
+		assert_eq(p.needs.size(), Needs.COUNT)
+	assert_eq(busy, session.people.size(), "everyone has found something to do")
+	assert_true(moved >= session.people.size() / 2, "and most have gone somewhere (%d)" % moved)
+	assert_true(session.behavior.decisions >= session.people.size())
+	assert_eq(session.history.total(), 0, "none of which is the player's doing")
+
+
+func test_work_is_seen_and_heard_but_not_too_often() -> void:
+	var woodcutter: PersonData = null
+	for p in session.people.all_people():
+		if p.occupation_id == &"woodcutter":
+			woodcutter = p
+	var tree: PropData = null
+	for p in session.props.all_props():
+		if p.kind == PropData.Kind.TREE and (tree == null or (p.tile - woodcutter.position).length_squared() < (tree.tile - woodcutter.position).length_squared()):
+			tree = p
+	session.behavior.enabled = false
+	_look_at(woodcutter.world2d(), 20.0)
+	await wait_frames(3)
+	var effects := view.effects()
+	var shakes: int = effects.played.get(InteractionResponse.TREE_SHAKE, 0)
+	session.behavior.worked.emit(woodcutter.id, &"tree", tree.id)
+	assert_eq(effects.played.get(InteractionResponse.TREE_SHAKE, 0), shakes + 1, "the tree shivers under the axe")
+	assert_true(effects.is_shaking(tree.id))
+	assert_eq(AudioManager.last_sound, &"knock")
+	session.behavior.worked.emit(woodcutter.id, &"tree", tree.id)
+	session.behavior.worked.emit(woodcutter.id, &"tree", tree.id)
+	assert_eq(effects.played.get(InteractionResponse.TREE_SHAKE, 0), shakes + 1, "not at every stroke when time runs fast")
+	await wait_real_ms(400)
+	session.behavior.worked.emit(woodcutter.id, &"fire", session.start.campfire_id)
+	assert_eq(effects.played.get(InteractionResponse.FIRE_FLARE, 0), 0, "keeping the fire makes no show")
+	session.behavior.worked.emit(woodcutter.id, &"tree", 999_999)
+	assert_eq(effects.played.get(InteractionResponse.TREE_SHAKE, 0), shakes + 1, "a tree that is gone does not shake")
+	# Out of sight, nothing is played.
+	_look_at(woodcutter.world2d() + Vector2(-25.0, 20.0), 9.0)
+	await wait_frames(3)
+	session.behavior.worked.emit(woodcutter.id, &"tree", tree.id)
+	assert_eq(effects.played.get(InteractionResponse.TREE_SHAKE, 0), shakes + 1)
+	assert_eq(session.history.total(), 0, "people at work are not the player touching things")

@@ -146,7 +146,9 @@ func refresh(delta: float) -> void:
 		if person == null:
 			continue
 		var feet := ground_position(person)
-		var wants_view := _bodies_shown and person.sim_tier >= MIN_TIER_FOR_VIEW
+		# Someone indoors (asleep at home) is there, but not to be seen.
+		var indoors := person.has_flag(PersonData.FLAG_INDOORS)
+		var wants_view := _bodies_shown and person.sim_tier >= MIN_TIER_FOR_VIEW and not indoors
 		if wants_view:
 			var seen := to_camera * feet # the camera looks along -Z
 			wants_view = seen.z < 0.0 and absf(seen.x) <= -seen.z * slope_x and absf(seen.y) <= -seen.z * slope_y
@@ -160,10 +162,11 @@ func refresh(delta: float) -> void:
 				view.dress(person, now, year, Config.people, _occupations)
 			if view != null:
 				view.advance(delta, feet, person.facing)
+				view.set_pose(person.pose)
 		elif view != null:
 			view.unbind()
 			_pool.release(id)
-		if _marker_alpha > 0.0:
+		if _marker_alpha > 0.0 and not indoors:
 			# The marker floats above the head — of the view, if there is one, so
 			# that marker and body move as one.
 			var at := view.position if view != null and wants_view else feet

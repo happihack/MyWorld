@@ -24,6 +24,9 @@ var _last_pick := "-"
 var _tap_closed_menu := false
 ## The player has touched the world: the camera is theirs, no opening glide.
 var _player_has_touched := false
+## People at work are heard and seen at most this often (real time).
+const WORK_EFFECT_GAP_MSEC := 350
+var _last_work_effect_msec := 0
 
 
 func _ready() -> void:
@@ -42,6 +45,7 @@ func _ready() -> void:
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
+	session.behavior.worked.connect(_on_person_worked)
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
 	_begin_opening()
@@ -55,6 +59,7 @@ func _ready() -> void:
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
 	debug_overlay.register_section(&"people", _people_debug_section)
+	debug_overlay.register_section(&"doing", _doing_debug_section)
 	debug_overlay.register_section(&"paths", func() -> String:
 		var finder := session.pathfinder
 		return "paths: %d walking  %d queued  %d found  %d from cache  %.2f ms last  serve %.2f ms" % [
@@ -280,6 +285,45 @@ func _camera_debug_section() -> String:
 	var at := rig.pivot()
 	return "camera at (%.1f, %.1f)  dist %.1f / %.1f  pitch %.0f" % [
 		at.x, at.z, rig.distance(), rig.fit_distance(), rig.pitch_degrees()]
+
+
+## A stroke of someone's work, made visible and audible: the tree shivers
+## under the axe, the bush rustles. Quiet, and never more than a few a second
+## however many are at it and however fast time runs.
+func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void:
+	var now := Time.get_ticks_msec()
+	if kind == &"fire" or now - _last_work_effect_msec < WORK_EFFECT_GAP_MSEC:
+		return
+	var person := session.people.get_person(person_id)
+	var prop := session.props.get_prop(target_id)
+	if person == null or prop == null or world_view.people_view().view_of(person_id) == null:
+		return # nobody is watching
+	_last_work_effect_msec = now
+	var answer := InteractionResponse.new()
+	answer.effect = InteractionResponse.TREE_SHAKE if kind == &"tree" else InteractionResponse.BUSH_RUSTLE
+	answer.entity_id = prop.id
+	answer.tile = prop.tile
+	var at := prop.position2d()
+	answer.position = Vector3(at.x, session.world.get_height(prop.tile) * session.world.height_step, at.y)
+	answer.body = prop.pick_shape()
+	answer.strength = 0.35
+	world_view.effects().play(answer)
+	if kind == &"tree":
+		AudioManager.play_at(&"knock", answer.position, -13.0, 0.85)
+
+
+func _doing_debug_section() -> String:
+	if not session.is_active:
+		return "doing: -"
+	var counts := session.behavior.counts()
+	var names: Array = counts.keys()
+	names.sort()
+	var parts := PackedStringArray()
+	for activity: StringName in names:
+		parts.append("%s %d" % [activity if activity != &"" else &"nothing", counts[activity]])
+	var hour := session.clock.hour()
+	return "time %02d:%02d  doing: %s  (%d decisions, %.3f ms/frame)" % [int(hour), int(fmod(hour, 1.0) * 60.0),
+		", ".join(parts), session.behavior.decisions, session.behavior.average_step_usec / 1000.0]
 
 
 func _people_debug_section() -> String:

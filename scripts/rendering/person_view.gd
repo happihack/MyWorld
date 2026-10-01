@@ -32,6 +32,12 @@ var _shadow: MeshInstance3D
 
 var _velocity := Vector3.ZERO
 var _shown_walk := -1.0
+var _shown_busy := -1.0
+## How much each pose moves the arms (see person.gdshader "busy").
+const BUSY := {
+	PersonData.Pose.IDLE: 0.0, PersonData.Pose.WORK: 1.0, PersonData.Pose.EAT: 0.45,
+	PersonData.Pose.TALK: 0.22, PersonData.Pose.SLEEP: 0.0,
+}
 # Standing where the person stands, turned as they are turned: nothing to do
 # until either changes (most people, most of the time).
 var _at_rest := false
@@ -62,6 +68,7 @@ func bind(person: PersonData, now_tick: int, ticks_per_year: int, config: People
 	rotation.y = -person.facing
 	walk = 0.0
 	_show_walk()
+	set_pose(person.pose)
 	visible = true
 
 
@@ -86,6 +93,18 @@ func dress(person: PersonData, now_tick: int, ticks_per_year: int, config: Peopl
 	accessory = def.accessory if def != null else &""
 	_accessory.mesh = PersonMeshLibrary.accessory(accessory)
 	_accessory.visible = _accessory.mesh != null
+
+
+## Shows what the person is busy with.
+func set_pose(pose: PersonData.Pose) -> void:
+	var busy: float = BUSY.get(pose, 0.0)
+	if busy != _shown_busy:
+		_shown_busy = busy
+		_body.set_instance_shader_parameter(&"busy", busy)
+
+
+func busy() -> float:
+	return _shown_busy
 
 
 ## Back into the pool.

@@ -17,6 +17,7 @@ func before_each() -> void:
 	add_child(session)
 	session.create_new(12345)
 	session.set_process(false) # the tests step time themselves
+	session.behavior.enabled = false # and say who walks where
 	session.loose_system.set_process(false)
 	session.water.set_process(false)
 	finder = session.pathfinder

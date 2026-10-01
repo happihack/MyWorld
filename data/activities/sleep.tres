@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"sleep"
+base = 0.0
+need_weights = {
+"sleep": 1.5
+}
+trait_weights = {}
+hours = PackedFloat32Array(1.6, 1.6, 1.6, 1.6, 1.6, 1.3, 0.9, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.35, 0.2, 0.35, 0.7, 1.3, 1.6, 1.6, 1.6)
+requires = Array[StringName]([&"home"])
+repeat_after_minutes = 0.0

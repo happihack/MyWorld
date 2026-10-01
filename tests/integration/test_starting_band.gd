@@ -26,6 +26,7 @@ func after_each() -> void:
 func _session() -> WorldSession:
 	var s: WorldSession = SessionScript.new()
 	add_child(s)
+	s.set_process(false) # time stands still: these tests are about who people are
 	sessions.append(s)
 	return s
 
@@ -43,6 +44,16 @@ func _save_and_reload(s: WorldSession) -> WorldSession:
 	var again := _session()
 	assert_true(again.load_from(loaded.world))
 	return again
+
+
+## Who the people of a world are (not where they are or what they are at:
+## in a running game that changes from frame to frame).
+func _who(s: WorldSession) -> Array:
+	var out := []
+	for p in s.people.all_people():
+		out.append([p.id, p.full_name(), p.birth_tick, p.sex, p.traits, p.occupation_id, p.household_id,
+			p.home_building_id, p.parents, p.children, p.partner_id, p.appearance])
+	return out
 
 
 func _age(s: WorldSession, p: PersonData) -> int:
@@ -160,8 +171,10 @@ func test_a_new_world_has_its_first_band() -> void:
 			for key: String in ["height", "build", "skin", "hair", "cloth"]:
 				assert_true(p.appearance.has(key), key)
 			assert_true(int(p.appearance["skin"]) < PersonData.SKIN_TONES)
-			assert_eq(p.needs.size(), 0, "needs come with M4.4")
-			assert_eq(p.current_action, {})
+			assert_eq(p.needs.size(), Needs.COUNT)
+			for need in Needs.COUNT:
+				assert_true(p.needs[need] >= 0.4 and p.needs[need] <= 1.0, "nobody starts out starving")
+			assert_eq(p.current_action, {}, "nothing decided before time begins")
 			if stage == PersonData.LifeStage.CHILD:
 				has_child = true
 				assert_eq(p.skills.size(), 0)
@@ -353,7 +366,7 @@ func test_the_running_game_keeps_its_people_across_a_relaunch() -> void:
 	await wait_frames(4)
 	var s: WorldSession = get_tree().current_scene.get_node("WorldSession")
 	assert_true(s.people.size() >= 6, "the game opens on an inhabited world")
-	var people := s.people.to_dict()
+	var people := _who(s)
 	var world_id := s.world_id
 	await wait_real_ms(Config.save.min_save_gap_ms + 100)
 	get_tree().unload_current_scene()
@@ -362,6 +375,6 @@ func test_the_running_game_keeps_its_people_across_a_relaunch() -> void:
 	await wait_frames(4)
 	var s2: WorldSession = get_tree().current_scene.get_node("WorldSession")
 	assert_eq(s2.world_id, world_id)
-	assert_eq(s2.people.to_dict(), people, "the same people after a relaunch")
+	assert_eq(_who(s2), people, "the same people after a relaunch")
 	get_tree().unload_current_scene()
 	await wait_frames(2)

@@ -4,11 +4,11 @@ extends ConfigBase
 
 @export_group("Life stages")
 ## Age (in game years) at which a child becomes an adolescent, ...
-@export_range(1, 40) var adolescent_from_years: int = 13
+@export_range(1, 40) var adolescent_from_years: int = 12
 ## ... an adolescent an adult, ...
-@export_range(1, 60) var adult_from_years: int = 18
+@export_range(1, 60) var adult_from_years: int = 16
 ## ... and an adult an elder.
-@export_range(1, 150) var elder_from_years: int = 55
+@export_range(1, 150) var elder_from_years: int = 48
 
 @export_group("Walking")
 ## Tiles an adult in good health walks per game minute on open ground.

@@ -22,6 +22,8 @@ instance uniform float walk = 0.0;
 instance uniform float phase = 0.0;
 // How far an elder bends forward.
 instance uniform float stoop = 0.0;
+// 0 standing about … 1 hard at work: the arms go, the back bends.
+instance uniform float busy = 0.0;
 
 // 1 = full motion; lower with "reduced motion".
 uniform float motion = 1.0;
@@ -42,8 +44,15 @@ void vertex() {
 	VERTEX.z += sin(stride) * 0.02 * going * upper;
 	VERTEX.x += sin(stride) * UV.x * UV.y * 0.17 * going;
 	VERTEX.y += abs(sin(stride)) * abs(UV.x) * UV.y * 0.03 * going;
-	// Leaning: into the walk, and with age.
-	float lean = going * 0.06 + stoop;
+	// At work: both arms swing forward and up together, the body dips with them.
+	float doing = busy * motion;
+	float swing = 0.5 + 0.5 * sin(TIME * 6.5 + phase);
+	float arm = step(0.3, VERTEX.y) * abs(UV.x) * UV.y;
+	VERTEX.x += swing * arm * 0.26 * doing;
+	VERTEX.y += swing * arm * 0.12 * doing;
+	VERTEX.y -= swing * 0.015 * upper * doing;
+	// Leaning: into the walk, into the work, and with age.
+	float lean = going * 0.06 + stoop + doing * (0.04 + swing * 0.03);
 	VERTEX.x += lean * h * h;
 	VERTEX.y -= stoop * 0.35 * h * h;
 

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"work"
+base = 0.22
+need_weights = {
+"purpose": 0.9
+}
+trait_weights = {
+"AMBITION": 1.0
+}
+hours = PackedFloat32Array(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.6, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.5, 0.3, 0.1, 0.1, 0.1, 0.1)
+requires = Array[StringName]([&"work"])
+repeat_after_minutes = 0.0

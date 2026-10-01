@@ -26,9 +26,9 @@ func test_people_defaults() -> void:
 	assert_eq(Config.people.band_min_people, 6)
 	assert_eq(Config.people.band_max_people, 8)
 	assert_eq(Config.people.stage_for_age(0), PersonData.LifeStage.CHILD)
-	assert_eq(Config.people.stage_for_age(13), PersonData.LifeStage.ADOLESCENT)
-	assert_eq(Config.people.stage_for_age(18), PersonData.LifeStage.ADULT)
-	assert_eq(Config.people.stage_for_age(55), PersonData.LifeStage.ELDER)
+	assert_eq(Config.people.stage_for_age(12), PersonData.LifeStage.ADOLESCENT)
+	assert_eq(Config.people.stage_for_age(16), PersonData.LifeStage.ADULT)
+	assert_eq(Config.people.stage_for_age(48), PersonData.LifeStage.ELDER)
 	var bad := PeopleConfig.new()
 	bad.adult_from_years = 10
 	bad.band_min_people = 9
@@ -49,5 +49,5 @@ func test_validate_catches_bad_values() -> void:
 
 
 func test_all_default_configs_valid() -> void:
-	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new(), PeopleConfig.new()]:
+	for cfg: ConfigBase in [TimeConfig.new(), WorldConfig.new(), SaveConfig.new(), InteractionConfig.new(), PerfConfig.new(), FeedbackConfig.new(), PeopleConfig.new(), NeedsConfig.new()]:
 		assert_eq(cfg.validate().size(), 0, cfg.get_script().resource_path)

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"socialize"
+base = 0.08
+need_weights = {
+"social": 1.1
+}
+trait_weights = {
+"SOCIABILITY": 1.0
+}
+hours = PackedFloat32Array(0.15, 0.15, 0.15, 0.15, 0.15, 0.15, 0.7, 0.7, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 1.1, 1.35, 1.35, 1.35, 1.35, 0.9, 0.4, 0.4)
+requires = Array[StringName]([&"company"])
+repeat_after_minutes = 0.0

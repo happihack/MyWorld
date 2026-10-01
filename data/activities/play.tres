@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"play"
+base = 0.22
+need_weights = {
+"purpose": 0.9
+}
+trait_weights = {
+"CURIOSITY": 0.5
+}
+hours = PackedFloat32Array(0.05, 0.05, 0.05, 0.05, 0.05, 0.05, 0.6, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.4, 0.1, 0.05, 0.05, 0.05)
+requires = Array[StringName]([])
+life_stages = Array[int]([0, 1])
+repeat_after_minutes = 0.0

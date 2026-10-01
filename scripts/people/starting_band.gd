@@ -164,6 +164,7 @@ static func _create_household(roles: Array, ids: IdAllocator, rng: RandomNumberG
 		else:
 			person.traits = Traits.generate(rng)
 		person.health = rng.randf_range(0.85, 1.0)
+		person.needs = Needs.initial(rng)
 		var looks_like: PersonData = null
 		if from_mother != null:
 			looks_like = from_mother if rng.randf() < 0.5 else from_father

@@ -9,4 +9,5 @@ life_stages = Array[int]([3])
 starting_share = 1.0
 trait_weights = {}
 accessory = &"staff"
+work_target = &"fire"
 placeholder = false

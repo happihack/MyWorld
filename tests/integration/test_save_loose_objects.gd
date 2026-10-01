@@ -107,6 +107,12 @@ func _loose_snapshot() -> Dictionary:
 	return out
 
 
+## The state of the dice the player's touches roll (the people's own dice go
+## on rolling while the game runs: they live).
+func _touch_dice() -> int:
+	return int((session.rng.to_dict()["states"] as Dictionary).get("interaction", 0))
+
+
 func test_save_loose_objects() -> void:
 	var home := Vector2(session.start.settlement_tile) + Vector2(0.5, 0.5)
 	var interactions := session.interactions
@@ -184,7 +190,7 @@ func test_save_loose_objects() -> void:
 	var rock_id := rock.id
 	var rock_at := rock.position
 	var next_id := session.ids.peek()
-	var dice := session.rng.to_dict()
+	var dice := _touch_dice()
 	var soaked := session.water.soaked_total
 	assert_near(water_volume + carried + soaked, all_water, 0.002, "no water made or lost")
 	assert_true(soaked > 0.0, "the puddle has soaked into the ground")
@@ -229,7 +235,7 @@ func test_save_loose_objects() -> void:
 	assert_eq(session.history.count(Intervention.MOVE_OBJECT, &"rock"), 1)
 	assert_eq(session.history.count(Intervention.UPROOT), 1)
 	assert_eq(session.ids.peek(), next_id)
-	assert_eq(session.rng.to_dict(), dice)
+	assert_eq(_touch_dice(), dice)
 
 	# A second relaunch without touching anything changes nothing (a save is
 	# stable: loading and saving again does not drift).
