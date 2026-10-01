@@ -35,6 +35,9 @@ const DEFAULTS := {
 	&"debug/overlay_visible": false,
 }
 
+## File backing these settings (tests redirect it with use_path()).
+var path := PATH
+
 var _values: Dictionary = {}
 var _dirty := false
 var _save_pending := false
@@ -74,12 +77,20 @@ func reset_to_defaults() -> void:
 		set_value(key, DEFAULTS[key])
 
 
+## Switches the backing file and reloads from it (defaults for missing keys).
+func use_path(new_path: String) -> void:
+	path = new_path
+	_values = DEFAULTS.duplicate()
+	_dirty = false
+	load_from_disk()
+
+
 func load_from_disk() -> void:
-	if not FileAccess.file_exists(PATH):
+	if not FileAccess.file_exists(path):
 		Log.info(Log.Category.CORE, "No settings file; using defaults")
 		return
 	var cfg := ConfigFile.new()
-	var err := cfg.load(PATH)
+	var err := cfg.load(path)
 	if err != OK:
 		Log.warn(Log.Category.CORE, "Settings unreadable; using defaults", {"error": error_string(err)})
 		return
@@ -105,10 +116,10 @@ func flush() -> void:
 		var parts := String(key).split("/", true, 1)
 		cfg.set_value(parts[0], parts[1], _values[key])
 	# Write to a temp file, then replace, so a crash never leaves a half-written file.
-	var tmp := PATH + ".tmp"
+	var tmp := path + ".tmp"
 	var err := cfg.save(tmp)
 	if err == OK:
-		err = DirAccess.rename_absolute(tmp, PATH)
+		err = DirAccess.rename_absolute(tmp, path)
 	if err != OK:
 		Log.error(Log.Category.SAVE, "Settings save failed", {"error": error_string(err)})
 		return

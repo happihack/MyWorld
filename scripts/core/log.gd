@@ -18,6 +18,10 @@ const RING_SIZE := 500
 
 var min_level: Level = Level.DEBUG
 var file_logging_enabled := true
+## Echo to the console/debugger (push_error/push_warning/print). The test runner
+## turns this off so expected errors in negative tests don't flood its output;
+## the ring buffer and log file still receive everything.
+var console_output := true
 
 var _ring: PackedStringArray = []
 var _file: FileAccess
@@ -64,13 +68,14 @@ func write(level: Level, category: Category, message: String, data: Dictionary =
 			_file.flush()
 	_mutex.unlock()
 
-	match level:
-		Level.ERROR:
-			push_error(text)
-		Level.WARN:
-			push_warning(text)
-		_:
-			print(text)
+	if console_output:
+		match level:
+			Level.ERROR:
+				push_error(text)
+			Level.WARN:
+				push_warning(text)
+			_:
+				print(text)
 
 	# Signals must be emitted from the main thread.
 	if OS.get_thread_caller_id() == OS.get_main_thread_id():

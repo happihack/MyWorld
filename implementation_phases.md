@@ -316,12 +316,16 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** headless smoke 39/39 + 4/4 PASS (container corruption matrix, migrations, rotation & backup ages, fallbacks incl. crash window, newer-version refusal, recency, lifecycle + close saves, Main continuity, corrupt-newest skipping); real windowed launches continue the same world (tick 0 → 9 → 20). Save ≈ 3–12 ms, ~600 B.
 - **For M0.7 tests:** corrupt save files only when no live session holds that world — a live session re-saves its world on close (correct behaviour, but it "repairs" the corruption mid-test).
 
-### M0.7 Test runner (Track T2, D-03)
-- [ ] `tests/test_case.gd`: `assert_eq`, `assert_true`, `assert_near`, `assert_null`, `fail`; collects failures with file/line context.
-- [ ] `tests/run_tests.gd` (extends `SceneTree`): discovers `tests/**/test_*.gd`, runs each `test_*` method, prints summary, `quit(exit_code)` non-zero on failure; supports `--filter=`.
-  - **Must `load()` test scripts at runtime after the first `process_frame`** — `-s` scripts are compiled before autoloads are registered, so statically referencing a class that uses an autoload (e.g. `WorldSession` → `Config`) fails with "Identifier not found" (found in M0.3).
-  - **Watchdog timer** (e.g. 60 s) that quits with a non-zero code — a runtime script error inside a coroutine stops it silently and the process hangs otherwise.
-- [ ] First tests: `test_gesture_recognizer.gd` (tap, long press, drag slop, pinch scale), `test_save_container.gd` (roundtrip, checksum mismatch detected, truncated file detected), `test_rng_streams.gd` (same seed ⇒ same sequence), `test_id_allocator.gd`.
+### M0.7 Test runner (Track T2, D-03) — ✅ DONE (2026-09-30)
+- [x] `tests/test_case.gd` (`TestCase`, Node): hooks `before_all/after_all/before_each/after_each` (may await); `assert_true/false/eq/ne/near/null/not_null/has`, `fail`; failures carry `file:line`; int/float and String/StringName compare equal; helpers `wait_frames`, `wait_seconds`, `remove_dir_recursive`, `write_bytes`, `corrupt_byte`.
+- [x] `tests/run_tests.gd` (SceneTree): discovers `tests/unit` + `tests/integration` `test_*.gd`; options `--filter=`, `--dir=`, `--test-timeout=` (15 s), `--timeout=` (300 s watchdog), `--verbose`; exit 0/1/2.
+  - **Script errors fail the test**: a `Logger` (`OS.add_logger`) records `ERROR_TYPE_SCRIPT/SHADER` errors — verified that in 4.7.2 a runtime error inside a called function does *not* stop the caller (it returns a default), so without this a crashing test would "pass". `push_error`/`Log.error` in negative tests do not fail tests.
+  - Per-test timeout via polling (a stuck test can't hang the run); test files `load()`ed after autoloads are ready; compile failures reported as `<load>` failures.
+  - **Isolation:** saves → `user://test_run/saves`, settings → `user://test_run/settings.cfg` (new `Settings.use_path()`), console echo of game logs off (new `Log.console_output`); all deleted afterwards. New `UIRoot.quit_action` lets tests exercise the back button without quitting the runner.
+- [x] Runner self-test fixture `tests/fixtures/runner_selftest/` — must report 3 passed / 4 failed (assertion, sync script error, async script error, timeout).
+- [x] Smoke checks from M0.2–M0.6 converted into **14 test files / 96 tests**: unit (log, config, id allocator, rng incl. pinned FNV values, game clock, gesture recognizer ×17, save container corruption matrix, migrations incl. "every old version has a step" guard) and integration (event bus, settings, world session, save manager, input router via real InputEvents, main flow: boot, continuity, corrupt-world handling, overlay, hidden unlock, back button, lifecycle).
+- [x] `README.md` with run/test instructions.
+- **Verified:** full suite 96/96 PASS in ~6 s; self-test 3/4 as designed; `--filter` works; real save + settings untouched.
 
 ### M0.8 Android export & device loop (Track T5)
 - [ ] Install Android build template for 4.7.2; configure SDK/JDK paths in Editor Settings ⚠ (Godot 4.7 required JDK/SDK versions).

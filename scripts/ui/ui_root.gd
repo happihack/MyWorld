@@ -11,6 +11,9 @@ const UNLOCK_WINDOW_MS := 3000
 
 @onready var _version_label: Label = %VersionLabel
 
+## What "leave the game" does; tests replace it so they don't quit the runner.
+var quit_action: Callable = func() -> void: get_tree().quit()
+
 var _session: WorldSession
 var _unlock_taps: Array[int] = []
 
@@ -50,4 +53,4 @@ func _on_back_requested() -> void:
 	# app_quit_requested (e.g. SaveManager) run synchronously before we quit.
 	Log.info(Log.Category.UI, "Back with no open panels: quitting")
 	EventBus.app_quit_requested.emit()
-	get_tree().quit()
+	quit_action.call()

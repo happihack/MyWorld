@@ -1,0 +1,51 @@
+# My World in a Box
+
+A tiny living civilization inside a mysterious box. Godot 4.7.2 · GDScript · Android-first.
+
+- **Design:** [`game_bible.md`](game_bible.md) — what the game is (source of truth).
+- **Plan:** [`implementation_phases.md`](implementation_phases.md) — milestones, status, per-phase reports.
+- **Original specs:** `my_world.txt`, `my_world_plan.txt`.
+
+## Run
+
+Open the folder in Godot 4.7.2 and press **F5** (main scene: `scenes/main/boot.tscn`), or:
+
+```sh
+godot --path .
+```
+
+The game continues the most recently saved world; the first launch creates one.
+Saves live in `user://saves/<world_id>/` — on Windows:
+`%APPDATA%\Godot\app_userdata\My World in a Box\saves\`.
+
+### Desktop controls (development)
+
+| Input | Gesture |
+|---|---|
+| Left click / drag | Tap / one-finger drag (mouse emulates touch) |
+| Hold left button | Long press |
+| Mouse wheel | Pinch zoom at the cursor |
+| Right drag | Two-finger drag |
+| F3 | Toggle debug overlay (debug builds; on device: three-finger tap) |
+
+Release builds: tap the version label 7 times within 3 s to unlock debug tools.
+
+## Test
+
+```sh
+godot --headless --path . -s res://tests/run_tests.gd                      # everything
+godot --headless --path . -s res://tests/run_tests.gd -- --filter=save     # path/name filter
+godot --headless --path . -s res://tests/run_tests.gd -- --verbose         # show game logs
+```
+
+Exit code `0` = all passed, `1` = failures, `2` = watchdog abort.
+
+- Tests live in `tests/unit/` and `tests/integration/`, named `test_*.gd`, extending `TestCase`.
+- Any **script error** during a test fails it (caught via a `Logger`), as do assertion failures and per-test timeouts (`--test-timeout=`, default 15 s).
+- The runner isolates **saves** (`user://test_run/saves`) and **settings** (`user://test_run/settings.cfg`) and deletes them afterwards — your real world is never touched.
+- Runner self-check (must report 3 passed, 4 failed):
+  `godot --headless --path . -s res://tests/run_tests.gd -- --dir=res://tests/fixtures/runner_selftest --test-timeout=2`
+
+## Project layout
+
+See `implementation_phases.md` Part D. Key folders: `scripts/` (code by system), `scenes/`, `data/configuration/` (all tunables), `tests/`.
