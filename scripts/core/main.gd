@@ -40,6 +40,9 @@ const FOLLOW_LEAD_MAX := 1.5
 ## People at work are heard and seen at most this often (real time).
 const WORK_EFFECT_GAP_MSEC := 350
 var _last_work_effect_msec := 0
+## Voices of people reacting to what they only saw are heard at most this often.
+const VOICE_GAP_MSEC := 220
+var _last_voice_msec := 0
 
 
 func _ready() -> void:
@@ -71,6 +74,7 @@ func _ready() -> void:
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
 	session.behavior.worked.connect(_on_person_worked)
+	session.behavior.reacted.connect(_on_person_reacted)
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
 	_begin_opening()
@@ -85,6 +89,8 @@ func _ready() -> void:
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
 	debug_overlay.register_section(&"people", _people_debug_section)
 	debug_overlay.register_section(&"doing", _doing_debug_section)
+	debug_overlay.register_section(&"perception", func() -> String:
+		return "%s  reactions %d" % [session.perception.debug_text(), session.behavior.reactions])
 	debug_overlay.register_section(&"paths", func() -> String:
 		var finder := session.pathfinder
 		return "paths: %d walking  %d queued  %.2f/frame  %d found  %d from cache  %.2f ms last" % [
@@ -634,6 +640,44 @@ func _camera_debug_section() -> String:
 ## A stroke of someone's work, made visible and audible: the tree shivers
 ## under the axe, the bush rustles. Quiet, and never more than a few a second
 ## however many are at it and however fast time runs.
+## Someone reacted to something: a small voice — theirs, by how old they are
+## — and, if it was the player's own touch that did it, a pulse.
+func _on_person_reacted(person_id: int, reaction: StringName, _interpretation: StringName, _stimulus: StringName, direct: bool) -> void:
+	var person := session.people.get_person(person_id)
+	if person == null:
+		return
+	if direct:
+		Haptics.medium()
+	var now := Time.get_ticks_msec()
+	if reaction == ReactionTable.DISMISS or reaction == ReactionTable.LISTEN \
+			or (not direct and now - _last_voice_msec < VOICE_GAP_MSEC) \
+			or world_view.people_view().view_of(person_id) == null:
+		return # nothing to say, or nobody near enough to hear it
+	_last_voice_msec = now
+	AudioManager.play_at(&"voice", world_view.people_view().ground_position(person), -3.0 if direct else -9.0,
+		voice_pitch(person, reaction))
+
+
+## How high someone's voice is: children high, elders low, and higher in
+## fright or laughter.
+func voice_pitch(person: PersonData, reaction: StringName = &"") -> float:
+	var pitch := 1.0
+	match person.life_stage(session.clock.tick, Config.time.ticks_per_year(), Config.people):
+		PersonData.LifeStage.CHILD:
+			pitch = 1.7
+		PersonData.LifeStage.ADOLESCENT:
+			pitch = 1.3
+		PersonData.LifeStage.ELDER:
+			pitch = 0.85
+	if person.sex == PersonData.Sex.FEMALE:
+		pitch *= 1.18
+	if reaction == ReactionTable.LAUGH or reaction == ReactionTable.RUN or reaction == ReactionTable.YELL:
+		pitch *= 1.15
+	elif reaction == ReactionTable.PRAY:
+		pitch *= 0.9
+	return pitch
+
+
 func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void:
 	var now := Time.get_ticks_msec()
 	if kind == &"fire" or now - _last_work_effect_msec < WORK_EFFECT_GAP_MSEC:

@@ -20,6 +20,14 @@ var rng: RandomNumberGenerator
 ## [person id, kind, target id]. (Plain data rather than a callback: a callback
 ## into the system that owns this context would keep both alive for ever.)
 var strokes: Array = []
+## The seed of the world (what a settlement's people lean toward comes from it).
+var world_seed := 0
+## What people have noticed and not yet considered: person id -> Array of
+## {"stimulus": Stimulus, "salience": float, "direct": bool, "witnesses": int}
+## (see PerceptionSystem; considered by the BehaviorSystem at their next turn).
+var perceptions: Dictionary = {}
+## People who should take their next turn at once (someone is talking to them).
+var nudges: Array[int] = []
 
 # How each person's last walk ended, until the step that asked for it has
 # looked: person id -> &"arrived" / &"blocked".

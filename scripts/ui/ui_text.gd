@@ -135,6 +135,43 @@ static func activity_phrase(activity: StringName, reason: StringName = &"") -> S
 	return "%s — %s" % [what, NEED_WORDS[reason]] if NEED_WORDS.has(reason) else what
 
 
+## What someone is doing about something they noticed (ReactionTable ids).
+const REACTION_PHRASES := {
+	&"look": "Looking about",
+	&"investigate": "Taking a closer look",
+	&"freeze": "Standing frozen",
+	&"run": "Running away",
+	&"yell": "Crying out",
+	&"laugh": "Laughing",
+	&"wave": "Waving",
+	&"pray": "Praying",
+	&"dismiss": "Shrugging it off",
+	&"tell": "Going to tell someone",
+	&"listen": "Listening",
+}
+## ...and what they make of it: "thinks …".
+const INTERPRETATION_PHRASES := {
+	&"natural": "it was nothing strange",
+	&"spirit": "a spirit is near",
+	&"deity": "a god reached down",
+	&"ancestor": "an ancestor is near",
+	&"experiment": "someone is testing them",
+	&"unknown_intelligence": "someone unseen is there",
+	&"multiple_entities": "many unseen things are there",
+	&"hallucination": "they imagined it",
+	&"physics": "an unknown force is at work",
+}
+
+
+## "Praying — thinks a spirit is near": what someone does about what they
+## noticed, and why (bible §14.4: the reaction is "a line on the person card").
+static func reaction_phrase(reaction: StringName, interpretation: StringName) -> String:
+	var doing: String = REACTION_PHRASES.get(reaction, "Startled")
+	if not INTERPRETATION_PHRASES.has(interpretation):
+		return doing
+	return "%s — thinks %s" % [doing, INTERPRETATION_PHRASES[interpretation]]
+
+
 static func need_label(need_name: StringName) -> String:
 	return NEED_LABELS.get(need_name, String(need_name).capitalize())
 

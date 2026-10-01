@@ -42,6 +42,8 @@ class Walk:
 	var speed_index := -1
 	var speed_version := -1
 	var facing := 0.0
+	## Times the usual speed (running).
+	var pace := 1.0
 	## Game minutes not walked yet (see step_in_turns).
 	var owed := 0.0
 
@@ -72,7 +74,8 @@ func bind(people: PersonRegistry, pathfinder: Pathfinder, clock: GameClock) -> v
 ## stood on), ending at `offset` on that tile. Replaces wherever they were
 ## going. False if there is no such person or no such tile; whether there is a
 ## way is reported later (arrived / blocked).
-func walk_to(person_id: int, tile: Vector2i, offset: Vector2 = Vector2(0.5, 0.5)) -> bool:
+## `pace`: times their usual walking speed (someone running).
+func walk_to(person_id: int, tile: Vector2i, offset: Vector2 = Vector2(0.5, 0.5), pace: float = 1.0) -> bool:
 	var person := _people.get_person(person_id) if _people != null else null
 	if person == null or _pathfinder == null or not _pathfinder.has_tile(tile):
 		return false
@@ -81,6 +84,7 @@ func walk_to(person_id: int, tile: Vector2i, offset: Vector2 = Vector2(0.5, 0.5)
 	walk.person_id = person_id
 	walk.target = tile
 	walk.target_offset = offset.clamp(Vector2(0.05, 0.05), Vector2(0.95, 0.95))
+	walk.pace = clampf(pace, 0.1, 5.0)
 	_walks[person_id] = walk
 	_order.insert(_order.bsearch(person_id), person_id)
 	_ask(walk, person)
@@ -243,7 +247,7 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		var to_goal := goal - at
 		var distance := to_goal.length()
 		if walk.speed_index != walk.index or walk.speed_version != _pathfinder.version:
-			walk.speed = speed_of(person, tile)
+			walk.speed = speed_of(person, tile) * walk.pace
 			walk.speed_index = walk.index
 			walk.speed_version = _pathfinder.version
 			# (The way to a tile centre is straight: the heading holds for the stretch.)

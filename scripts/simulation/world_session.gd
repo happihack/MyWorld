@@ -61,6 +61,8 @@ var movement: MovementSystem
 var activities: ActivityLibrary
 ## People living their days: needs, decisions, plans.
 var behavior: BehaviorSystem
+## Who notices what the player (and the world) does.
+var perception: PerceptionSystem
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
@@ -81,6 +83,9 @@ func _init() -> void:
 	pathfinder = Pathfinder.new()
 	movement = MovementSystem.new()
 	behavior = BehaviorSystem.new()
+	perception = PerceptionSystem.new()
+	interactions.stimulus_emitted.connect(perception.emit)
+	perception.noticed.connect(behavior.notice)
 	simulation = SimulationManager.new()
 	simulation.name = "SimulationManager"
 	add_child(simulation)
@@ -389,7 +394,9 @@ func _activate() -> void:
 	ai.activities = activities
 	ai.places = Places.new(world, props, people, pathfinder, start)
 	ai.rng = rng.stream(&"ai")
+	ai.world_seed = world_seed
 	behavior.bind(ai)
+	perception.bind(ai)
 	behavior.from_dict(_saved_behavior)
 	_saved_behavior = {}
 	simulation.tiers.low_end = GraphicsQuality.current() == GraphicsQuality.Level.LOW

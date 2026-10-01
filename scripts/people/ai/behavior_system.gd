@@ -22,6 +22,9 @@ signal activity_changed(person_id: int, activity: StringName)
 signal prompted(person_id: int)
 ## A stroke of work that can be seen and heard: kind is "tree", "bush", "fire".
 signal worked(person_id: int, kind: StringName, target_id: int)
+## A person reacted to something they noticed (bible §14.4). `stimulus` is the
+## kind of thing it was; `direct`: it happened to them.
+signal reacted(person_id: int, reaction: StringName, interpretation: StringName, stimulus: StringName, direct: bool)
 
 ## A need has to have grown this much louder (see ActivityDef.voice) since a
 ## person last weighed everything up for a look up to be worth another
@@ -41,6 +44,8 @@ const IDLE_MINUTES := 10.0
 const CALLED_MINUTES := 12.0
 
 const ACTIVITY_CALLED := &"called"
+## Reacting to something noticed: see _consider_perceptions.
+const ACTIVITY_REACT := &"react"
 const ACTIVITY_IDLE := &"idle"
 
 ## Off = everyone stands where they are (the debug "freeze AI").
@@ -54,6 +59,8 @@ var skipped := 0
 var rescues := 0
 ## How often each person has looked up from what they were doing: id -> count.
 var looked_up: Dictionary = {}
+## How many times someone has reacted to something (for the overlay).
+var reactions := 0
 
 var _steps: Dictionary = {} # step type (String) -> ActionStep
 var _begun: Dictionary = {} # person id -> the step Dictionary begin() was called for
@@ -63,12 +70,15 @@ var _loudest_then: Dictionary = {} # person id -> how loud their loudest need wa
 var _prompted: Dictionary = {} # person id -> true: weigh everything up at the next turn, whatever
 var _barred: Dictionary = {} # person id -> {activity id -> tick until which it is not tried}
 var _last: Dictionary = {} # person id -> Brain.Decision
+var _outcomes: Dictionary = {} # person id -> Reactions.Outcome: how they took the last thing they noticed
+var _reacted: Array = [] # reactions not announced yet: [id, reaction, interpretation, stimulus, direct]
 
 
 func _init() -> void:
 	for step: Array in [[WalkToStep.TYPE, WalkToStep.new()], [EatStep.TYPE, EatStep.new()],
 			[DrinkStep.TYPE, DrinkStep.new()], [SleepStep.TYPE, SleepStep.new()], [WorkStep.TYPE, WorkStep.new()],
-			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()]]:
+			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()],
+			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()]]:
 		_steps[String(step[0])] = step[1]
 
 
@@ -103,6 +113,9 @@ func unbind() -> void:
 	_barred.clear()
 	looked_up.clear()
 	_last.clear()
+	_outcomes.clear()
+	_reacted.clear()
+	reactions = 0
 
 
 # --- saving -------------------------------------------------------------------------------------
@@ -147,6 +160,12 @@ func last_decision(person_id: int) -> Brain.Decision:
 	return _last.get(person_id)
 
 
+## How the person took the last thing they noticed (null if nothing in this
+## session). For the inspector and tests.
+func last_outcome(person_id: int) -> Reactions.Outcome:
+	return _outcomes.get(person_id)
+
+
 ## How many people are doing what: activity id -> count.
 func counts() -> Dictionary:
 	var out := {}
@@ -187,10 +206,30 @@ func patience(person: PersonData) -> int:
 	return handler.patience(step_now) if handler != null else 1
 
 
-## Forgets the strokes of work not announced yet.
+## Forgets the strokes of work (and reactions) not announced yet.
 func discard_strokes() -> void:
 	if ctx != null:
 		ctx.strokes.clear()
+		ctx.nudges.clear()
+	_reacted.clear()
+
+
+## A person has noticed something (see PerceptionSystem; it is waiting in
+## AiContext.perceptions). What happened to them they consider at once;
+## anything else at their next turn, which comes at once.
+func notice(person_id: int, direct: bool) -> void:
+	var person := ctx.people.get_person(person_id) if ctx != null else null
+	if person == null:
+		return
+	if not enabled:
+		# Nobody is living: what happens now is not reacted to later.
+		ctx.perceptions.erase(person_id)
+		return
+	if direct:
+		_consider_perceptions(person)
+		_announce_reactions()
+	else:
+		prompted.emit(person_id)
 
 
 ## Makes a person look up from what they are doing at their next turn,
@@ -209,6 +248,21 @@ func announce() -> void:
 	for stroke: Array in ctx.strokes:
 		worked.emit(stroke[0], stroke[1], stroke[2])
 	ctx.strokes.clear()
+	if not ctx.nudges.is_empty():
+		var nudged := ctx.nudges.duplicate()
+		ctx.nudges.clear()
+		for id: int in nudged:
+			prompted.emit(id)
+	_announce_reactions()
+
+
+func _announce_reactions() -> void:
+	if _reacted.is_empty():
+		return
+	var told := _reacted.duplicate()
+	_reacted.clear()
+	for entry: Array in told:
+		reacted.emit(entry[0], entry[1], entry[2], entry[3], entry[4])
 
 
 ## Makes a person decide now (dropping what they are doing if something else
@@ -253,6 +307,9 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	var handler := _handler(step_now)
 	Needs.decay(person, minutes, Config.needs, ctx.stage_of(person),
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
+	# Whatever they have noticed comes before everything else.
+	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
+		return
 	if handler == null:
 		_think(person, &"")
 		return
@@ -263,12 +320,14 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 		var before := activity_of(person)
 		looked_up[person.id] = int(looked_up.get(person.id, 0)) + 1
 		var prompted := _prompted.erase(person.id)
-		if before != ACTIVITY_CALLED and not prompted and ctx.activities.get_def(before) != null \
+		# Someone called, or in the middle of reacting, is not asked what else they might do.
+		var held := before == ACTIVITY_CALLED or before == ACTIVITY_REACT
+		if not held and not prompted and ctx.activities.get_def(before) != null \
 				and (_nothing_has_changed(person, think_every) or _nothing_could_matter_more(person, step_now, handler)):
 			# A glance is enough: no need to weigh everything up.
 			_since_think[person.id] = 0.0
 			skipped += 1
-		elif before != ACTIVITY_CALLED:
+		elif not held:
 			_think(person, before)
 			if activity_of(person) != before:
 				return # something else now: it has been started
@@ -293,6 +352,68 @@ func _nothing_could_matter_more(person: PersonData, step_now: Dictionary, handle
 	var loudest := ActivityDef.voice(1.0 - person.needs[Needs.most_urgent(person.needs)])
 	var bar := float(person.current_action.get("score", 0.0)) + handler.reluctance(step_now) + Brain.HYSTERESIS
 	return ctx.activities.ceiling(loudest) <= bar
+
+
+## The person takes in what they have noticed (bible §14): the most striking
+## of it is interpreted, felt, and reacted to — in place of whatever they
+## were doing. Returns true if they are now reacting to it.
+func _consider_perceptions(person: PersonData) -> bool:
+	var pending: Variant = ctx.perceptions.get(person.id)
+	if typeof(pending) != TYPE_ARRAY:
+		return false
+	ctx.perceptions.erase(person.id)
+	var chosen: Dictionary = {}
+	for perception: Dictionary in pending:
+		if chosen.is_empty() or _outranks(perception, chosen):
+			chosen = perception
+	if chosen.is_empty():
+		return false
+	var table := Config.reactions
+	var stimulus: Stimulus = chosen["stimulus"]
+	# In the middle of reacting to something at least as striking, they do
+	# not start over (but what happens to them always gets through).
+	var busy_reacting := activity_of(person) == ACTIVITY_REACT and not bool(chosen.get("direct", false)) \
+		and float(chosen.get("salience", 0.0)) <= float(person.current_action.get("salience", 0.0))
+	var outcome: Reactions.Outcome = null
+	if not busy_reacting:
+		outcome = Reactions.respond(person, chosen, ctx, table)
+	# Each of them is an experience (counted after responding: "before" means before).
+	for perception: Dictionary in pending:
+		var seen: Stimulus = perception["stimulus"]
+		Interpretation.note_experience(person, seen.about if seen.type == Stimulus.TOLD and seen.about != &"" else seen.type)
+	if outcome == null:
+		return false
+	var second_hand := stimulus.type == Stimulus.TOLD
+	Interpretation.update_beliefs(person, outcome.interpretation,
+		lerpf(0.4, 1.0, outcome.salience) * (table.secondhand_factor if second_hand else 1.0), table)
+	_outcomes[person.id] = outcome
+	reactions += 1
+	if outcome.steps.is_empty():
+		return false
+	set_plan(person, ACTIVITY_REACT, outcome.interpretation, outcome.steps)
+	person.current_action["reaction"] = String(outcome.reaction)
+	person.current_action["stimulus"] = String(stimulus.about if second_hand else stimulus.type)
+	person.current_action["salience"] = outcome.salience
+	person.current_action["emotions"] = outcome.emotions.duplicate()
+	if stimulus.type == Stimulus.TOUCH:
+		person.set_flag(PersonData.FLAG_TOUCHED_BY_PLAYER, true)
+	_reacted.append([person.id, outcome.reaction, outcome.interpretation,
+		StringName(str(person.current_action["stimulus"])), outcome.direct])
+	return true
+
+
+## Is perception `a` more to the person than `b`? What happened to them comes
+## first, then what stood out most.
+static func _outranks(a: Dictionary, b: Dictionary) -> bool:
+	var a_direct := bool(a.get("direct", false))
+	if a_direct != bool(b.get("direct", false)):
+		return a_direct
+	return float(a.get("salience", 0.0)) > float(b.get("salience", 0.0))
+
+
+## What the person is doing about something they noticed (&"" if nothing).
+static func reaction_of(person: PersonData) -> StringName:
+	return StringName(str(person.current_action.get("reaction", ""))) if activity_of(person) == ACTIVITY_REACT else &""
 
 
 ## Carries the current step on; moves to the next when it is done; decides
@@ -377,6 +498,7 @@ func _drop(person: PersonData) -> void:
 	ctx.forget(person.id)
 	person.current_action = {}
 	person.pose = PersonData.Pose.IDLE
+	person.emote = &""
 
 
 func _handler(step_now: Dictionary) -> ActionStep:
@@ -437,4 +559,6 @@ func _on_person_removed(person_id: int) -> void:
 	_barred.erase(person_id)
 	looked_up.erase(person_id)
 	_last.erase(person_id)
+	_outcomes.erase(person_id)
+	ctx.perceptions.erase(person_id)
 	ctx.forget(person_id)

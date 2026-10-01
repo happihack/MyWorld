@@ -39,7 +39,9 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"DimLabel"
 text = "doing something"
+autowrap_mode = 3
 text_overrun_behavior = 3
+max_lines_visible = 2
 
 [node name="Mark" type="Button" parent="Content/Header"]
 unique_name_in_owner = true

@@ -38,6 +38,12 @@ const BUSY := {
 	PersonData.Pose.IDLE: 0.0, PersonData.Pose.WORK: 1.0, PersonData.Pose.EAT: 0.45,
 	PersonData.Pose.TALK: 0.22, PersonData.Pose.SLEEP: 0.0,
 }
+## What each pose makes the body show (see person_motion.gdshaderinc "act").
+const ACT := {
+	PersonData.Pose.STARTLE: 1.0, PersonData.Pose.KNEEL: 2.0, PersonData.Pose.WAVE: 3.0, PersonData.Pose.JUMP: 4.0,
+	PersonData.Pose.CROUCH: 5.0, PersonData.Pose.YELL: 6.0, PersonData.Pose.SHRUG: 7.0,
+}
+var _shown_act := -1.0
 # Standing where the person stands, turned as they are turned: nothing to do
 # until either changes (most people, most of the time).
 var _at_rest := false
@@ -113,10 +119,19 @@ func set_pose(pose: PersonData.Pose) -> void:
 	if busy != _shown_busy:
 		_shown_busy = busy
 		_body.set_instance_shader_parameter(&"busy", busy)
+	var showing: float = ACT.get(pose, 0.0)
+	if showing != _shown_act:
+		_shown_act = showing
+		_body.set_instance_shader_parameter(&"act", showing)
 
 
 func busy() -> float:
 	return _shown_busy
+
+
+## What the body is showing (0 = nothing in particular).
+func act() -> float:
+	return _shown_act
 
 
 ## Back into the pool.

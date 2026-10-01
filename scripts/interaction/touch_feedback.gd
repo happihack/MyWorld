@@ -23,7 +23,7 @@ const CUES := {
 	InteractionResponse.LOG_KNOCK: [&"knock", -7.0, 0.85, LIGHT],
 	InteractionResponse.NUDGE: [&"thud", -12.0, 1.6, LIGHT],
 	InteractionResponse.TREE_UPROOT: [&"rustle", -2.0, 0.7, MEDIUM],
-	InteractionResponse.PERSON_TOUCH: [&"click", -9.0, 1.35, LIGHT],
+	InteractionResponse.PERSON_TOUCH: [&"click", -9.0, 1.35, MEDIUM],
 }
 
 

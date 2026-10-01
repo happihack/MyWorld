@@ -157,6 +157,24 @@ func refresh() -> void:
 
 # --- what is said about a person ----------------------------------------------------------------
 
+## How a person took something they noticed: what it was, what they made of
+## it (with the runners-up), what they felt and what they did.
+static func describe_outcome(outcome: Reactions.Outcome) -> String:
+	var made := PackedStringArray()
+	var ids: Array = outcome.interpretation_scores.keys()
+	ids.sort_custom(func(a: StringName, b: StringName) -> bool:
+		var sa: float = outcome.interpretation_scores[a]
+		var sb: float = outcome.interpretation_scores[b]
+		return sa > sb or (sa == sb and String(a) < String(b)))
+	for id: StringName in ids.slice(0, 4):
+		made.append("%s %.2f%s" % [id, float(outcome.interpretation_scores[id]), "*" if id == outcome.interpretation else ""])
+	var felt := PackedStringArray()
+	for emotion in mini(outcome.emotions.size(), ReactionTable.EMOTION_COUNT):
+		felt.append("%s %.2f" % [String(ReactionTable.EMOTION_NAMES[emotion]).left(3), outcome.emotions[emotion]])
+	return "noticed: %s%s  salience %.2f -> %s%s\n  made of it: %s\n  felt: %s" % [outcome.stimulus.type,
+		" (direct)" if outcome.direct else "", outcome.salience, outcome.reaction, " +tell" if outcome.tells else "",
+		"  ".join(made), "  ".join(felt)]
+
 ## Everything the inspector shows about `person`, as text.
 static func describe(session: WorldSession, person: PersonData) -> String:
 	var lines := PackedStringArray()
@@ -173,8 +191,12 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	var activity := BehaviorSystem.activity_of(person)
 	var since := now - int(person.current_action.get("since", now))
 	lines.append("doing: %s  (%s, for %d min, begun at %.2f)" % [
-		UIText.activity_phrase(activity, BehaviorSystem.reason_of(person)) if activity != &"" else "nothing",
+		PersonCard.activity_line(person) if activity != &"" else "nothing",
 		activity, since, float(person.current_action.get("score", 0.0))])
+	# How they took the last thing they noticed.
+	var outcome := session.behavior.last_outcome(person.id)
+	if outcome != null:
+		lines.append(describe_outcome(outcome))
 	var steps: Variant = person.current_action.get("steps")
 	if typeof(steps) == TYPE_ARRAY:
 		var index := int(person.current_action.get("index", 0))

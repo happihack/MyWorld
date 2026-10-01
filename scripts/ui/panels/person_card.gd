@@ -267,13 +267,24 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 		"stage": stage,
 		"age": UIText.age_text(person.age_years(now, year)),
 		"occupation": UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage),
-		"activity": UIText.activity_phrase(doing, BehaviorSystem.reason_of(person)) if doing != &"" else UIText.ACTIVITY_NAMES[&"idle"],
+		"activity": activity_line(person),
 		"mood": UIText.mood_word(person.mood, person.stress),
 		"needs": Needs.sanitized(person.needs, person.id),
 		"traits": UIText.trait_words(person.traits),
 		"marked": person.has_flag(PersonData.FLAG_MARKED_IMPORTANT),
 		"family": family,
 	}
+
+
+## What the person is doing and why, in a line. Someone reacting to
+## something: what they do about it and what they make of it.
+static func activity_line(person: PersonData) -> String:
+	var doing := BehaviorSystem.activity_of(person)
+	if doing == BehaviorSystem.ACTIVITY_REACT:
+		return UIText.reaction_phrase(BehaviorSystem.reaction_of(person), BehaviorSystem.reason_of(person))
+	if doing == &"":
+		return UIText.ACTIVITY_NAMES[&"idle"]
+	return UIText.activity_phrase(doing, BehaviorSystem.reason_of(person))
 
 
 # --- internals ----------------------------------------------------------------------------------
@@ -330,11 +341,15 @@ static func _on_style() -> StyleBoxFlat:
 ## middle one; a drag up or down goes a height up or down (down from the
 ## shortest closes the card).
 func _on_header_input(event: InputEvent) -> void:
+	# On a touch screen every touch arrives twice: as itself and as the mouse
+	# it is made to stand in for. One of them is enough.
+	if (event is InputEventMouse) and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
 	var y := NAN
 	var pressed := false
 	var released := false
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-		y = (event as InputEventMouseButton).global_position.y
+		y = (event as InputEventMouseButton).position.y
 		pressed = (event as InputEventMouseButton).pressed
 		released = not pressed
 	elif event is InputEventScreenTouch:
@@ -342,11 +357,14 @@ func _on_header_input(event: InputEvent) -> void:
 		pressed = (event as InputEventScreenTouch).pressed
 		released = not pressed
 	elif event is InputEventMouseMotion and not is_nan(_press_y):
-		y = (event as InputEventMouseMotion).global_position.y
+		y = (event as InputEventMouseMotion).position.y
 	elif event is InputEventScreenDrag and not is_nan(_press_y):
 		y = (event as InputEventScreenDrag).position.y
 	if is_nan(y):
 		return
+	# Positions come relative to the header, which moves as the card grows:
+	# measured on the screen, a still finger stays still.
+	y += _header.global_position.y
 	if pressed:
 		_press_y = y
 		_dragged = false

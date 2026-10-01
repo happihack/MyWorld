@@ -17,6 +17,21 @@ const RING_RADIUS := 0.34
 const RING_MIN_ON_SCREEN := 20.0
 const RING_COLOR := Color(1.0, 0.86, 0.45, 0.95)
 const RING_LIFT := 0.04
+## The signs above people's heads (bible §14.4): what they feel, at a glance.
+const EMOTES := {
+	&"exclaim": preload("res://assets/ui/emotes/exclaim.svg"),
+	&"question": preload("res://assets/ui/emotes/question.svg"),
+	&"pray": preload("res://assets/ui/emotes/pray.svg"),
+	&"speech": preload("res://assets/ui/emotes/speech.svg"),
+	&"note": preload("res://assets/ui/emotes/note.svg"),
+	&"dots": preload("res://assets/ui/emotes/dots.svg"),
+}
+## How large a sign is in the world, and the least it is on screen (viewport
+## units): readable from the middle distance.
+const EMOTE_SIZE := 0.22
+const EMOTE_MIN_ON_SCREEN := 46.0
+## A sign pops up in this long.
+const EMOTE_POP_SECONDS := 0.18
 ## The dots of an observed person's way.
 const TRAIL_DOT := 0.09
 const TRAIL_COLOR := Color(1.0, 0.92, 0.66, 0.85)
@@ -67,6 +82,10 @@ var _outline_material: ShaderMaterial
 var _selected_id := 0
 var _ring: MeshInstance3D
 var _trail: MultiMeshInstance3D
+var _emote_root: Node3D
+var _emote_sprites: Dictionary = {} # person id -> Sprite3D
+var _emote_ages: Dictionary = {} # person id -> seconds shown
+var _emote_spare: Array[Sprite3D] = []
 var _marker_transforms: Array[Transform3D] = [] # as written to the MultiMesh (for queries)
 var _bodies_shown := true
 var _refreshes := 0
@@ -91,6 +110,9 @@ func _init() -> void:
 	add_child(_pool)
 	_build_markers()
 	_build_selection()
+	_emote_root = Node3D.new()
+	_emote_root.name = "Emotes"
+	add_child(_emote_root)
 
 
 ## `rig` is the camera people are seen through; `accessory_material` draws what
@@ -108,6 +130,72 @@ func body_material() -> ShaderMaterial:
 ## The same material with the outline after it (the selected person's).
 func selected_material() -> ShaderMaterial:
 	return _selected_material
+
+
+# --- signs above heads --------------------------------------------------------------------------
+
+## The sign shown above a person right now (&"" if none).
+func emote_of(person_id: int) -> StringName:
+	var sprite: Sprite3D = _emote_sprites.get(person_id)
+	return sprite.get_meta(&"emote", &"") if sprite != null else &""
+
+
+func emote_sprite(person_id: int) -> Sprite3D:
+	return _emote_sprites.get(person_id)
+
+
+func emote_count() -> int:
+	return _emote_sprites.size()
+
+
+func _show_emote(person_id: int, emote: StringName, head: Vector3, size: float, delta: float) -> void:
+	var texture: Texture2D = EMOTES.get(emote)
+	if texture == null:
+		if _emote_sprites.has(person_id):
+			_drop_emote(person_id)
+		return
+	var sprite: Sprite3D = _emote_sprites.get(person_id)
+	if sprite == null:
+		sprite = _emote_spare.pop_back() if not _emote_spare.is_empty() else _new_emote_sprite()
+		sprite.visible = true
+		_emote_sprites[person_id] = sprite
+		_emote_ages[person_id] = 0.0
+	if sprite.get_meta(&"emote", &"") != emote:
+		sprite.set_meta(&"emote", emote)
+		sprite.texture = texture
+		sprite.pixel_size = 1.0 / maxf(texture.get_height(), 1.0) # one unit tall, scaled below
+		_emote_ages[person_id] = 0.0 # a new sign pops up anew
+	var age: float = float(_emote_ages[person_id]) + delta
+	_emote_ages[person_id] = age
+	# Pops up: a little too large, then to size.
+	var grown := 1.0
+	if not reduced_motion and age < EMOTE_POP_SECONDS:
+		var t := age / EMOTE_POP_SECONDS
+		grown = lerpf(0.3, 1.0, t) + sin(t * PI) * 0.35
+	sprite.scale = Vector3.ONE * size * grown
+	sprite.position = head + Vector3(0, size * 0.62, 0)
+
+
+func _drop_emote(person_id: int) -> void:
+	var sprite: Sprite3D = _emote_sprites.get(person_id)
+	_emote_sprites.erase(person_id)
+	_emote_ages.erase(person_id)
+	if sprite != null:
+		sprite.visible = false
+		sprite.set_meta(&"emote", &"")
+		_emote_spare.append(sprite)
+
+
+func _new_emote_sprite() -> Sprite3D:
+	var sprite := Sprite3D.new()
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.shaded = false
+	sprite.no_depth_test = true # a sign is never hidden behind a tree
+	sprite.render_priority = 8
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_emote_root.add_child(sprite)
+	return sprite
 
 
 # --- selection ----------------------------------------------------------------------------------
@@ -175,6 +263,8 @@ func clear() -> void:
 	for view in _pool.get_children():
 		(view as PersonView).unbind()
 	_ids.clear()
+	for id: int in _emote_sprites.keys():
+		_drop_emote(id)
 	_selected_id = 0
 	_ring.visible = false
 	show_trail(PackedVector3Array())
@@ -241,6 +331,12 @@ func refresh(delta: float) -> void:
 		elif view != null:
 			view.unbind()
 			_pool.release(id)
+		if person.emote != &"" and not indoors:
+			var head := (view.position if view != null and wants_view else feet) \
+				+ Vector3(0, PersonMeshLibrary.ADULT_HEIGHT * (view.scale.y / PersonMeshLibrary.ADULT_HEIGHT if view != null and wants_view else 1.0), 0)
+			_show_emote(id, person.emote, head, maxf(EMOTE_SIZE, EMOTE_MIN_ON_SCREEN * units_per_px), delta)
+		elif _emote_sprites.has(id):
+			_drop_emote(id)
 		if _marker_alpha > 0.0 and not indoors:
 			# The marker floats above the head — of the view, if there is one, so
 			# that marker and body move as one.
@@ -253,6 +349,10 @@ func refresh(delta: float) -> void:
 			marked += 1
 	multimesh.visible_instance_count = marked
 	_markers.visible = marked > 0
+	if _emote_sprites.size() > 0:
+		for id: int in _emote_sprites.keys():
+			if not _people.has_person(id):
+				_drop_emote(id)
 	_marker_material.albedo_color.a = _marker_alpha
 	# The ring under whoever is selected: with their body, or where they are
 	# if they have none (far away) — and never smaller than can be seen.

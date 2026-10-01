@@ -20,6 +20,8 @@ signal responded(response: InteractionResponse)
 ## An intervention was carried out (and, unless it is part of a longer act,
 ## recorded in the history).
 signal intervention_applied(intervention: Intervention)
+## What an intervention gives off for the inhabitants to notice (bible §14.1).
+signal stimulus_emitted(stimulus: Stimulus)
 
 ## Things the player can choose to do with a target (context menu).
 const ACTION_INSPECT := &"inspect"
@@ -153,6 +155,9 @@ func apply_intervention(iv: Intervention) -> Intervention:
 		history.record(iv)
 		EventBus.intervention_applied.emit(iv.id)
 	intervention_applied.emit(iv)
+	var stimulus := Stimulus.from_intervention(iv, Config.reactions)
+	if stimulus != null:
+		stimulus_emitted.emit(stimulus)
 	return iv
 
 

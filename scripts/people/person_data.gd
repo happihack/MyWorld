@@ -18,7 +18,8 @@ const FLAG_QUARANTINED := 1 << 3
 const FLAG_INDOORS := 1 << 4
 
 ## How someone holds themselves while doing something (what the view shows).
-enum Pose { IDLE, WORK, EAT, TALK, SLEEP }
+## (Plans store poses by number: append, never reorder.)
+enum Pose { IDLE, WORK, EAT, TALK, SLEEP, STARTLE, KNEEL, WAVE, JUMP, CROUCH, YELL, SHRUG }
 
 ## How many skin, hair and clothing colours an appearance can index (the
 ## palettes themselves belong to the rendering, M4.2).
@@ -72,6 +73,8 @@ var facing := 0.0
 var sim_tier := 3
 ## Runtime only: set by whatever they are doing, shown by their view.
 var pose: Pose = Pose.IDLE
+## Runtime only: the sign above their head (&"" = none; see PeopleView.EMOTES).
+var emote: StringName = &""
 var significance := 0.0
 var flags := 0
 ## Body and colours: "height" and "build" (scale factors), "skin", "hair" and

@@ -403,12 +403,39 @@ func test_the_card_grows_and_shrinks() -> void:
 	await wait_frames(2)
 	assert_eq(main.selected_person_id(), 0)
 	assert_eq(selected, [person.id, -1])
+	# On a touch screen each touch also arrives as the mouse it stands in for
+	# (elsewhere on the screen, as the header sees it): that one is ignored.
+	main.select_person(person.id)
+	await wait_frames(2)
+	card = ui.person_card()
+	header = card.get_node("%Header") as Control
+	at = header.get_global_rect().get_center()
+	for pressed: bool in [true, false]:
+		var stand_in := InputEventMouseButton.new()
+		stand_in.device = InputEvent.DEVICE_ID_EMULATION
+		stand_in.button_index = MOUSE_BUTTON_LEFT
+		stand_in.pressed = pressed
+		stand_in.position = at
+		stand_in.global_position = at
+		header.gui_input.emit(stand_in)
+		_header_touch(header, at, pressed)
+	assert_false(card.is_closing(), "a tap does not close the card")
+	assert_eq(card.state(), PersonCard.State.HALF, "it opens it")
+	# A real mouse (desktop) works the handle too.
+	for pressed: bool in [true, false]:
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = pressed
+		click.position = at - header.global_position
+		header.gui_input.emit(click)
+	assert_eq(card.state(), PersonCard.State.PEEK)
+	card.close()
 
 
 func _header_touch(header: Control, at: Vector2, pressed: bool) -> void:
 	var t := InputEventScreenTouch.new()
 	t.index = 0
-	t.position = at
+	t.position = at - header.global_position # (as the header gets them: relative to itself)
 	t.pressed = pressed
 	header.gui_input.emit(t)
 
@@ -416,7 +443,7 @@ func _header_touch(header: Control, at: Vector2, pressed: bool) -> void:
 func _header_drag(header: Control, to: Vector2) -> void:
 	var d := InputEventScreenDrag.new()
 	d.index = 0
-	d.position = to
+	d.position = to - header.global_position
 	header.gui_input.emit(d)
 
 

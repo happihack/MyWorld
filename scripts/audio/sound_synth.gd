@@ -17,7 +17,7 @@ const WIND_SECONDS := 3.0
 ## Every sound this class can make.
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
-	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind",
+	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice",
 ]
 
 
@@ -82,6 +82,9 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _finish(_blip(880.0, 590.0, 0.07), 0.4)
 		&"wind":
 			return _wind(rng)
+		&"voice":
+			# A small "oh!": up, and down again. (Pitched per person when played.)
+			return _finish(_whistles(0.24, [[0.0, 0.09, 430.0, 600.0], [0.11, 0.12, 600.0, 390.0]]), 0.55)
 	return PackedFloat32Array()
 
 
