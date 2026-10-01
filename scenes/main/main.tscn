@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/app_lifecycle.gd" id="2_lifecycle"]
 [ext_resource type="Script" path="res://scripts/simulation/world_session.gd" id="3_session"]
 [ext_resource type="Script" path="res://scripts/ui/ui_root.gd" id="4_uiroot"]
+[ext_resource type="Script" path="res://scripts/interaction/input_router.gd" id="5_router"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -13,6 +14,9 @@ script = ExtResource("2_lifecycle")
 
 [node name="WorldSession" type="Node" parent="."]
 script = ExtResource("3_session")
+
+[node name="InputRouter" type="Node" parent="."]
+script = ExtResource("5_router")
 
 [node name="WorldView" type="Node3D" parent="."]
 
@@ -67,3 +71,14 @@ theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 0.4)
 theme_override_font_sizes/font_size = 24
 text = "v?"
 horizontal_alignment = 2
+
+[node name="GestureDebugLabel" type="Label" parent="UIRoot"]
+unique_name_in_owner = true
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 1056.0
+offset_bottom = 120.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 0.75)
+theme_override_font_sizes/font_size = 28
+text = "gesture: -"

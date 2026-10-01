@@ -4,9 +4,11 @@ extends Node
 
 @onready var session: WorldSession = $WorldSession
 @onready var ui_root: UIRoot = $UIRoot
+@onready var input_router: InputRouter = $InputRouter
 
 
 func _ready() -> void:
 	session.create_new()
 	ui_root.bind_session(session)
+	input_router.gesture_recognized.connect(ui_root.show_gesture)
 

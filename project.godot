@@ -16,9 +16,9 @@ config/version="0.0.1"
 run/main_scene="res://scenes/main/boot.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
 boot_splash/bg_color=Color(0.113725, 0.141176, 0.188235, 1)
 boot_splash/show_image=false
+config/icon="res://icon.svg"
 
 [autoload]
 
@@ -36,6 +36,10 @@ window/size/window_height_override=768
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=6
+
+[dotnet]
+
+project/assembly_name="My World in a Box"
 
 [input]
 
@@ -93,6 +97,6 @@ common/physics_ticks_per_second=30
 
 [rendering]
 
-environment/defaults/default_clear_color=Color(0.113725, 0.141176, 0.188235, 1)
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.113725, 0.141176, 0.188235, 1)

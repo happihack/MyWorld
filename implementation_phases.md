@@ -278,10 +278,21 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - [x] No launch flash: boot splash image off, splash bg colour and default clear colour = UI background colour.
 - **Verified:** headless smoke 21/21 PASS (clock math/clamp/pause/speeds/roundtrip/sanitizing; session create/save-dict/load/rng continuation/invalid data/unique ids/signals; real Boot → Main flow ticking in real time; back button); windowed Boot → Main → world closed on exit, no errors.
 
-### M0.4 Input foundation
-- [ ] `scripts/interaction/gesture_recognizer.gd` (RefCounted, pure logic, testable): consumes touch events (index, position, pressed, time) → emits gesture results: `TAP`, `DOUBLE_TAP`, `LONG_PRESS`, `DRAG_START/DRAG/DRAG_END`, `PINCH(scale, focal)`, `TWO_FINGER_DRAG`, `SWIPE(velocity)`. Thresholds from `InteractionConfig` (B§33). dp → px via `DisplayServer.screen_get_dpi()` ⚠ with fallback.
-- [ ] `scripts/interaction/input_router.gd` (Node): `_unhandled_input` → feeds recognizer → dispatches to handlers; UI gets first chance (Control nodes consume).
-- [ ] Debug label shows last recognized gesture (proves touch works on device).
+### M0.4 Input foundation — ✅ DONE (2026-09-30)
+- [x] `scripts/interaction/gesture.gd` (`Gesture`): type enum (TAP, DOUBLE_TAP, LONG_PRESS, DRAG_START/DRAG/DRAG_END, SWIPE, MULTI_START, PINCH, TWO_FINGER_DRAG, TWIST, MULTI_END, THREE_FINGER_TAP) + position, start_position, delta, velocity, scale, angle, touch_count, `hold_ms`, `after_multi`, `long_pressed`, `cancelled`.
+- [x] `scripts/interaction/gesture_recognizer.gd` (`GestureRecognizer`, RefCounted, pure — driven by `(index, pos, time_ms)` so tests use exact timelines). Thresholds from `InteractionConfig` in dp × `units_per_dp`. Policies:
+  - TAP fires **immediately** on release; the 2nd tap of a quick nearby pair fires DOUBLE_TAP instead (no added latency).
+  - Long press via `update(now)`; no TAP after a long press.
+  - DRAG_START carries `hold_ms` (lets the M3 HAND tool distinguish grab vs pan).
+  - Release velocity averaged over the last 100 ms of movement; a rested finger never flings. SWIPE when ≥ `swipe_min_velocity_dp_s`.
+  - 2nd finger cancels a drag (DRAG_END cancelled) → MULTI_START; PINCH (incremental scale), TWO_FINGER_DRAG (centroid delta), TWIST (incremental angle).
+  - Lifting one finger of a pinch: the remaining finger may continue as an `after_multi` drag after slop; never a tap/long press/swipe.
+  - THREE_FINGER_TAP (for the device debug overlay toggle).
+  - `cancel_all()` for focus loss/pause/rotation; missed releases closed safely.
+- [x] `scripts/interaction/input_router.gd` (`InputRouter`, node in Main): ScreenTouch/ScreenDrag → recognizer; **ignores touch-emulated mouse events** (`device == DEVICE_ID_EMULATION`); touches starting on a visible Control in group **`ui_blocker`** never reach the world; desktop extras: wheel = PINCH at cursor, right-drag = TWO_FINGER_DRAG; cancels on pause/focus loss/resize; `units_per_dp` from screen dpi + stretch scale, clamped to [0.25, 8] and logged (1.5 on a 96-dpi desktop window).
+- [x] Debug label (debug builds only) in UIRoot shows the last gesture with details (hold ms, velocity, pinch scale, twist angle).
+- **Verified:** headless smoke 29/29 PASS — 21 recognizer timelines (tap, double/non-double taps, long press, slop, deltas, rest vs fling, swipe, hold-then-drag, pinch, drag cancel, after-multi drag, twist, 3-finger tap + moved variant, cancel, missed release, leftover finger) + router via real pushed InputEvents (tap, ui_blocker, emulated-mouse ignore, wheel, right-drag) + Main wiring; windowed run clean.
+- **To try on desktop:** run the project, click (tap), double-click, hold (long press), drag, flick, mouse-wheel, right-drag — the top-left label shows each gesture. Multi-touch needs a device (M0.8).
 
 ### M0.5 Debug overlay v0
 - [ ] `scenes/debug/debug_overlay.tscn`: FPS, frame ms (`Performance.get_monitor`), static memory, draw calls, build type, world tick, last gesture. Toggle with F3 / 3-finger tap on device.
