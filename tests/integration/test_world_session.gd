@@ -43,7 +43,7 @@ func test_roundtrip_restores_state_and_rng() -> void:
 	var s := _new_session()
 	s.create_new(777)
 	_advance_ticks(s, 2)
-	s.ids.next_id()
+	var created_id := s.ids.next_id()
 	s.rng.stream(&"terrain").randi()
 	s.clock.set_speed(GameClock.SPEED_FAST)
 	var data := s.to_dict()
@@ -53,7 +53,7 @@ func test_roundtrip_restores_state_and_rng() -> void:
 	assert_eq(s2.world_id, s.world_id)
 	assert_eq(s2.clock.tick, 2)
 	assert_eq(s2.clock.speed_index, GameClock.SPEED_FAST)
-	assert_eq(s2.ids.peek(), 2)
+	assert_eq(s2.ids.peek(), created_id + 1, "ids continue after the world's own props")
 	assert_eq(s2.rng.stream(&"terrain").randi(), expected_next)
 
 

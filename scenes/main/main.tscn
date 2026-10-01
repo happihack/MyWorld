@@ -1,4 +1,4 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=8 format=3]
 
 [ext_resource type="Script" path="res://scripts/core/main.gd" id="1_main"]
 [ext_resource type="Script" path="res://scripts/core/app_lifecycle.gd" id="2_lifecycle"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/ui/ui_root.gd" id="4_uiroot"]
 [ext_resource type="Script" path="res://scripts/interaction/input_router.gd" id="5_router"]
 [ext_resource type="PackedScene" path="res://scenes/debug/debug_overlay.tscn" id="6_overlay"]
+[ext_resource type="Script" path="res://scripts/rendering/world_view.gd" id="7_worldview"]
 
 [node name="Main" type="Node"]
 script = ExtResource("1_main")
@@ -20,39 +21,10 @@ script = ExtResource("3_session")
 script = ExtResource("5_router")
 
 [node name="WorldView" type="Node3D" parent="."]
+script = ExtResource("7_worldview")
 
 [node name="UIRoot" type="CanvasLayer" parent="."]
 script = ExtResource("4_uiroot")
-
-[node name="Title" type="Label" parent="UIRoot"]
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 1)
-theme_override_font_sizes/font_size = 72
-text = "My World in a Box"
-horizontal_alignment = 1
-vertical_alignment = 1
-autowrap_mode = 3
-
-[node name="Subtitle" type="Label" parent="UIRoot"]
-anchors_preset = 12
-anchor_top = 1.0
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_top = -200.0
-offset_bottom = -120.0
-grow_horizontal = 2
-grow_vertical = 0
-mouse_filter = 2
-theme_override_colors/font_color = Color(0.784314, 0.631373, 0.396078, 1)
-theme_override_font_sizes/font_size = 36
-text = "Something lives inside."
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="VersionLabel" type="Label" parent="UIRoot"]
 unique_name_in_owner = true

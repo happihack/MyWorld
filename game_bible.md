@@ -255,7 +255,7 @@ A bible needs a consistent hidden truth so that clues and mysteries never contra
 | Unit | Definition |
 |---|---|
 | **Tile** | 1 × 1 world unit on the XZ plane; the atomic cell for terrain, water, soil, vegetation, occupancy |
-| **Height level** | Integer 0–15 per tile (stepped "diorama block" look); 1 level = 0.25 world units vertical (tunable) |
+| **Height level** | Integer 0–15 per tile (stepped "diorama block" look); 1 level = 0.4 world units vertical (tunable; 0.25 looked too flat in M1.3) |
 | **Chunk** | 16 × 16 tiles; the unit of storage, streaming, meshing, simulation-tiering and saving |
 | **World coordinates** | `Vector2i` tile coordinates, may be negative; chunk coordinate = floor(tile / 16) |
 | **Region** | A named cluster of chunks (valley, mountains, coast) derived from terrain + inhabitant naming (§19.5) |
@@ -1500,7 +1500,7 @@ Data structures (events with causes, memories with structured params, lexicon) a
 | `world_config.tres` | chunk_size | 16 |
 | | initial_world_tiles | 64 (slice: 32) |
 | | max_world_tiles | 512 |
-| | height_levels / height_step | 16 / 0.25 |
+| | height_levels / height_step | 16 / 0.4 |
 | `sim_config.tres` | tier3_cap (high/low device) | 64 / 32 |
 | | ai_think_interval_ticks (T4/T3/T2) | 1 / 3 / 15 |
 | | water_step_hz / water_budget_ms | 10 / 1.5 |
@@ -1570,3 +1570,4 @@ Data structures (events with causes, memories with structured params, lexicon) a
 ### Changelog
 - **v1.0 (2026-09-30):** Initial bible consolidated from `my_world.txt` and `my_world_plan.txt`; proposed decisions D-01…D-14.
 - **v1.1 (2026-09-30):** D-01 confirmed — 3D stepped-tile diorama. M0.1 complete.
+- **v1.2 (2026-09-30):** Height step 0.25 → 0.4 world units per level (decided from M1.3 renders).

@@ -11,6 +11,8 @@ extends RefCounted
 const DEFAULT_HEIGHT := 0
 
 var chunk_size: int
+## World units of vertical rise per height level (from WorldConfig at creation).
+var height_step: float = 0.25
 ## Box interior in tiles (grows when the box unfolds).
 var bounds: Rect2i
 ## Callable(coord: Vector2i) -> ChunkData. Must be deterministic.
@@ -30,9 +32,11 @@ func _init(tile_bounds: Rect2i = Rect2i(), world_chunk_size: int = 16) -> void:
 
 ## A world of size x size tiles centred on the origin (size must be a multiple
 ## of the chunk size so the walls sit on chunk borders).
-static func create_centered(size_tiles: int, world_chunk_size: int) -> WorldData:
+static func create_centered(size_tiles: int, world_chunk_size: int, world_height_step: float = 0.25) -> WorldData:
 	var half := size_tiles / 2
-	return WorldData.new(Rect2i(-half, -half, size_tiles, size_tiles), world_chunk_size)
+	var world := WorldData.new(Rect2i(-half, -half, size_tiles, size_tiles), world_chunk_size)
+	world.height_step = world_height_step
+	return world
 
 
 ## Installs a generator object (anything with `generate_chunk(coord) -> ChunkData`)
@@ -178,7 +182,7 @@ func to_dict() -> Dictionary:
 	var chunks: Array = []
 	for chunk in modified_chunks():
 		chunks.append(chunk.to_dict())
-	return {"chunk_size": chunk_size, "bounds": bounds, "chunks": chunks}
+	return {"chunk_size": chunk_size, "height_step": height_step, "bounds": bounds, "chunks": chunks}
 
 
 ## Restores bounds and modified chunks. Invalid chunk records are skipped (the
@@ -190,6 +194,7 @@ func from_dict(data: Dictionary) -> int:
 	if int(data["chunk_size"]) < 1:
 		return -1
 	chunk_size = data["chunk_size"]
+	height_step = float(data.get("height_step", height_step))
 	bounds = data["bounds"]
 	_chunks.clear()
 	var skipped := 0

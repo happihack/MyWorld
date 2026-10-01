@@ -270,7 +270,7 @@ func _sample(x: int, y: int, river_x: int, river_half: int, out: PackedInt32Arra
 		terrain = ChunkData.Terrain.SNOW
 	elif level >= template.rock_level:
 		terrain = ChunkData.Terrain.ROCK
-	elif HashNoise.value2(x, y, 9, _salt_dirt) > HashNoise.ONE * 72 / 100:
+	elif HashNoise.fbm2(x, y, 12, 3, _salt_dirt) > HashNoise.ONE * 66 / 100:
 		terrain = ChunkData.Terrain.DIRT
 	else:
 		terrain = ChunkData.Terrain.GRASS

@@ -4,6 +4,7 @@ extends Node
 ## cannot be loaded, it starts a new world (broken saves are left untouched).
 
 @onready var session: WorldSession = $WorldSession
+@onready var world_view: WorldView = $WorldView
 @onready var ui_root: UIRoot = $UIRoot
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
@@ -11,6 +12,7 @@ extends Node
 
 func _ready() -> void:
 	_open_world()
+	world_view.show_world(session.world)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
@@ -37,11 +39,18 @@ func _open_world() -> void:
 func _world_debug_section() -> String:
 	if not session.is_active:
 		return "world: none"
-	return "world tick %d  speed %s  seed %d" % [
+	var clock_line := "world tick %d  speed %s  seed %d" % [
 		session.clock.tick,
 		session.clock.speed_multiplier(),
 		session.world_seed,
 	]
+	var world_line := "%dx%d tiles  %d chunks  %d props  settlement %s" % [
+		session.world.bounds.size.x, session.world.bounds.size.y,
+		session.world.loaded_chunks().size(),
+		session.props.size(),
+		session.start.settlement_tile,
+	]
+	return clock_line + "\n" + world_line
 
 
 func _save_debug_section() -> String:

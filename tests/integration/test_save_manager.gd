@@ -129,7 +129,7 @@ func test_back_to_back_lifecycle_saves_are_deduplicated() -> void:
 	var files := Array(DirAccess.get_files_at(_dir()))
 	assert_false(files.has("world.sav.bak1"), "no duplicate rotated into the backups")
 	assert_true(SaveManager.save_world(session, &"manual"), "explicit save_world always saves")
-	await wait_seconds(Config.save.min_save_gap_ms / 1000.0 + 0.1)
+	await wait_real_ms(Config.save.min_save_gap_ms + 100)
 	EventBus.save_completed.connect(cb)
 	EventBus.app_paused.emit()
 	EventBus.save_completed.disconnect(cb)

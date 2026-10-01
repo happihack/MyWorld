@@ -21,8 +21,9 @@ const RUIN_MIN_DISTANCE := 18
 
 ## A person can step between tiles whose heights differ by at most this.
 const MAX_STEP_LEVELS := 1
-## Water deeper than this (world units) cannot be waded.
-const WADE_DEPTH := 0.15
+## Water deeper than this many height levels cannot be waded (banks are ~0.4
+## levels deep, the river bed ~1.4).
+const WADE_DEPTH_LEVELS := 0.6
 
 ## validate() requirements.
 const MIN_BUILDABLE_TILES := 150
@@ -161,7 +162,7 @@ static func validate(world: WorldData, props: PropRegistry, settlement_tile: Vec
 
 ## Can a person stand here? (Dry or shallow water; props do not block yet.)
 static func is_walkable(world: WorldData, tile: Vector2i) -> bool:
-	return world.is_in_bounds(tile) and world.get_water(tile) <= WADE_DEPTH
+	return world.is_in_bounds(tile) and world.get_water(tile) <= WADE_DEPTH_LEVELS * world.height_step
 
 
 static func can_step(world: WorldData, from: Vector2i, to: Vector2i) -> bool:

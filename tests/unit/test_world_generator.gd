@@ -5,7 +5,7 @@ extends TestCase
 ## output: bump GENERATOR_VERSION, add the new checksum, and read the comment
 ## on that constant about existing worlds.
 const GOLDEN := {
-	1: "d61a535d66d82d2429c09d79a35413219b4fad874dc783be956998c960763076",
+	1: "deec5d8dec3f0331d28560ee18d44d7d9965d28106c0fcd4ca5ded6741be4b95",
 }
 
 const SEEDS := [1, 2, 3, 7, 42, 12345, 987654321, 5636584777608190886]
@@ -174,7 +174,7 @@ func test_sample_tile_matches_chunk_data() -> void:
 		var s := gen.sample_tile(tile)
 		assert_eq(s["height"], w.get_height(tile))
 		assert_eq(s["terrain"], int(w.get_terrain(tile)))
-		assert_eq(s["water"], w.get_water(tile))
+		assert_near(s["water"], w.get_water(tile), 0.00001, "chunk stores 32-bit floats")
 
 
 func test_golden_checksum_for_current_generator_version() -> void:

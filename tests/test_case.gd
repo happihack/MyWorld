@@ -96,6 +96,15 @@ func wait_seconds(seconds: float) -> void:
 	await get_tree().create_timer(seconds).timeout
 
 
+## Waits until this much REAL time has passed. Scene timers count frame deltas,
+## so after a long frame (e.g. world generation) they can fire early; use this
+## when the code under test measures real time (Time.get_ticks_msec()).
+func wait_real_ms(milliseconds: int) -> void:
+	var deadline := Time.get_ticks_msec() + milliseconds
+	while Time.get_ticks_msec() < deadline:
+		await get_tree().process_frame
+
+
 ## Recursively deletes a user:// directory (test cleanup only).
 static func remove_dir_recursive(dir_path: String) -> void:
 	if not DirAccess.dir_exists_absolute(dir_path):

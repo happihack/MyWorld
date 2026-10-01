@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="TerrainPalette" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/config_types/terrain_palette.gd" id="1_uyakx"]
+
+[resource]
+script = ExtResource("1_uyakx")

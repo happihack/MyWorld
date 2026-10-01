@@ -8,7 +8,7 @@ extends ConfigBase
 @export_range(16, 4096) var max_world_tiles: int = 512
 @export_range(2, 255) var height_levels: int = 16
 ## World units of vertical rise per height level.
-@export_range(0.05, 2.0, 0.05) var height_step: float = 0.25
+@export_range(0.05, 2.0, 0.05) var height_step: float = 0.4
 
 
 func validate() -> PackedStringArray:
