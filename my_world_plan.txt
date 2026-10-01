@@ -1,0 +1,1837 @@
+Yes. The big specification should become a **vertical-slice-first roadmap**. The goal is to get to the addictive core very early, while postponing civilization-scale systems until the underlying simulation is proven.
+
+I’d give Claude the following as a replacement/addendum to the development section:
+
+# WORLD IN A BOX
+
+## Milestone-Based Development Roadmap
+
+### Godot 4.7.2 — Android First
+
+Use this milestone roadmap to turn the full World in a Box specification into a sequence of small, testable, playable development stages.
+
+## MOST IMPORTANT DEVELOPMENT RULE
+
+**Do not attempt to build the complete game at once.**
+
+The game has enormous potential, but its core risk is not the number of features.
+
+The core risk is:
+
+> **Does interacting with the tiny world actually feel magical?**
+
+Therefore, prioritize the **toy → living world → simulation → civilization → history → mystery** progression.
+
+Every milestone must produce a working build.
+
+Every milestone must be:
+
+1. Buildable.
+2. Runnable.
+3. Testable.
+4. Debuggable.
+5. Save-safe where applicable.
+6. Performance-measurable.
+7. Playable on Android once mobile functionality begins.
+
+Do not add the next milestone simply because the code technically works.
+
+First make the current milestone **feel good**.
+
+---
+
+# DEVELOPMENT ROADMAP
+
+## MILESTONE 0 — PROJECT FOUNDATION
+
+### Goal
+
+Create a clean, stable Godot 4.7.2 project that can eventually support the entire game.
+
+### Build
+
+* Godot project
+* main scene
+* project settings
+* input system
+* basic scene architecture
+* core scripts
+* basic logging
+* debug configuration
+* Android export configuration
+* Git-friendly project organization if applicable
+
+### Architecture
+
+Establish:
+
+* WorldManager
+* SimulationManager
+* TimeManager
+* SaveManager
+* InteractionManager
+* SensorManager
+* UIManager
+
+Only create systems that are actually needed.
+
+Avoid premature complexity.
+
+### Deliverable
+
+The app launches into a basic World in a Box screen.
+
+### Testing
+
+Verify:
+
+* project opens
+* project runs
+* no parser errors
+* no runtime errors
+* Android debug build launches
+* touch input works
+* application pauses/resumes correctly
+
+### Exit Criteria
+
+**Green light when:**
+
+* desktop build runs
+* Android build runs
+* project structure is clean
+* no critical errors exist
+
+---
+
+# MILESTONE 1 — THE BOX
+
+## Goal
+
+Make the game visually compelling before adding civilization simulation.
+
+The player sees an actual miniature world inside a box.
+
+### Build
+
+Create:
+
+* box frame
+* miniature terrain
+* grass
+* water
+* trees
+* rocks
+* small settlement
+* simple lighting
+* ambient animation
+
+Start with a small world:
+
+**32 × 32 or 64 × 64 tiles.**
+
+### Visual Goal
+
+The player should immediately think:
+
+> "This is a tiny world."
+
+Do not worry about advanced civilization systems yet.
+
+### Add
+
+* camera
+* zoom
+* world coordinates
+* basic tile rendering
+
+### Exit Criteria
+
+A player can stare at the world and enjoy watching it even though almost nothing is happening.
+
+---
+
+# MILESTONE 2 — TOUCH THE WORLD
+
+## Goal
+
+Make the world physically interactive.
+
+Implement:
+
+### Tap
+
+Tap:
+
+* terrain
+* water
+* tree
+* rock
+* building
+
+Display a small contextual response.
+
+### Long Press
+
+Open an interaction panel.
+
+### Drag
+
+Pan around the world.
+
+### Pinch
+
+Zoom.
+
+### Double Tap
+
+Focus/interact depending on context.
+
+### Interaction Feedback
+
+Use:
+
+* animation
+* particles
+* subtle sound
+* haptic feedback where supported
+
+### Exit Criteria
+
+The player can naturally explore the world entirely through touch.
+
+---
+
+# MILESTONE 3 — THE WORLD HAS PHYSICS
+
+## Goal
+
+Introduce the first truly magical interaction.
+
+The player can manipulate physical objects.
+
+Implement:
+
+* picking up small objects
+* moving rocks
+* dropping objects
+* disturbing trees
+* disturbing water
+* simple gravity
+* lightweight collision
+
+Do not implement full realistic physics.
+
+Favor predictable, beautiful, mobile-friendly interactions.
+
+### Example
+
+Player picks up a rock.
+
+Moves it.
+
+Drops it near a settlement.
+
+A tiny inhabitant later discovers it.
+
+That interaction should feel meaningful.
+
+### Exit Criteria
+
+The player starts experimenting naturally.
+
+---
+
+# MILESTONE 4 — FIRST INHABITANTS
+
+## Goal
+
+Introduce the first people.
+
+Start with only:
+
+**5–20 inhabitants.**
+
+Do NOT start with hundreds.
+
+Each person needs:
+
+* ID
+* name
+* position
+* age
+* occupation
+* personality traits
+* basic needs
+* current activity
+
+### Behaviors
+
+People can:
+
+* walk
+* eat
+* sleep
+* work
+* socialize
+* return home
+* explore
+
+### Important
+
+People must NOT simply wander randomly.
+
+Create simple goals.
+
+Example:
+
+Hungry person:
+
+HOME
+
+↓
+
+FOOD
+
+↓
+
+EAT
+
+↓
+
+WORK
+
+The player should be able to watch these routines.
+
+### Exit Criteria
+
+The world feels inhabited.
+
+---
+
+# MILESTONE 5 — FIRST CONTACT
+
+## Goal
+
+Make interacting with inhabitants emotionally interesting.
+
+Tap a person.
+
+Open:
+
+### PERSON CARD
+
+Name
+
+Age
+
+Occupation
+
+Current activity
+
+Mood
+
+Needs
+
+Family
+
+Traits
+
+Recent memory
+
+### Implement
+
+Player interactions:
+
+* observe
+* touch
+* follow
+* focus camera
+* inspect
+* mark important
+
+### Reactions
+
+People react differently.
+
+A curious person investigates.
+
+A fearful person runs.
+
+A spiritual person may pray.
+
+A skeptical person may ignore it.
+
+### Memory
+
+If the player touches someone:
+
+Store:
+
+> "Experienced unexplained contact."
+
+### Exit Criteria
+
+The player cares about at least one individual.
+
+---
+
+# MILESTONE 6 — TIME AND DAILY LIFE
+
+## Goal
+
+Make the world feel continuous.
+
+Implement:
+
+* clock
+* day/night
+* days
+* weeks
+* months
+* years
+
+People develop routines.
+
+Example:
+
+06:00 wake
+
+07:00 breakfast
+
+08:00 work
+
+12:00 lunch
+
+17:00 social
+
+21:00 sleep
+
+### Add
+
+* sun movement
+* lighting changes
+* nighttime ambience
+* sleep behavior
+
+### Exit Criteria
+
+The player can follow one person through an entire day and understand their life.
+
+---
+
+# MILESTONE 7 — BASIC WORLD SIMULATION
+
+## Goal
+
+Move from "animated diorama" to "simulation."
+
+Implement:
+
+* food
+* water
+* basic resources
+* gathering
+* consumption
+* simple agriculture
+* simple storage
+
+People should need resources.
+
+### Example
+
+Farmer:
+
+Plant
+
+↓
+
+Grow
+
+↓
+
+Harvest
+
+↓
+
+Store
+
+↓
+
+Eat
+
+If crops fail:
+
+Food decreases.
+
+People respond.
+
+### Exit Criteria
+
+The world can experience basic cause and effect without player intervention.
+
+---
+
+# MILESTONE 8 — THE FIRST REAL PLAYER POWER
+
+## Goal
+
+Introduce the signature "box" interaction.
+
+### Motion Controls
+
+Implement:
+
+* tilt
+* accelerometer
+* gyroscope where available
+* shake
+
+### Tilt
+
+Tilt world.
+
+Water responds.
+
+Loose objects move.
+
+People react.
+
+### Shake
+
+Shake produces:
+
+* tiny disturbance
+* larger disturbance
+* earthquake
+
+based on intensity.
+
+### Sensor Settings
+
+Add:
+
+* enable/disable
+* sensitivity
+* calibration
+* reduced motion
+
+### Critical Requirement
+
+Sensor input must feel deliberate.
+
+Use:
+
+* smoothing
+* dead zones
+* thresholds
+* cooldowns
+
+### Exit Criteria
+
+A player can tilt the phone and immediately understand:
+
+> "I'm physically affecting this world."
+
+---
+
+# MILESTONE 9 — WEATHER AND ENVIRONMENT
+
+## Goal
+
+Make the world ecologically reactive.
+
+Implement:
+
+* rain
+* wind
+* temperature
+* storms
+* seasons
+* basic water flow
+* soil
+* vegetation
+
+### Player
+
+Allow:
+
+* rain
+* wind
+* environmental disturbance
+
+### Civilization
+
+React to:
+
+* drought
+* storms
+* flooding
+* cold
+* heat
+
+### Exit Criteria
+
+The environment and civilization influence each other.
+
+---
+
+# MILESTONE 10 — FAMILIES AND RELATIONSHIPS
+
+## Goal
+
+Turn individual NPCs into a society.
+
+Implement:
+
+* parents
+* children
+* siblings
+* partners
+* friends
+* rivals
+* family units
+
+Relationships should change over time.
+
+### Add
+
+* birth
+* aging
+* death
+* marriage/partnership
+* family history
+
+### Exit Criteria
+
+The player can follow a family and become interested in what happens to its members.
+
+---
+
+# MILESTONE 11 — MEMORY AND HISTORY
+
+## Goal
+
+Make actions persist beyond the moment.
+
+Implement:
+
+### Personal Memories
+
+"Flood experienced."
+
+"Strange touch experienced."
+
+"Child born."
+
+"Parent died."
+
+### Family Memories
+
+Stories passed down.
+
+### Historical Events
+
+Major events recorded permanently.
+
+### Timeline
+
+Create:
+
+YEAR 1
+
+YEAR 2
+
+YEAR 3
+
+etc.
+
+Clicking an event should locate its historical location when possible.
+
+### Exit Criteria
+
+The world begins generating stories naturally.
+
+---
+
+# MILESTONE 12 — BASIC CIVILIZATION
+
+## Goal
+
+Move beyond a village.
+
+Implement:
+
+* multiple settlements
+* roads
+* agriculture
+* workshops
+* storage
+* trade
+* resource specialization
+* migration
+
+Allow settlements to develop differently.
+
+One might specialize in:
+
+* farming
+
+Another:
+
+* mining
+
+Another:
+
+* fishing
+
+### Exit Criteria
+
+The world contains recognizable communities with different characteristics.
+
+---
+
+# MILESTONE 13 — CAMERA, MAP AND EXPLORATION SYSTEM
+
+## Goal
+
+Prepare for a world that grows beyond the initial screen.
+
+Implement:
+
+### World chunks
+
+Chunk-based world storage.
+
+### Streaming
+
+Load nearby chunks.
+
+Unload distant visual objects.
+
+### Minimap
+
+Display:
+
+* terrain
+* settlements
+* water
+* player location
+* selected person
+* important events
+
+### Exploration
+
+Allow the player to drag far beyond the starting settlement.
+
+### Home
+
+Return to civilization center.
+
+### Locate
+
+Find:
+
+* person
+* building
+* settlement
+* event
+* discovery
+
+### Exit Criteria
+
+The world can become significantly larger without breaking the camera or performance.
+
+---
+
+# MILESTONE 14 — HAMBURGER MENU + INFORMATION SYSTEM
+
+## Goal
+
+Give the player a way to understand the increasingly complex world.
+
+Create the main hamburger menu.
+
+### WORLD
+
+* Map
+* Regions
+* Environment
+* Weather
+* Resources
+
+### PEOPLE
+
+* Population
+* Individuals
+* Families
+* Occupations
+* Important People
+
+### CIVILIZATION
+
+* Settlements
+* Economy
+* Agriculture
+* Technology
+* Culture
+
+### HISTORY
+
+* Timeline
+* Events
+* Discoveries
+* Disasters
+
+### PLAYER
+
+* Interactions
+* Statistics
+* Discoveries
+* Influence
+
+### SETTINGS
+
+* Audio
+* Haptics
+* Motion
+* Graphics
+* Save
+* Accessibility
+
+### Exit Criteria
+
+The player can understand the state of the world without needing developer/debug tools.
+
+---
+
+# MILESTONE 15 — STATISTICS
+
+## Goal
+
+Turn the simulation into something players enjoy studying.
+
+Create statistics screens.
+
+### Population
+
+* population
+* births
+* deaths
+* growth
+* age distribution
+
+### Economy
+
+* food
+* water
+* production
+* consumption
+* resources
+
+### Society
+
+* happiness
+* fear
+* trust
+* conflict
+* cooperation
+
+### Environment
+
+* temperature
+* rainfall
+* forests
+* wildlife
+* water
+
+### Player
+
+* interactions
+* interventions
+* discoveries
+* people touched
+* disasters caused
+* disasters prevented
+
+Use graphs where helpful.
+
+Do not overwhelm the player.
+
+Progressively reveal advanced statistics.
+
+---
+
+# MILESTONE 16 — TECHNOLOGY
+
+## Goal
+
+Give civilization long-term progression.
+
+Create a data-driven technology system.
+
+Early technologies:
+
+Fire
+
+Agriculture
+
+Pottery
+
+Writing
+
+Metalworking
+
+Engineering
+
+Mathematics
+
+### Later
+
+Electricity
+
+Industrialization
+
+Computing
+
+Advanced Science
+
+### Important
+
+Technology must arise from civilization conditions.
+
+Do not simply say:
+
+"Year 50 = Iron."
+
+Allow:
+
+resource availability
+
+*
+
+knowledge
+
+*
+
+population
+
+*
+
+specialists
+
+=
+
+discovery opportunity
+
+### Exit Criteria
+
+Civilization visibly changes as knowledge increases.
+
+---
+
+# MILESTONE 17 — CULTURE AND BELIEF
+
+## Goal
+
+Make civilizations culturally distinct.
+
+Implement lightweight systems for:
+
+* traditions
+* rituals
+* celebrations
+* myths
+* art
+* architecture
+* beliefs
+
+Player interventions can become culturally significant.
+
+Example:
+
+Repeatedly creating rain during droughts may result in a cultural belief surrounding rain.
+
+Do not hard-code one religion.
+
+Allow multiple interpretations.
+
+---
+
+# MILESTONE 18 — SCIENCE AND THE PLAYER MYSTERY
+
+## Goal
+
+Introduce the beginning of the game's deeper mystery.
+
+Scientists begin noticing unusual patterns.
+
+Examples:
+
+* unexplained weather
+* strange objects
+* repeated environmental anomalies
+* impossible movement
+* player interaction correlations
+
+Eventually create:
+
+### BOX RESEARCH
+
+Scientists hypothesize that something exists beyond their known world.
+
+Do not reveal the entire mystery.
+
+This should be the beginning of a long arc.
+
+---
+
+# MILESTONE 19 — EMERGENT STORY ENGINE
+
+## Goal
+
+Turn simulation events into compelling stories.
+
+Build event chains.
+
+Example:
+
+Drought
+
+↓
+
+food shortage
+
+↓
+
+migration
+
+↓
+
+resource conflict
+
+↓
+
+political conflict
+
+↓
+
+war
+
+↓
+
+new settlement
+
+↓
+
+new culture
+
+↓
+
+historical era
+
+The game should automatically recognize significant chains and create readable summaries.
+
+Example:
+
+> "The Great Drought triggered the northern migration, which eventually led to the founding of Northwatch."
+
+This is where the simulation starts generating stories the developers did not explicitly write.
+
+---
+
+# MILESTONE 20 — OFFLINE PROGRESSION
+
+## Goal
+
+Make the world genuinely persistent.
+
+When the player leaves:
+
+Save the current world.
+
+When they return:
+
+Calculate abstracted offline progression.
+
+Show:
+
+# WHILE YOU WERE GONE
+
+Example:
+
+12 births
+
+4 deaths
+
+1 new settlement
+
+2 discoveries
+
+1 major storm
+
+3 buildings completed
+
+1 unusual scientific observation
+
+Then reveal one intriguing detail:
+
+> "Something strange happened near the eastern mountains."
+
+This should become a major retention feature.
+
+---
+
+# MILESTONE 21 — PERFORMANCE / SCALE PASS
+
+## Goal
+
+Prove the architecture can handle growth.
+
+Stress-test:
+
+* 100 people
+* 500 people
+* 1,000 people
+* multiple settlements
+* many chunks
+* long world age
+
+Implement:
+
+* simulation tiers
+* sleeping entities
+* chunk streaming
+* object pooling
+* batched rendering
+* AI throttling
+* aggregated distant simulation
+
+### Critical Test
+
+The game must remain playable even as the civilization becomes significantly larger than the initial prototype.
+
+---
+
+# MILESTONE 22 — ROBUST SAVE SYSTEM
+
+## Goal
+
+Make the world safe.
+
+Implement:
+
+* versioned saves
+* atomic saves
+* backup saves
+* corruption detection
+* save migration
+* manual save
+* automatic save
+
+Test:
+
+* force close
+* background app
+* kill process
+* low storage
+* malformed save
+* old save version
+
+The player must trust that their world will not disappear.
+
+---
+
+# MILESTONE 23 — DEBUG AND DEVELOPMENT TOOLKIT
+
+## Goal
+
+Make future development dramatically easier.
+
+Create developer-only tools:
+
+* pause
+* step simulation
+* speed control
+* spawn entity
+* remove entity
+* teleport
+* inspect person
+* inspect AI
+* inspect chunk
+* inspect memory
+* change weather
+* trigger disaster
+* trigger event
+* advance year
+* force technology
+* inspect save
+* performance overlay
+
+Display:
+
+* FPS
+* memory
+* entities
+* active AI
+* loaded chunks
+* simulation time
+* population
+
+This milestone is not optional.
+
+A game this systemic requires excellent debugging tools.
+
+---
+
+# MILESTONE 24 — MOBILE POLISH
+
+## Goal
+
+Make the experience genuinely good on Android.
+
+Test:
+
+* low-end devices
+* mid-range devices
+* high-end devices
+* portrait
+* landscape
+* different resolutions
+* different aspect ratios
+* devices without gyroscope
+
+Optimize:
+
+* rendering
+* battery
+* memory
+* sensor polling
+* UI
+* loading
+* saving
+
+Add:
+
+* haptic settings
+* reduced motion
+* accessibility
+* text scaling
+* color clarity
+
+---
+
+# MILESTONE 25 — FIRST "REAL GAME" BUILD
+
+At this point stop thinking of the project as a prototype.
+
+The game should contain:
+
+* persistent world
+* exploration
+* touch
+* camera
+* zoom
+* people
+* personalities
+* needs
+* relationships
+* families
+* resources
+* buildings
+* weather
+* seasons
+* animals
+* civilization
+* history
+* statistics
+* technology
+* culture
+* player interactions
+* motion controls
+* saving
+* offline progression
+* Android support
+
+This is the first point where external playtesting becomes extremely valuable.
+
+---
+
+# MILESTONE 26 — PLAYTESTING
+
+Give the game to people who have never seen the development specification.
+
+Do NOT explain how everything works.
+
+Observe.
+
+Measure:
+
+* Where do they tap?
+* Do they understand dragging?
+* Do they discover people?
+* Do they understand who people are?
+* Do they discover motion controls?
+* Do they open the hamburger menu?
+* What do they spend time doing?
+* What do they ignore?
+* What makes them smile?
+* What confuses them?
+* What makes them come back?
+
+Ask only after observing.
+
+The goal is to discover the game's natural behavior.
+
+---
+
+# MILESTONE 27 — RETENTION THROUGH CURIOSITY
+
+Improve the game based on playtesting.
+
+Do not add arbitrary:
+
+* energy systems
+* timers
+* daily chores
+* artificial waiting
+* forced rewards
+
+Instead improve:
+
+* discoveries
+* emergent events
+* mysteries
+* interesting people
+* historical consequences
+* world changes
+* surprises
+
+The desired player thought is:
+
+> "I want to check what happened."
+
+---
+
+# MILESTONE 28 — THE CIVILIZATION STARTS NOTICING YOU
+
+This should be a major content milestone.
+
+Introduce:
+
+### Player Awareness
+
+Not a simple morality score.
+
+Instead track:
+
+* awareness
+* interpretation
+* scientific interest
+* cultural belief
+* fear
+* curiosity
+
+Different groups can believe different things.
+
+A scientist may investigate.
+
+A child may tell stories.
+
+A religious group may worship.
+
+A skeptic may reject the phenomenon.
+
+---
+
+# MILESTONE 29 — BOX THEORY
+
+## Goal
+
+The civilization discovers evidence that its world is enclosed.
+
+Potential discoveries:
+
+* boundaries
+* impossible geometry
+* external forces
+* unexplained gravity
+* strange material
+* recurring player patterns
+
+Create a major historical event:
+
+# THE BOX THEORY
+
+The civilization begins debating whether its world exists inside a larger structure.
+
+This should NOT be the end of the game.
+
+It should open a new chapter.
+
+---
+
+# MILESTONE 30 — COMMUNICATION WITH THE PLAYER
+
+Only after the core simulation is stable.
+
+Possible mechanics:
+
+* repeated tap patterns
+* arranged objects
+* environmental signals
+* mathematical patterns
+* structures
+* symbols
+
+Eventually inhabitants may deliberately attempt to communicate.
+
+Example:
+
+The player opens the game.
+
+Something has changed.
+
+A giant pattern has been built outside the city.
+
+The civilization is trying to get the player's attention.
+
+---
+
+# MILESTONE 31 — POST-BOX DISCOVERY
+
+Long-term endgame content.
+
+Potential discoveries:
+
+* evidence of another box
+* evidence of previous civilizations
+* evidence of an external observer
+* attempts to predict the player
+* experiments designed to influence the player
+* civilization-created messages
+
+The civilization is no longer merely reacting to the player.
+
+It is experimenting on its own world to understand the player.
+
+---
+
+# MILESTONE 32 — POLISH AND CONTENT
+
+Only after the systems are proven.
+
+Add:
+
+* more biomes
+* more animals
+* more resources
+* more technologies
+* more buildings
+* more cultural variations
+* more events
+* more mysteries
+* more visual variety
+* more sound
+* more environmental effects
+
+Potential world types:
+
+* forest
+* desert
+* island
+* mountain
+* frozen
+* volcanic
+* swamp
+* ocean
+* unusual/alien
+
+---
+
+# MILESTONE 33 — ADDITIONAL BOXES
+
+Introduce alternate worlds.
+
+Each world should feel mechanically different.
+
+### DESERT BOX
+
+Water scarcity.
+
+### ISLAND BOX
+
+Ocean and naval development.
+
+### FROZEN BOX
+
+Extreme climate.
+
+### VOLCANIC BOX
+
+Constant geological danger.
+
+### MYSTERY BOX
+
+Physics behaves strangely.
+
+### ARTIFICIAL BOX
+
+The civilization eventually realizes the terrain is constructed.
+
+Do not build these until the original box is excellent.
+
+---
+
+# MILESTONE 34 — CONTENT UPDATE ARCHITECTURE
+
+Prepare the game for future updates.
+
+Design content so developers can add:
+
+* technologies
+* buildings
+* animals
+* events
+* biomes
+* discoveries
+* mysteries
+
+without rewriting the simulation.
+
+Use data-driven definitions.
+
+---
+
+# MILESTONE 35 — RELEASE CANDIDATE
+
+Before release, verify:
+
+### Gameplay
+
+* fun
+* understandable
+* stable
+* surprising
+* replayable
+
+### Android
+
+* installation
+* startup
+* touch
+* sensors
+* audio
+* haptics
+* background/resume
+* saving
+* performance
+
+### Simulation
+
+* population
+* resources
+* AI
+* relationships
+* history
+* events
+
+### Data
+
+* save
+* load
+* backup
+* migration
+
+### Performance
+
+* memory
+* FPS
+* battery
+* large populations
+* long simulation
+
+### UX
+
+* tutorial
+* menus
+* accessibility
+* settings
+* notifications
+
+---
+
+# DEVELOPMENT PRIORITY STACK
+
+When deciding what to build next, use this priority:
+
+## TIER 1 — FUN
+
+Does the interaction feel good?
+
+## TIER 2 — LIFE
+
+Does the world feel alive without the player?
+
+## TIER 3 — CONSEQUENCES
+
+Do player actions create interesting changes?
+
+## TIER 4 — PEOPLE
+
+Do individual inhabitants feel meaningful?
+
+## TIER 5 — SIMULATION
+
+Do systems interact naturally?
+
+## TIER 6 — HISTORY
+
+Do consequences persist?
+
+## TIER 7 — CIVILIZATION
+
+Does society evolve?
+
+## TIER 8 — MYSTERY
+
+Does the world begin asking questions?
+
+## TIER 9 — SCALE
+
+Can the world survive thousands of simulated events?
+
+## TIER 10 — CONTENT
+
+Add breadth only after the foundation is strong.
+
+---
+
+# THE FIRST THREE MILESTONES ARE THE MOST IMPORTANT
+
+Do not spend months building civilization systems before proving the core.
+
+The first playable loop should become:
+
+**SEE**
+
+↓
+
+Tiny world
+
+↓
+
+**TOUCH**
+
+↓
+
+World reacts
+
+↓
+
+**MOVE**
+
+↓
+
+Camera explores
+
+↓
+
+**INTERACT**
+
+↓
+
+Something happens
+
+↓
+
+**OBSERVE**
+
+↓
+
+Something unexpected happens
+
+↓
+
+**WONDER**
+
+↓
+
+"What if I do this?"
+
+↓
+
+**EXPERIMENT**
+
+↓
+
+World changes
+
+That loop must be fun before adding complex civilization simulation.
+
+---
+
+# THE FIRST VERTICAL SLICE
+
+Before attempting the entire game, build one tiny but complete slice containing:
+
+* 16–32 world tiles
+* water
+* trees
+* rocks
+* one tiny settlement
+* 5–10 inhabitants
+* simple homes
+* food
+* basic needs
+* day/night
+* basic weather
+* touch interaction
+* moveable rock
+* water disturbance
+* tilt
+* one simple disaster
+* individual inspection
+* follow mode
+* simple memories
+* basic statistics
+* hamburger menu
+* save/load
+
+The vertical slice should take the player from:
+
+> "What's this?"
+
+to:
+
+> "Oh wow, that person remembers what I did."
+
+If that experience is not compelling, do not add more systems yet.
+
+---
+
+# MILESTONE COMPLETION FORMAT
+
+At the end of EVERY milestone, report:
+
+## IMPLEMENTED
+
+List what now works.
+
+## FILES CHANGED
+
+List every created or modified file.
+
+## TESTED
+
+List actual tests performed.
+
+## ANDROID TEST
+
+State whether the Android build was tested.
+
+## PERFORMANCE
+
+Report:
+
+* FPS
+* memory
+* active entities
+* world size
+* simulation load
+
+where relevant.
+
+## KNOWN ISSUES
+
+List unresolved issues honestly.
+
+## NEXT MILESTONE
+
+Explain exactly what should be built next.
+
+Do not silently skip failed tests.
+
+---
+
+# CRITICAL RULE FOR CLAUDE
+
+If a milestone becomes too large:
+
+**SPLIT IT AGAIN.**
+
+Never respond by generating an enormous amount of speculative code.
+
+A milestone should ideally represent a feature that can be implemented, tested, played, and debugged in a relatively short development cycle.
+
+The project should always remain in a runnable state.
+
+---
+
+# THE LONG-TERM DEVELOPMENT PATH
+
+The complete game should evolve approximately like this:
+
+### BUILD 01
+
+A beautiful miniature world.
+
+### BUILD 02
+
+A world you can touch.
+
+### BUILD 03
+
+A world you can physically disturb.
+
+### BUILD 04
+
+A world containing people.
+
+### BUILD 05
+
+People who notice you.
+
+### BUILD 06
+
+People who remember you.
+
+### BUILD 07
+
+People who have families.
+
+### BUILD 08
+
+Families that create history.
+
+### BUILD 09
+
+History that creates civilization.
+
+### BUILD 10
+
+Civilization that creates science.
+
+### BUILD 11
+
+Science that investigates you.
+
+### BUILD 12
+
+Civilization discovers the box.
+
+### BUILD 13
+
+Civilization tries to communicate with you.
+
+### BUILD 14
+
+The player realizes:
+
+# THE WORLD IS WATCHING BACK.
+
+That is the long-term destination.
+
+But the first goal is much simpler:
+
+# Make five tiny people living in a tiny world feel alive.

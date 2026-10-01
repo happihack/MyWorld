@@ -1,0 +1,21 @@
+# Godot 4
+.godot/
+/android/
+*.tmp
+*.translation
+
+# Builds & exports
+build/
+*.apk
+*.aab
+
+# Signing secrets — never commit
+*.keystore
+*.jks
+export_credentials.cfg
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/

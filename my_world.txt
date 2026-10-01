@@ -1,0 +1,3300 @@
+# MY WORLD IN A BOX
+
+## Full Godot 4.7.2 Mobile Game Development Specification
+
+You are an expert Godot 4.7.2 game developer, mobile game architect, simulation designer, UI/UX designer, gameplay programmer, systems designer, and technical lead.
+
+Your task is to DESIGN AND BUILD a complete Android mobile game called:
+
+# MY WORLD IN A BOX
+
+Do not treat this as a small prototype.
+
+Build it as the foundation of a long-running, highly replayable, deeply interactive mobile simulation game with an architecture capable of supporting a world that continuously grows, civilizations that evolve, persistent inhabitants with individual lives, emergent stories, environmental simulation, player interaction, discoveries, technological progression, historical memory, and eventually civilizations discovering that their world exists inside a box.
+
+The game should be easy to understand within the first minute but capable of producing hundreds of hours of emergent gameplay.
+
+Target:
+
+* Godot 4.7.2
+* Android first
+* Touchscreen first
+* Portrait and landscape support where practical
+* Mobile hardware constraints must be respected
+* GDScript unless there is a compelling technical reason to use another Godot-supported technology
+* Offline-first
+* Persistent save data
+* No mandatory account
+* No mandatory internet connection
+* Architecture should allow future multiplayer/cloud features without requiring a rewrite
+
+The game must be fun even when the player only spends 2–5 minutes with it, but should reward returning repeatedly throughout the day.
+
+---
+
+# 1. CORE GAME CONCEPT
+
+The player possesses a mysterious physical box containing a tiny living world.
+
+Inside the box exists:
+
+* terrain
+* water
+* vegetation
+* weather
+* animals
+* resources
+* settlements
+* buildings
+* roads
+* farms
+* villages
+* cities
+* individuals
+* families
+* cultures
+* knowledge
+* technology
+* political groups
+* religions
+* myths
+* scientific theories
+* history
+* conflict
+* cooperation
+* discoveries
+
+The player does NOT directly control the civilization.
+
+Instead:
+
+THE PLAYER INTERACTS WITH THE WORLD.
+
+The player can:
+
+* tilt the phone
+* rotate the phone
+* shake the phone
+* tap the world
+* drag around the world
+* zoom
+* inspect individuals
+* move objects
+* disturb terrain
+* manipulate water
+* influence weather
+* drop things into the world
+* interact with buildings
+* observe inhabitants
+* help inhabitants
+* inconvenience inhabitants
+* create environmental events
+* discover secrets
+* learn how the world behaves
+
+The inhabitants should have their own goals.
+
+They should not feel like units waiting for commands.
+
+They should feel alive.
+
+---
+
+# 2. PRIMARY DESIGN PHILOSOPHY
+
+The central design principle is:
+
+> THE PLAYER DOES NOT CONTROL THE WORLD. THE PLAYER INTERACTS WITH THE WORLD.
+
+If the player touches a person, that person should not simply receive a command.
+
+Instead, the interaction should be interpreted according to:
+
+* location
+* personality
+* current activity
+* relationship with the player
+* culture
+* beliefs
+* fear
+* curiosity
+* knowledge
+* current needs
+* nearby events
+* memories
+* previous player interactions
+
+The same interaction should produce different results from different inhabitants.
+
+Example:
+
+Player taps a farmer.
+
+Farmer might:
+
+* look toward the touch
+* become frightened
+* investigate
+* wave
+* pray
+* run
+* report it to another person
+* interpret it as weather
+* believe it was a divine event
+
+A scientist might react completely differently.
+
+A child might be fascinated.
+
+A religious leader might interpret it as a sign.
+
+A skeptic might dismiss it.
+
+This emergent interpretation system is one of the game's most important mechanics.
+
+---
+
+# 3. THE GAME SHOULD FEEL LIKE A LIVING DIORAMA
+
+The visual presentation should resemble an interactive miniature world contained inside a physical box.
+
+Think:
+
+* miniature civilization
+* diorama
+* tabletop world
+* living terrarium
+* tiny simulation
+* mysterious artifact
+
+The world should be visually appealing even when the player isn't actively doing anything.
+
+There should always be small things happening.
+
+Examples:
+
+* someone walking home
+* animals wandering
+* smoke rising from a chimney
+* crops growing
+* children playing
+* someone fishing
+* workers constructing something
+* birds flying
+* clouds moving
+* rain falling
+* water flowing
+* people talking
+* someone discovering something
+* a family gathering
+* a traveler entering town
+
+The player should frequently notice something they did not cause.
+
+This creates the feeling that the world continues living independently.
+
+---
+
+# 4. THE WORLD
+
+The world is a persistent tile/grid-based environment.
+
+Build the simulation so the world can become substantially larger over time.
+
+Do NOT hard-code a tiny fixed map.
+
+Use a scalable world architecture.
+
+Recommended architecture:
+
+* chunk-based world
+* deterministic procedural generation where appropriate
+* sparse storage for mostly empty regions
+* active simulation zones
+* sleeping/inactive simulation zones
+* tile metadata
+* entity registry
+* persistent entity IDs
+* world coordinates
+* chunk coordinates
+* saveable world state
+
+Example:
+
+WORLD
+├── Chunk 0,0
+├── Chunk 1,0
+├── Chunk 0,1
+├── Chunk -1,0
+└── etc.
+
+The player should initially see only a small section.
+
+As the civilization expands, more world becomes relevant.
+
+---
+
+# 5. WORLD SIZE
+
+Begin with a manageable world.
+
+Example initial world:
+
+64 x 64 tiles
+
+But architect it to support:
+
+128 x 128
+
+256 x 256
+
+512 x 512
+
+and potentially larger through chunk streaming.
+
+Do not load enormous worlds into memory unnecessarily.
+
+Only actively simulate what needs to be simulated.
+
+---
+
+# 6. WORLD EXPLORATION
+
+The player MUST be able to move around the world.
+
+Implement:
+
+### One-finger drag
+
+Drag across the world to pan the camera.
+
+The player can move beyond the currently visible area.
+
+### Pinch
+
+Pinch to zoom.
+
+Support sensible minimum and maximum zoom.
+
+### Double tap
+
+Context-sensitive interaction or zoom.
+
+### Two-finger drag
+
+Optional alternate camera movement.
+
+### Tap
+
+Interact with the thing underneath the finger.
+
+### Long press
+
+Open contextual interaction menu.
+
+### Swipe
+
+Context-sensitive world interaction where appropriate.
+
+Examples:
+
+* swipe through water
+* swipe to push loose objects
+* swipe across terrain to inspect
+* swipe through historical timeline
+
+Camera movement must remain smooth on mobile.
+
+---
+
+# 7. WORLD COORDINATES AND CAMERA
+
+Implement a proper camera/world coordinate system.
+
+The camera should support:
+
+* smooth movement
+* bounded movement
+* zoom
+* focus on selected entities
+* return to settlement
+* return to important event
+* follow selected person
+* minimap navigation
+
+The camera must never become lost.
+
+Provide:
+
+### "Home" button
+
+Return to the civilization's primary settlement.
+
+### "Locate" function
+
+Center the camera on:
+
+* selected person
+* selected building
+* selected event
+* selected animal
+* discovered location
+
+---
+
+# 8. HAMBURGER MENU
+
+Create a mobile-friendly hamburger menu.
+
+The menu should not obscure the game unnecessarily.
+
+Suggested structure:
+
+MENU
+
+### WORLD
+
+* Map
+* World Overview
+* Regions
+* Weather
+* Environment
+* Resources
+
+### PEOPLE
+
+* Population
+* Families
+* Individuals
+* Occupations
+* Relationships
+* Important People
+
+### CIVILIZATION
+
+* Settlements
+* Buildings
+* Economy
+* Agriculture
+* Technology
+* Culture
+* Government
+* Beliefs
+* Science
+
+### HISTORY
+
+* Timeline
+* Major Events
+* Discoveries
+* Wars
+* Disasters
+* Important People
+* Historical Eras
+
+### PLAYER
+
+* Interaction History
+* Influence
+* Reputation
+* Discoveries
+* Statistics
+* Box Knowledge
+
+### SETTINGS
+
+* Audio
+* Haptics
+* Graphics
+* Simulation Speed
+* Accessibility
+* Notifications
+* Save
+* Debug
+
+---
+
+# 9. STATISTICS SYSTEM
+
+Create an extensive statistics system.
+
+The player should be able to discover how the civilization is changing.
+
+Examples:
+
+## Population
+
+* total population
+* births
+* deaths
+* average age
+* population growth
+* population density
+* children
+* adults
+* elderly
+* migration
+
+## Health
+
+* average health
+* disease
+* injuries
+* nutrition
+* lifespan
+
+## Economy
+
+* food
+* water
+* wood
+* stone
+* metal
+* tools
+* trade
+* production
+* consumption
+
+## Civilization
+
+* technology
+* literacy
+* scientific knowledge
+* construction
+* agriculture
+* engineering
+
+## Society
+
+* happiness
+* fear
+* trust
+* social cohesion
+* inequality
+* conflict
+* cooperation
+
+## Environment
+
+* temperature
+* rainfall
+* water levels
+* forest coverage
+* soil quality
+* wildlife
+* pollution
+
+## Player Relationship
+
+* player influence
+* player awareness
+* player trust
+* player fear
+* divine belief
+* scientific belief
+* player intervention frequency
+
+Statistics should change dynamically.
+
+Do not make every statistic simply a static number.
+
+Whenever possible, derive statistics from actual simulation data.
+
+---
+
+# 10. INTERACTION MODES
+
+The player should have several ways to interact with the world.
+
+Create a contextual interaction system.
+
+When the player taps something, determine what was tapped.
+
+Possible targets:
+
+* person
+* animal
+* tree
+* rock
+* building
+* crop
+* river
+* lake
+* fire
+* road
+* resource
+* artifact
+* unexplored location
+* weather phenomenon
+* mysterious object
+
+Then provide context-sensitive options.
+
+For a person:
+
+* Observe
+* Follow
+* Focus Camera
+* Learn About
+* Interact
+* Touch
+* Give Gift
+* Disturb
+* Mark Important
+* View Family
+* View Memories
+
+For a tree:
+
+* Observe
+* Touch
+* Shake
+* Inspect
+* Remove
+
+For water:
+
+* Observe
+* Disturb
+* Redirect
+* Drop Object
+
+For a building:
+
+* Inspect
+* Observe Occupants
+* Follow Construction
+* View History
+
+---
+
+# 11. TOUCHING PEOPLE
+
+Touching people should be one of the game's signature interactions.
+
+When the player taps an inhabitant:
+
+The inhabitant should notice.
+
+Possible reactions:
+
+* look around
+* become curious
+* run
+* freeze
+* laugh
+* wave
+* pray
+* yell
+* investigate
+* tell someone
+* remember the event
+
+Create persistent memories.
+
+Example:
+
+Mara's memory:
+
+"At age 23, Mara felt the mysterious presence touch her."
+
+This can affect later behavior.
+
+---
+
+# 12. FOLLOW MODE
+
+The player can select an individual and follow them.
+
+Camera follows the person.
+
+The player can watch their entire day.
+
+Example:
+
+06:30 — wakes
+
+07:00 — eats
+
+08:00 — works
+
+12:00 — talks to neighbor
+
+13:00 — returns home
+
+17:00 — visits market
+
+19:00 — family dinner
+
+21:00 — sleeps
+
+This makes individual lives meaningful.
+
+---
+
+# 13. PERSONALITIES
+
+Every inhabitant should have personality traits.
+
+Examples:
+
+* curious
+* cautious
+* brave
+* fearful
+* generous
+* selfish
+* social
+* introverted
+* ambitious
+* lazy
+* intelligent
+* creative
+* spiritual
+* skeptical
+* adventurous
+* aggressive
+* peaceful
+* loyal
+* suspicious
+
+Use these traits in decision-making.
+
+Avoid completely deterministic behavior.
+
+Add controlled randomness.
+
+---
+
+# 14. NEEDS
+
+People have needs.
+
+Examples:
+
+* hunger
+* thirst
+* sleep
+* safety
+* shelter
+* socialization
+* purpose
+* wealth
+* curiosity
+* family
+* status
+* spiritual fulfillment
+
+Needs influence behavior.
+
+---
+
+# 15. RELATIONSHIPS
+
+Individuals should know other individuals.
+
+Relationships can include:
+
+* stranger
+* acquaintance
+* friend
+* rival
+* family
+* parent
+* child
+* spouse
+* partner
+* employer
+* employee
+* leader
+* follower
+
+Relationships should evolve.
+
+Two strangers may become friends.
+
+Friends can become enemies.
+
+Enemies can reconcile.
+
+Families can break apart.
+
+---
+
+# 16. FAMILIES
+
+Support:
+
+* birth
+* childhood
+* adulthood
+* marriage/partnership
+* parenting
+* inheritance
+* aging
+* death
+
+Family history should persist.
+
+The player should eventually be able to inspect family trees.
+
+Example:
+
+Mara
+|
+├── Tomas
+│   ├── Elia
+│   └── Jon
+|
+└── Sara
+└── David
+
+This makes generations meaningful.
+
+---
+
+# 17. DEATH
+
+Death should not simply remove an entity.
+
+Death creates history.
+
+Record:
+
+* name
+* age
+* cause
+* family
+* occupation
+* accomplishments
+* memories
+* historical significance
+
+A person who lived 80 years may become historically important.
+
+---
+
+# 18. MEMORY SYSTEM
+
+Create a persistent memory system.
+
+Memory types:
+
+### Personal
+
+An individual's memories.
+
+### Family
+
+Stories passed between generations.
+
+### Cultural
+
+Stories remembered by communities.
+
+### Historical
+
+Civilization-wide events.
+
+### Mythological
+
+Events whose original truth becomes distorted over time.
+
+This allows the game to create emergent mythology.
+
+---
+
+# 19. THE PLAYER AS AN UNKNOWN FORCE
+
+Never explicitly tell the inhabitants that the player is a god.
+
+Let them interpret events.
+
+Possible interpretations:
+
+* natural phenomenon
+* spirit
+* deity
+* ancestor
+* experiment
+* unknown intelligence
+* multiple entities
+* hallucination
+* physics
+
+Different individuals may believe different things.
+
+---
+
+# 20. PLAYER INTERVENTION
+
+Allow many interventions.
+
+### Gentle
+
+* touch
+* move small object
+* provide food
+* move a resource
+* create rain
+* calm an animal
+
+### Moderate
+
+* move rocks
+* redirect water
+* create wind
+* change temperature
+* relocate resources
+
+### Major
+
+* earthquake
+* flood
+* drought
+* wildfire
+* meteor
+* major storm
+
+The game should not punish experimentation.
+
+Instead, experimentation creates consequences.
+
+---
+
+# 21. WATER PHYSICS
+
+Water should be important.
+
+Implement a lightweight simulation rather than expensive fluid physics.
+
+Water should understand:
+
+* elevation
+* flow direction
+* accumulation
+* rainfall
+* evaporation
+* rivers
+* lakes
+* flooding
+
+Water affects:
+
+* crops
+* settlements
+* wildlife
+* transportation
+* disease
+* erosion
+
+---
+
+# 22. WEATHER
+
+Create a weather system.
+
+States:
+
+* clear
+* cloudy
+* rain
+* heavy rain
+* storm
+* wind
+* snow
+* fog
+* drought
+* heat wave
+* cold snap
+
+Weather affects the world.
+
+---
+
+# 23. SEASONS
+
+Implement seasons.
+
+Spring:
+
+* planting
+* growth
+
+Summer:
+
+* heat
+* crops
+
+Autumn:
+
+* harvest
+
+Winter:
+
+* cold
+* reduced agriculture
+
+The civilization should adapt to seasonal patterns.
+
+---
+
+# 24. RESOURCES
+
+Resources should exist physically.
+
+Examples:
+
+* wood
+* stone
+* clay
+* iron
+* copper
+* coal
+* food
+* water
+* herbs
+* rare minerals
+
+Resources should be located in the world.
+
+People need to physically gather them.
+
+---
+
+# 25. ANIMALS
+
+Animals should have simple autonomous behavior.
+
+Examples:
+
+* grazing
+* hunting
+* fleeing
+* mating
+* migrating
+* sleeping
+* drinking
+* nesting
+
+Animal populations should respond to the environment.
+
+---
+
+# 26. BUILDINGS
+
+Buildings should emerge from civilization needs.
+
+Early:
+
+* shelters
+* huts
+* farms
+* wells
+* storage
+
+Later:
+
+* workshops
+* markets
+* temples
+* schools
+* government buildings
+* factories
+* laboratories
+
+Eventually:
+
+* research centers
+* observatories
+* advanced laboratories
+
+---
+
+# 27. TECHNOLOGY
+
+Technology should progress through discovery.
+
+Examples:
+
+Fire
+→ Agriculture
+→ Pottery
+→ Metalworking
+→ Writing
+→ Mathematics
+→ Engineering
+→ Electricity
+→ Computing
+→ Advanced Science
+→ Box Theory
+
+Technology should depend on actual civilization conditions.
+
+Do not simply unlock technology because the player reached a level.
+
+---
+
+# 28. SCIENCE
+
+Scientists should investigate unexplained phenomena.
+
+Examples:
+
+* strange weather
+* player interactions
+* earthquakes
+* unexplained objects
+* world boundaries
+* gravitational anomalies
+* recurring patterns
+
+Eventually:
+
+### BOX RESEARCH
+
+Scientists discover evidence that their world is enclosed.
+
+---
+
+# 29. CULTURE
+
+Culture should emerge.
+
+Support:
+
+* music
+* art
+* language
+* traditions
+* holidays
+* rituals
+* architecture
+* clothing
+* stories
+* myths
+
+Player actions can become traditions.
+
+---
+
+# 30. RELIGION AND BELIEF
+
+Do not force a predefined religion.
+
+Allow beliefs to emerge from experiences.
+
+For example:
+
+Repeated player-created rain might eventually result in:
+
+"The Rainbringer."
+
+But another civilization might interpret rain differently.
+
+---
+
+# 31. LANGUAGE
+
+Do not attempt full natural-language AI initially.
+
+Use a structured vocabulary system.
+
+The civilization begins with basic concepts.
+
+Over time it develops terminology for:
+
+* objects
+* events
+* player interactions
+* locations
+* people
+* disasters
+* discoveries
+
+Later generations can inherit vocabulary.
+
+---
+
+# 32. EVENTS
+
+Create an event system.
+
+Events include:
+
+* births
+* deaths
+* marriages
+* discoveries
+* accidents
+* disasters
+* conflicts
+* inventions
+* festivals
+* migrations
+* construction
+* scientific breakthroughs
+
+Important events are recorded.
+
+---
+
+# 33. EVENT NOTIFICATIONS
+
+The player should receive interesting notifications.
+
+Examples:
+
+"Someone discovered copper."
+
+"A child was born in River Town."
+
+"Three families migrated north."
+
+"Scientists noticed a strange correlation between rainfall and your interactions."
+
+"A major fire has started."
+
+"Construction of the first bridge has begun."
+
+"A historian has proposed a new explanation for the Great Flood."
+
+Do not spam notifications.
+
+Prioritize meaningful events.
+
+---
+
+# 34. DISCOVERY SYSTEM
+
+Create a discovery system.
+
+Discoveries should include:
+
+* resources
+* species
+* locations
+* technologies
+* historical facts
+* artifacts
+* people
+* environmental patterns
+* mysteries
+* player-related phenomena
+
+Discovery should feel rewarding.
+
+---
+
+# 35. MYSTERIES
+
+Seed long-term mysteries into the world.
+
+Examples:
+
+* strange artifact
+* unexplained ruins
+* ancient structure
+* recurring anomaly
+* missing civilization
+* impossible material
+* strange pattern in terrain
+
+Do not explain everything immediately.
+
+---
+
+# 36. THE WORLD SHOULD SURPRISE THE PLAYER
+
+This is critical.
+
+The player should occasionally discover something they did not expect.
+
+Examples:
+
+You haven't interacted for several hours.
+
+You return.
+
+A civilization has built a new structure.
+
+Or:
+
+A scientist has discovered something.
+
+Or:
+
+A group has migrated.
+
+Or:
+
+A new religion has emerged.
+
+Or:
+
+Someone has started investigating the player's interventions.
+
+The world should never feel completely predictable.
+
+---
+
+# 37. PLAYER REWARD LOOP
+
+The game needs strong retention without relying entirely on artificial timers.
+
+The reward loop should be:
+
+INTERACT
+
+↓
+
+CAUSE CHANGE
+
+↓
+
+OBSERVE CONSEQUENCES
+
+↓
+
+DISCOVER SOMETHING
+
+↓
+
+LEARN ABOUT THE WORLD
+
+↓
+
+BECOME CURIOUS
+
+↓
+
+RETURN
+
+↓
+
+INTERACT AGAIN
+
+The player should constantly have unanswered questions.
+
+---
+
+# 38. SHORT SESSION DESIGN
+
+The game must work for very short sessions.
+
+A player should be able to open it for 30 seconds and:
+
+* inspect someone
+* touch a person
+* move a rock
+* create rain
+* discover an event
+* check statistics
+
+Then close it.
+
+The world continues progressing.
+
+---
+
+# 39. LONG SESSION DESIGN
+
+For longer sessions:
+
+* explore the world
+* follow people
+* inspect families
+* investigate mysteries
+* manipulate terrain
+* study civilization statistics
+* observe construction
+* follow scientific discoveries
+* experiment with environmental effects
+
+---
+
+# 40. SIMULATION SPEED
+
+Provide:
+
+* Pause
+* Normal
+* Fast
+* Very Fast
+
+Optional:
+
+* Simulation while app closed
+
+When the app is closed, DO NOT simulate every individual continuously.
+
+Use abstracted offline progression.
+
+Example:
+
+When reopening after 8 hours:
+
+Calculate:
+
+* births
+* deaths
+* resource production
+* resource consumption
+* construction
+* migration
+* weather summaries
+* major events
+
+Then present:
+
+### WHILE YOU WERE GONE
+
+"12 people were born."
+
+"4 people died."
+
+"A new farm was established."
+
+"A bridge was completed."
+
+"A strange object was discovered."
+
+This is a major return incentive.
+
+---
+
+# 41. WORLD MAP / MINIMAP
+
+Create a minimap.
+
+The minimap should show:
+
+* terrain
+* water
+* settlements
+* important locations
+* selected person
+* events
+* unexplored areas
+
+Allow tapping the minimap to move the camera.
+
+---
+
+# 42. FOG OF KNOWLEDGE
+
+The player should not necessarily know everything.
+
+Use discovery layers.
+
+Initially:
+
+* known area
+* unknown area
+
+As civilization explores:
+
+* maps improve
+* new regions become known
+
+The player can physically explore even before civilization understands an area.
+
+---
+
+# 43. INTERACTION TOOL SYSTEM
+
+Consider a bottom or contextual interaction bar.
+
+Tools:
+
+HAND
+
+* touch
+* inspect
+* move
+
+WIND
+
+* create gust
+
+WATER
+
+* manipulate water
+
+RAIN
+
+* create rainfall
+
+EARTH
+
+* disturb terrain
+
+OBJECT
+
+* drop object
+
+OBSERVE
+
+* study
+
+Each tool should have clear visual feedback.
+
+Do not make the UI overwhelming.
+
+---
+
+# 44. HAPTIC FEEDBACK
+
+Use Android haptics.
+
+Examples:
+
+Light vibration:
+
+* tap
+* successful selection
+
+Medium:
+
+* discovery
+* interaction
+
+Strong:
+
+* earthquake
+* major event
+
+Allow haptics to be disabled.
+
+Do not overuse them.
+
+---
+
+# 45. AUDIO
+
+Create environmental audio.
+
+Examples:
+
+* wind
+* rain
+* water
+* birds
+* insects
+* civilization ambience
+* construction
+* fire
+* distant activity
+
+Audio should become richer as civilization develops.
+
+---
+
+# 46. VISUAL STYLE
+
+Use a stylized miniature world.
+
+Prioritize:
+
+* readability
+* charm
+* personality
+* clean silhouettes
+* clear interactions
+* good performance
+
+Avoid excessive visual complexity.
+
+The player should be able to identify:
+
+* person
+* building
+* animal
+* resource
+* event
+
+at a glance.
+
+---
+
+# 47. PEOPLE VISUALS
+
+Characters should be simple enough for mobile performance.
+
+But they need enough visual personality to be distinguishable.
+
+Use:
+
+* body type
+* clothing
+* color
+* accessories
+* occupation
+* age
+
+Later civilizations can develop more visual complexity.
+
+---
+
+# 48. UI STYLE
+
+UI should feel like an elegant scientific observation device mixed with a miniature-world interface.
+
+Avoid giant opaque menus.
+
+Use:
+
+* cards
+* sliding panels
+* contextual overlays
+* icons with labels
+* charts
+* timelines
+* expandable sections
+
+All UI must be touchscreen-friendly.
+
+Minimum touch target:
+
+approximately 44–48 dp where practical.
+
+---
+
+# 49. MOBILE ORIENTATION
+
+Primary target:
+
+Android phones.
+
+Support:
+
+* portrait
+* landscape
+
+If certain interfaces are better in landscape, transition cleanly.
+
+Never assume a desktop mouse.
+
+Everything must be usable by touch.
+
+---
+
+# 50. ANDROID INPUT
+
+Support:
+
+* touch
+* multitouch
+* accelerometer
+* gyroscope where available
+* device orientation
+* vibration/haptics
+
+Gracefully handle devices without gyroscope support.
+
+Use accelerometer/orientation data carefully.
+
+Do not allow tiny sensor noise to constantly trigger world effects.
+
+Implement smoothing/dead zones.
+
+---
+
+# 51. SENSOR CALIBRATION
+
+Add:
+
+### Sensor Settings
+
+* Tilt sensitivity
+* Shake sensitivity
+* Rotation sensitivity
+* Enable/disable motion controls
+* Recalibrate
+
+Provide a calibration process.
+
+Example:
+
+"Place your phone flat."
+
+"Hold still."
+
+"Calibration complete."
+
+---
+
+# 52. SHAKE DETECTION
+
+Do NOT simply detect raw acceleration spikes.
+
+Implement:
+
+* smoothing
+* threshold
+* cooldown
+* shake intensity
+* direction
+* repeated movement detection
+
+Classify:
+
+LIGHT SHAKE
+
+MEDIUM SHAKE
+
+STRONG SHAKE
+
+EXTREME SHAKE
+
+Use cooldowns so the simulation isn't destroyed by one movement.
+
+---
+
+# 53. PERFORMANCE ARCHITECTURE
+
+This game could become extremely simulation-heavy.
+
+Design for performance from the beginning.
+
+Use:
+
+* object pooling
+* chunk streaming
+* LOD
+* simulation throttling
+* sleeping entities
+* aggregated simulation
+* batched rendering
+* limited physics
+* efficient data structures
+* signals carefully
+* avoid excessive per-frame processing
+
+Do not run expensive AI for every inhabitant every frame.
+
+---
+
+# 54. AI SIMULATION LEVELS
+
+Use simulation tiers.
+
+### Tier 0 — Dormant
+
+Entity is far away and barely simulated.
+
+### Tier 1 — Abstract
+
+Entity participates in statistical simulation.
+
+### Tier 2 — Regional
+
+Entity has approximate behavior.
+
+### Tier 3 — Active
+
+Entity receives detailed behavior.
+
+### Tier 4 — Player Focus
+
+Selected person receives maximum detail.
+
+This allows thousands of inhabitants without requiring thousands of fully active AI agents.
+
+---
+
+# 55. IMPORTANT: DO NOT CREATE A THOUSAND ACTIVE NODE TREES
+
+Avoid an architecture where every person becomes a heavyweight Godot Node with dozens of child nodes.
+
+Use data-driven simulation.
+
+For example:
+
+PersonData
+
+contains:
+
+* ID
+* name
+* age
+* health
+* traits
+* needs
+* occupation
+* family IDs
+* relationships
+* memories
+* location
+* goals
+
+Then render only active entities.
+
+---
+
+# 56. SAVE SYSTEM
+
+Create robust persistent saves.
+
+Save:
+
+* world seed
+* world state
+* terrain modifications
+* chunks
+* entities
+* people
+* families
+* relationships
+* memories
+* civilization
+* technology
+* discoveries
+* history
+* player interactions
+* settings
+
+Use versioned save data.
+
+Example:
+
+SAVE_VERSION = 1
+
+Future versions must support migration.
+
+---
+
+# 57. SAVE SAFETY
+
+Use:
+
+* temporary save
+* backup save
+* atomic save
+* corruption detection
+
+Never overwrite the only valid save before verifying the new save.
+
+Provide:
+
+### New World
+
+### Continue
+
+### Backup
+
+### Reset World
+
+Reset must require confirmation.
+
+---
+
+# 58. PROCEDURAL WORLD GENERATION
+
+Generate the initial world from a seed.
+
+The seed should control:
+
+* terrain
+* resources
+* climate
+* initial ecosystem
+* starting settlement
+* environmental conditions
+
+Display the seed in an advanced settings screen.
+
+Allow copying the seed.
+
+---
+
+# 59. WORLD GENERATION SHOULD CREATE INTERESTING STARTING CONDITIONS
+
+Examples:
+
+* river valley
+* island
+* mountain basin
+* forest clearing
+* coastal plain
+* desert oasis
+
+The starting civilization should have enough resources to survive but not necessarily thrive automatically.
+
+---
+
+# 60. EMERGENT STORY GENERATION
+
+Do NOT write every story manually.
+
+Build systems that create stories.
+
+Example:
+
+Drought
+
+↓
+
+food shortage
+
+↓
+
+migration
+
+↓
+
+two settlements compete
+
+↓
+
+political conflict
+
+↓
+
+war
+
+↓
+
+new border
+
+↓
+
+new culture
+
+↓
+
+historical event
+
+The game records this chain.
+
+Then presents:
+
+### HISTORY
+
+"The Great Drought of Year 83 caused the northern migration and eventually contributed to the River War."
+
+This is far more interesting than scripted quests.
+
+---
+
+# 61. HISTORICAL TIMELINE
+
+Create a timeline interface.
+
+Display:
+
+YEAR 1
+
+* settlement founded
+
+YEAR 7
+
+* first farm
+
+YEAR 13
+
+* first child born
+
+YEAR 26
+
+* first major storm
+
+YEAR 44
+
+* first metal discovered
+
+YEAR 72
+
+* first city
+
+YEAR 109
+
+* Great Flood
+
+YEAR 187
+
+* first scientific institution
+
+Make historical events clickable.
+
+Tapping an event should center the camera on where it happened when possible.
+
+---
+
+# 62. IMPORTANT PEOPLE
+
+Automatically identify historically significant people.
+
+Examples:
+
+* first scientist
+* first engineer
+* famous explorer
+* great leader
+* inventor
+* artist
+* religious founder
+* revolutionary
+* survivor of disaster
+
+The game should not predefine who becomes important.
+
+Importance emerges from history.
+
+---
+
+# 63. LEGACY
+
+People can leave legacy.
+
+A person might:
+
+* invent something
+* found a city
+* create a religion
+* lead a war
+* discover a resource
+* save people
+* cause a disaster
+* develop a scientific theory
+
+Their descendants may remember them.
+
+---
+
+# 64. PLAYER HISTORY
+
+Create a player history log.
+
+Record significant interventions.
+
+Example:
+
+YEAR 3
+
+* touched first inhabitant
+
+YEAR 7
+
+* created first rain
+
+YEAR 11
+
+* caused first earthquake
+
+YEAR 19
+
+* moved a boulder
+
+YEAR 31
+
+* saved a settlement from drought
+
+The player should be able to look back and see how their relationship with the world evolved.
+
+---
+
+# 65. PLAYER STATISTICS
+
+Track:
+
+* total interactions
+* people touched
+* objects moved
+* rain events
+* disasters caused
+* disasters prevented
+* resources manipulated
+* discoveries
+* hours observed
+* civilizations reached
+* generations witnessed
+
+But avoid turning the entire game into a scoreboard.
+
+These statistics are for reflection and discovery.
+
+---
+
+# 66. ACHIEVEMENTS
+
+Optional achievement system.
+
+Examples:
+
+FIRST CONTACT
+
+Interact with your first inhabitant.
+
+RAINMAKER
+
+Cause rain.
+
+CHAOS
+
+Cause a major disaster.
+
+OBSERVER
+
+Watch one person for an entire day.
+
+GENERATION
+
+Witness a family reach its fifth generation.
+
+THE HISTORIAN
+
+Discover 100 historical events.
+
+THE SCIENTIST
+
+Allow civilization to discover a major player-related phenomenon.
+
+THE BOX
+
+Unlock the first evidence that the world is enclosed.
+
+Achievements should reward interesting behavior rather than grinding.
+
+---
+
+# 67. NO FORCED FAILURE
+
+The world can collapse.
+
+Civilizations can disappear.
+
+But the player should always have a path to start again.
+
+Never make the player feel that experimentation permanently ruined the game unless they intentionally choose catastrophic consequences.
+
+Provide:
+
+* backup
+* restore
+* new world
+* optional sandbox controls
+
+---
+
+# 68. SANDBOX MODE
+
+Eventually include an optional sandbox mode.
+
+Allow:
+
+* unlimited resources
+* weather control
+* disaster control
+* population manipulation
+* time control
+* technology unlocks
+
+Keep this separate from the normal progression experience.
+
+---
+
+# 69. DEBUG MODE
+
+Create a developer/debug interface.
+
+It should be accessible only when a debug flag is enabled.
+
+Debug tools:
+
+* pause
+* step one simulation tick
+* simulation speed
+* spawn person
+* kill person
+* spawn animal
+* spawn resource
+* change weather
+* create earthquake
+* trigger event
+* teleport camera
+* inspect entity
+* inspect AI state
+* inspect chunk
+* inspect memory
+* inspect save state
+* force civilization technology
+* force generation
+* test notification
+
+This is essential for development.
+
+---
+
+# 70. DEBUG OVERLAY
+
+Display:
+
+FPS
+
+CPU time
+
+memory
+
+active entities
+
+visible entities
+
+simulation entities
+
+chunks loaded
+
+simulation ticks
+
+save size
+
+world age
+
+population
+
+rendered objects
+
+Use a toggleable debug overlay.
+
+---
+
+# 71. TESTING ARCHITECTURE
+
+Create automated tests for critical systems.
+
+At minimum:
+
+### World generation tests
+
+* deterministic seed
+* valid terrain
+* valid resource placement
+
+### Save tests
+
+* save
+* load
+* version migration
+* corruption detection
+
+### Population tests
+
+* birth
+* aging
+* death
+
+### Relationship tests
+
+* relationship creation
+* relationship changes
+
+### Resource tests
+
+* gathering
+* consumption
+* production
+
+### Weather tests
+
+* transition
+* effect application
+
+### Event tests
+
+* event creation
+* event persistence
+
+### Camera tests
+
+* pan
+* zoom
+* bounds
+
+### Touch tests
+
+* tap detection
+* long press
+* drag
+
+---
+
+# 72. MOBILE TESTING
+
+Test on:
+
+* low-end Android
+* mid-range Android
+* high-end Android
+* different screen sizes
+* different aspect ratios
+* devices with/without gyroscope
+* devices with/without accelerometer
+
+Test:
+
+* cold launch
+* backgrounding
+* returning from background
+* screen rotation
+* low battery
+* interruptions
+* incoming calls
+* app termination
+* save during background transition
+
+---
+
+# 73. ANDROID BACKGROUND HANDLING
+
+The app must properly handle:
+
+* pause
+* resume
+* focus lost
+* focus regained
+
+Save important state when the application is backgrounded.
+
+Never assume the OS will allow the game to remain alive.
+
+---
+
+# 74. ANDROID PERMISSIONS
+
+Only request permissions that are actually necessary.
+
+Motion sensors generally should not require intrusive permissions.
+
+If microphone input is added later, request microphone permission only when the feature is activated.
+
+Never request unnecessary permissions.
+
+---
+
+# 75. ANDROID BUILD CONFIGURATION
+
+Configure:
+
+* Android export
+* package/application ID
+* app name
+* version code
+* version name
+* signing configuration
+* release build
+* debug build
+
+Use a development application ID if appropriate.
+
+Example:
+
+com.happihack.worldinabox
+
+Ensure the project can be opened and built cleanly in Godot 4.7.2.
+
+---
+
+# 76. ANDROID DEVICE DEBUGGING
+
+Document exactly how to:
+
+1. Enable Android Developer Options.
+2. Enable USB debugging.
+3. Connect the phone.
+4. Verify the device.
+5. Export/build the APK.
+6. Install the APK.
+7. Launch the game.
+8. View Godot/Android logs.
+9. Capture crashes.
+10. Reproduce bugs.
+11. Clear save data during testing.
+
+Also support Android emulator testing where sensor simulation is available.
+
+---
+
+# 77. LOGGING
+
+Implement structured logging.
+
+Categories:
+
+* WORLD
+* PLAYER
+* AI
+* SAVE
+* LOAD
+* SENSOR
+* UI
+* PERFORMANCE
+* ERROR
+
+Debug builds may have verbose logging.
+
+Release builds should significantly reduce logging.
+
+---
+
+# 78. CRASH RESILIENCE
+
+The game must survive:
+
+* invalid save data
+* missing entity
+* deleted entity
+* malformed relationship
+* missing chunk
+* unexpected sensor values
+* invalid coordinates
+
+Fail gracefully.
+
+Never let one bad NPC destroy the entire simulation.
+
+---
+
+# 79. DATA-DRIVEN DESIGN
+
+Whenever possible, put tunable values into configuration resources.
+
+Examples:
+
+* movement speed
+* population growth
+* hunger rates
+* resource generation
+* weather probabilities
+* disaster probabilities
+* technology requirements
+* interaction effects
+
+Do not scatter magic numbers throughout scripts.
+
+---
+
+# 80. GODOT PROJECT STRUCTURE
+
+Create a clean architecture.
+
+Suggested:
+
+res://
+
+├── scenes/
+│   ├── main/
+│   ├── world/
+│   ├── people/
+│   ├── buildings/
+│   ├── animals/
+│   └── ui/
+
+├── scripts/
+│   ├── core/
+│   ├── world/
+│   ├── simulation/
+│   ├── people/
+│   ├── civilization/
+│   ├── environment/
+│   ├── interaction/
+│   ├── save/
+│   ├── sensors/
+│   ├── ui/
+│   └── debug/
+
+├── data/
+│   ├── resources/
+│   ├── technologies/
+│   ├── events/
+│   └── configuration/
+
+├── assets/
+│   ├── textures/
+│   ├── audio/
+│   └── fonts/
+
+└── tests/
+
+Keep systems modular.
+
+---
+
+# 81. AUTOLOADS / SINGLETONS
+
+Use autoloads only where justified.
+
+Potential systems:
+
+WorldManager
+
+SimulationManager
+
+SaveManager
+
+EventManager
+
+TimeManager
+
+SensorManager
+
+AudioManager
+
+NotificationManager
+
+PlayerInteractionManager
+
+Do not create a giant singleton containing the entire game.
+
+Keep responsibilities separated.
+
+---
+
+# 82. SIGNAL ARCHITECTURE
+
+Use Godot signals for major events.
+
+Examples:
+
+world_changed
+
+person_born
+
+person_died
+
+person_selected
+
+discovery_found
+
+technology_discovered
+
+weather_changed
+
+major_event_occurred
+
+save_completed
+
+save_failed
+
+notification_created
+
+This prevents systems from becoming tightly coupled.
+
+---
+
+# 83. FIRST PLAY EXPERIENCE
+
+The first launch should be magical.
+
+Do not immediately dump the player into 30 menus.
+
+Start with:
+
+A small box.
+
+A tiny settlement.
+
+A few inhabitants.
+
+Quiet ambience.
+
+Movement.
+
+Life.
+
+The player sees a person walking.
+
+A subtle prompt:
+
+"Something lives inside."
+
+The player touches.
+
+The person notices.
+
+No lengthy tutorial.
+
+Teach mechanics through interaction.
+
+---
+
+# 84. FIRST 10 MINUTES
+
+The player should discover progressively:
+
+1. Pan camera.
+2. Tap person.
+3. Inspect person.
+4. Follow person.
+5. Discover another inhabitant.
+6. Touch world.
+7. Tilt phone.
+8. See environmental response.
+9. Open statistics.
+10. Discover first historical event.
+11. Observe civilization activity.
+12. Discover the first mystery.
+
+Do not front-load all mechanics.
+
+---
+
+# 85. TUTORIAL DESIGN
+
+Use contextual teaching.
+
+Example:
+
+"Drag to explore."
+
+Later:
+
+"Try touching someone."
+
+Later:
+
+"Something changed when you moved the world."
+
+Later:
+
+"Try tilting the box."
+
+The player should learn through curiosity.
+
+---
+
+# 86. NOTIFICATION DESIGN
+
+Notifications should feel like discoveries, not chores.
+
+Good:
+
+"Someone has discovered a new use for copper."
+
+Bad:
+
+"Come back in 2 hours!"
+
+Do not rely on manipulative timers.
+
+---
+
+# 87. RETURN EXPERIENCE
+
+When the player returns after being away:
+
+Show:
+
+# WHILE YOU WERE GONE
+
+Then summarize meaningful events.
+
+Example:
+
+12 births
+
+4 deaths
+
+1 new settlement
+
+2 discoveries
+
+1 major storm
+
+1 unusual scientific observation
+
+Then:
+
+"Something strange happened near the eastern mountains."
+
+This creates curiosity.
+
+---
+
+# 88. DAILY ENGAGEMENT
+
+If implementing daily mechanics, avoid simple login rewards.
+
+Instead create:
+
+### WORLD EVENTS
+
+Every world can naturally generate interesting events.
+
+Example:
+
+"Rare meteor shower tonight."
+
+"Migration season has begun."
+
+"Scientists are attempting an experiment."
+
+The player can participate or ignore them.
+
+---
+
+# 89. EXPERIMENTATION
+
+The game should reward experimentation.
+
+Players should be able to ask:
+
+"What happens if I..."
+
+Then try it.
+
+Examples:
+
+* What happens if I flood a field?
+* What happens if I move a mountain rock?
+* What happens if I touch the same person repeatedly?
+* What happens if I create rain during winter?
+* What happens if I move a resource?
+* What happens if I create a drought?
+* What happens if I save one village but not another?
+
+The game should generate consequences.
+
+---
+
+# 90. ETHICAL / MORAL EMERGENT PLAY
+
+Do not assign:
+
+GOOD GOD
+
+EVIL GOD
+
+Instead allow the player to develop their own style.
+
+The game should record consequences.
+
+If the player repeatedly helps:
+
+People may become dependent.
+
+If the player repeatedly causes disasters:
+
+People may fear them.
+
+If the player rarely intervenes:
+
+Civilization becomes more independent.
+
+These are consequences, not moral scores.
+
+---
+
+# 91. THE ULTIMATE LONG-TERM ARC
+
+The civilization should progress through broad phases.
+
+### PHASE 1
+
+Primitive survival.
+
+### PHASE 2
+
+Settlement.
+
+### PHASE 3
+
+Agriculture.
+
+### PHASE 4
+
+Villages.
+
+### PHASE 5
+
+Cities.
+
+### PHASE 6
+
+Civilization.
+
+### PHASE 7
+
+Scientific development.
+
+### PHASE 8
+
+Industrialization.
+
+### PHASE 9
+
+Advanced civilization.
+
+### PHASE 10
+
+Box investigation.
+
+### PHASE 11
+
+Understanding the external world.
+
+Do not rush this.
+
+The player should feel like they are watching history unfold.
+
+---
+
+# 92. ENDGAME
+
+Do not make a traditional "YOU WIN" screen.
+
+The ultimate goal is discovery.
+
+Potential endgame discoveries:
+
+### THE BOX
+
+The civilization proves the world is enclosed.
+
+### THE OUTSIDE
+
+They discover evidence of an external environment.
+
+### THE OBSERVER
+
+They conclude that an intelligence is interacting with them.
+
+### THE SECOND BOX
+
+They discover evidence that other worlds exist.
+
+### THE CREATOR QUESTION
+
+They begin investigating where the box came from.
+
+The game can continue after these discoveries.
+
+---
+
+# 93. POST-ENDGAME
+
+After civilization discovers the box, the game should become even stranger.
+
+Possible developments:
+
+* scientists attempt to communicate
+* civilizations deliberately perform experiments
+* people try to attract the player's attention
+* structures are constructed specifically for the player
+* messages are created
+* mathematical patterns appear
+* civilizations attempt to predict player behavior
+* inhabitants may disagree about the player's existence
+
+Imagine opening the game and seeing:
+
+### NEW DISCOVERY
+
+"Someone has left a message."
+
+Then zooming in:
+
+A civilization has constructed a giant symbol.
+
+They are trying to communicate with you.
+
+---
+
+# 94. PLAYER COMMUNICATION
+
+Eventually consider allowing the player to communicate.
+
+Possible mechanisms:
+
+### Tap patterns
+
+The civilization may detect repeated patterns.
+
+### Objects
+
+Drop objects in intentional patterns.
+
+### Environmental signals
+
+Create rain, light, movement, etc.
+
+### Later:
+
+Simple text/voice communication.
+
+Do NOT implement advanced AI communication until the simulation foundation is stable.
+
+---
+
+# 95. FUTURE AI ARCHITECTURE
+
+Design the data structures so an optional AI layer could eventually be added.
+
+Possible future use:
+
+* summarize historical events
+* generate names
+* generate stories
+* interpret player actions
+* generate civilization theories
+* create dialogue
+
+But the core game MUST work without external AI APIs.
+
+The simulation cannot depend on an internet connection.
+
+---
+
+# 96. ACCESSIBILITY
+
+Include:
+
+* scalable UI
+* colorblind-friendly indicators
+* haptic toggle
+* audio toggle
+* reduced motion
+* sensor control toggle
+* text size options
+* high contrast mode where practical
+
+The game must remain playable without motion controls.
+
+---
+
+# 97. PERFORMANCE TARGET
+
+Target:
+
+60 FPS on reasonably modern Android hardware.
+
+Gracefully degrade toward:
+
+30 FPS
+
+on lower-end hardware.
+
+Simulation and rendering should be independently throttled.
+
+Never make the entire civilization run at maximum simulation detail continuously.
+
+---
+
+# 98. BATTERY
+
+The game must be conscious of battery use.
+
+Do not continuously run:
+
+* sensors
+* AI
+* high-frequency simulation
+
+when unnecessary.
+
+When the game is backgrounded:
+
+* stop unnecessary sensors
+* save
+* stop rendering
+* perform only permitted background work
+
+---
+
+# 99. DEBUGGING DEVELOPMENT PROCESS
+
+Build incrementally.
+
+DO NOT attempt to create every feature at once.
+
+Use phases.
+
+### PHASE 1
+
+Project foundation.
+
+### PHASE 2
+
+World rendering.
+
+### PHASE 3
+
+Camera and touch.
+
+### PHASE 4
+
+World interaction.
+
+### PHASE 5
+
+Basic people.
+
+### PHASE 6
+
+Simulation.
+
+### PHASE 7
+
+Needs and AI.
+
+### PHASE 8
+
+Civilization.
+
+### PHASE 9
+
+History.
+
+### PHASE 10
+
+Environment.
+
+### PHASE 11
+
+Player interventions.
+
+### PHASE 12
+
+Persistence.
+
+### PHASE 13
+
+Mobile sensors.
+
+### PHASE 14
+
+UI/statistics.
+
+### PHASE 15
+
+Mystery/endgame.
+
+Do not proceed to a later phase until the current phase is stable.
+
+---
+
+# 100. EVERY PHASE MUST BE TESTABLE
+
+At the end of each phase:
+
+1. Explain what was implemented.
+2. List files created/modified.
+3. Explain how to run it.
+4. Explain how to test it.
+5. List expected behavior.
+6. List known issues.
+7. Fix errors before moving forward.
+
+Never assume code works simply because it was generated.
+
+---
+
+# 101. ERROR-FIRST DEVELOPMENT
+
+If a build error occurs:
+
+STOP adding new features.
+
+Investigate the error.
+
+Identify:
+
+* exact file
+* exact line
+* cause
+* fix
+
+Apply the smallest reliable fix.
+
+Then rebuild.
+
+Only continue after successful validation.
+
+---
+
+# 102. GODOT VERSION
+
+This project is specifically:
+
+# GODOT 4.7.2
+
+Do not provide APIs or syntax belonging to Godot 3.x.
+
+Do not assume APIs from unrelated versions.
+
+When uncertain about a Godot 4.7.2 API, verify the correct API before implementing it.
+
+---
+
+# 103. CODE QUALITY
+
+Code should be:
+
+* readable
+* modular
+* commented where necessary
+* typed where useful
+* maintainable
+* testable
+* scalable
+
+Avoid giant scripts.
+
+Avoid duplicated logic.
+
+Avoid hard-coded game state.
+
+Avoid unnecessary global variables.
+
+---
+
+# 104. IMPORTANT DEVELOPMENT RULE
+
+Do not create a fake prototype that only looks like the game.
+
+The foundational architecture must actually support:
+
+* persistent world
+* persistent people
+* persistent history
+* persistent relationships
+* simulation
+* world changes
+* saving/loading
+* scalable chunks
+* mobile input
+
+The initial implementation can be small.
+
+But it must be structurally expandable.
+
+---
+
+# 105. FIRST PLAYABLE BUILD
+
+The first playable milestone should contain:
+
+* generated world
+* miniature visual presentation
+* camera
+* drag
+* pinch zoom
+* tap interaction
+* several people
+* basic AI
+* basic needs
+* basic movement
+* buildings
+* resources
+* weather
+* day/night
+* time
+* touch interaction
+* tilt interaction
+* simple statistics
+* hamburger menu
+* save/load
+* Android build
+
+The player must be able to:
+
+1. Launch.
+2. See a living world.
+3. Pan around.
+4. Zoom.
+5. Tap someone.
+6. Inspect them.
+7. Follow them.
+8. Touch the world.
+9. Tilt the device.
+10. Observe consequences.
+11. Open statistics.
+12. Leave the game.
+13. Return.
+14. See the world persisted.
+
+---
+
+# 106. FIRST DEVELOPMENT PRIORITY
+
+Do not start by implementing the entire civilization.
+
+Start by making this moment feel fantastic:
+
+A tiny world.
+
+A handful of people.
+
+Water.
+
+Trees.
+
+Buildings.
+
+Animals.
+
+Ambient movement.
+
+The player drags across the screen.
+
+They see something happening.
+
+They tap a person.
+
+The person notices.
+
+The player tilts the phone.
+
+Water moves.
+
+The person reacts.
+
+The player realizes:
+
+> "This world is actually alive."
+
+That is the core experience everything else must build upon.
+
+---
+
+# 107. FINAL DESIGN PRINCIPLE
+
+WORLD IN A BOX should feel like:
+
+A toy.
+
+Then:
+
+A simulation.
+
+Then:
+
+A civilization.
+
+Then:
+
+A history.
+
+Then:
+
+A mystery.
+
+Then:
+
+A relationship between the player and an entire living world.
+
+The player should constantly think:
+
+> "I wonder what happens if I do this?"
+
+That question is the heart of the game.
+
+Build the game around curiosity.
+
+Do not tell the player everything.
+
+Let them discover it.
+
+Do not make everything predictable.
+
+Allow systems to interact.
+
+Do not make inhabitants puppets.
+
+Give them lives.
+
+Do not make history scripted.
+
+Let history emerge.
+
+Do not make the player omniscient.
+
+Let the player discover.
+
+And most importantly:
+
+## MAKE THE WORLD FEEL ALIVE WHEN THE PLAYER IS NOT LOOKING.
+
+---
+
+# IMPLEMENTATION INSTRUCTIONS TO CLAUDE
+
+Begin by inspecting the existing project, if one exists.
+
+If this is a new project, create the complete Godot 4.7.2 project structure.
+
+Before implementing major features:
+
+1. Explain the architecture briefly.
+2. Identify dependencies.
+3. Create the foundational systems.
+4. Implement the smallest working version.
+5. Run/test it.
+6. Fix all errors.
+7. Explain exactly what was changed.
+8. Provide the next development step.
+
+Do not dump thousands of lines of speculative code at once.
+
+Build the project incrementally.
+
+Every implementation step must result in a buildable/testable state.
+
+When creating scripts, provide complete files rather than fragments whenever practical.
+
+When modifying an existing script, clearly identify the complete replacement or exact changes.
+
+When debugging, use the actual error output rather than guessing.
+
+Prioritize functional systems over decorative polish.
+
+Do not add placeholder mechanics that will later require rewriting the core architecture.
+
+The architecture must remain expandable.
+
+---
+
+# REQUIRED FINAL DELIVERABLE
+
+The completed project should provide:
+
+* Godot 4.7.2 project
+* Android export configuration
+* playable Android build
+* persistent world
+* scalable world architecture
+* touch interaction
+* motion interaction
+* autonomous inhabitants
+* individual people
+* families
+* relationships
+* needs
+* resources
+* buildings
+* environment
+* weather
+* animals
+* civilization progression
+* technology
+* culture
+* history
+* discoveries
+* player interaction history
+* statistics
+* minimap
+* hamburger menu
+* notifications
+* save/load
+* backup save
+* debug mode
+* automated tests for critical systems
+* Android testing instructions
+* performance/debug tools
+* clean project structure
+* documentation
+
+The final result should feel like the beginning of a much larger living-world simulation rather than a conventional city builder.
+
+The player should be able to pick up their phone, interact with a tiny civilization for a minute, put the phone down, return hours later, and genuinely wonder:
+
+# "What happened to my world while I was gone?"

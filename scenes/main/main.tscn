@@ -1,0 +1,41 @@
+[gd_scene format=3]
+
+[node name="Main" type="Node"]
+
+[node name="UIRoot" type="CanvasLayer" parent="."]
+
+[node name="Background" type="ColorRect" parent="UIRoot"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.113725, 0.141176, 0.188235, 1)
+
+[node name="Title" type="Label" parent="UIRoot"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.94902, 0.901961, 0.788235, 1)
+theme_override_font_sizes/font_size = 72
+text = "My World in a Box"
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Subtitle" type="Label" parent="UIRoot"]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -160.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_colors/font_color = Color(0.784314, 0.631373, 0.396078, 1)
+theme_override_font_sizes/font_size = 36
+text = "Something lives inside."
+horizontal_alignment = 1
+vertical_alignment = 1
