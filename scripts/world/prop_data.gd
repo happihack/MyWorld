@@ -69,6 +69,22 @@ func scale() -> float:
 	return scale_percent / 100.0
 
 
+## Radius (tiles, at 100 % scale) of the part of each kind that loose objects
+## bump into: walls and stone, a tree's trunk. Bushes give way: no entry.
+const COLLISION_RADIUS := {
+	Kind.TREE: 0.09,
+	Kind.ROCK: 0.24,
+	Kind.HUT: 0.42,
+	Kind.CAMPFIRE: 0.22,
+	Kind.RUIN: 0.40,
+}
+
+
+## Radius of the solid part of the prop (0 if things pass through it).
+func collision_radius() -> float:
+	return float(COLLISION_RADIUS.get(kind, 0.0)) * scale()
+
+
 ## Height and radius of the body a finger can hit (Vector2(height, radius)).
 func pick_shape() -> Vector2:
 	var body: Array = PICK_BODY.get(kind, [0.5, 0.3])

@@ -323,6 +323,17 @@ func test_landings_are_heard_and_felt_by_weight_and_speed() -> void:
 	assert_eq(AudioManager.last_sound, &"plip", "water")
 
 
+func test_bumps_click_louder_when_harder() -> void:
+	TouchFeedback.bumped(Vector3(1, 2, 3), 1.0, 1.0)
+	assert_eq(AudioManager.last_sound, &"click")
+	var soft := AudioManager.world_voice(0).volume_db
+	assert_eq(AudioManager.world_voice(0).position, Vector3(1, 2, 3))
+	AudioManager.stop_all()
+	TouchFeedback.bumped(Vector3.ZERO, 1.0, 6.0)
+	assert_true(AudioManager.world_voice(0).volume_db > soft + 4.0)
+	assert_eq(pulses.size(), 0, "bumps are heard, not felt")
+
+
 func test_sound_comes_from_the_touched_place() -> void:
 	var r := InteractionResponse.new()
 	r.effect = InteractionResponse.RIPPLE

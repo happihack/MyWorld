@@ -298,3 +298,21 @@ func test_dropping_into_water_splashes() -> void:
 	assert_near(rock.height_offset, 0.0, 0.0, "stone sinks to the bed")
 	assert_eq(AudioManager.last_sound, &"plip")
 	assert_true(view.effects().active_ring_count() >= 1, "ripples")
+
+
+func test_a_rock_rolled_into_a_hut_knocks_and_stops_outside() -> void:
+	var hut := session.props.get_prop(session.start.hut_ids[0])
+	var rock := _nearest(LooseObject.Kind.ROCK)
+	var start := hut.position2d() + Vector2(0.0, 1.6)
+	session.loose.move(rock.id, start, 0.0)
+	session.loose_system.push(rock.id, Vector3(0.0, 0.0, -6.0)) # straight at the hut
+	await wait_real_ms(1500)
+	assert_eq(rock.state, LooseObject.State.RESTING)
+	assert_true(rock.position.distance_to(hut.position2d()) >= hut.collision_radius() + rock.radius() - 0.001, "not inside the hut")
+	assert_eq(AudioManager.last_sound, &"click", "the knock is heard")
+	# The overlay reports the motion system.
+	var overlay: DebugOverlay = main.get_node("DebugOverlay")
+	overlay.toggle()
+	overlay.refresh()
+	assert_has((overlay.get_node("%OverlayLabel") as Label).text, "moving 0")
+	overlay.toggle()

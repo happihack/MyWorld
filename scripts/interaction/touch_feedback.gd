@@ -52,6 +52,12 @@ static func landed(at: Vector3, give: float, impact_speed: float, on_water: bool
 	Haptics.pulse(MEDIUM if give < HEAVY_BELOW else LIGHT)
 
 
+## A moving loose object ran into a wall, a prop or another object at `speed`.
+static func bumped(at: Vector3, give: float, speed: float) -> void:
+	var force := clampf(speed / 5.0, 0.2, 1.2)
+	AudioManager.play_at(&"click", at, -14.0 + 9.0 * force, clampf(0.5 + 0.5 * give, 0.6, 1.4))
+
+
 ## The sound id of an effect (&"" if it has none).
 static func sound_for(effect: StringName) -> StringName:
 	var cue: Array = CUES.get(effect, [])

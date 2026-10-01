@@ -36,6 +36,7 @@ func _ready() -> void:
 	input_router.touch_began.connect(_on_world_touched)
 	input_router.touch_ended.connect(tools.touch_ended)
 	session.loose_system.landed.connect(_on_object_landed)
+	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
@@ -48,6 +49,8 @@ func _ready() -> void:
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
+	debug_overlay.register_section(&"motion", func() -> String:
+		return "moving %d  step %.2f ms" % [session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0])
 	debug_overlay.register_section(&"feedback", func() -> String:
 		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
@@ -161,6 +164,13 @@ func _on_object_landed(id: int, impact_speed: float) -> void:
 		at.y = session.world.get_height(tile) * session.world.height_step + session.world.get_water(tile)
 	world_view.effects().play_landing(at, session.world.get_terrain(tile), on_water, object.radius())
 	TouchFeedback.landed(at, object.give(), impact_speed, on_water)
+
+
+## A moving loose object ran into something: a knock.
+func _on_object_bumped(id: int, speed: float) -> void:
+	var object := session.loose.get_object(id)
+	if object != null:
+		TouchFeedback.bumped(object.world_position(session.world), object.give(), speed)
 
 
 func _on_context_menu_closed() -> void:

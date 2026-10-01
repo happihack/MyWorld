@@ -159,3 +159,17 @@ func test_clear_empties_index_too() -> void:
 	assert_eq(props.size(), 0)
 	assert_eq(index.size(), 0)
 	assert_false(props.is_chunk_populated(Vector2i(0, 0)))
+
+
+func test_solid_parts_of_props() -> void:
+	var hut := PropData.new()
+	hut.kind = PropData.Kind.HUT
+	var tree := PropData.new()
+	tree.kind = PropData.Kind.TREE
+	tree.scale_percent = 200
+	var bush := PropData.new()
+	bush.kind = PropData.Kind.BUSH
+	assert_true(hut.collision_radius() > 0.35 and hut.collision_radius() < hut.pick_shape().y + 0.01, "a hut's walls")
+	assert_near(tree.collision_radius(), 0.18, 0.0001, "a trunk, scaled with the tree")
+	assert_true(tree.collision_radius() < tree.pick_shape().y, "much thinner than its canopy")
+	assert_near(bush.collision_radius(), 0.0, 0.0, "bushes give way")

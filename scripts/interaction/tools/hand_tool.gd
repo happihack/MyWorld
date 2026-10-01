@@ -17,6 +17,10 @@ const MOVED_MIN_DISTANCE := 0.2
 const LIFT_SPEED := 4.5
 ## A held object keeps at least this far above the surface.
 const MIN_CLEARANCE := 0.04
+## Let go slower than this and the object is simply set down.
+const THROW_MIN_SPEED := 1.0
+## How quickly the remembered carrying speed follows the real one (per second).
+const THROW_SMOOTHING := 14.0
 
 var _held_id := 0
 var _finger := Vector2.ZERO
@@ -27,6 +31,9 @@ var _grab_from := Vector2.ZERO
 var _dragged := false
 ## World height of the held object's base (smoothed over terrain steps).
 var _base_y := 0.0
+## How the held object has been moving (tiles/s, smoothed): let go while it
+## moves and it is thrown that way.
+var _carry_velocity := Vector2.ZERO
 
 
 func _init() -> void:
@@ -96,6 +103,7 @@ func grab_at(screen: Vector2) -> bool:
 	_finger = screen
 	_dragged = false
 	_grab_from = object.position
+	_carry_velocity = Vector2.ZERO
 	var under: Variant = _ground_under(screen)
 	_grab_offset = object.position - (under as Vector2) if under != null else Vector2.ZERO
 	_base_y = object.world_position(ctx.session.world).y
@@ -106,7 +114,8 @@ func grab_at(screen: Vector2) -> bool:
 	return true
 
 
-## Lets go of the held object: it drops where it is.
+## Lets go of the held object: it drops where it is — or, if it was moving,
+## flies on that way.
 func release() -> void:
 	if not is_busy():
 		return
@@ -120,7 +129,10 @@ func release() -> void:
 		object.moved_count += 1
 		object.placed_by_player = true
 		loose.touch(id_was)
-	ctx.session.loose_system.drop(id_was)
+	var throw := _carry_velocity.limit_length(Config.interaction.throw_max_speed)
+	if throw.length() < THROW_MIN_SPEED:
+		throw = Vector2.ZERO # set down, not thrown
+	ctx.session.loose_system.drop(id_was, Vector3(throw.x, 0.0, throw.y))
 
 
 func update(delta: float) -> void:
@@ -144,6 +156,9 @@ func update(delta: float) -> void:
 	var surface := ground + maxf(world.get_water(tile), 0.0)
 	_base_y = move_toward(_base_y, surface + hover_height(object), LIFT_SPEED * delta)
 	_base_y = maxf(_base_y, surface + MIN_CLEARANCE)
+	if delta > 0.0:
+		var moving := (position - object.position) / delta
+		_carry_velocity = _carry_velocity.lerp(moving, clampf(delta * THROW_SMOOTHING, 0.0, 1.0))
 	ctx.session.loose.move(_held_id, position, _base_y - ground)
 
 

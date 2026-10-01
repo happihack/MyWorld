@@ -13,15 +13,18 @@ enum Kind { PEBBLE, ROCK, BOULDER, LOG, FRUIT, SEED, STRANGE_OBJECT }
 enum State { RESTING, HELD, FALLING, SLIDING }
 
 ## Per kind at 100 % size: body radius and height in tiles, mass in kilograms,
-## and whether it floats.
+## whether it floats, and how it moves (LooseObjectSystem):
+##   bounce   - share of the falling speed it keeps when it hits the ground
+##   friction - how fast the ground slows it (tiles/s per second); round things roll far
+##   roll     - how strongly a slope pulls it (1 = rolls freely, less = drags)
 const SPECS := {
-	Kind.PEBBLE: {"radius": 0.09, "height": 0.08, "mass": 0.3, "floats": false},
-	Kind.ROCK: {"radius": 0.26, "height": 0.24, "mass": 14.0, "floats": false},
-	Kind.BOULDER: {"radius": 0.42, "height": 0.44, "mass": 190.0, "floats": false},
-	Kind.LOG: {"radius": 0.45, "height": 0.22, "mass": 45.0, "floats": true},
-	Kind.FRUIT: {"radius": 0.07, "height": 0.12, "mass": 0.15, "floats": true},
-	Kind.SEED: {"radius": 0.04, "height": 0.05, "mass": 0.01, "floats": true},
-	Kind.STRANGE_OBJECT: {"radius": 0.13, "height": 0.24, "mass": 2.0, "floats": false},
+	Kind.PEBBLE: {"radius": 0.09, "height": 0.08, "mass": 0.3, "floats": false, "bounce": 0.35, "friction": 4.0, "roll": 1.0},
+	Kind.ROCK: {"radius": 0.26, "height": 0.24, "mass": 14.0, "floats": false, "bounce": 0.25, "friction": 3.5, "roll": 1.0},
+	Kind.BOULDER: {"radius": 0.42, "height": 0.44, "mass": 190.0, "floats": false, "bounce": 0.12, "friction": 2.5, "roll": 1.0},
+	Kind.LOG: {"radius": 0.45, "height": 0.22, "mass": 45.0, "floats": true, "bounce": 0.15, "friction": 9.0, "roll": 0.4},
+	Kind.FRUIT: {"radius": 0.07, "height": 0.12, "mass": 0.15, "floats": true, "bounce": 0.3, "friction": 4.0, "roll": 1.0},
+	Kind.SEED: {"radius": 0.04, "height": 0.05, "mass": 0.01, "floats": true, "bounce": 0.2, "friction": 6.0, "roll": 0.6},
+	Kind.STRANGE_OBJECT: {"radius": 0.13, "height": 0.24, "mass": 2.0, "floats": false, "bounce": 0.3, "friction": 5.0, "roll": 0.8},
 }
 
 ## A generated rock at least this big (PropData.scale_percent) is a boulder.

@@ -16,6 +16,11 @@ const KIND_BUILDING := 1 << 4
 const KIND_MYSTERY := 1 << 5
 const KIND_ALL := 0x7FFFFFFF
 
+## Bucket size (tiles) that suits a world full of props and loose objects:
+## small enough that a search around one object looks at a handful of
+## entities, not a whole chunk's worth.
+const FINE_CELL_TILES := 4
+
 var chunk_size: int
 
 var _positions: Dictionary = {} # id -> Vector2

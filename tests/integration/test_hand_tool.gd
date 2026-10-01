@@ -267,6 +267,44 @@ func test_letting_go_drops_the_rock_where_it_is() -> void:
 	assert_eq(record["position"], rock.position)
 
 
+func test_letting_go_while_moving_throws() -> void:
+	var boulder := _nearest(LooseObject.Kind.BOULDER)
+	var from := boulder.position
+	assert_true(_grab(boulder))
+	_run(0.3)
+	# A boulder lags behind the finger, so it is still moving when let go.
+	var target := from + Vector2(1.2, 0.5)
+	_drag_to(_ground_screen(target))
+	_run(0.12)
+	var released_at := boulder.position
+	var heading := (target - from).normalized()
+	tools.handle_gesture(_gesture(Gesture.Type.DRAG_END, _ground_screen(target)))
+	var thrown := Vector2(boulder.velocity.x, boulder.velocity.z)
+	assert_true(thrown.length() > HandTool.THROW_MIN_SPEED, "it leaves the hand moving (%.2f tiles/s)" % thrown.length())
+	assert_true(thrown.length() <= Config.interaction.throw_max_speed + 0.001)
+	assert_true(thrown.normalized().dot(heading) > 0.9, "the way it was being carried")
+	for i in 600:
+		session.loose_system.step(1.0 / 60.0)
+		if not session.loose_system.is_moving(boulder.id):
+			break
+	assert_eq(boulder.state, LooseObject.State.RESTING)
+	assert_true((boulder.position - released_at).dot(heading) > 0.15, "and rolls on a little after landing (%.2f)" % (boulder.position - released_at).dot(heading))
+
+
+func test_letting_go_after_stopping_just_sets_it_down() -> void:
+	var rock := _nearest(LooseObject.Kind.ROCK)
+	assert_true(_grab(rock))
+	_run(0.3)
+	var target := rock.position + Vector2(1.0, -0.6)
+	_drag_to(_ground_screen(target))
+	_run(1.5) # arrived, and the finger rests
+	var at := rock.position
+	tools.handle_gesture(_gesture(Gesture.Type.DRAG_END, _ground_screen(target)))
+	assert_eq(rock.velocity, Vector3.ZERO, "no throw")
+	_run(1.0)
+	assert_eq(rock.position, at, "it lands right where it was held")
+
+
 func test_putting_it_back_is_not_a_move() -> void:
 	var rock := _nearest(LooseObject.Kind.ROCK)
 	assert_true(_grab(rock))

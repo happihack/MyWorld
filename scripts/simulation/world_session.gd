@@ -157,7 +157,7 @@ func _build_new_world(setup_ids: IdAllocator) -> void:
 	world = WorldData.create_centered(Config.world.initial_world_tiles, Config.world.chunk_size, Config.world.height_step)
 	generator = WorldGenerator.new(world_seed, template, Config.world)
 	world.set_generator(generator)
-	spatial = SpatialIndex.new(world.chunk_size)
+	spatial = SpatialIndex.new(SpatialIndex.FINE_CELL_TILES)
 	props = PropRegistry.new(world.chunk_size, spatial)
 	loose = LooseObjectRegistry.new(world.chunk_size, spatial)
 	start = WorldSetup.create_start(world, generator, props, setup_ids, loose)
@@ -203,7 +203,7 @@ func _restore_world(state: Dictionary) -> bool:
 	world_config.height_step = restored.height_step
 	var restored_generator := WorldGenerator.new(world_seed, _load_template(saved_template), world_config)
 	restored.set_generator(restored_generator)
-	var restored_spatial := SpatialIndex.new(restored.chunk_size)
+	var restored_spatial := SpatialIndex.new(SpatialIndex.FINE_CELL_TILES)
 	var restored_props := PropRegistry.new(restored.chunk_size, restored_spatial)
 	var skipped_props := restored_props.from_dict(props_data)
 	if skipped_props < 0:
@@ -254,7 +254,7 @@ func _load_template(id: StringName) -> StartTemplate:
 
 func _activate() -> void:
 	interactions.bind(world, props, loose)
-	loose_system.bind(world, loose)
+	loose_system.bind(world, loose, props)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

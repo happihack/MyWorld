@@ -22,6 +22,8 @@ extends ConfigBase
 @export_range(0.1, 2.0, 0.05) var carry_hover_height: float = 0.55
 ## How fast an ordinary rock follows the finger (tiles/s); heavy things are slower.
 @export_range(1.0, 100.0, 0.5) var carry_speed: float = 18.0
+## Letting go while moving throws the object; never faster than this (tiles/s).
+@export_range(0.0, 14.0, 0.5) var throw_max_speed: float = 9.0
 ## Carrying something this close to the screen edge (fraction of the shorter
 ## side) pans the view.
 @export_range(0.0, 0.4, 0.01) var edge_pan_margin: float = 0.14
