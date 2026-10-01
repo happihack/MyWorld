@@ -1,5 +1,5 @@
 extends TestCase
-## Settings run against the runner's isolated file (user://test_run/settings.cfg).
+## Settings run against the runner's isolated file (user://test_run_<pid>/settings.cfg).
 
 
 func before_each() -> void:

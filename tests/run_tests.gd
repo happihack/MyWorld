@@ -7,6 +7,8 @@ extends SceneTree
 ## Options (after `--`):
 ##   --filter=<text>        run files/tests whose path or name contains <text>
 ##   --dir=<res://path>     test directory (repeatable; default unit + integration)
+##   --shard=<i>/<n>        run only the i-th of n slices of the test files
+##                          (1-based; lets several processes split the suite)
 ##   --test-timeout=<s>     per-test timeout in seconds (default 15)
 ##   --timeout=<s>          whole-run watchdog in seconds (default 300)
 ##   --verbose              echo game logs to the console (off by default)
@@ -20,9 +22,9 @@ extends SceneTree
 ##   records script errors and any error during a test fails that test.
 
 const DEFAULT_DIRS: PackedStringArray = ["res://tests/unit", "res://tests/integration"]
-const TEST_SAVE_ROOT := "user://test_run/saves"
-const TEST_SETTINGS_PATH := "user://test_run/settings.cfg"
-const TEST_RUN_DIR := "user://test_run"
+## Each process gets its own scratch directory, so parallel runs (shards, CI
+## jobs, two terminals) can never delete or overwrite each other's files.
+const TEST_RUN_DIR_PREFIX := "user://test_run_"
 
 
 class ErrorCatcher:
@@ -60,6 +62,9 @@ var _filter := ""
 var _dirs: PackedStringArray = []
 var _test_timeout_s := 15.0
 var _verbose := false
+var _shard_index := 1
+var _shard_count := 1
+var _run_dir := ""
 var _passed := 0
 var _failed := 0
 var _failure_lines: PackedStringArray = []
@@ -81,6 +86,13 @@ func _parse_args() -> void:
 			_dirs.append(arg.get_slice("=", 1))
 		elif arg.begins_with("--test-timeout="):
 			_test_timeout_s = float(arg.get_slice("=", 1))
+		elif arg.begins_with("--shard="):
+			var parts := arg.get_slice("=", 1).split("/")
+			if parts.size() == 2 and int(parts[1]) >= 1 and int(parts[0]) >= 1 and int(parts[0]) <= int(parts[1]):
+				_shard_index = int(parts[0])
+				_shard_count = int(parts[1])
+			else:
+				print("Ignoring invalid --shard value: %s" % arg)
 		elif arg == "--verbose":
 			_verbose = true
 		elif arg.begins_with("--timeout="):
@@ -96,7 +108,12 @@ func _run() -> void:
 	var started := Time.get_ticks_msec()
 	_isolate_environment()
 	var files := _discover()
-	print("Running %d test file(s)%s\n" % [files.size(), "" if _filter.is_empty() else " (filter: %s)" % _filter])
+	var notes := PackedStringArray()
+	if not _filter.is_empty():
+		notes.append("filter: %s" % _filter)
+	if _shard_count > 1:
+		notes.append("shard %d/%d" % [_shard_index, _shard_count])
+	print("Running %d test file(s)%s\n" % [files.size(), "" if notes.is_empty() else " (%s)" % ", ".join(notes)])
 	for file in files:
 		await _run_file(file)
 	_restore_environment()
@@ -194,7 +211,13 @@ func _discover() -> PackedStringArray:
 	for dir in _dirs:
 		_collect(dir, found)
 	found.sort()
-	return found
+	if _shard_count <= 1:
+		return found
+	var slice := PackedStringArray()
+	for i in found.size():
+		if i % _shard_count == _shard_index - 1:
+			slice.append(found[i])
+	return slice
 
 
 func _collect(dir: String, out: PackedStringArray) -> void:
@@ -210,10 +233,12 @@ func _collect(dir: String, out: PackedStringArray) -> void:
 ## Keeps tests away from the player's real saves and settings.
 func _isolate_environment() -> void:
 	root.get_node("Log").console_output = _verbose
-	TestCase.remove_dir_recursive(TEST_RUN_DIR)
-	DirAccess.make_dir_recursive_absolute(TEST_SAVE_ROOT)
-	root.get_node("Config").save.save_root = TEST_SAVE_ROOT
-	root.get_node("Settings").use_path(TEST_SETTINGS_PATH)
+	_run_dir = "%s%d" % [TEST_RUN_DIR_PREFIX, OS.get_process_id()]
+	TestCase.remove_dir_recursive(_run_dir)
+	var save_root := _run_dir.path_join("saves")
+	DirAccess.make_dir_recursive_absolute(save_root)
+	root.get_node("Config").save.save_root = save_root
+	root.get_node("Settings").use_path(_run_dir.path_join("settings.cfg"))
 
 
 func _restore_environment() -> void:
@@ -221,4 +246,4 @@ func _restore_environment() -> void:
 	save_manager.attach(null)
 	if current_scene != null:
 		unload_current_scene()
-	TestCase.remove_dir_recursive(TEST_RUN_DIR)
+	TestCase.remove_dir_recursive(_run_dir)

@@ -36,15 +36,29 @@ Release builds: tap the version label 7 times within 3 s to unlock debug tools.
 godot --headless --path . -s res://tests/run_tests.gd                      # everything
 godot --headless --path . -s res://tests/run_tests.gd -- --filter=save     # path/name filter
 godot --headless --path . -s res://tests/run_tests.gd -- --verbose         # show game logs
+godot --headless --path . -s res://tests/run_tests.gd -- --shard=1/4       # 1st of 4 slices (parallel runs)
 ```
 
 Exit code `0` = all passed, `1` = failures, `2` = watchdog abort.
 
 - Tests live in `tests/unit/` and `tests/integration/`, named `test_*.gd`, extending `TestCase`.
 - Any **script error** during a test fails it (caught via a `Logger`), as do assertion failures and per-test timeouts (`--test-timeout=`, default 15 s).
-- The runner isolates **saves** (`user://test_run/saves`) and **settings** (`user://test_run/settings.cfg`) and deletes them afterwards — your real world is never touched.
+- The runner isolates **saves** and **settings** in a per-process folder (`user://test_run_<pid>/`) and deletes it afterwards — your real world is never touched, and parallel runs never collide.
 - Runner self-check (must report 3 passed, 4 failed):
   `godot --headless --path . -s res://tests/run_tests.gd -- --dir=res://tests/fixtures/runner_selftest --test-timeout=2`
+
+## Android build
+
+Requires the Android SDK path and JDK 17 set in Godot (Editor Settings → Export → Android).
+
+```sh
+godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
+adb install -r build/wiab-debug.apk
+adb logcat -s godot
+```
+
+Debug package: `com.happihack.worldinabox.dev` ("WIAB Dev"). See Appendix 1 of
+`implementation_phases.md` for the full device workflow.
 
 ## Project layout
 

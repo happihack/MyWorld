@@ -130,7 +130,8 @@ func _open_log_file() -> void:
 		return
 	_rotate_old_files()
 	var stamp := Time.get_datetime_string_from_system().replace(":", "-").replace("T", "_")
-	var path := "%s/wiab_%s.log" % [LOG_DIR, stamp]
+	# The pid keeps simultaneous processes (parallel test runs) on separate files.
+	var path := "%s/wiab_%s_%d.log" % [LOG_DIR, stamp, OS.get_process_id()]
 	_file = FileAccess.open(path, FileAccess.WRITE)
 	if _file == null:
 		push_warning("Log: cannot open %s (%s)" % [path, error_string(FileAccess.get_open_error())])

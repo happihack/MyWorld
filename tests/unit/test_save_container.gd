@@ -1,7 +1,8 @@
 extends TestCase
 
-const DIR := "user://test_run/container"
-const FILE := DIR + "/c.sav"
+## Inside the runner's per-process scratch directory (next to the save root).
+var DIR := Config.save.save_root.get_base_dir().path_join("container")
+var FILE := DIR.path_join("c.sav")
 var DATA := {"big": 9007199254740993, "v": Vector2i(-3, 7), "bytes": PackedByteArray([1, 2, 3]), "nested": {"a": [1, "x", 2.5]}}
 
 var good: PackedByteArray
