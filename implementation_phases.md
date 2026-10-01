@@ -327,10 +327,17 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - [x] `README.md` with run/test instructions.
 - **Verified:** full suite 96/96 PASS in ~6 s; self-test 3/4 as designed; `--filter` works; real save + settings untouched.
 
-### M0.8 Android export & device loop (Track T5)
-- [ ] Install Android build template for 4.7.2; configure SDK/JDK paths in Editor Settings ⚠ (Godot 4.7 required JDK/SDK versions).
-- [ ] Export presets: **Android Debug** (`com.happihack.worldinabox.dev`, debug keystore, name "WIAB Dev") and **Android Release** (`com.happihack.worldinabox`, release keystore — **path/passwords via environment or local override, never committed**). `version/code = 1`, `version/name = "0.0.1"`. Permissions: **VIBRATE only**. Architectures: arm64-v8a (+ armeabi-v7a if targeting very old devices).
-- [ ] Follow **Appendix 1** to deploy to a real device; confirm touch label updates; confirm pause/resume logs in `adb logcat`.
+### M0.8 Android export & device loop (Track T5) — PARTIAL (2026-09-30)
+- [x] Toolchain found: Android SDK `%LOCALAPPDATA%\Android\Sdk` (build-tools 34–36, platforms to 37, NDK, platform-tools/adb 1.0.41), JDK 17 (`C:\Program Files\Java\jdk-17.0.2`, already in editor settings), Godot debug keystore, **4.7.2.stable.mono** export templates.
+- [x] `export_presets.cfg` (committed; passwords live in git-ignored `.godot/export_credentials.cfg`):
+  - **Android Debug** — `com.happihack.worldinabox.dev`, "WIAB Dev", arm64-v8a + x86_64 (emulator), editor debug keystore, `build/wiab-debug.apk`.
+  - **Android Release** — `com.happihack.worldinabox`, "My World in a Box", arm64-v8a + armeabi-v7a, release keystore **not configured yet**.
+  - Both: version code 1 / name 0.0.1, **VIBRATE only** (internet off), immersive, no Gradle build, `tests/*` and `docs/*` excluded.
+- [x] **Debug APK builds** headless and is verified with `aapt2`/`apksigner`: package, version, label, sole VIBRATE permission, ABIs, targetSdk 36, valid signature; game data 80 KB; no .NET runtime bundled. Size 57 MB (two ABIs of the engine library).
+- [ ] **Set the Android SDK path in Godot** — Editor → Editor Settings → Export → Android → *Android SDK Path* = `C:\Users\dreyer\AppData\Local\Android\Sdk` (empty in all editor-settings files; `ANDROID_HOME` is **not** used as a fallback). Until then the verified build used an isolated self-contained Godot copy in the session scratchpad.
+- [ ] **Install & run on a device** (Appendix 1) — no device connected yet. Check: touch → gestures in overlay (3-finger tap), multi-touch pinch/twist, pause/resume logs (`adb logcat -s godot`), save on background, world continues after relaunch/kill.
+- [ ] **Release keystore** — create with `keytool`; supply via env vars `GODOT_ANDROID_KEYSTORE_RELEASE_PATH/_USER/_PASSWORD` (never committed). Needed before any release build.
+- **Finding:** the project is pure GDScript but the installed Godot is the **.NET (mono) build**. Export works (Godot warns "Exporting to Android when using C#/.NET is experimental", non-blocking), but the **standard (non-.NET) Godot 4.7.2 + standard templates** is the recommended toolchain: no experimental path, smaller engine library. Decision pending (would be D-15).
 
 ### M0 — Tests & checks
 **Automated:** runner executes ≥ 4 test files green headless.
