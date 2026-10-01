@@ -42,7 +42,12 @@ const RUIN_MOSS := Color(0.36, 0.47, 0.34)
 const GRASS_BLADE := Color(0.33, 0.58, 0.24)
 const GRASS_TIP := Color(0.52, 0.74, 0.34)
 
+const SEED_HUSK := Color(0.62, 0.50, 0.30)
+const STRANGE := Color(0.20, 0.23, 0.33)
+const STRANGE_GLINT := Color(0.45, 0.80, 0.78)
+
 var _templates: Dictionary = {} # key -> Template
+var _loose: Dictionary = {} # loose key -> Template
 var _tuft: Template
 
 
@@ -59,6 +64,42 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
 	_tuft = _grass_tuft()
+	# Loose objects (things that can be moved). Rocks look like the rock props
+	# they replace; boulders are the same stone, bigger.
+	_loose[loose_key(LooseObject.Kind.PEBBLE, 0)] = _rock(0.09, 0.07, 0.0)
+	_loose[loose_key(LooseObject.Kind.PEBBLE, 1)] = _rock(0.075, 0.085, 0.6)
+	_loose[loose_key(LooseObject.Kind.ROCK, 0)] = _rock(0.26, 0.20, 0.0)
+	_loose[loose_key(LooseObject.Kind.ROCK, 1)] = _rock(0.19, 0.27, 0.7)
+	_loose[loose_key(LooseObject.Kind.BOULDER, 0)] = _rock(0.42, 0.38, 0.3)
+	_loose[loose_key(LooseObject.Kind.BOULDER, 1)] = _rock(0.37, 0.46, 0.9)
+	_loose[loose_key(LooseObject.Kind.LOG, 0)] = _log(0.9, 0.11)
+	_loose[loose_key(LooseObject.Kind.FRUIT, 0)] = _gem(0.06, 0.07, BERRY, BERRY.lightened(0.25))
+	_loose[loose_key(LooseObject.Kind.SEED, 0)] = _gem(0.03, 0.03, SEED_HUSK, SEED_HUSK.lightened(0.2))
+	_loose[loose_key(LooseObject.Kind.STRANGE_OBJECT, 0)] = _gem(0.11, 0.13, STRANGE, STRANGE_GLINT)
+
+
+## Key of a loose object's shape (kind + variant).
+static func loose_key(kind: int, variant: int) -> int:
+	return kind * 16 + (variant & 15)
+
+
+## The shape of a loose object. Unknown variants fall back to variant 0.
+func loose_template(kind: int, variant: int) -> Template:
+	return loose_template_by_key(loose_key(kind, variant))
+
+
+func loose_template_by_key(key: int) -> Template:
+	var t: Template = _loose.get(key)
+	if t == null:
+		t = _loose.get(key - (key & 15))
+	return t
+
+
+func all_loose_templates() -> Array[Template]:
+	var out: Array[Template] = []
+	for t: Template in _loose.values():
+		out.append(t)
+	return out
 
 
 ## The shape for a prop. Unknown variants fall back to variant 0 of the kind.
@@ -187,6 +228,47 @@ static func _ruin() -> Template:
 	_box(t, Vector3(0.22, 0.25, -0.16), Vector3(0.08, 0.22, 0.08), _rgba(RUIN_MOSS, 0.0), -0.2)
 	_box(t, Vector3(0.20, 0.14, 0.18), Vector3(0.08, 0.11, 0.08), _rgba(RUIN, 0.0), 0.4)
 	_box(t, Vector3(-0.12, 0.09, 0.20), Vector3(0.19, 0.06, 0.07), _rgba(RUIN_MOSS, 0.0), 0.9) # fallen lintel
+	return t
+
+
+## A felled trunk lying on its side along X.
+static func _log(length: float, radius: float) -> Template:
+	var t := Template.new()
+	var sides := 6
+	var half := length * 0.5
+	var axis_y := radius * 0.92 # sunk a little into the ground
+	var left: Array[Vector3] = []
+	var right: Array[Vector3] = []
+	for i in sides:
+		var angle := TAU * i / sides
+		var y := axis_y + cos(angle) * radius
+		var z := sin(angle) * radius
+		left.append(Vector3(-half, y, z))
+		right.append(Vector3(half, y, z))
+	var axis := Vector3(0.0, axis_y, 0.0)
+	for i in sides:
+		var j := (i + 1) % sides
+		_quad_outward(t, left[i], right[i], right[j], left[j], _rgba(TRUNK if i % 2 == 0 else TRUNK_DARK, 0.0), axis)
+		# Cut ends: paler wood.
+		_tri_outward(t, left[i], left[j], Vector3(-half, axis_y, 0.0), _rgba(WALL, 0.0), _rgba(WALL, 0.0), _rgba(WALL_DARK, 0.0), axis)
+		_tri_outward(t, right[i], right[j], Vector3(half, axis_y, 0.0), _rgba(WALL, 0.0), _rgba(WALL, 0.0), _rgba(WALL_DARK, 0.0), axis)
+	return t
+
+
+## A small faceted lump standing on the ground: fruit, seeds, strange things.
+static func _gem(radius: float, half_height: float, color: Color, top_color: Color) -> Template:
+	var t := Template.new()
+	var center := Vector3(0.0, half_height, 0.0)
+	var up := center + Vector3(0.0, half_height, 0.0)
+	var down := center - Vector3(0.0, half_height, 0.0)
+	var ring: Array[Vector3] = []
+	for i in 5:
+		var angle := TAU * i / 5.0
+		ring.append(center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius))
+	for i in 5:
+		var j := (i + 1) % 5
+		_tri_outward(t, ring[i], ring[j], up, _rgba(color, 0.0), _rgba(color, 0.0), _rgba(top_color, 0.0), center)
+		_tri_outward(t, ring[i], ring[j], down, _rgba(color, 0.0), _rgba(color, 0.0), _rgba(color.darkened(0.3), 0.0), center)
 	return t
 
 

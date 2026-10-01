@@ -67,32 +67,50 @@ class StartInfo:
 		return info
 
 
-## Generates every chunk in bounds and registers its props.
-static func populate_all(world: WorldData, generator: WorldGenerator, props: PropRegistry) -> void:
+## Generates every chunk in bounds and registers what stands and lies on it.
+## With a `loose` registry, generated rocks become loose objects (things the
+## player can move); without one they stay props.
+static func populate_all(world: WorldData, generator: WorldGenerator, props: PropRegistry,
+		loose: LooseObjectRegistry = null) -> void:
 	for coord in world.chunk_coords():
-		populate_chunk(world, generator, props, coord)
+		populate_chunk(world, generator, props, coord, loose)
 
 
-static func populate_chunk(world: WorldData, generator: WorldGenerator, props: PropRegistry, coord: Vector2i) -> void:
+static func populate_chunk(world: WorldData, generator: WorldGenerator, props: PropRegistry, coord: Vector2i,
+		loose: LooseObjectRegistry = null) -> void:
 	if props.is_chunk_populated(coord):
 		return
 	var chunk := world.get_chunk(coord)
-	if chunk != null:
-		props.populate_chunk(coord, generator.generate_props(chunk))
+	if chunk == null:
+		return
+	var generated := generator.generate_props(chunk)
+	if loose == null:
+		props.populate_chunk(coord, generated)
+		return
+	var standing: Array[PropData] = []
+	var lying: Array[LooseObject] = []
+	for prop in generated:
+		if prop.kind == PropData.Kind.ROCK:
+			lying.append(LooseObject.from_generated_rock(prop))
+		else:
+			standing.append(prop)
+	props.populate_chunk(coord, standing)
+	loose.populate_chunk(coord, lying)
 
 
 ## Full start-of-world setup. `ids` supplies ids for the created props.
-static func create_start(world: WorldData, generator: WorldGenerator, props: PropRegistry, ids: IdAllocator) -> StartInfo:
+static func create_start(world: WorldData, generator: WorldGenerator, props: PropRegistry, ids: IdAllocator,
+		loose: LooseObjectRegistry = null) -> StartInfo:
 	var info := StartInfo.new()
-	populate_all(world, generator, props)
+	populate_all(world, generator, props, loose)
 	var site: Variant = find_settlement_site(world, generator, props)
 	if site == null:
 		info.problems.append("no suitable settlement site")
 		return info
 	info.settlement_tile = site
-	_place_settlement(info, props, ids, generator.world_seed)
-	_place_ruin(info, world, props, ids, generator.world_seed)
-	info.problems = validate(world, props, info.settlement_tile)
+	_place_settlement(info, props, ids, generator.world_seed, loose)
+	_place_ruin(info, world, props, ids, generator.world_seed, loose)
+	info.problems = validate(world, props, info.settlement_tile, loose)
 	info.ok = info.problems.is_empty()
 	return info
 
@@ -137,7 +155,8 @@ static func find_settlement_site(world: WorldData, generator: WorldGenerator, pr
 
 
 ## Everything a starting band needs must be reachable on foot from the site.
-static func validate(world: WorldData, props: PropRegistry, settlement_tile: Vector2i) -> PackedStringArray:
+static func validate(world: WorldData, props: PropRegistry, settlement_tile: Vector2i,
+		loose: LooseObjectRegistry = null) -> PackedStringArray:
 	var problems := PackedStringArray()
 	if not world.is_in_bounds(settlement_tile) or not is_walkable(world, settlement_tile):
 		problems.append("settlement tile is not walkable")
@@ -164,6 +183,10 @@ static func validate(world: WorldData, props: PropRegistry, settlement_tile: Vec
 				PropData.Kind.BUSH: bushes += 1
 				PropData.Kind.TREE: trees += 1
 				PropData.Kind.ROCK: rocks += 1
+	if loose != null:
+		for object in loose.all_objects():
+			if object.is_stone() and reach.has(object.tile()):
+				rocks += 1
 	if nearest_water < 0:
 		problems.append("no water reachable on foot")
 	elif nearest_water > MAX_WATER_WALK:
@@ -190,14 +213,13 @@ static func can_step(world: WorldData, from: Vector2i, to: Vector2i) -> bool:
 
 # --- placement -------------------------------------------------------------------
 
-static func _place_settlement(info: StartInfo, props: PropRegistry, ids: IdAllocator, seed_value: int) -> void:
+static func _place_settlement(info: StartInfo, props: PropRegistry, ids: IdAllocator, seed_value: int,
+		loose: LooseObjectRegistry = null) -> void:
 	var site := info.settlement_tile
 	# Clear the site: the band camps in an open glade.
 	for dy in range(-SITE_RADIUS, SITE_RADIUS + 1):
 		for dx in range(-SITE_RADIUS, SITE_RADIUS + 1):
-			var existing := props.prop_at(site + Vector2i(dx, dy))
-			if existing != null:
-				props.remove(existing.id)
+			_clear_tile(site + Vector2i(dx, dy), props, loose)
 	var fire := _make_prop(ids, PropData.Kind.CAMPFIRE, site, seed_value)
 	fire.offset_x = 0
 	fire.offset_y = 0
@@ -216,7 +238,8 @@ static func _place_settlement(info: StartInfo, props: PropRegistry, ids: IdAlloc
 
 ## One dormant ruin, far from the settlement, on dry walkable ground (the full
 ## mystery system arrives in M18; this proves the pipeline).
-static func _place_ruin(info: StartInfo, world: WorldData, props: PropRegistry, ids: IdAllocator, seed_value: int) -> void:
+static func _place_ruin(info: StartInfo, world: WorldData, props: PropRegistry, ids: IdAllocator, seed_value: int,
+		loose: LooseObjectRegistry = null) -> void:
 	var b := world.bounds.grow(-3)
 	var best_score := -1
 	var best_tile := Vector2i.ZERO
@@ -239,13 +262,21 @@ static func _place_ruin(info: StartInfo, world: WorldData, props: PropRegistry, 
 				found = true
 	if not found:
 		return
-	var existing := props.prop_at(best_tile)
-	if existing != null:
-		props.remove(existing.id)
+	_clear_tile(best_tile, props, loose)
 	var ruin := _make_prop(ids, PropData.Kind.RUIN, best_tile, seed_value)
 	props.add(ruin)
 	info.ruin_id = ruin.id
 	info.ruin_tile = best_tile
+
+
+## Removes whatever stands or lies on a tile.
+static func _clear_tile(tile: Vector2i, props: PropRegistry, loose: LooseObjectRegistry) -> void:
+	var existing := props.prop_at(tile)
+	if existing != null:
+		props.remove(existing.id)
+	if loose != null:
+		for object in loose.objects_at(tile):
+			loose.remove(object.id)
 
 
 static func _make_prop(ids: IdAllocator, kind: PropData.Kind, tile: Vector2i, seed_value: int) -> PropData:

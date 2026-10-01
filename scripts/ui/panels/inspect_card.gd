@@ -39,6 +39,13 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 			_add_row("Size", UIText.size_text(report.scale_percent))
 			_add_row("Ground height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
+		InspectReport.Subject.LOOSE:
+			_title.text = UIText.loose_name(report.loose_kind)
+			_subtitle.text = where
+			_add_row("Lies on", UIText.terrain_name(report.terrain))
+			_add_row("Weight", UIText.weight_text(report.mass))
+			_add_row("Moved", UIText.moved_text(report.moved_count))
+			_add_row("Ground height", str(report.height_level))
 		InspectReport.Subject.WATER:
 			_title.text = UIText.WATER_NAME
 			_subtitle.text = where

@@ -110,6 +110,22 @@ func test_rock_hops_and_hut_barely_moves() -> void:
 	assert_true(hut_lean > 0.005 and hut_lean < 0.03, "a knock is a tiny shake (%.3f)" % hut_lean)
 
 
+func test_a_boulder_stirs_less_than_a_rock() -> void:
+	var rock := _response(InteractionResponse.ROCK_WOBBLE, 1, Vector3.ZERO, Vector2(0.24, 0.26))
+	var boulder := _response(InteractionResponse.ROCK_WOBBLE, 2, Vector3(5, 0, 0), Vector2(0.44, 0.42))
+	boulder.strength = 0.27
+	effects.play(rock)
+	effects.play(boulder)
+	var rock_hop := 0.0
+	var boulder_hop := 0.0
+	for i in 60:
+		effects.advance(1.0 / 240.0)
+		rock_hop = maxf(rock_hop, effects.impulse_offset(1).y)
+		boulder_hop = maxf(boulder_hop, effects.impulse_offset(2).y)
+	assert_near(boulder_hop, rock_hop * 0.27, 0.002, "%.3f vs %.3f" % [boulder_hop, rock_hop])
+	assert_true(boulder_hop > 0.0, "but it does answer")
+
+
 func test_reduced_motion_weakens_shakes() -> void:
 	effects.play(_response(InteractionResponse.TREE_SHAKE, 1))
 	var normal := _peak_lean(1, 0.4)

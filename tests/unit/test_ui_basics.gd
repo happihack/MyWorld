@@ -19,6 +19,19 @@ func test_every_terrain_and_prop_has_a_name() -> void:
 	assert_eq(UIText.terrain_name(999), "Ground", "unknown values still read as something")
 
 
+func test_loose_object_wording() -> void:
+	for kind: int in LooseObject.Kind.values():
+		assert_true(UIText.LOOSE_NAMES.has(kind), LooseObject.Kind.keys()[kind])
+	assert_eq(UIText.loose_name(LooseObject.Kind.BOULDER), "Boulder")
+	assert_eq(UIText.loose_name(99), "Something")
+	assert_eq(UIText.weight_text(0.3), "Light (0.3 kg)")
+	assert_eq(UIText.weight_text(14.0), "Heavy (14 kg)")
+	assert_eq(UIText.weight_text(190.0), "Very heavy (190 kg)")
+	assert_eq(UIText.moved_text(0), "Never")
+	assert_eq(UIText.moved_text(1), "Once")
+	assert_eq(UIText.moved_text(4), "4 times")
+
+
 func test_subject_name_follows_the_touch() -> void:
 	var r := InteractionResponse.new()
 	r.terrain = ChunkData.Terrain.SAND

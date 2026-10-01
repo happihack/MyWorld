@@ -202,3 +202,99 @@ func test_main_scene_keeps_world_changes_across_launches() -> void:
 	assert_eq(WorldChecksum.terrain(s2.world), fingerprint)
 	get_tree().unload_current_scene()
 	await wait_frames(2)
+
+
+# --- loose objects ------------------------------------------------------------------------
+
+func _first_loose(s: WorldSession, kind: LooseObject.Kind) -> LooseObject:
+	var ids: Array = []
+	for o in s.loose.all_objects():
+		if o.kind == kind:
+			ids.append(o.id)
+	ids.sort()
+	return s.loose.get_object(ids[0]) if not ids.is_empty() else null
+
+
+func test_untouched_loose_objects_cost_nothing_to_save() -> void:
+	var s := _session()
+	s.create_new(12345)
+	assert_true(s.loose.size() > 20, "rocks lie about (%d)" % s.loose.size())
+	var state: Dictionary = s.to_dict()["world_state"]
+	assert_eq((state["loose"]["objects"] as Array).size(), 0)
+	assert_true((state["loose"]["removed"] as PackedInt64Array).size() <= 25, "only the cleared glade")
+	var again := _save_and_reload(s)
+	assert_eq(again.loose.size(), s.loose.size())
+	for o in s.loose.all_objects():
+		var twin := again.loose.get_object(o.id)
+		assert_not_null(twin)
+		if twin != null:
+			assert_eq(twin.position, o.position)
+			assert_eq(twin.kind, o.kind)
+
+
+func test_moved_added_and_removed_loose_objects_survive() -> void:
+	var s := _session()
+	s.create_new(12345)
+	var rock := _first_loose(s, LooseObject.Kind.ROCK)
+	var boulder := _first_loose(s, LooseObject.Kind.BOULDER)
+	var site := Vector2(s.start.settlement_tile) + Vector2(1.5, 0.5)
+	s.loose.move(rock.id, site, 0.0, 1.0)
+	rock.moved_count = 2
+	s.loose.remove(boulder.id)
+	var pebble := LooseObject.new()
+	pebble.id = s.ids.next_id()
+	pebble.kind = LooseObject.Kind.PEBBLE
+	pebble.position = site + Vector2(0.3, 0.2)
+	pebble.placed_by_player = true
+	assert_true(s.loose.add(pebble))
+	var count := s.loose.size()
+
+	var again := _save_and_reload(s)
+	assert_eq(again.loose.size(), count)
+	var moved := again.loose.get_object(rock.id)
+	assert_eq(moved.position, site, "the rock stays by the fire")
+	assert_eq(moved.moved_count, 2)
+	assert_null(again.loose.get_object(boulder.id), "the boulder stays gone")
+	var back := again.loose.get_object(pebble.id)
+	assert_not_null(back)
+	assert_true(back.placed_by_player)
+	assert_eq(again.spatial.get_kind(rock.id), SpatialIndex.KIND_LOOSE_OBJECT)
+	assert_eq(again.spatial.get_position(rock.id), site)
+	assert_true(again.ids.next_id() > pebble.id, "new ids never reuse a saved object's id")
+	# The touch system of the reloaded world knows the objects.
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = rock.id
+	target.tile = moved.tile()
+	assert_eq(again.interactions.tap(target).loose_kind, LooseObject.Kind.ROCK)
+
+
+func test_save_from_before_loose_objects_keeps_its_glade_clear() -> void:
+	var s := _session()
+	s.create_new(12345)
+	var data := s.to_dict()
+	# As such a save looked: no "loose" entry, and the glade's rocks listed with
+	# the removed props (rocks were props then).
+	var removed: PackedInt64Array = data["world_state"]["props"]["removed"]
+	removed.append_array(data["world_state"]["loose"]["removed"])
+	removed.sort()
+	data["world_state"]["props"]["removed"] = removed
+	(data["world_state"] as Dictionary).erase("loose")
+	var old := _session()
+	assert_true(old.load_from(data))
+	assert_eq(old.loose.size(), s.loose.size(), "the same rocks, now loose")
+	assert_eq(old.props.size(), s.props.size())
+	for o in old.loose.all_objects():
+		var d := o.tile() - old.start.settlement_tile
+		assert_false(absi(d.x) <= WorldSetup.SITE_RADIUS and absi(d.y) <= WorldSetup.SITE_RADIUS, "glade stays clear")
+
+
+func test_damaged_loose_data_falls_back_to_the_seed() -> void:
+	var s := _session()
+	s.create_new(12345)
+	var data := s.to_dict()
+	data["world_state"]["loose"] = {"removed": "broken", "objects": []}
+	Log.console_output = false
+	var again := _session()
+	assert_true(again.load_from(data), "still loads")
+	assert_eq(again.loose.size(), s.loose.size(), "rebuilt from the seed")

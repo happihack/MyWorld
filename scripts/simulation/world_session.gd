@@ -34,6 +34,8 @@ var world: WorldData
 var generator: WorldGenerator
 var props: PropRegistry
 var spatial: SpatialIndex
+## Things lying in the world that can be moved (rocks, boulders, ...).
+var loose: LooseObjectRegistry
 var start: WorldSetup.StartInfo
 ## Where every player touch of the world is answered.
 var interactions: InteractionManager
@@ -117,6 +119,7 @@ func to_dict() -> Dictionary:
 			"generator_version": WorldGenerator.GENERATOR_VERSION,
 			"world": world.to_dict(),
 			"props": props.to_dict(),
+			"loose": loose.to_dict(),
 			"start": start.to_dict(),
 		},
 	}
@@ -151,11 +154,13 @@ func _build_new_world(setup_ids: IdAllocator) -> void:
 	world.set_generator(generator)
 	spatial = SpatialIndex.new(world.chunk_size)
 	props = PropRegistry.new(world.chunk_size, spatial)
-	start = WorldSetup.create_start(world, generator, props, setup_ids)
+	loose = LooseObjectRegistry.new(world.chunk_size, spatial)
+	start = WorldSetup.create_start(world, generator, props, setup_ids, loose)
 	Log.debug(Log.Category.WORLD, "World built", {
 		"ms": Time.get_ticks_msec() - started,
 		"tiles": world.bounds.size,
 		"props": props.size(),
+		"loose": loose.size(),
 		"settlement": start.settlement_tile,
 	})
 
@@ -198,17 +203,31 @@ func _restore_world(state: Dictionary) -> bool:
 	var skipped_props := restored_props.from_dict(props_data)
 	if skipped_props < 0:
 		return false
-	WorldSetup.populate_all(restored, restored_generator, restored_props)
+	var restored_loose := LooseObjectRegistry.new(restored.chunk_size, restored_spatial)
+	var loose_data: Variant = state.get("loose")
+	var skipped_loose := 0
+	if typeof(loose_data) == TYPE_DICTIONARY:
+		skipped_loose = restored_loose.from_dict(loose_data)
+		if skipped_loose < 0:
+			return false
+	else:
+		# Saved before loose objects existed: rocks were props then, and the
+		# rocks removed from that world (the cleared glade) must stay removed.
+		var removed: Variant = (props_data as Dictionary).get("removed")
+		if typeof(removed) == TYPE_PACKED_INT64_ARRAY:
+			restored_loose.mark_removed(removed)
+	WorldSetup.populate_all(restored, restored_generator, restored_props, restored_loose)
 
 	template_id = saved_template
 	world = restored
 	generator = restored_generator
 	spatial = restored_spatial
 	props = restored_props
+	loose = restored_loose
 	start = restored_start
-	if skipped_chunks > 0 or skipped_props > 0:
+	if skipped_chunks > 0 or skipped_props > 0 or skipped_loose > 0:
 		Log.warn(Log.Category.LOAD, "Some saved world records were unusable and skipped",
-			{"chunks": skipped_chunks, "props": skipped_props})
+			{"chunks": skipped_chunks, "props": skipped_props, "loose": skipped_loose})
 	Log.debug(Log.Category.WORLD, "World restored", {
 		"ms": Time.get_ticks_msec() - started,
 		"modified_chunks": world.modified_chunks().size(),
@@ -229,7 +248,7 @@ func _load_template(id: StringName) -> StartTemplate:
 
 
 func _activate() -> void:
-	interactions.bind(world, props)
+	interactions.bind(world, props, loose)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

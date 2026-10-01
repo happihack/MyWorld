@@ -7,6 +7,8 @@ extends RefCounted
 ## Haptic strengths (the values of Haptics.Strength).
 const LIGHT := 0
 const MEDIUM := 1
+## Targets that give way less than this (boulders) are felt as a medium pulse.
+const HEAVY_BELOW := 0.5
 
 ## effect -> [sound id, volume dB, pitch, haptic strength]
 const CUES := {
@@ -33,8 +35,10 @@ static func play(response: InteractionResponse) -> void:
 	var cue: Array = CUES.get(response.effect, [])
 	if cue.is_empty():
 		return
-	AudioManager.play_at(cue[0], response.position, cue[1], cue[2])
-	Haptics.pulse(cue[3])
+	# Heavy things sound lower and are felt more; light things the opposite.
+	var pitch: float = cue[2] * clampf(0.5 + 0.5 * response.strength, 0.6, 1.4)
+	AudioManager.play_at(cue[0], response.position, cue[1], pitch)
+	Haptics.pulse(MEDIUM if response.strength < HEAVY_BELOW else cue[3])
 
 
 ## The sound id of an effect (&"" if it has none).

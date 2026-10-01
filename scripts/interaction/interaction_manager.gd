@@ -30,11 +30,13 @@ var interaction_count := 0
 
 var _world: WorldData
 var _props: PropRegistry
+var _loose: LooseObjectRegistry
 
 
-func bind(world: WorldData, props: PropRegistry) -> void:
+func bind(world: WorldData, props: PropRegistry, loose: LooseObjectRegistry = null) -> void:
 	_world = world
 	_props = props
+	_loose = loose
 	interaction_count = 0
 
 
@@ -76,9 +78,15 @@ func inspect(target: Picker.Result) -> InspectReport:
 		return null
 	var report := InspectReport.new()
 	var prop: PropData = null
-	if target.kind == Picker.Kind.ENTITY and _props != null:
-		prop = _props.get_prop(target.entity_id)
-	report.tile = prop.tile if prop != null else target.tile
+	var object: LooseObject = null
+	if target.kind == Picker.Kind.ENTITY:
+		prop = _props.get_prop(target.entity_id) if _props != null else null
+		object = _loose.get_object(target.entity_id) if _loose != null and prop == null else null
+	report.tile = target.tile
+	if prop != null:
+		report.tile = prop.tile
+	elif object != null:
+		report.tile = object.tile()
 	var chunk := _world.chunk_at_tile(report.tile)
 	if chunk == null:
 		return null
@@ -96,6 +104,15 @@ func inspect(target: Picker.Result) -> InspectReport:
 		report.prop_variant = prop.variant
 		report.scale_percent = prop.scale_percent
 		report.generated = prop.is_generated()
+	elif object != null:
+		report.subject = InspectReport.Subject.LOOSE
+		report.entity_id = object.id
+		report.loose_kind = object.kind
+		report.scale_percent = object.scale_percent
+		report.generated = object.is_generated()
+		report.mass = object.mass()
+		report.moved_count = object.moved_count
+		report.placed_by_player = object.placed_by_player
 	elif target.kind == Picker.Kind.WATER:
 		report.subject = InspectReport.Subject.WATER
 	return report
@@ -111,10 +128,24 @@ func _respond(target: Picker.Result, action: InteractionResponse.Action, announc
 	response.terrain = _world.get_terrain(target.tile)
 
 	var prop: PropData = null
-	if target.kind == Picker.Kind.ENTITY and _props != null:
-		prop = _props.get_prop(target.entity_id)
+	var object: LooseObject = null
+	if target.kind == Picker.Kind.ENTITY:
+		prop = _props.get_prop(target.entity_id) if _props != null else null
+		object = _loose.get_object(target.entity_id) if _loose != null and prop == null else null
 
-	if prop != null:
+	if object != null:
+		response.entity_id = object.id
+		response.loose_kind = object.kind
+		response.strength = object.give()
+		response.body = object.pick_shape()
+		response.tile = object.tile()
+		response.terrain = _world.get_terrain(response.tile)
+		response.position = object.world_position(_world)
+		# Every loose thing wobbles for now; logs and fruit get their own
+		# answers when they enter the world (M3.4).
+		response.effect = InteractionResponse.ROCK_WOBBLE
+		response.description = "%s at %s" % [LooseObject.Kind.keys()[object.kind], response.tile]
+	elif prop != null:
 		var at := prop.position2d()
 		response.entity_id = prop.id
 		response.prop_kind = prop.kind

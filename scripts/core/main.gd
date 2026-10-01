@@ -25,7 +25,7 @@ var _player_has_touched := false
 
 func _ready() -> void:
 	_open_world()
-	world_view.show_world(session.world, session.props, session.start)
+	world_view.show_world(session.world, session.props, session.start, session.loose)
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
@@ -180,10 +180,11 @@ func _world_debug_section() -> String:
 		session.clock.speed_multiplier(),
 		session.world_seed,
 	]
-	var world_line := "%dx%d tiles  %d chunks  %d props  settlement %s" % [
+	var world_line := "%dx%d tiles  %d chunks  %d props  %d loose  settlement %s" % [
 		session.world.bounds.size.x, session.world.bounds.size.y,
 		session.world.loaded_chunks().size(),
 		session.props.size(),
+		session.loose.size(),
 		session.start.settlement_tile,
 	]
 	if _world_fingerprint == "":

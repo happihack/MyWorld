@@ -30,8 +30,13 @@ var entity_id := 0
 ## PropData.Kind of the touched prop, or -1.
 var prop_kind := -1
 var prop_variant := 0
+## LooseObject.Kind of the touched loose object, or -1.
+var loose_kind := -1
 ## Height and radius of the touched body (entities only).
 var body := Vector2.ZERO
+## How strongly the target gives way to a touch: 1 = an ordinary rock; a
+## boulder barely stirs, a pebble jumps.
+var strength := 1.0
 ## Terrain type under the touch (ChunkData.Terrain), for tinting.
 var terrain := 0
 ## Short human-readable description ("TREE at (7, -4)").

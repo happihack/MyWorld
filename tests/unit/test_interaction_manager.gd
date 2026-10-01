@@ -237,3 +237,80 @@ func test_binding_another_world_starts_the_count_again() -> void:
 	assert_eq(manager.interaction_count, 2)
 	manager.bind(world, props)
 	assert_eq(manager.interaction_count, 0)
+
+
+# --- loose objects ------------------------------------------------------------------------
+
+func _loose_setup() -> LooseObjectRegistry:
+	var loose := LooseObjectRegistry.new(16, props.spatial_index)
+	manager.bind(world, props, loose)
+	return loose
+
+
+func _loose_object(loose: LooseObjectRegistry, kind: LooseObject.Kind, at: Vector2) -> LooseObject:
+	var o := LooseObject.new()
+	o.id = ids.next_id()
+	o.kind = kind
+	o.position = at
+	assert_true(loose.add(o))
+	return o
+
+
+func _loose_target(o: LooseObject) -> Picker.Result:
+	var r := _tile_target(o.tile() + Vector2i(0, -1))
+	r.kind = Picker.Kind.ENTITY
+	r.tile = o.tile()
+	r.entity_id = o.id
+	r.direct = true
+	return r
+
+
+func test_tapping_a_loose_object() -> void:
+	var loose := _loose_setup()
+	var boulder := _loose_object(loose, LooseObject.Kind.BOULDER, Vector2(3.25, 4.75))
+	world.set_height(boulder.tile(), 4)
+	world.set_terrain(boulder.tile(), ChunkData.Terrain.DIRT)
+	var response := manager.tap(_loose_target(boulder))
+	assert_eq(response.effect, InteractionResponse.ROCK_WOBBLE)
+	assert_eq(response.loose_kind, LooseObject.Kind.BOULDER)
+	assert_eq(response.prop_kind, -1)
+	assert_true(response.is_entity())
+	assert_eq(response.entity_id, boulder.id)
+	assert_eq(response.position, Vector3(3.25, 2.0, 4.75), "where the boulder lies")
+	assert_eq(response.tile, Vector2i(3, 4))
+	assert_eq(response.body, boulder.pick_shape())
+	assert_eq(response.terrain, ChunkData.Terrain.DIRT)
+	assert_has(response.description, "BOULDER")
+	assert_eq(UIText.subject_name(response), "Boulder")
+	assert_eq(UIText.action_label(InteractionManager.ACTION_TOUCH, response.touch_effect), "Touch")
+	assert_eq(manager.actions_for(_loose_target(boulder)).size(), 3)
+
+
+func test_inspecting_a_loose_object() -> void:
+	var loose := _loose_setup()
+	var rock := _loose_object(loose, LooseObject.Kind.ROCK, Vector2(-2.5, 6.5))
+	rock.scale_percent = 110
+	rock.moved_count = 3
+	world.set_height(rock.tile(), 5)
+	var report := manager.inspect(_loose_target(rock))
+	assert_true(report.is_loose())
+	assert_eq(report.subject, InspectReport.Subject.LOOSE)
+	assert_eq(report.loose_kind, LooseObject.Kind.ROCK)
+	assert_eq(report.entity_id, rock.id)
+	assert_eq(report.tile, rock.tile())
+	assert_eq(report.height_level, 5)
+	assert_near(report.mass, rock.mass(), 0.0001)
+	assert_eq(report.moved_count, 3)
+	assert_false(report.generated)
+	assert_eq(heard.size(), 0)
+
+
+func test_a_removed_loose_object_falls_back_to_the_ground() -> void:
+	var loose := _loose_setup()
+	var pebble := _loose_object(loose, LooseObject.Kind.PEBBLE, Vector2(1.5, 1.5))
+	var target := _loose_target(pebble)
+	loose.remove(pebble.id)
+	var response := manager.tap(target)
+	assert_eq(response.effect, InteractionResponse.DUST)
+	assert_eq(response.loose_kind, -1)
+	assert_eq(manager.inspect(target).subject, InspectReport.Subject.GROUND)

@@ -281,7 +281,7 @@ func _shake(response: InteractionResponse) -> void:
 		return
 	var slot := _slot_for(response.entity_id)
 	var angle := randf() * TAU # which way it leans first is only for looks
-	var motion := REDUCED_MOTION_SCALE if reduced_motion else 1.0
+	var motion := (REDUCED_MOTION_SCALE if reduced_motion else 1.0) * response.strength
 	slot.entity_id = response.entity_id
 	slot.origin = response.position
 	slot.radius = response.body.y * float(spec["reach"])

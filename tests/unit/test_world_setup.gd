@@ -205,3 +205,74 @@ func test_golden_props_checksum_for_current_generator_version() -> void:
 	var w := _build(12345, false)
 	WorldSetup.populate_all(w.data, w.generator, w.props)
 	assert_eq(_props_checksum(w.props, true), GOLDEN_PROPS.get(WorldGenerator.GENERATOR_VERSION, "<missing>"), "generated props changed")
+
+
+# --- loose objects ------------------------------------------------------------------------
+
+func _build_with_loose(seed_value: int) -> Array:
+	var w := _build(seed_value, false)
+	var loose := LooseObjectRegistry.new(config.chunk_size, w.props.spatial_index)
+	w.info = WorldSetup.create_start(w.data, w.generator, w.props, w.ids, loose)
+	return [w, loose]
+
+
+func test_generated_rocks_become_loose_objects() -> void:
+	var plain := _build(12345) # rocks as props
+	var built := _build_with_loose(12345)
+	var w: World = built[0]
+	var loose: LooseObjectRegistry = built[1]
+	var rock_props := 0
+	for p in plain.props.all_props():
+		if p.kind == PropData.Kind.ROCK:
+			rock_props += 1
+			var object := loose.get_object(p.id)
+			assert_not_null(object, "rock at %s is a loose object" % p.tile)
+			if object != null:
+				assert_eq(object.position, p.position2d())
+				assert_true(object.is_stone())
+	assert_true(rock_props > 20, "the world has rocks (%d)" % rock_props)
+	assert_eq(loose.size(), rock_props, "every rock, and nothing else")
+	for p in w.props.all_props():
+		assert_ne(p.kind, PropData.Kind.ROCK, "no rock is left standing as a prop")
+	assert_eq(w.props.size() + loose.size(), plain.props.size(), "nothing lost, nothing doubled")
+	# Trees, bushes and the settlement are exactly as before.
+	assert_eq(w.info.settlement_tile, plain.info.settlement_tile)
+	assert_eq(w.info.ruin_tile, plain.info.ruin_tile)
+	assert_eq(w.info.ok, plain.info.ok)
+	assert_eq(w.info.problems, plain.info.problems)
+
+
+func test_world_has_rocks_and_boulders() -> void:
+	var loose: LooseObjectRegistry = _build_with_loose(12345)[1]
+	var kinds := {}
+	for object in loose.all_objects():
+		kinds[object.kind] = int(kinds.get(object.kind, 0)) + 1
+		assert_true(object.is_generated())
+		assert_eq(object.state, LooseObject.State.RESTING)
+	assert_true(kinds.get(LooseObject.Kind.ROCK, 0) > kinds.get(LooseObject.Kind.BOULDER, 0), "mostly rocks: %s" % kinds)
+	assert_true(kinds.get(LooseObject.Kind.BOULDER, 0) >= 3, "and some boulders: %s" % kinds)
+	assert_eq(kinds.size(), 2, "only stone comes with the world for now")
+	assert_eq(loose.saved_count(), 0, "all of it regenerates: nothing to save")
+
+
+func test_the_glade_is_clear_of_loose_objects() -> void:
+	for seed_value in [3, 42, 12345]:
+		var built := _build_with_loose(seed_value)
+		var w: World = built[0]
+		var loose: LooseObjectRegistry = built[1]
+		for object in loose.all_objects():
+			var d := object.tile() - w.info.settlement_tile
+			assert_false(absi(d.x) <= WorldSetup.SITE_RADIUS and absi(d.y) <= WorldSetup.SITE_RADIUS,
+				"seed %d: %s lies in the glade" % [seed_value, object.tile()])
+		assert_eq(loose.objects_at(w.info.ruin_tile).size(), 0, "nothing under the ruin")
+
+
+func test_loose_objects_are_deterministic() -> void:
+	var a: LooseObjectRegistry = _build_with_loose(777)[1]
+	var b: LooseObjectRegistry = _build_with_loose(777)[1]
+	assert_eq(a.size(), b.size())
+	for object in a.all_objects():
+		var twin := b.get_object(object.id)
+		assert_not_null(twin)
+		if twin != null:
+			assert_eq(var_to_bytes(twin.to_dict()), var_to_bytes(object.to_dict()))

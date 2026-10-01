@@ -278,6 +278,27 @@ func test_a_knock_is_felt_more_than_a_tap_on_grass() -> void:
 	assert_true(pulses[1][0] > pulses[0][0])
 
 
+func test_heavy_things_sound_lower_and_are_felt_more() -> void:
+	var spread := Config.feedback.pitch_variation
+	var r := InteractionResponse.new()
+	r.effect = InteractionResponse.ROCK_WOBBLE
+	TouchFeedback.play(r) # an ordinary rock
+	var rock_pitch := AudioManager.world_voice(0).pitch_scale
+	assert_near(rock_pitch, 1.0, spread + 0.001)
+	assert_eq(pulses[0][0], Config.feedback.haptic_light_ms)
+	Haptics.reset()
+	AudioManager.stop_all()
+	r.strength = 0.27 # a boulder
+	TouchFeedback.play(r)
+	assert_near(AudioManager.world_voice(0).pitch_scale, 0.635, 0.635 * spread + 0.001, "lower")
+	assert_eq(pulses[1][0], Config.feedback.haptic_medium_ms, "and felt more")
+	Haptics.reset()
+	AudioManager.stop_all()
+	r.strength = 1.8 # a pebble
+	TouchFeedback.play(r)
+	assert_true(AudioManager.world_voice(0).pitch_scale > 1.25, "higher")
+
+
 func test_sound_comes_from_the_touched_place() -> void:
 	var r := InteractionResponse.new()
 	r.effect = InteractionResponse.RIPPLE

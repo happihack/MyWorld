@@ -23,6 +23,8 @@ var _water_material: ShaderMaterial
 var _rig: CameraRig
 var _highlight: PickHighlight
 var _effects: WorldEffects
+var _loose: LooseObjectRegistry
+var _loose_view: LooseObjectsView
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
@@ -46,6 +48,10 @@ func _ready() -> void:
 	_prop_material = ShaderMaterial.new()
 	_prop_material.shader = PROP_SHADER
 	_prop_library = PropMeshLibrary.new()
+	_loose_view = LooseObjectsView.new()
+	_loose_view.name = "LooseObjects"
+	_loose_view.setup(_prop_library, _prop_material)
+	add_child(_loose_view)
 	_ambient = AmbientLife.new()
 	_ambient.name = "AmbientLife"
 	add_child(_ambient)
@@ -68,10 +74,13 @@ func _ready() -> void:
 
 ## Shows `world` and what stands on it, replacing whatever was shown before.
 ## `start` (optional) tells the ambient effects where the campfire is.
-func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.StartInfo = null) -> void:
+func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.StartInfo = null,
+		loose: LooseObjectRegistry = null) -> void:
 	clear()
 	_world = world
 	_props = props
+	_loose = loose
+	_loose_view.show_objects(world, loose)
 	var started := Time.get_ticks_msec()
 	for coord in world.chunk_coords():
 		var view := ChunkView.new()
@@ -101,8 +110,10 @@ func clear() -> void:
 	_props_dirty.clear()
 	_highlight.clear()
 	_effects.clear()
+	_loose_view.clear()
 	_world = null
 	_props = null
+	_loose = null
 
 
 func ambient() -> AmbientLife:
@@ -125,6 +136,10 @@ func pick_highlight() -> PickHighlight:
 	return _highlight
 
 
+func loose_view() -> LooseObjectsView:
+	return _loose_view
+
+
 ## Visual answers to touches (connect InteractionManager.responded to effects().play).
 func effects() -> WorldEffects:
 	return _effects
@@ -135,9 +150,20 @@ func effects() -> WorldEffects:
 func pick(screen: Vector2, touch_radius: float) -> Picker.Result:
 	if _world == null:
 		return Picker.Result.new()
-	var spatial: SpatialIndex = _props.spatial_index if _props != null else null
-	var shapes := Callable(_props, &"pick_shape") if _props != null else Callable()
-	return Picker.pick(screen, _rig, _world, spatial, shapes, touch_radius)
+	var spatial: SpatialIndex = null
+	if _props != null:
+		spatial = _props.spatial_index
+	elif _loose != null:
+		spatial = _loose.spatial_index
+	return Picker.pick(screen, _rig, _world, spatial, _pick_shape, touch_radius)
+
+
+## Picking body of anything standing or lying in the world (null if unknown).
+func _pick_shape(id: int) -> Variant:
+	var shape: Variant = _props.pick_shape(id) if _props != null else null
+	if shape == null and _loose != null:
+		shape = _loose.pick_shape(id)
+	return shape
 
 
 ## Draws the debug highlight for a pick result (or clears it for a miss).
@@ -147,12 +173,16 @@ func show_pick(result: Picker.Result) -> void:
 		return
 	var surface := _world.get_height(result.tile) * _world.height_step + _world.get_water(result.tile)
 	_highlight.show_tile(result.tile, surface, _world.get_water(result.tile) > WaterMesher.MIN_DEPTH)
-	if result.kind == Picker.Kind.ENTITY and _props != null:
-		var prop := _props.get_prop(result.entity_id)
-		if prop != null:
-			var at := prop.position2d()
-			var ground := _world.get_height(prop.tile) * _world.height_step
-			_highlight.show_entity(Vector3(at.x, ground, at.y), prop.pick_shape().y * 1.15)
+	if result.kind != Picker.Kind.ENTITY:
+		return
+	var prop := _props.get_prop(result.entity_id) if _props != null else null
+	var object := _loose.get_object(result.entity_id) if _loose != null else null
+	if prop != null:
+		var at := prop.position2d()
+		var ground := _world.get_height(prop.tile) * _world.height_step
+		_highlight.show_entity(Vector3(at.x, ground, at.y), prop.pick_shape().y * 1.15)
+	elif object != null:
+		_highlight.show_entity(object.world_position(_world), object.radius() * 1.15)
 
 
 ## Rebuilds the prop meshes of chunks whose props changed; returns how many.
@@ -194,6 +224,7 @@ func refresh_dirty_chunks() -> int:
 	if _world == null:
 		return 0
 	var rebuilt := 0
+	var reseat_loose := false
 	for coord: Vector2i in _chunk_views:
 		var chunk := _world.get_chunk(coord, false)
 		if chunk == null:
@@ -203,9 +234,12 @@ func refresh_dirty_chunks() -> int:
 			view.rebuild_terrain(_world)
 			rebuilt += 1
 			_props_dirty[coord] = true # props stand on the terrain: re-seat them
+			reseat_loose = true
 		if chunk.is_dirty(ChunkData.DIRTY_WATER):
 			view.rebuild_water(_world)
 			rebuilt += 1
+	if reseat_loose:
+		_loose_view.reseat() # loose objects lie on the terrain too
 	return rebuilt
 
 

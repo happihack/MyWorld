@@ -26,6 +26,16 @@ const PROP_NAMES := {
 	PropData.Kind.RUIN: "Old stones",
 }
 
+const LOOSE_NAMES := {
+	LooseObject.Kind.PEBBLE: "Pebble",
+	LooseObject.Kind.ROCK: "Rock",
+	LooseObject.Kind.BOULDER: "Boulder",
+	LooseObject.Kind.LOG: "Log",
+	LooseObject.Kind.FRUIT: "Fruit",
+	LooseObject.Kind.SEED: "Seed",
+	LooseObject.Kind.STRANGE_OBJECT: "Strange object",
+}
+
 const WATER_NAME := "Water"
 
 ## First-time hints (bible §26.3: quiet, short, curious).
@@ -49,10 +59,32 @@ static func prop_name(kind: int, variant: int = 0) -> String:
 	return PROP_NAMES.get(kind, "Something")
 
 
+static func loose_name(kind: int) -> String:
+	return LOOSE_NAMES.get(kind, "Something")
+
+
+## How heavy something is to a hand reaching into the box.
+static func weight_text(kilograms: float) -> String:
+	var word := "Very heavy"
+	if kilograms < 1.0:
+		word = "Light"
+	elif kilograms < 30.0:
+		word = "Heavy"
+	return "%s (%s kg)" % [word, ("%.1f" % kilograms) if kilograms < 10.0 else str(roundi(kilograms))]
+
+
+static func moved_text(times: int) -> String:
+	if times <= 0:
+		return "Never"
+	return "Once" if times == 1 else "%d times" % times
+
+
 ## Name of what a touch landed on.
 static func subject_name(what: InteractionResponse) -> String:
 	if what == null:
 		return ""
+	if what.loose_kind >= 0:
+		return loose_name(what.loose_kind)
 	if what.is_entity():
 		return prop_name(what.prop_kind, what.prop_variant)
 	if what.touch_effect == InteractionResponse.RIPPLE:
