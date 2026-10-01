@@ -57,23 +57,37 @@ const REST_SPEED := 0.15
 const WATER_DRAG := 4.0
 const SINK_SPEED := 2.2
 const GROUND_EPS := 0.0005
+## How quickly something afloat takes up the speed of the water (tiles/s per second).
+const FLOAT_GRIP := 2.5
+## Carried by a current, an object that moved less than this far in this many
+## steps has run aground and comes to rest.
+const AGROUND_STEPS := 45
+const AGROUND_DISTANCE := 0.06
 ## Kinds of props a loose object can run into.
 const PROP_KINDS := SpatialIndex.KIND_BUILDING | SpatialIndex.KIND_MYSTERY | SpatialIndex.KIND_RESOURCE_NODE
 
 var _world: WorldData
 var _registry: LooseObjectRegistry
 var _props: PropRegistry
+## Optional: Callable(tile: Vector2i) -> Vector2, the water's current there.
+var _current: Callable
 var _moving: Dictionary = {} # id -> true
+## For things carried by a current: where each was a while ago, to notice when
+## it has run aground and may rest. id -> [position, steps since]
+var _anchors: Dictionary = {}
 var _time_bank := 0.0
 ## Time the last frame's stepping took, microseconds (debug overlay).
 var last_step_usec := 0
 
 
-func bind(world: WorldData, registry: LooseObjectRegistry, props: PropRegistry = null) -> void:
+func bind(world: WorldData, registry: LooseObjectRegistry, props: PropRegistry = null,
+		current: Callable = Callable()) -> void:
 	_world = world
 	_registry = registry
 	_props = props
+	_current = current
 	_moving.clear()
+	_anchors.clear()
 	_time_bank = 0.0
 
 
@@ -112,6 +126,19 @@ func push(id: int, velocity: Vector3) -> bool:
 		object.state = LooseObject.State.SLIDING
 	_moving[id] = true
 	return true
+
+
+## The water changed on `tiles`: what floats rises and falls with it, and
+## what lay on a tile that ran dry settles on the ground.
+func on_water_changed(_tiles: Array[Vector2i] = []) -> void:
+	if _registry == null or _world == null:
+		return
+	for object in _registry.all_objects():
+		if object.state != LooseObject.State.RESTING or not object.floats():
+			continue
+		if absf(object.height_offset - _float_lift(object, object.tile())) > 0.004:
+			object.state = LooseObject.State.FALLING
+			_moving[object.id] = true
 
 
 func is_moving(id: int) -> bool:
@@ -182,11 +209,16 @@ func _advance(object: LooseObject, dt: float) -> void:
 	if grounded:
 		y = support
 		vy = 0.0
-		var slope_pull := _downhill(tile) * SLOPE_ACCEL * float(spec.get("roll", 1.0))
-		# A slope keeps a moving object moving; from rest only a steep one starts it.
-		if sideways.length() > REST_SPEED or slope_pull.length() > STATIC_HOLD:
-			sideways += slope_pull * dt
-		sideways = sideways.move_toward(Vector2.ZERO, float(spec.get("friction", 4.0)) * dt)
+		if support > terrain_y + GROUND_EPS and _current.is_valid():
+			# Afloat: the water carries it along.
+			var stream: Vector2 = _current.call(tile)
+			sideways = sideways.move_toward(stream, FLOAT_GRIP * dt)
+		else:
+			var slope_pull := _downhill(tile) * SLOPE_ACCEL * float(spec.get("roll", 1.0))
+			# A slope keeps a moving object moving; from rest only a steep one starts it.
+			if sideways.length() > REST_SPEED or slope_pull.length() > STATIC_HOLD:
+				sideways += slope_pull * dt
+			sideways = sideways.move_toward(Vector2.ZERO, float(spec.get("friction", 4.0)) * dt)
 	else:
 		vy -= GRAVITY * dt
 
@@ -250,14 +282,41 @@ func _advance(object: LooseObject, dt: float) -> void:
 	if bump >= BUMP_MIN:
 		bumped.emit(object.id, bump)
 
-	# Come to rest: on the ground, nearly still, and not on a slope too steep to hold.
+	# Come to rest: on the ground, nearly still, and not on a slope too steep to
+	# hold. Something carried by a current rests once it has run aground.
 	sideways = Vector2(object.velocity.x, object.velocity.z)
-	if object.state == LooseObject.State.SLIDING and object.velocity.y == 0.0 and sideways.length() < REST_SPEED \
-			and (_downhill(object.tile()) * SLOPE_ACCEL * float(spec.get("roll", 1.0))).length() <= STATIC_HOLD:
+	var may_rest := false
+	if object.state == LooseObject.State.SLIDING and object.velocity.y == 0.0:
+		# (Asked where it ended up this step, not where it started.)
+		var now_tile := object.tile()
+		var afloat := _float_lift(object, now_tile) > GROUND_EPS and _current.is_valid()
+		if afloat and (_current.call(now_tile) as Vector2).length() > REST_SPEED:
+			may_rest = _has_run_aground(object)
+		else:
+			_anchors.erase(object.id)
+			may_rest = sideways.length() < REST_SPEED \
+				and (_downhill(object.tile()) * SLOPE_ACCEL * float(spec.get("roll", 1.0))).length() <= STATIC_HOLD
+	if may_rest:
 		object.velocity = Vector3.ZERO
 		object.state = LooseObject.State.RESTING
 		_moving.erase(object.id)
+		_anchors.erase(object.id)
 		settled.emit(object.id)
+
+
+## True once an object in a current has hardly moved for a while (it is up
+## against a bank, the wall of the box or something in the water).
+func _has_run_aground(object: LooseObject) -> bool:
+	var anchor: Array = _anchors.get(object.id, [])
+	if anchor.is_empty():
+		_anchors[object.id] = [object.position, 0]
+		return false
+	anchor[1] = int(anchor[1]) + 1
+	if int(anchor[1]) < AGROUND_STEPS:
+		return false
+	var held := object.position.distance_to(anchor[0]) < AGROUND_DISTANCE
+	_anchors[object.id] = [object.position, 0]
+	return held
 
 
 # --- things in the way ------------------------------------------------------------------

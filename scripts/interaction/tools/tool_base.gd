@@ -51,6 +51,18 @@ func tap(_target: Picker.Result) -> InteractionResponse:
 	return null
 
 
+## The second of two quick taps: does it also act like a tap? (Tapping a tree
+## twice shakes it twice.)
+func double_tap_touches() -> bool:
+	return false
+
+
+## ...and does it move the camera (look at the thing, zoom toward the ground)?
+## Not for tools that are used by tapping quickly.
+func double_tap_moves_camera() -> bool:
+	return true
+
+
 ## Called every frame while active.
 func update(_delta: float) -> void:
 	pass

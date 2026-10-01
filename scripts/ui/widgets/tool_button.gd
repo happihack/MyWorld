@@ -47,6 +47,8 @@ func _draw() -> void:
 			_draw_hand(center, u, ink)
 		ObserveTool.ID:
 			_draw_eye(center, u, ink)
+		WaterTool.ID:
+			_draw_drop(center, u, ink)
 		_:
 			draw_circle(center, u * 0.5, ink)
 
@@ -68,6 +70,17 @@ func _draw_hand(center: Vector2, u: float, ink: Color) -> void:
 	var tip := center + Vector2(u * 1.3, -u * 0.1)
 	draw_line(base, tip, ink, finger_width * 1.05, true)
 	draw_circle(tip, finger_width * 0.52, ink)
+
+
+## A drop of water.
+func _draw_drop(center: Vector2, u: float, ink: Color) -> void:
+	var belly := center + Vector2(0.0, u * 0.35)
+	draw_circle(belly, u * 0.72, ink)
+	draw_colored_polygon(PackedVector2Array([
+		center + Vector2(0.0, -u * 1.25),
+		belly + Vector2(u * 0.66, -u * 0.28),
+		belly + Vector2(-u * 0.66, -u * 0.28),
+	]), ink)
 
 
 ## An eye: an almond outline with a pupil.

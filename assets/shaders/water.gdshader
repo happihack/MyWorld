@@ -45,12 +45,16 @@ void fragment() {
 	color += ripple * ripple_strength;
 
 	// Foam: a thin line at the shore whose inner edge wobbles with the ripples.
-	float foam = smoothstep(0.72, 0.98, v_shore + ripple * 0.10) * foam_amount;
+	// Foam belongs to real shores; a thin puddle on the ground has none (or a
+	// spill would turn into white squares as it dries).
+	float foam = smoothstep(0.72, 0.98, v_shore + ripple * 0.10) * foam_amount * smoothstep(0.10, 0.24, v_depth);
 	color = mix(color, foam_color, foam);
 
 	ALBEDO = color * v_cloud;
 	ROUGHNESS = 0.18;
 	SPECULAR = 0.5;
 	METALLIC = 0.0;
-	ALPHA = max(mix(opacity_shallow, opacity_deep, v_depth), foam);
+	// A film of water barely tints the ground it lies on.
+	float body = mix(0.3, 1.0, smoothstep(0.0, 0.16, v_depth));
+	ALPHA = max(mix(opacity_shallow, opacity_deep, v_depth) * body, foam);
 }

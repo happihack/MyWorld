@@ -39,6 +39,7 @@ const LOOSE_NAMES := {
 const TOOL_NAMES := {
 	&"hand": "Hand",
 	&"observe": "Observe",
+	&"water": "Water (prototype)",
 }
 
 const WATER_NAME := "Water"

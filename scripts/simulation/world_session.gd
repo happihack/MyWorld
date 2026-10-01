@@ -41,6 +41,8 @@ var start: WorldSetup.StartInfo
 var interactions: InteractionManager
 ## Moves the loose objects that are not at rest.
 var loose_system: LooseObjectSystem
+## Moves the water.
+var water: WaterSim
 
 
 func _init() -> void:
@@ -50,6 +52,10 @@ func _init() -> void:
 	loose_system = LooseObjectSystem.new()
 	loose_system.name = "LooseObjectSystem"
 	add_child(loose_system)
+	water = WaterSim.new()
+	water.name = "WaterSim"
+	add_child(water)
+	water.tiles_changed.connect(loose_system.on_water_changed)
 
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
@@ -254,7 +260,8 @@ func _load_template(id: StringName) -> StartTemplate:
 
 func _activate() -> void:
 	interactions.bind(world, props, loose, loose_system, ids, rng)
-	loose_system.bind(world, loose, props)
+	water.bind(world, generator)
+	loose_system.bind(world, loose, props, water.current_at)
 	clock.speed_changed.connect(_on_speed_changed)
 	is_active = true
 	EventBus.world_loaded.emit(world_id)

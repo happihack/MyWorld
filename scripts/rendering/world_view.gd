@@ -25,6 +25,12 @@ var _highlight: PickHighlight
 var _effects: WorldEffects
 var _loose: LooseObjectRegistry
 var _loose_view: LooseObjectsView
+var _chunk_order: Array[Vector2i] = []
+var _water_cursor := 0
+var _water_wait := 0
+
+## Frames between two water mesh rebuilds.
+const WATER_REBUILD_EVERY_FRAMES := 3
 
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
@@ -89,6 +95,7 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 		if props != null:
 			view.rebuild_props(world, props, _prop_library, _prop_material)
 		_chunk_views[coord] = view
+		_chunk_order.append(coord)
 	if props != null:
 		props.chunk_changed.connect(_on_props_changed)
 	var box_height := Config.world.height_levels * world.height_step + BOX_HEADROOM
@@ -107,6 +114,8 @@ func clear() -> void:
 	for view: ChunkView in _chunk_views.values():
 		view.queue_free()
 	_chunk_views.clear()
+	_chunk_order.clear()
+	_water_cursor = 0
 	_props_dirty.clear()
 	_highlight.clear()
 	_effects.clear()
@@ -204,6 +213,12 @@ func refresh_dirty_props() -> int:
 func _process(_delta: float) -> void:
 	# Several prop changes in one frame (e.g. clearing a glade) rebuild once.
 	refresh_dirty_props()
+	# Flowing water changes its chunks ten times a second; rebuilding a water
+	# mesh costs milliseconds on a phone. One chunk at a time, a few frames
+	# apart: moving water is redrawn several times a second, smoothly enough.
+	_water_wait -= 1
+	if _water_wait <= 0 and refresh_dirty_water(1) > 0:
+		_water_wait = WATER_REBUILD_EVERY_FRAMES
 	_lighting.set_view_distance(_rig.distance())
 
 
@@ -217,6 +232,28 @@ func chunk_view_count() -> int:
 
 func get_chunk_view(coord: Vector2i) -> ChunkView:
 	return _chunk_views.get(coord)
+
+
+## Rebuilds the water meshes of chunks whose water changed (flowing water
+## changes them several times a second), at most `limit` per call so a wide
+## flood is spread over frames. Returns how many were rebuilt.
+func refresh_dirty_water(limit: int = 1000) -> int:
+	if _world == null:
+		return 0
+	var rebuilt := 0
+	var count := _chunk_order.size()
+	var first := _water_cursor # start after the chunk rebuilt last, so every chunk gets its turn
+	for n in count:
+		if rebuilt >= limit:
+			break
+		var coord: Vector2i = _chunk_order[(first + n) % count]
+		var chunk := _world.get_chunk(coord, false)
+		if chunk == null or not chunk.is_dirty(ChunkData.DIRTY_WATER) or chunk.is_dirty(ChunkData.DIRTY_MESH):
+			continue # (terrain changes are rebuilt, with their water, by refresh_dirty_chunks)
+		(_chunk_views[coord] as ChunkView).rebuild_water(_world)
+		rebuilt += 1
+		_water_cursor = (first + n + 1) % count
+	return rebuilt
 
 
 ## Rebuilds the meshes of chunks whose terrain or water changed; returns how

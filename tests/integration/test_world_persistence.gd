@@ -189,7 +189,16 @@ func test_main_scene_keeps_world_changes_across_launches() -> void:
 	var tree := _first_tree(s)
 	var tile := tree.tile
 	s.props.remove(tree.id)
-	s.world.set_height(s.start.settlement_tile + Vector2i(5, 5), 2)
+	var dug := s.start.settlement_tile + Vector2i(5, 5)
+	s.world.set_height(dug, 2)
+	# Digging may let water in (if the river is near): let it settle first, so
+	# the world that is saved is a world at rest.
+	s.water.wake(dug)
+	for i in 5000:
+		if s.water.is_still():
+			break
+		s.water.step_once()
+	assert_true(s.water.is_still())
 	var fingerprint := WorldChecksum.terrain(s.world)
 	await wait_real_ms(Config.save.min_save_gap_ms + 100)
 	get_tree().unload_current_scene() # orderly close saves

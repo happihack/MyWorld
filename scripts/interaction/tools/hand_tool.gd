@@ -89,6 +89,10 @@ func tap(target: Picker.Result) -> InteractionResponse:
 	return ctx.session.interactions.tap(target)
 
 
+func double_tap_touches() -> bool:
+	return true
+
+
 ## Picks up the loose object under a screen position. False if there is none.
 func grab_at(screen: Vector2) -> bool:
 	if is_busy() or ctx == null:

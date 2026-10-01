@@ -315,7 +315,7 @@ func test_double_tap_on_a_thing_looks_at_it() -> void:
 	assert_near(rig.pivot().x, hut.position2d().x, 0.2, "centred on the hut")
 	assert_near(rig.pivot().z, hut.position2d().y, 0.2)
 	assert_true(rig.distance() <= before + 0.01, "never zooms out to look at something")
-	assert_eq(session.interactions.interaction_count, 1, "only the first tap touched the hut")
+	assert_eq(session.interactions.interaction_count, 2, "and both taps knocked on it")
 
 
 func test_double_tap_on_open_ground_zooms_in() -> void:

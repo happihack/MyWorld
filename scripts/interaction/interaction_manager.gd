@@ -20,6 +20,10 @@ const ACTION_REMOVE := &"remove"
 ## The first shake of a tree only rustles it; each further shake drops one of
 ## what it bears with this chance.
 const SHAKE_DROP_CHANCE := 0.6
+## A touch on water pushes floating things within this many tiles, the
+## nearest by this speed (tiles/s).
+const RIPPLE_REACH := 1.6
+const RIPPLE_PUSH := 1.6
 ## Random stream for what touches bring about (which shake drops a fruit).
 const RNG_STREAM := &"interaction"
 
@@ -65,6 +69,8 @@ func tap(target: Picker.Result) -> InteractionResponse:
 		return null
 	if response.prop_kind == PropData.Kind.TREE:
 		_shake_tree(response)
+	elif response.effect == InteractionResponse.RIPPLE:
+		_disturb_water(response)
 	_announce(response)
 	return response
 
@@ -263,6 +269,22 @@ func _shake_tree(response: InteractionResponse) -> void:
 	var speed := rng.randf_range(0.3, 1.1)
 	_motion.drop(fruit.id, Vector3(outward.x * speed, 0.0, outward.y * speed))
 	response.dropped.append(fruit.id)
+
+
+## A touch on water pushes what floats nearby away from the finger.
+func _disturb_water(response: InteractionResponse) -> void:
+	if _loose == null or _motion == null or _loose.spatial_index == null:
+		return
+	var center := Vector2(response.position.x, response.position.z)
+	for id in _loose.spatial_index.query_radius(center, RIPPLE_REACH, SpatialIndex.KIND_LOOSE_OBJECT):
+		var object := _loose.get_object(id)
+		if object == null or _motion.rest_height(object) <= 0.0:
+			continue # not afloat
+		var away := object.position - center
+		var distance := away.length()
+		var direction := away / distance if distance > 0.001 else Vector2.RIGHT
+		var strength := RIPPLE_PUSH * (1.0 - distance / RIPPLE_REACH) * clampf(object.give(), 0.3, 1.5)
+		_motion.push(id, Vector3(direction.x, 0.0, direction.y) * strength)
 
 
 ## A new loose object at `at`, `height` above the ground.

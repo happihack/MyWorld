@@ -100,7 +100,7 @@ func _move(from: Vector2, to: Vector2, steps: int = 8) -> void:
 
 func test_tool_bar_shows_the_tools_that_exist() -> void:
 	var bar := ui.tool_bar()
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID])
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, WaterTool.ID], "hand, observe, and the debug-only water prototype")
 	assert_eq(bar.current(), HandTool.ID)
 	assert_true(bar.button(HandTool.ID).selected)
 	assert_false(bar.button(ObserveTool.ID).selected)
@@ -116,7 +116,8 @@ func test_tool_bar_shows_the_tools_that_exist() -> void:
 		assert_true(button.size.x >= 139.0 and button.size.y >= 139.0, "a finger-sized target")
 		assert_true(router.is_over_ui(button.get_global_rect().get_center()), "touches on it never reach the world")
 		assert_false(button.tooltip_text.is_empty())
-	assert_false(router.is_over_ui(rect.get_center()), "the gap between the buttons is still the world")
+	var gap := (bar.button(HandTool.ID).get_global_rect().end.x + bar.button(ObserveTool.ID).get_global_rect().position.x) * 0.5
+	assert_false(router.is_over_ui(Vector2(gap, rect.get_center().y)), "the gap between the buttons is still the world")
 
 
 func test_choosing_a_tool() -> void:
@@ -298,6 +299,54 @@ func test_dropping_into_water_splashes() -> void:
 	assert_near(rock.height_offset, 0.0, 0.0, "stone sinks to the bed")
 	assert_eq(AudioManager.last_sound, &"plip")
 	assert_true(view.effects().active_ring_count() >= 1, "ripples")
+
+
+func test_quick_taps_with_the_water_tool_do_not_move_the_camera() -> void:
+	tools.select(WaterTool.ID)
+	var water_tool := tools.current() as WaterTool
+	# The deepest water near the settlement.
+	var tile := Vector2i.ZERO
+	var best := INF
+	var b := session.world.bounds
+	for y in range(b.position.y + 2, b.end.y - 2):
+		for x in range(b.position.x + 2, b.end.x - 2):
+			var t := Vector2i(x, y)
+			var d := Vector2(t - session.start.settlement_tile).length()
+			if d < best and session.world.get_water(t) > 0.45:
+				best = d
+				tile = t
+	_look_at(Vector2(tile) + Vector2(0.5, 0.5), 10.0)
+	var surface := session.world.get_height(tile) * session.world.height_step + session.world.get_water(tile)
+	var at := rig.world_to_screen(Vector3(tile.x + 0.5, surface, tile.y + 0.5))
+	var pivot := rig.pivot()
+	var distance := rig.distance()
+	_touch(at, true)
+	_touch(at, false)
+	_touch(at, true) # at once: the recognizer calls this a double tap
+	_touch(at, false)
+	for i in 60:
+		rig.advance(1.0 / 60.0)
+	assert_true(water_tool.bucket > WaterTool.SCOOP, "both taps scooped (%.2f)" % water_tool.bucket)
+	assert_eq(rig.pivot(), pivot, "and the view stayed where it was")
+	assert_near(rig.distance(), distance, 0.0001)
+	# With the hand, two quick taps on a tree shake it twice and look at it.
+	tools.select(HandTool.ID)
+	var tree: PropData = null
+	var nearest := INF
+	for p in session.props.all_props():
+		var d := Vector2(p.tile - session.start.settlement_tile).length()
+		if p.kind == PropData.Kind.TREE and d < nearest:
+			nearest = d
+			tree = p
+	_look_at(tree.position2d())
+	var crown := rig.world_to_screen(Vector3(tree.position2d().x,
+		session.world.get_height(tree.tile) * session.world.height_step + 0.9, tree.position2d().y))
+	await wait_real_ms(Config.interaction.double_tap_ms + 80)
+	_touch(crown, true)
+	_touch(crown, false)
+	_touch(crown, true)
+	_touch(crown, false)
+	assert_eq(session.interactions.shakes_of(tree.id), 2)
 
 
 func test_a_rock_rolled_into_a_hut_knocks_and_stops_outside() -> void:

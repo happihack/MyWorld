@@ -20,6 +20,8 @@ func setup(context: ToolBase.Context) -> void:
 	_current = null
 	register(HandTool.new())
 	register(ObserveTool.new())
+	if DebugOverlay.is_available():
+		register(WaterTool.new()) # prototype: debug builds, or debug tools unlocked
 	select(HandTool.ID)
 
 

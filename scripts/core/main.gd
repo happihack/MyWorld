@@ -50,7 +50,9 @@ func _ready() -> void:
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
 	debug_overlay.register_section(&"motion", func() -> String:
-		return "moving %d  step %.2f ms" % [session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0])
+		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms" % [
+			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
+			session.water.active_count(), session.water.last_step_usec / 1000.0])
 	debug_overlay.register_section(&"feedback", func() -> String:
 		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
@@ -116,13 +118,22 @@ func _on_gesture(gesture: Gesture) -> void:
 				session.interactions.actions_for(target))
 			menu.closed.connect(_on_context_menu_closed)
 		Gesture.Type.DOUBLE_TAP:
-			# On a thing: look at it. On open ground or water: zoom toward it.
-			var what := session.interactions.describe(pick_at(gesture.position))
-			var rig := world_view.camera_rig()
-			if what != null and what.is_entity():
-				rig.focus_on(what.position, minf(rig.distance(), Config.camera.home_distance))
-			else:
-				rig.double_tap_zoom(gesture.position)
+			var target := pick_at(gesture.position)
+			var tool := tools.current()
+			if tool.double_tap_moves_camera():
+				# On a thing: look at it. On open ground or water: zoom toward it.
+				var what := session.interactions.describe(target)
+				var rig := world_view.camera_rig()
+				if what != null and what.is_entity():
+					rig.focus_on(what.position, minf(rig.distance(), Config.camera.home_distance))
+				else:
+					rig.double_tap_zoom(gesture.position)
+					return
+			# The second tap is still a tap: two quick taps on a tree shake it twice.
+			if tool.double_tap_touches():
+				var response := tools.tap(target)
+				if response != null:
+					_note_pick(target, response)
 
 
 ## Opening shot: the box on its table, then down to where the people live —

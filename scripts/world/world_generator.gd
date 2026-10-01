@@ -192,6 +192,18 @@ func generate_props(chunk: ChunkData) -> Array[PropData]:
 	return props
 
 
+## Which way the river runs at a tile: a unit vector on the ground plane
+## (x = world X, y = world Z). The river follows the Z axis; downstream is +Z.
+func river_direction(tile: Vector2i) -> Vector2:
+	var sideways := (river_center_fp(tile.y + 1) - river_center_fp(tile.y - 1)) / float(2 * FP)
+	return Vector2(sideways, 1.0).normalized()
+
+
+## World X of the middle of the river at row `z` (tile centres are at +0.5).
+func river_center_x(z: int) -> float:
+	return river_center_fp(z) / float(FP)
+
+
 ## One tile's generated values (for tests, validation and placement logic).
 func sample_tile(tile: Vector2i) -> Dictionary:
 	var out := PackedInt32Array()
