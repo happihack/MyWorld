@@ -15,6 +15,11 @@ const MB := 1024.0 * 1024.0
 
 var _sections: Dictionary = {} # StringName -> Callable, in registration order
 var _last_gesture := "-"
+# Running totals of the current two-finger gesture (pinch/drag/twist arrive as
+# separate incremental events; one combined line is what a tester can read).
+var _multi_scale := 1.0
+var _multi_pan := Vector2.ZERO
+var _multi_twist := 0.0
 var _refresh_timer := 0.0
 
 
@@ -55,17 +60,39 @@ func is_shown() -> bool:
 func on_gesture(gesture: Gesture) -> void:
 	if gesture.type == Gesture.Type.THREE_FINGER_TAP:
 		toggle()
+	match gesture.type:
+		Gesture.Type.MULTI_START:
+			_multi_scale = 1.0
+			_multi_pan = Vector2.ZERO
+			_multi_twist = 0.0
+			_last_gesture = _multi_summary()
+			return
+		Gesture.Type.PINCH:
+			_multi_scale *= gesture.scale
+			_last_gesture = _multi_summary()
+			return
+		Gesture.Type.TWO_FINGER_DRAG:
+			_multi_pan += gesture.delta
+			_last_gesture = _multi_summary()
+			return
+		Gesture.Type.TWIST:
+			_multi_twist += gesture.angle
+			_last_gesture = _multi_summary()
+			return
+		Gesture.Type.MULTI_END:
+			return # keep the summary on screen
 	var text := "%s %s" % [gesture.type_name(), gesture.position.round()]
 	match gesture.type:
 		Gesture.Type.DRAG_START, Gesture.Type.LONG_PRESS:
 			text += " hold %d ms" % gesture.hold_ms
 		Gesture.Type.DRAG_END, Gesture.Type.SWIPE:
 			text += " v %d" % roundi(gesture.velocity.length())
-		Gesture.Type.PINCH:
-			text += " x%.3f" % gesture.scale
-		Gesture.Type.TWIST:
-			text += " %.1f deg" % rad_to_deg(gesture.angle)
 	_last_gesture = text
+
+
+func _multi_summary() -> String:
+	return "TWO_FINGER pinch x%.2f  drag %s  twist %.0f deg" % [
+		_multi_scale, _multi_pan.round(), rad_to_deg(_multi_twist)]
 
 
 ## Rebuilds the text immediately (used by tests and on show).

@@ -10,6 +10,12 @@ extends ConfigBase
 @export_range(100.0, 5000.0) var swipe_min_velocity_dp_s: float = 900.0
 ## Hold time before a loose object is grabbed with the HAND tool.
 @export_range(50, 1000) var grab_hold_ms: int = 200
+## Two-finger gestures: finger distance must change this much before PINCH starts.
+@export_range(0.0, 48.0) var pinch_slop_dp: float = 8.0
+## Two-finger gestures: fingers must rotate this far before TWIST starts. Real
+## fingers never keep a constant angle, so without this every pinch would also
+## rotate the view.
+@export_range(0.0, 90.0) var twist_start_deg: float = 12.0
 
 
 func validate() -> PackedStringArray:

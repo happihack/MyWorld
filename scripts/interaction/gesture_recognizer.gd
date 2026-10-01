@@ -10,6 +10,12 @@ extends RefCounted
 ## - TAP fires immediately on release; the second tap of a quick pair fires
 ##   DOUBLE_TAP instead of TAP (no added latency on single taps).
 ## - A second finger cancels the single-finger gesture (DRAG_END cancelled=true).
+## - Two-finger components activate independently once they pass a threshold:
+##   PINCH (finger distance, pinch_slop_dp), TWO_FINGER_DRAG (centroid,
+##   drag_slop_dp) and TWIST (rotation, twist_start_deg). Finger jitter below the
+##   thresholds emits nothing, so zooming does not rotate the view. Pinch and
+##   drag include the movement that crossed the threshold; twist starts from
+##   zero at activation (no sudden rotation jump).
 ## - When a two-finger gesture ends with one finger still down, that finger can
 ##   continue as a drag once it moves past the slop (after_multi=true); it can
 ##   never become a tap or long press.
@@ -51,6 +57,9 @@ var _multi_start_time := 0
 var _multi_start_positions: Dictionary = {}
 var _max_touches := 0
 var _multi_moved := false
+var _pinch_active := false
+var _pan_active := false
+var _twist_active := false
 
 
 func _init(interaction_config: InteractionConfig, dp_scale: float = 1.0) -> void:
@@ -251,6 +260,9 @@ func _begin_multi(time_ms: int) -> void:
 	_multi_start_time = time_ms
 	_multi_start_positions = _touches.duplicate()
 	_multi_moved = false
+	_pinch_active = false
+	_pan_active = false
+	_twist_active = false
 	_rebaseline_multi()
 	var g := _make(Gesture.Type.MULTI_START, _multi_centroid, time_ms)
 	g.touch_count = _touches.size()
@@ -278,26 +290,40 @@ func _update_multi(time_ms: int) -> void:
 	var dist := a.distance_to(b)
 	var ang := (b - a).angle()
 
-	if _multi_dist > 0.0 and dist > 0.0 and not is_equal_approx(dist, _multi_dist):
-		var pinch := _make(Gesture.Type.PINCH, centroid, time_ms)
-		pinch.scale = dist / _multi_dist
-		pinch.touch_count = _touches.size()
-		_emit(pinch)
-	if centroid != _multi_centroid:
-		var pan := _make(Gesture.Type.TWO_FINGER_DRAG, centroid, time_ms)
-		pan.delta = centroid - _multi_centroid
-		pan.touch_count = _touches.size()
-		_emit(pan)
-	var d_ang := wrapf(ang - _multi_angle, -PI, PI)
-	if not is_zero_approx(d_ang):
-		var twist := _make(Gesture.Type.TWIST, centroid, time_ms)
-		twist.angle = d_ang
-		twist.touch_count = _touches.size()
-		_emit(twist)
+	# Each baseline (_multi_dist/_centroid/_angle) only moves once its component
+	# is active, so sub-threshold jitter accumulates against the starting pose.
+	if not _pinch_active and absf(dist - _multi_dist) >= config.pinch_slop_dp * units_per_dp:
+		_pinch_active = true
+	if _pinch_active:
+		if _multi_dist > 0.0 and dist > 0.0 and not is_equal_approx(dist, _multi_dist):
+			var pinch := _make(Gesture.Type.PINCH, centroid, time_ms)
+			pinch.scale = dist / _multi_dist
+			pinch.touch_count = _touches.size()
+			_emit(pinch)
+		_multi_dist = dist
 
-	_multi_centroid = centroid
-	_multi_dist = dist
-	_multi_angle = ang
+	if not _pan_active and centroid.distance_to(_multi_centroid) >= _slop():
+		_pan_active = true
+	if _pan_active:
+		if centroid != _multi_centroid:
+			var pan := _make(Gesture.Type.TWO_FINGER_DRAG, centroid, time_ms)
+			pan.delta = centroid - _multi_centroid
+			pan.touch_count = _touches.size()
+			_emit(pan)
+		_multi_centroid = centroid
+
+	var d_ang := wrapf(ang - _multi_angle, -PI, PI)
+	if not _twist_active:
+		if absf(d_ang) >= deg_to_rad(config.twist_start_deg):
+			_twist_active = true
+			_multi_angle = ang # start from zero: no rotation jump on activation
+	else:
+		if not is_zero_approx(d_ang):
+			var twist := _make(Gesture.Type.TWIST, centroid, time_ms)
+			twist.angle = d_ang
+			twist.touch_count = _touches.size()
+			_emit(twist)
+		_multi_angle = ang
 
 
 func _end_multi(time_ms: int) -> void:
