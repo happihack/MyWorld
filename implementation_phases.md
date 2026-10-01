@@ -386,11 +386,18 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** preview images of 6 seeds reviewed and tuned (first pass was a straight river between two grey rock walls). 23 new tests: noise determinism/range/smoothness/uniformity/pinned values; generator determinism, seed variety, **generation-order independence**, **unload → regenerate identical**, **64×64 centre identical inside a 128×128 box**, valid values for 8 seeds, **river connected top-to-bottom by flood fill**, ≥ 35% grass, golden checksum per generator version, speed. A 64×64 world generates in ~90 ms on desktop. Suite: 155 passing.
 - **To verify in M1.8:** the golden checksum on the phone (ARM) once the world is wired into the game — the reason for the integer design.
 
-#### M1.2b World contents
-- [ ] Resource/prop placement pass: trees (clusters via forest noise), rocks, berry bushes as **entity records** with stable generated ids derived from the tile (no allocator ids needed; only *changes* to generated props are saved) + registry + spatial index (full resource semantics in M7).
-- [ ] Starting settlement placeholder: choose a site by scoring (flat, near water, not flood-prone, near trees) → 3 hut **building records** (static for now) + a campfire.
-- [ ] Mysteries seeding stub: `seed_mysteries()` places 1 dormant ruin record at a far tile — proves the pipeline early (full in M18).
-- [ ] Validation function `WorldGenerator.validate(world) -> Array[String]` (water reachable from the settlement, ≥ N food sources, ≥ M buildable tiles, path connectivity via flood fill) + test over many seeds.
+#### M1.2b World contents — ✅ DONE (2026-09-30)
+- [x] `scripts/world/prop_data.gd` (`PropData`): kind (TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN), tile, variant (tree variants 2–3 = conifers), rotation/scale/offset as integers. **Generated props get a stable id that encodes their tile** (`generated_id(tile)`, bit 62 set) — no allocator ids, nothing to save.
+- [x] `scripts/world/prop_registry.gd` (`PropRegistry`): one prop per tile; `populate_chunk` / `depopulate_chunk` for generated props; `add` / `remove` for created ones; removing a generated prop is remembered so it stays gone after the chunk regenerates; keeps the `SpatialIndex` in sync; **saves only the differences** (removed generated ids + added props).
+- [x] `WorldGenerator.generate_props(chunk)`: trees in clumps (forest noise × moisture, a few lone trees, conifers on higher ground), rocks (denser on rocky ground), berry bushes concentrated along forest edges — each a pure function of (seed, tile, generated terrain). Never on water, sand, river bed or snow.
+- [x] `scripts/world/world_setup.gd` (`WorldSetup`):
+  - `create_start()` → `StartInfo` (settlement tile, campfire id, hut ids, ruin id/tile, problems).
+  - `find_settlement_site()`: requires a flat dry 5×5 square on grass/dirt; scores walking distance to water (ideal 5 tiles, never on the bank → not flood-prone), trees within 9 tiles (summed-area table), fertility and closeness to the box centre; deterministic tie-break.
+  - Settlement placeholder: glade cleared, campfire + 3 huts facing the fire (created props with allocator ids; become real buildings in M12).
+  - Mystery stub: one dormant RUIN far from the settlement (≥ 18 tiles), preferring high ground.
+  - `validate()`: flood-fills **walkable** ground from the campfire (step ≤ 1 height level, water ≤ wading depth) and requires water within 30 steps, ≥ 150 buildable tiles, ≥ 4 food bushes, ≥ 12 trees, ≥ 2 rocks.
+- **Verified:** preview images with markers reviewed and tuned (first pass had ~250 bushes scattered everywhere and speckled forests). 60/60 seeds valid in the tuning run. 22 new tests: id encoding, registry rules, sparse save roundtrip, props valid/deterministic/order-independent, deterministic start, site is a flat dry cleared glade near water and away from walls, ruin distance, 16 seeds all livable, validator reports each problem, walkability rules, no-site handled, golden props checksum. Suite: 177 passing (~21 s). Start setup takes ~0.3 s for a 64×64 world.
+- **Note for M1.8:** a random seed whose world fails `validate()` should be re-rolled; an explicitly entered seed is used as-is with the problems logged.
 
 ### M1.3 Terrain rendering
 - [ ] `scripts/world/terrain_mesher.gd`: build one `ArrayMesh` per chunk: top faces per tile at height, side faces where neighbour lower (stepped blocks), bevel option, vertex colours from terrain type palette, normals. Use `SurfaceTool` or raw arrays (raw arrays faster) — target < 3 ms per chunk on desktop.

@@ -55,9 +55,10 @@ enum Shape { RIVER_VALLEY, ISLAND, MOUNTAIN_BASIN, FOREST_CLEARING, COASTAL_PLAI
 @export_group("Contents")
 @export_range(4, 128) var forest_period_tiles: int = 18
 ## Chance of a tree per tile in the densest forest.
-@export_range(0.0, 1.0, 0.01) var tree_density: float = 0.42
+@export_range(0.0, 1.0, 0.01) var tree_density: float = 0.6
 @export_range(0.0, 1.0, 0.005) var rock_density: float = 0.03
-@export_range(0.0, 1.0, 0.005) var bush_density: float = 0.05
+## Berry bushes: base chance per tile; up to 7x that along forest edges.
+@export_range(0.0, 1.0, 0.001) var bush_density: float = 0.01
 
 
 func validate() -> PackedStringArray:

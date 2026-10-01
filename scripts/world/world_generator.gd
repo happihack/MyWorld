@@ -38,6 +38,16 @@ var _salt_fertility: int
 var _salt_vegetation: int
 var _salt_warp: int
 var _salt_ridge: int
+var _salt_forest: int
+var _salt_tree: int
+var _salt_rock: int
+var _salt_bush: int
+var _salt_prop: int
+
+# Prop densities as chances out of HashNoise.ONE.
+var _tree_chance: int
+var _rock_chance: int
+var _bush_chance: int
 
 # Template values converted once to fixed-point.
 var _valley_half: int
@@ -71,6 +81,14 @@ func _init(seed_value: int, start_template: StartTemplate, world_config: WorldCo
 	_salt_vegetation = _salt(&"gen.vegetation")
 	_salt_warp = _salt(&"gen.warp")
 	_salt_ridge = _salt(&"gen.ridge")
+	_salt_forest = _salt(&"gen.forest")
+	_salt_tree = _salt(&"gen.tree")
+	_salt_rock = _salt(&"gen.rock")
+	_salt_bush = _salt(&"gen.bush")
+	_salt_prop = _salt(&"gen.prop")
+	_tree_chance = roundi(template.tree_density * HashNoise.ONE)
+	_rock_chance = roundi(template.rock_density * HashNoise.ONE)
+	_bush_chance = roundi(template.bush_density * HashNoise.ONE)
 	_valley_half = _fp(template.valley_half_width_tiles)
 	_hill_run = _fp(template.hill_run_tiles)
 	_river_half = _fp(template.river_half_width_tiles)
@@ -108,6 +126,70 @@ func generate_chunk(coord: Vector2i) -> ChunkData:
 			chunk.temperature[i] = clampi(-(out[S_HEIGHT] - template.floor_level) * 2, -128, 127) + 128
 	chunk.mark_pristine()
 	return chunk
+
+
+## Trees, rocks and bushes for a generated chunk: at most one per tile, each a
+## pure function of (seed, tile, the chunk's generated terrain). Pass the
+## pristine chunk from generate_chunk(); ids are PropData.generated_id(tile).
+func generate_props(chunk: ChunkData) -> Array[PropData]:
+	var props: Array[PropData] = []
+	var origin := WorldCoords.chunk_origin(chunk.coord, chunk_size)
+	var one := HashNoise.ONE
+	for ly in chunk_size:
+		for lx in chunk_size:
+			var i := ly * chunk_size + lx
+			var terrain := chunk.terrain[i]
+			if chunk.water[i] > 0.0 or terrain == ChunkData.Terrain.RIVERBED \
+					or terrain == ChunkData.Terrain.SAND or terrain == ChunkData.Terrain.SNOW:
+				continue
+			var x := origin.x + lx
+			var y := origin.y + ly
+			var level := chunk.height[i]
+			var moisture := chunk.moisture[i]
+			var forest := HashNoise.fbm2(x, y, template.forest_period_tiles, 2, _salt_forest)
+			var kind := -1
+			var variant := 0
+
+			if terrain == ChunkData.Terrain.GRASS:
+				# Forest cover ramps up where the forest noise is high; wetter
+				# ground grows denser woods; a few lone trees stand anywhere.
+				var cover := clampi((forest - one * 42 / 100) * 1024 / (one * 30 / 100), 0, 1024)
+				var chance := _tree_chance * cover / 1024 * (128 + moisture / 2) / 255 + one * 5 / 1000
+				if HashNoise.tile_value(x, y, _salt_tree) < chance:
+					kind = PropData.Kind.TREE
+					if level >= template.floor_level + 3:
+						variant = PropData.TREE_CONIFER_FIRST_VARIANT
+
+			if kind == -1:
+				var rock_scale := 1
+				if terrain == ChunkData.Terrain.ROCK:
+					rock_scale = 3
+				elif terrain == ChunkData.Terrain.DIRT:
+					rock_scale = 2
+				if HashNoise.tile_value(x, y, _salt_rock) < _rock_chance * rock_scale:
+					kind = PropData.Kind.ROCK
+
+			if kind == -1 and moisture > 90 \
+					and (terrain == ChunkData.Terrain.GRASS or terrain == ChunkData.Terrain.DIRT):
+				# Berry bushes favour the forest edge.
+				var edge := maxi(1024 - absi(forest - one * 42 / 100) * 1024 / (one * 15 / 100), 0)
+				if HashNoise.tile_value(x, y, _salt_bush) < _bush_chance * (1024 + 6 * edge) / 1024:
+					kind = PropData.Kind.BUSH
+
+			if kind == -1:
+				continue
+			var h := HashNoise.hash2(x, y, _salt_prop)
+			var prop := PropData.new()
+			prop.tile = Vector2i(x, y)
+			prop.id = PropData.generated_id(prop.tile)
+			prop.kind = kind as PropData.Kind
+			prop.variant = variant + (h & 1)
+			prop.rotation_step = (h >> 1) & 0xFF
+			prop.scale_percent = 80 + ((h >> 9) % 41) # 80..120 %
+			prop.offset_x = ((h >> 16) & 0xFF) * 154 / 255 - 77 # about ±0.3 tile
+			prop.offset_y = ((h >> 24) & 0xFF) * 154 / 255 - 77
+			props.append(prop)
+	return props
 
 
 ## One tile's generated values (for tests, validation and placement logic).
