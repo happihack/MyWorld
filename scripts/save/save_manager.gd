@@ -10,7 +10,8 @@ extends Node
 ## it fully verifies), then each backup.
 ## Saves are synchronous for now; threaded writes arrive in M22.
 
-const SAVE_VERSION := 1
+## 1: clock, ids, rng. 2: + world_state (modified chunks, prop differences, start info).
+const SAVE_VERSION := 2
 const SAVE_FILE := "world.sav"
 
 ## Last save outcome, for the debug overlay.

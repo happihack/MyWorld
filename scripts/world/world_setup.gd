@@ -47,6 +47,25 @@ class StartInfo:
 		return {"settlement_tile": settlement_tile, "campfire_id": campfire_id,
 			"hut_ids": hut_ids.duplicate(), "ruin_id": ruin_id, "ruin_tile": ruin_tile}
 
+	## Restores saved start info as-is (it is never recomputed, so later changes
+	## to the site scoring cannot move an existing settlement). Null if unusable.
+	static func from_dict(data: Dictionary) -> StartInfo:
+		if typeof(data.get("settlement_tile")) != TYPE_VECTOR2I:
+			return null
+		var info := StartInfo.new()
+		info.settlement_tile = data["settlement_tile"]
+		info.campfire_id = int(data.get("campfire_id", 0))
+		info.ruin_id = int(data.get("ruin_id", 0))
+		var ruin: Variant = data.get("ruin_tile", Vector2i.ZERO)
+		info.ruin_tile = ruin if typeof(ruin) == TYPE_VECTOR2I else Vector2i.ZERO
+		var huts: Variant = data.get("hut_ids", [])
+		if typeof(huts) == TYPE_ARRAY:
+			for id: Variant in huts:
+				if typeof(id) == TYPE_INT:
+					info.hut_ids.append(id)
+		info.ok = true
+		return info
+
 
 ## Generates every chunk in bounds and registers its props.
 static func populate_all(world: WorldData, generator: WorldGenerator, props: PropRegistry) -> void:

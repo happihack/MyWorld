@@ -34,20 +34,7 @@ func _load_all(world: WorldData, reverse: bool = false) -> void:
 
 
 func _checksum(world: WorldData, rect: Rect2i) -> String:
-	var bytes := PackedByteArray()
-	for y in range(rect.position.y, rect.end.y):
-		for x in range(rect.position.x, rect.end.x):
-			var tile := Vector2i(x, y)
-			var chunk := world.chunk_at_tile(tile)
-			var i := world.index_at_tile(tile)
-			bytes.append(chunk.height[i])
-			bytes.append(chunk.terrain[i])
-			bytes.append(chunk.moisture[i])
-			bytes.append(chunk.fertility[i])
-			bytes.append(chunk.vegetation[i])
-			bytes.append(chunk.temperature[i])
-			bytes.append(roundi(chunk.water[i] * 1000.0) & 0xFF)
-	return SaveContainer.sha256(bytes).hex_encode()
+	return WorldChecksum.terrain(world, rect)
 
 
 func test_template_is_valid() -> void:

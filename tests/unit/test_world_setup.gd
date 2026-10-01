@@ -37,13 +37,7 @@ func _build(seed_value: int, run_setup: bool = true) -> World:
 
 
 func _props_checksum(props: PropRegistry, generated_only: bool) -> String:
-	var rows: Array = []
-	for p in props.all_props():
-		if generated_only and not p.is_generated():
-			continue
-		rows.append([p.tile.y, p.tile.x, p.id, p.kind, p.variant, p.rotation_step, p.scale_percent, p.offset_x, p.offset_y])
-	rows.sort()
-	return SaveContainer.sha256(var_to_bytes(rows)).hex_encode()
+	return WorldChecksum.props(props, generated_only)
 
 
 func test_generated_props_are_valid() -> void:

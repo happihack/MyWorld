@@ -9,6 +9,8 @@ extends Node
 @onready var input_router: InputRouter = $InputRouter
 @onready var debug_overlay: DebugOverlay = $DebugOverlay
 
+var _world_fingerprint := ""
+
 
 func _ready() -> void:
 	_open_world()
@@ -52,7 +54,13 @@ func _world_debug_section() -> String:
 		session.props.size(),
 		session.start.settlement_tile,
 	]
-	return clock_line + "\n" + world_line
+	if _world_fingerprint == "":
+		# Same seed => same fingerprint on every device (integer generation).
+		_world_fingerprint = WorldChecksum.terrain(session.world).substr(0, 8)
+	var gen_line := "gen v%d  terrain %s  saved chunks %d  removed props %d" % [
+		WorldGenerator.GENERATOR_VERSION, _world_fingerprint,
+		session.world.modified_chunks().size(), session.props.removed_generated_count()]
+	return clock_line + "\n" + world_line + "\n" + gen_line
 
 
 func _camera_debug_section() -> String:

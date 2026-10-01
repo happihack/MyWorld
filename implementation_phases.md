@@ -451,9 +451,22 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** 16 unit tests (framed in both orientations, tight framing, ray/projection inverse, pan and zoom anchoring, clamping, return to centre, 400 random operations never leave the world or produce NaN, roaming range vs zoom, animated focus/frame, gesture mapping, ground following, camera node sync) + 2 integration tests. Suite: 251 passing (~37 s). Driven with real input events on desktop (wheel zoom to the settlement, drag pan, zoom out returns to framed). **Phone: 60 FPS with shadows, 84 draw calls, ~87k triangles (incl. shadow pass); a drag while framed leaves the view pinned.** Pinch/pan feel still to be judged by hand.
 - **Left for M2.1 (as planned):** fling inertia, rubber-band bounds, double-tap zoom, optional twist-to-rotate, Home button.
 
-### M1.8 Wire into WorldSession
-- [ ] `WorldSession.create_new(seed)` → generate world → WorldView spawns ChunkViews/props/box → camera frames the settlement.
-- [ ] Save/load: seed + modified chunks (none yet) + prop/building records → reload shows identical world.
+### M1.8 Wire into WorldSession — ✅ DONE (2026-09-30)
+- [x] `WorldSession` owns `template_id`, `world`, `generator`, `props`, `spatial`, `start`; `create_new()` builds the world (random seeds re-roll until livable), `WorldView` shows it and the camera frames the box. (Building was pulled forward in M1.3.)
+- [x] **Sparse world persistence**: `to_dict()["world_state"]` = template id, generator version, `WorldData.to_dict()` (modified chunks only), `PropRegistry.to_dict()` (removed generated ids + added props), `StartInfo.to_dict()`. `load_from()` restores it via `_restore_world()`: generator output + saved differences; the generator uses the **world's own** chunk size / height step (not today's config); **start info is restored as saved, never recomputed**; a different saved `generator_version` is logged.
+- [x] **Save format version 2** (`SaveManager.SAVE_VERSION`), migration step `SaveMigrations._v1_to_v2` (version 1 stored no world content → empty `world_state` → rebuild from the seed once, exactly what v1 did on every load), fixture `tests/fixtures/saves/v1_world.sav`.
+- [x] Robustness: missing/damaged `world_state` → error logged, world rebuilt from the seed (ids kept clear of the rebuilt props); bad chunk/prop records are skipped with a warning.
+- [x] `scripts/world/world_checksum.gd` (`WorldChecksum.terrain / props`): shared by the golden tests and the overlay ("gen v1 terrain 62d2928c saved chunks N removed props N").
+- **Verified:** 9 persistence tests (pristine world saves only the start in < 4 KB; exact reload incl. ids; changes survive and only touched chunks are stored, across two save/load cycles; saved start wins; world keeps its geometry when config changes; five kinds of damaged state fall back to the seed; bad records skipped; v1 fixture migrates, loads, and is re-saved as v2 with the v1 file kept as backup; Main keeps a felled tree gone across launches). Suite: 260 passing (~44 s).
+- **Cross-platform determinism confirmed:** seed 6503499157575757534 gives terrain fingerprint `62d2928c`, 717 props and settlement (7, 0) on both the PC (x86) and the phone (ARM).
+- **On device:** the phone's genuine version-1 save migrated and loaded; the next save was written as v2 (1,038 B, v1 files kept as `.bak1/.bak2`); relaunch restores the world in 160 ms (vs ~410 ms to build one).
+
+### M1 — Completion summary
+- **Built:** chunked world data, deterministic integer generation (River Valley), props/settlement/ruin with a livability validator, stepped-block terrain with ambient occlusion, animated water, merged low-poly props with wind sway, bird flock and campfire smoke, a display-case box with sun shadows, tabletop, vignette and cloud shadows, graphics quality presets, an anchored pan/zoom camera that cannot get lost, and sparse world persistence with a save migration.
+- **Budgets (64×64 world):** phone (Galaxy Note20 5G, medium preset, shadows on) **60 FPS**, 84 draw calls (budget < 150), view meshes built in ~160–185 ms (budget < 300 ms), world generated in ~0.4–0.9 s or restored in 0.16 s. Desktop 60 FPS.
+- **Tests:** 260 automated tests, ~44 s headless.
+- **Exit criterion — "a player can stare at the world and enjoy watching it even though almost nothing is happening":** the motion is there (water, swaying trees and grass, flickering fire, smoke, birds, cloud shadows); the judgement is the owner's. *Pending the owner's verdict on the device.*
+- **Carried forward:** bevelled block edges (optional), tilt-shift blur (M24), camera inertia/rubber-band/double-tap/Home (M2.1), world generation off the main thread if it grows (M13/M21), other start templates (M32).
 
 ### M1 — Tests & checks
 **Automated:** `test_world_coords` (negative floor), `test_worldgen_determinism` (same seed ⇒ identical layer arrays & entity lists; different seeds differ), `test_worldgen_valid_terrain` (heights in range, water only where basin/river, no NaN), `test_worldgen_resources` (counts within ranges, not on water, reachable), `test_worldgen_validate` passes for 50 random seeds, `test_chunk_serialization`.
@@ -1420,6 +1433,7 @@ Done when:
 |---|---|---|---|---|
 | KI-1 | M0.8 | Low (until real UI exists) | In landscape the UI renders at ~56% scale (canvas designed for 1080-wide portrait, `canvas_items` + `expand`), so text/touch targets are too small. Needs a landscape scale policy (e.g. `content_scale_factor` by orientation) when HUD work starts (M2.4 / M14 / M24). | Open |
 | KI-2 | M0.8 | Low | Debug overlay sits at the top-left edge; on devices with corner cut-outs it should respect `DisplayServer.get_display_safe_area()` (M24). | Open |
+| KI-4 | M1.8 | Info | Godot logs `Couldn't present to Vulkan queue (VK_ERROR_SURFACE_LOST_KHR)` when the app is sent to the background on Android. Engine-level (the OS removes the surface); no data loss and the app resumes normally. Watch for it in M24 lifecycle testing. | Open |
 | KI-3 | M0.8 | Info | Project is built with the .NET (mono) Godot editor/templates although it is pure GDScript; standard build recommended (pending decision D-15). | Open |
 
 ## Appendix 7 — Immediate next steps
