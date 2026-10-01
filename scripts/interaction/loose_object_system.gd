@@ -80,6 +80,10 @@ var _time_bank := 0.0
 var last_step_usec := 0
 
 
+## The world is paused: nothing falls, rolls or drifts until it goes on.
+var frozen := false
+
+
 func bind(world: WorldData, registry: LooseObjectRegistry, props: PropRegistry = null,
 		current: Callable = Callable()) -> void:
 	_world = world
@@ -182,7 +186,8 @@ func step(delta: float) -> void:
 
 
 func _process(delta: float) -> void:
-	step(delta)
+	if not frozen:
+		step(delta)
 
 
 # --- one step ---------------------------------------------------------------------------

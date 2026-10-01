@@ -214,6 +214,9 @@ func shutdown() -> void:
 	is_active = false
 	movement.stop_all()
 	clock.speed_changed.disconnect(_on_speed_changed)
+	clock.day_started.disconnect(_on_day_started)
+	clock.season_changed.disconnect(_on_season_changed)
+	clock.year_started.disconnect(_on_year_started)
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
 	EventBus.world_unloaded.emit()
 
@@ -427,12 +430,37 @@ func _activate() -> void:
 	simulation.tiers.low_end = GraphicsQuality.current() == GraphicsQuality.Level.LOW
 	simulation.bind(clock, people, behavior, pathfinder, movement)
 	clock.speed_changed.connect(_on_speed_changed)
+	clock.day_started.connect(_on_day_started)
+	clock.season_changed.connect(_on_season_changed)
+	clock.year_started.connect(_on_year_started)
+	_apply_pause()
 	is_active = true
 	EventBus.world_loaded.emit(world_id)
 
 
 func _on_speed_changed(speed_index: int) -> void:
+	_apply_pause()
 	EventBus.sim_speed_changed.emit(speed_index)
+
+
+## Paused, the whole world stands still — also what falls and what flows
+## (bible §9.2). The UI, the camera and looking at things go on.
+func _apply_pause() -> void:
+	loose_system.frozen = clock.is_paused()
+	water.frozen = clock.is_paused()
+
+
+func _on_day_started(day: int) -> void:
+	EventBus.day_started.emit(day)
+
+
+func _on_season_changed(season: int, year: int) -> void:
+	Log.info(Log.Category.WORLD, "A new season", {"season": GameClock.season_name(season), "year": year})
+	EventBus.season_changed.emit(season, year)
+
+
+func _on_year_started(year: int) -> void:
+	EventBus.year_started.emit(year)
 
 
 ## Unique even when two worlds share a seed.

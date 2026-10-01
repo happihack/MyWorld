@@ -182,9 +182,10 @@ func test_first_contact_is_unlocked_once() -> void:
 func test_the_history_in_words() -> void:
 	assert_true(MemoryText.has("HIST_YEAR"), "the templates are loaded (data/text/history.csv)")
 	var year := Config.time.ticks_per_year()
+	var start := roundi(Config.time.start_hour * 60.0) # (the world begins at this minute of its first day)
 	assert_eq(HistoryText.year_of(0), 1, "the first year is year 1")
-	assert_eq(HistoryText.year_of(year - 1), 1)
-	assert_eq(HistoryText.year_of(year), 2)
+	assert_eq(HistoryText.year_of(year - start - 1), 1)
+	assert_eq(HistoryText.year_of(year - start), 2, "years turn at midnight")
 	assert_eq(HistoryText.year_of(year * 30 + 5), 31)
 	assert_eq(HistoryText.year_of(-50), 1)
 	assert_eq(HistoryText.line({"type": "touch", "subject": "person", "first": true, "tick": 10}), "YEAR 1 · touched first inhabitant")

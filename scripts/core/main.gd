@@ -716,10 +716,9 @@ func _doing_debug_section() -> String:
 	var parts := PackedStringArray()
 	for activity: StringName in names:
 		parts.append("%s %d" % [activity if activity != &"" else &"nothing", counts[activity]])
-	var hour := session.clock.hour()
 	var sim := session.simulation
 	var tiers := sim.tiers.counts()
-	return "time %02d:%02d  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d\nactive AI %d  tiers 4:%d 3:%d 2:%d%s" % [int(hour), int(fmod(hour, 1.0) * 60.0),
+	return "%s  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d\nactive AI %d  tiers 4:%d 3:%d 2:%d%s" % [session.clock.format_date(),
 		", ".join(parts), session.behavior.decisions, session.behavior.skipped, sim.average_usec / 1000.0,
 		Config.perf.sim_budget_ms_per_frame, sim.average_live_usec / 1000.0, sim.average_paths_usec / 1000.0,
 		sim.average_move_usec / 1000.0, sim.worst_usec / 1000.0, sim.deferred_total,

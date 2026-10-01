@@ -13,8 +13,7 @@ extends RefCounted
 
 ## The game year a tick falls in (the first year is year 1).
 static func year_of(tick: int) -> int:
-	@warning_ignore("integer_division")
-	return maxi(tick, 0) / maxi(Config.time.ticks_per_year(), 1) + 1
+	return maxi(Config.time.year_of(maxi(tick, 0)), 1)
 
 
 ## What a history entry (see PlayerHistory.entries) says: "touched first inhabitant".

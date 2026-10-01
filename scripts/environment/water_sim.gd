@@ -223,8 +223,13 @@ func step(delta: float) -> void:
 	last_step_usec = Time.get_ticks_usec() - started
 
 
+## The world is paused: the water stands still until it goes on.
+var frozen := false
+
+
 func _process(delta: float) -> void:
-	step(delta)
+	if not frozen:
+		step(delta)
 
 
 ## One fixed step of the simulation.

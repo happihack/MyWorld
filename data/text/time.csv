@@ -1,0 +1,12 @@
+keys,en
+SEASON_0,"Spring"
+SEASON_1,"Summer"
+SEASON_2,"Autumn"
+SEASON_3,"Winter"
+SEASON_OTHER,"Season {number}"
+TIME_DATE,"Year {year} · {season} · Day {day}"
+TIME_DATE_AND_TIME,"{date} · {time}"
+SPEED_0,"Paused"
+SPEED_1,"Normal"
+SPEED_2,"Fast"
+SPEED_3,"Very fast"

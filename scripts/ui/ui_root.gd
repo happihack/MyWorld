@@ -48,6 +48,7 @@ var _tool_bar: ToolBar
 var _pins: PinList
 var _follow_banner: FollowBanner
 var _journal_button: JournalButton
+var _speed_control: SpeedControl
 
 
 func _ready() -> void:
@@ -93,6 +94,16 @@ func _ready() -> void:
 	_journal_button.pressed.connect(func() -> void:
 		_tick()
 		toggle_history())
+	# The clock and the speed of the world: top right.
+	_speed_control = SpeedControl.new()
+	add_child(_speed_control)
+	move_child(_speed_control, _panel_layer.get_index())
+	_speed_control.speed_chosen.connect(func(index: int) -> void:
+		_tick()
+		set_speed(index))
+	_speed_control.selector_requested.connect(func() -> void:
+		_tick()
+		open_speed_selector())
 	_follow_banner = FollowBanner.new()
 	add_child(_follow_banner)
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
@@ -214,6 +225,40 @@ func open_person_card(session: WorldSession, person_id: int, state: PersonCard.S
 	return card
 
 
+## The clock and speed button of the HUD.
+func speed_control() -> SpeedControl:
+	return _speed_control
+
+
+## Runs the world at a speed (GameClock.SPEED_*).
+func set_speed(index: int) -> void:
+	if _session != null and _session.is_active:
+		_session.clock.set_speed(index)
+
+
+## The four speeds to choose from, under the speed button.
+func open_speed_selector() -> SpeedSelector:
+	var open := speed_selector()
+	if open != null:
+		return open
+	dismiss_transient_panels()
+	var selector := SpeedSelector.new()
+	open_panel(selector)
+	selector.set_current(_session.clock.speed_index if _session != null and _session.is_active else GameClock.SPEED_NORMAL)
+	selector.place_under(_speed_control.speed_button().get_global_rect())
+	selector.chosen.connect(func(index: int) -> void:
+		_tick()
+		set_speed(index))
+	return selector
+
+
+func speed_selector() -> SpeedSelector:
+	for panel: UIPanel in _panels:
+		if panel is SpeedSelector and not panel.is_closing():
+			return panel
+	return null
+
+
 ## The button that opens the player's history.
 func journal_button() -> JournalButton:
 	return _journal_button
@@ -324,6 +369,7 @@ func _apply_ui_scale() -> void:
 
 func bind_session(session: WorldSession) -> void:
 	_session = session
+	_speed_control.bind(session.clock if session != null else null)
 
 
 func register_unlock_tap(time_ms: int) -> void:

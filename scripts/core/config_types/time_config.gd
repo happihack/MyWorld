@@ -30,6 +30,35 @@ func minute_of_day(tick: int) -> int:
 	return posmod(tick + roundi(start_hour * 60.0), MINUTES_PER_DAY)
 
 
+# --- the calendar (bible §9.1) ------------------------------------------------------------
+# Tick 0 is `start_hour` on day 1 of spring in year 1. Days turn at midnight.
+
+## Days since midnight before the world began (0 = the world's first day).
+func day_index(tick: int) -> int:
+	return floori(float(tick + roundi(start_hour * 60.0)) / float(MINUTES_PER_DAY))
+
+
+## The year a tick falls in (the first year is year 1).
+func year_of(tick: int) -> int:
+	return floori(float(day_index(tick)) / float(days_per_year())) + 1
+
+
+## The season a tick falls in: 0 … seasons_per_year - 1 (0 = spring).
+func season_of(tick: int) -> int:
+	@warning_ignore("integer_division")
+	return posmod(day_index(tick), days_per_year()) / days_per_season
+
+
+## The day of the season a tick falls on: 1 … days_per_season.
+func day_of_season(tick: int) -> int:
+	return posmod(day_index(tick), days_per_season) + 1
+
+
+## The day of the year a tick falls on: 1 … days_per_year().
+func day_of_year(tick: int) -> int:
+	return posmod(day_index(tick), days_per_year()) + 1
+
+
 ## One tick is one game minute (see GameClock).
 func ticks_per_year() -> int:
 	return days_per_year() * MINUTES_PER_DAY
