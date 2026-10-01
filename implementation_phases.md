@@ -304,11 +304,17 @@ godot --headless --path . --export-debug "Android Debug" build/wiab-debug.apk
 - **Verified:** headless smoke 17/17 PASS (layer/input passthrough, hidden+not processing by default, toggle/persist, all sections, custom/invalid sections, F3, real 3-finger tap, last gesture, unlock: 6 taps / 7 taps / slow taps / re-toggle / 7 real clicks on the label, label clicks never reach the world); windowed screenshot reviewed.
 - **Note:** `Performance.TIME_PROCESS` includes the vsync wait — it is labelled "process", not "cpu". True CPU/GPU render times (viewport render-time measurement) are part of M23.
 
-### M0.6 Save skeleton (Track T3)
-- [ ] `scripts/save/save_container.gd`: header + ZSTD `var_to_bytes` payload + SHA-256 (`HashingContext`) (D-07). `write(path, dict) -> Error`, `read(path) -> {ok, data, error}`.
-- [ ] `scripts/save/save_manager.gd` → autoload **SaveManager**: slot dir `user://saves/<world_id>/`, atomic write procedure (B§31.9) incl. `.tmp` verify and `.bak1/.bak2` rotation; `SAVE_VERSION := 1`; `save_world(session)`, `load_latest() -> Dictionary`; emits `save_completed/save_failed`.
-- [ ] `scripts/save/save_migrations.gd`: registry `{from_version: Callable}` (empty now) + `migrate(dict)`.
-- [ ] Save on `app_paused`; load on boot if present (currently saves only clock + seed + ids).
+### M0.6 Save skeleton (Track T3) — ✅ DONE (2026-09-30)
+- [x] `scripts/save/save_container.gd` (`SaveContainer`): `"WIAB"` magic + container version + header (`var_to_bytes` Dictionary) **with its own SHA-256** + ZSTD payload; header stores payload size, raw size and payload SHA-256. `write()`, `read()` (full verification → `ReadResult{ok, error, header, data}`), `read_header()` (cheap, no payload). Never encodes/decodes Objects. Detects bad magic, header/payload bit flips, truncation, trailing garbage, empty/random files, non-dictionary payloads.
+- [x] `scripts/save/save_manager.gd` → autoload **SaveManager** (after Settings): `SAVE_VERSION := 1`; layout `<save_root>/<world_id>/world.sav (+ .bak1/.bak2, transient .tmp)`.
+  - Atomic save: write `.tmp` → full read-back verify → rotate `bak1→bak2`, `world.sav→bak1` → rename `.tmp→world.sav`. Header carries world_id, seed, created/saved unix time, game tick, game version.
+  - Load order: `world.sav` → verified `.tmp` (newest copy if the app died between rotation and rename) → `bak1` → `bak2`; migrates via `SaveMigrations`; **saves from a newer game version are refused and left byte-identical**; failures emit `load_failed`, never crash, never modify files.
+  - `world_ids_by_recency()` (header scan, no pointer file); `find_latest_world_id()`.
+  - Saves: immediately on new world, autosave every `Config.save.autosave_interval_s`, `app_paused`, `app_quit_requested`, focus loss, and **`WorldSession.about_to_close`** (emitted by `shutdown()` while still active → every orderly exit path saves). `last_save_info` for the overlay.
+- [x] `scripts/save/save_migrations.gd` (`SaveMigrations`): `STEPS{from_version: Callable}`, `migrate(data, from, to)` with refusal of newer/invalid versions, missing steps and bad step results; input never mutated.
+- [x] Main: tries worlds newest-first until one loads (a corrupt world with a misleading recent header can't block continuity); otherwise creates a new world (broken saves untouched). Boot logs the save root + latest world. Overlay "save" section (reason, ms, bytes, age).
+- **Verified:** headless smoke 39/39 + 4/4 PASS (container corruption matrix, migrations, rotation & backup ages, fallbacks incl. crash window, newer-version refusal, recency, lifecycle + close saves, Main continuity, corrupt-newest skipping); real windowed launches continue the same world (tick 0 → 9 → 20). Save ≈ 3–12 ms, ~600 B.
+- **For M0.7 tests:** corrupt save files only when no live session holds that world — a live session re-saves its world on close (correct behaviour, but it "repairs" the corruption mid-test).
 
 ### M0.7 Test runner (Track T2, D-03)
 - [ ] `tests/test_case.gd`: `assert_eq`, `assert_true`, `assert_near`, `assert_null`, `fail`; collects failures with file/line context.

@@ -1,7 +1,7 @@
 extends Node
 ## Boot scene: runs once at startup after the autoloads (Log -> Config ->
-## EventBus -> Settings) are ready, records environment info, then hands over
-## to the Main scene. SaveManager readiness checks are added in M0.6.
+## EventBus -> Settings -> SaveManager) are ready, records environment info,
+## then hands over to the Main scene (which continues or creates a world).
 
 const MAIN_SCENE := "res://scenes/main/main.tscn"
 
@@ -20,4 +20,8 @@ func _ready() -> void:
 	})
 	if not Config.problems.is_empty():
 		Log.warn(Log.Category.CORE, "Starting with config problems", {"problems": Config.problems})
+	Log.info(Log.Category.SAVE, "Save root", {
+		"path": ProjectSettings.globalize_path(Config.save.save_root),
+		"latest_world": SaveManager.find_latest_world_id(),
+	})
 	get_tree().change_scene_to_file.call_deferred(MAIN_SCENE)

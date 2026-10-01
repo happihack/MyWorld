@@ -6,6 +6,10 @@ extends Node
 ## sessions cleanly. Systems (world data, people, environment, ...) are added as
 ## children/fields of this node in later milestones.
 
+## Emitted by shutdown() while the world is still active, so listeners (e.g.
+## SaveManager) can persist it on every orderly exit path.
+signal about_to_close
+
 const FORMAT_KEYS: PackedStringArray = ["world_id", "world_seed", "created_unix", "clock", "ids", "rng"]
 
 var world_id: String = ""
@@ -68,6 +72,7 @@ func to_dict() -> Dictionary:
 func shutdown() -> void:
 	if not is_active:
 		return
+	about_to_close.emit()
 	is_active = false
 	clock.speed_changed.disconnect(_on_speed_changed)
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})

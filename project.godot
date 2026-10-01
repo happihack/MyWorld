@@ -26,6 +26,7 @@ Log="*res://scripts/core/log.gd"
 Config="*res://scripts/core/config.gd"
 EventBus="*res://scripts/core/event_bus.gd"
 Settings="*res://scripts/core/settings.gd"
+SaveManager="*res://scripts/save/save_manager.gd"
 
 [display]
 
