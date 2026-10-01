@@ -76,6 +76,7 @@ const ACTIVITY_NAMES := {
 	&"socialize": "Talking",
 	&"explore": "Exploring",
 	&"play": "Playing",
+	&"tag_along": "Tagging along",
 	&"go_home": "Resting at home",
 	&"called": "Answering a call",
 	&"idle": "Standing about",
@@ -162,6 +163,7 @@ const INTERPRETATION_PHRASES := {
 	&"multiple_entities": "many unseen things are there",
 	&"hallucination": "they imagined it",
 	&"physics": "an unknown force is at work",
+	&"dream": "it was a dream",
 }
 
 

@@ -52,6 +52,8 @@ var large := false
 var weatherlike := false
 ## The loose object it is about (lifted, moved, found), 0 otherwise.
 var object_id := 0
+## The building that was knocked on, 0 otherwise.
+var building_id := 0
 
 # --- for TOLD -------------------------------------------------------------------------------
 ## Who tells it, what it was about (a stimulus type) and what they make of it.
@@ -78,6 +80,7 @@ static func from_intervention(iv: Intervention, table: ReactionTable) -> Stimulu
 	stimulus.intervention_id = iv.id
 	stimulus.target_id = iv.target_id if kind == TOUCH else 0
 	stimulus.object_id = iv.target_id if kind == OBJECT_LIFTED or kind == OBJECT_MOVED else 0
+	stimulus.building_id = iv.target_id if kind == KNOCK else 0
 	table.describe(stimulus, strength_of(iv))
 	return stimulus
 

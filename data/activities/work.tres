@@ -12,6 +12,6 @@ need_weights = {
 trait_weights = {
 "AMBITION": 1.0
 }
-hours = PackedFloat32Array(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.6, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.5, 0.3, 0.1, 0.1, 0.1, 0.1)
+hours = PackedFloat32Array(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.25, 0.4, 1.0, 1.0, 1.0, 1.0, 0.45, 1.0, 1.0, 1.0, 1.0, 0.7, 0.45, 0.25, 0.1, 0.1, 0.1, 0.1)
 requires = Array[StringName]([&"work"])
 repeat_after_minutes = 0.0

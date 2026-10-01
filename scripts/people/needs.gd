@@ -35,7 +35,7 @@ static func initial(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	var out := full()
 	out[Need.HUNGER] = rng.randf_range(0.5, 0.95)
 	out[Need.THIRST] = rng.randf_range(0.5, 0.95)
-	out[Need.SLEEP] = rng.randf_range(0.75, 1.0)
+	out[Need.SLEEP] = rng.randf_range(0.9, 1.0) # (a new world opens in the morning: they have slept)
 	out[Need.SOCIAL] = rng.randf_range(0.5, 0.95)
 	out[Need.PURPOSE] = rng.randf_range(0.4, 0.9)
 	return out

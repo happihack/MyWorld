@@ -40,6 +40,11 @@ static func respond(person: PersonData, perception: Dictionary, ctx: AiContext, 
 	var times := Interpretation.familiarity(person, kind)
 	outcome.emotions = emotions(person, outcome.interpretation, stimulus, outcome.salience, outcome.direct, times,
 		float(circumstances.get(&"child", 0.0)) > 0.5, table)
+	# A sleeper who takes it for a dream stirs, and sleeps on: nothing to be
+	# seen — but they will remember having dreamt it.
+	if outcome.interpretation == ReactionTable.DREAM:
+		outcome.reaction = ReactionTable.STIR
+		return outcome
 	var options := options_for(person, stimulus, outcome.direct, ctx, table)
 	# Wonder at the like of it, remembered, draws them closer this time.
 	var wonder := ctx.memories.wonder_about(person, kind) if ctx.memories != null else 0.0

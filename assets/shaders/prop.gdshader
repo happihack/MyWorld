@@ -27,12 +27,24 @@ uniform vec4 impulse_offset[4];
 uniform float night_glow : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 glow_color : source_color = vec3(1.0, 0.74, 0.36);
 uniform float flame_glow = 0.6;
+// Houses whose lights are out (everyone in them is asleep, or nobody lives
+// there): xyz = the house's base, w = radius (0 = unused slot).
+const int DARK_COUNT = 8;
+uniform vec4 lights_out[8];
 
 varying vec3 v_color;
 varying float v_glow;
 
 void vertex() {
 	v_glow = UV.x;
+	if (v_glow > 0.5 && v_glow < 1.5) {
+		for (int i = 0; i < DARK_COUNT; i++) {
+			float reach = lights_out[i].w;
+			if (reach > 0.0 && distance(VERTEX.xz, lights_out[i].xz) < reach) {
+				v_glow = 0.0;
+			}
+		}
+	}
 	// With world_vertex_coords, VERTEX is already in world space, so the wind
 	// blows the same way for every prop regardless of its own rotation.
 	vec3 rest = VERTEX;

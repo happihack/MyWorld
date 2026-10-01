@@ -28,6 +28,9 @@ var world_seed := 0
 var perceptions: Dictionary = {}
 ## People who should take their next turn at once (someone is talking to them).
 var nudges: Array[int] = []
+## Children who have just gone to bed (announced by the BehaviorSystem as
+## `bedtime`: the hook for bedtime stories, M11).
+var bedtimes: Array[int] = []
 ## What everyone remembers (may be null: nobody remembers anything).
 var memories: MemoryStore
 ## The things lying about (for coming upon what the player moved; may be null).

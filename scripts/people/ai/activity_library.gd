@@ -66,8 +66,13 @@ func get_def(id: StringName) -> ActivityDef:
 ## speaks with `loudest` (0 … 1; see ActivityDef.voice) — whatever their
 ## nature and whatever the hour. If that is not enough to make them drop
 ## what they are doing, there is no need to work out the scores at all.
-func ceiling(loudest: float) -> float:
-	return (_most_without_needs + _most_need_weight * loudest) * _most_hour
+## `with_routine`: something may be getting the routine's push.
+func ceiling(loudest: float, with_routine: bool = true) -> float:
+	if not with_routine:
+		return (_most_without_needs + _most_need_weight * loudest) * _most_hour
+	# (What a routine adds is the more, the quieter the needs: see Brain.ROUTINE_FACTOR.)
+	var calm := 1.0 - clampf(loudest, 0.0, 1.0)
+	return (_most_without_needs + _most_need_weight * loudest) * _most_hour * (1.0 + (Brain.ROUTINE_FACTOR - 1.0) * calm) 		+ Brain.ROUTINE_PULL * calm
 
 
 ## All ids, sorted (nothing depends on the order of files).

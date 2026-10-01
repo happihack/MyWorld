@@ -42,6 +42,10 @@ class State:
 ## The hours of game time between two updates of the light at most (a
 ## fortieth of an hour is under a second at normal speed: nothing is seen to step).
 const UPDATE_HOURS := 0.025
+## How many houses can have their lights out apart from the others, and how
+## far around a house's base its windows are looked for (tiles).
+const DARK_HOUSES := 8
+const HOUSE_RADIUS := 0.95
 
 var _clock: GameClock
 var _lighting: WorldLighting
@@ -50,6 +54,7 @@ var _cloud_materials: Array[ShaderMaterial] = []
 var _cloud_strength := 0.2
 var _fire: OmniLight3D
 var _state := State.new()
+var _dark_houses: Array[Vector3] = []
 var _shown_hour := -100.0
 var _flicker := 0.0
 ## Tests set this to hold the light at an hour whatever the clock says (< 0: follow the clock).
@@ -87,6 +92,23 @@ func set_fire(at: Vector3, lit: bool) -> void:
 	_fire.position = at + Vector3(0.0, 0.45, 0.0)
 	_fire.visible = lit
 	_shown_hour = -100.0
+
+
+## The houses whose lights are out (their base positions): everyone in them
+## is asleep, or nobody lives there. At most DARK_HOUSES are told apart.
+func set_dark_houses(houses: Array[Vector3]) -> void:
+	if houses == _dark_houses:
+		return
+	_dark_houses = houses.duplicate()
+	var slots: Array[Vector4] = []
+	for i in DARK_HOUSES:
+		slots.append(Vector4(houses[i].x, houses[i].y, houses[i].z, HOUSE_RADIUS) if i < houses.size() else Vector4.ZERO)
+	if _prop_material != null:
+		_prop_material.set_shader_parameter(&"lights_out", slots)
+
+
+func dark_houses() -> Array[Vector3]:
+	return _dark_houses
 
 
 func state() -> State:
@@ -177,11 +199,9 @@ static func state_at(hour: float, config: DayNightConfig) -> State:
 	s.table_light = lerpf(1.0, config.table_night_light, s.night)
 	s.cloud_shadows = lerpf(1.0, config.cloud_shadows_at_night, s.night)
 	s.fire_energy = lerpf(config.fire_energy_day, config.fire_energy_night, s.night)
-	# Windows: lit as it gets dark, low once the village has gone to bed.
-	var since_sunset := h - config.sunset_hour if h >= config.sunset_hour - 2.0 else h + 24.0 - config.sunset_hour
-	var bedtime := config.lights_out_hour - config.sunset_hour
-	var late := lerpf(1.0, config.late_window_light, smoothstep(bedtime - 0.25, bedtime + 0.25, since_sunset))
-	s.window_light = s.night * late
+	# Windows are lit as it gets dark (which houses still have a light on is
+	# the houses' business: see set_dark_houses).
+	s.window_light = s.night
 	return s
 
 

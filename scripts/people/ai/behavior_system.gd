@@ -22,6 +22,8 @@ signal activity_changed(person_id: int, activity: StringName)
 signal prompted(person_id: int)
 ## A stroke of work that can be seen and heard: kind is "tree", "bush", "fire".
 signal worked(person_id: int, kind: StringName, target_id: int)
+## A child has gone to bed for the night (the hook for bedtime stories, M11).
+signal bedtime(child_id: int)
 ## A person reacted to something they noticed (bible §14.4). `stimulus` is the
 ## kind of thing it was; `direct`: it happened to them.
 signal reacted(person_id: int, reaction: StringName, interpretation: StringName, stimulus: StringName, direct: bool)
@@ -211,6 +213,7 @@ func discard_strokes() -> void:
 	if ctx != null:
 		ctx.strokes.clear()
 		ctx.nudges.clear()
+		ctx.bedtimes.clear()
 	_reacted.clear()
 
 
@@ -248,6 +251,11 @@ func announce() -> void:
 	for stroke: Array in ctx.strokes:
 		worked.emit(stroke[0], stroke[1], stroke[2])
 	ctx.strokes.clear()
+	if not ctx.bedtimes.is_empty():
+		var asleep := ctx.bedtimes.duplicate()
+		ctx.bedtimes.clear()
+		for id: int in asleep:
+			bedtime.emit(id)
 	if not ctx.nudges.is_empty():
 		var nudged := ctx.nudges.duplicate()
 		ctx.nudges.clear()
@@ -357,7 +365,10 @@ func _nothing_has_changed(person: PersonData, think_every: float) -> bool:
 func _nothing_could_matter_more(person: PersonData, step_now: Dictionary, handler: ActionStep) -> bool:
 	var loudest := ActivityDef.voice(1.0 - person.needs[Needs.most_urgent(person.needs)])
 	var bar := float(person.current_action.get("score", 0.0)) + handler.reluctance(step_now) + Brain.HYSTERESIS
-	return ctx.activities.ceiling(loudest) <= bar
+	# The routine's push goes to what is due — if that is what they are at
+	# (or nothing is due), nothing else gets one.
+	var due: StringName = Brain.due_now(person, ctx, ctx.clock.hour() if ctx.clock != null else 12.0)[0]
+	return ctx.activities.ceiling(loudest, due != &"" and due != activity_of(person)) <= bar
 
 
 ## The person takes in what they have noticed (bible §14): the most striking
@@ -401,8 +412,10 @@ func _consider_perceptions(person: PersonData) -> bool:
 		var memory := MemoryStore.from_outcome(person, outcome, ctx.stage_of(person), times_before, ctx.now())
 		if memory != null:
 			ctx.memories.remember(person, memory)
-	Interpretation.update_beliefs(person, outcome.interpretation,
-		lerpf(0.4, 1.0, outcome.salience) * (table.secondhand_factor if second_hand else 1.0), table)
+	# (A dream is no evidence of anything: it leaves convictions as they were.)
+	if outcome.interpretation != ReactionTable.DREAM:
+		Interpretation.update_beliefs(person, outcome.interpretation,
+			lerpf(0.4, 1.0, outcome.salience) * (table.secondhand_factor if second_hand else 1.0), table)
 	_outcomes[person.id] = outcome
 	reactions += 1
 	if outcome.steps.is_empty():
@@ -481,10 +494,12 @@ func _think(person: PersonData, current: StringName) -> Brain.Decision:
 	# brain knows (not standing idle, not a plan that has just ended).
 	var keeping := current if ctx.activities.get_def(current) != null and not current_step(person).is_empty() else &""
 	var commitment := 0.0
+	var reluctance := 0.0
 	if keeping != &"":
 		var step_now := current_step(person)
-		commitment = float(person.current_action.get("score", 0.0)) + _handler(step_now).reluctance(step_now)
-	var decision := Brain.decide(person, ctx, keeping, _barred_now(person.id), commitment)
+		commitment = float(person.current_action.get("score", 0.0))
+		reluctance = _handler(step_now).reluctance(step_now)
+	var decision := Brain.decide(person, ctx, keeping, _barred_now(person.id), commitment, reluctance)
 	decisions += 1
 	# Try what was decided; if it cannot be planned after all, the next best.
 	for attempt in ctx.activities.size() + 1:
@@ -493,10 +508,10 @@ func _think(person: PersonData, current: StringName) -> Brain.Decision:
 			break
 		var steps := Planner.plan(decision.activity, person, ctx)
 		if not steps.is_empty():
-			set_plan(person, decision.activity, decision.reason, steps, decision.score_of(decision.activity))
+			set_plan(person, decision.activity, decision.reason, steps, decision.commitment_of(decision.activity))
 			return decision
 		_bar(person.id, decision.activity)
-		decision = Brain.decide(person, ctx, keeping, _barred_now(person.id), commitment)
+		decision = Brain.decide(person, ctx, keeping, _barred_now(person.id), commitment, reluctance)
 	if keeping != &"":
 		return decision # nothing better came of it: carry on
 	# Nothing can be done: stand about for a while.

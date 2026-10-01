@@ -145,8 +145,7 @@ func test_the_air_and_the_backdrop_follow_the_hour() -> void:
 func test_windows_and_fire_belong_to_the_dark() -> void:
 	assert_eq(_at(12.0).window_light, 0.0, "no lights by day")
 	assert_true(_at(config.sunset_hour + 1.0).window_light > 0.9, "lit in the evening")
-	assert_near(_at(config.lights_out_hour + 1.0).window_light, config.late_window_light, 0.01, "low once the village is in bed")
-	assert_near(_at(3.0).window_light, config.late_window_light, 0.01)
+	assert_eq(_at(3.0).window_light, 1.0, "all night, where someone is up (which houses: see the houses' lights)")
 	assert_true(_at(config.sunrise_hour + 1.5).window_light < 0.05, "out by morning")
 	assert_true(_at(config.sunset_hour - 2.0).window_light < 0.01)
 	assert_near(_at(12.0).fire_energy, config.fire_energy_day, 0.001)
@@ -181,14 +180,14 @@ func test_the_light_follows_the_clock() -> void:
 	assert_true(lighting.environment().ambient_light_color.b > lighting.environment().ambient_light_color.r)
 	assert_near(float(lighting.table_material().get_shader_parameter(&"daylight")), config.table_night_light, 0.001)
 	assert_eq(lighting.table_material().get_shader_parameter(&"background_color"), night.background)
-	assert_near(float(prop_material.get_shader_parameter(&"night_glow")), config.late_window_light, 0.01)
+	assert_eq(float(prop_material.get_shader_parameter(&"night_glow")), 1.0)
 	assert_true(float(prop_material.get_shader_parameter(&"flame_glow")) > 2.0, "flames shine in the dark")
 	assert_near(float(prop_material.get_shader_parameter(&"cloud_strength")),
 		Config.terrain_palette.cloud_shadow_strength * config.cloud_shadows_at_night, 0.001)
 	assert_near(float(view.people_view().body_material().get_shader_parameter(&"cloud_strength")),
 		Config.terrain_palette.cloud_shadow_strength * config.cloud_shadows_at_night, 0.001, "people stand under the same sky")
 	# It moves with the clock by itself, a little at a time.
-	_set_hour(20.0)
+	_set_hour(config.sunset_hour - 0.75)
 	var before := lighting.sun().light_energy
 	session.clock.tick += 20
 	await wait_frames(2)

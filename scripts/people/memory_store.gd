@@ -120,7 +120,8 @@ static func from_outcome(person: PersonData, outcome: Reactions.Outcome, stage: 
 		config = Config.memory
 	var stimulus := outcome.stimulus
 	var told := stimulus.type == Stimulus.TOLD
-	if not outcome.direct and not told and outcome.salience < config.remember_threshold:
+	# (A dream is remembered however faintly what set it off came through.)
+	if not outcome.direct and not told and outcome.salience < config.remember_threshold 			and outcome.interpretation != ReactionTable.DREAM:
 		return null
 	var memory := Memory.new()
 	memory.owner_id = person.id

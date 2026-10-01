@@ -58,6 +58,7 @@ static func features(person: PersonData, stimulus: Stimulus, direct: bool, witne
 		&"tired": 1.0 - smoothstep(0.1, 0.35, Needs.value(person.needs, Needs.Need.SLEEP)) if person.needs.size() == Needs.COUNT else 0.0,
 		&"familiar": clampf(float(times) / float(maxi(table.familiarity_cap, 1)), 0.0, 1.0),
 		&"child": 1.0 if ctx.stage_of(person) == PersonData.LifeStage.CHILD else 0.0,
+		&"asleep": 1.0 if person.pose == PersonData.Pose.SLEEP else 0.0,
 	}
 
 
@@ -71,6 +72,8 @@ static func available(person: PersonData, interpretation: StringName, ctx: AiCon
 			return false
 		"death":
 			return knows_death(person, ctx)
+		"asleep":
+			return person.pose == PersonData.Pose.SLEEP
 	return person.knowledge.has(gate)
 
 

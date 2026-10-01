@@ -8,7 +8,9 @@ const TYPE := &"sleep"
 const RESTED := 0.97
 ## Nobody who is asleep gets up between these hours just because they are
 ## rested; everyone has their own hour to rise, within RISE_SPREAD of dawn.
-const NIGHT_FROM := 20.0
+const NIGHT_FROM := 21.0
+## A child put to bed from this hour on is put to bed for the night.
+const BEDTIME_FROM := 19.0
 const DAWN := 5.0
 const RISE_SPREAD := 1.5
 
@@ -17,9 +19,13 @@ static func make() -> Dictionary:
 	return {"type": String(TYPE), "elapsed": 0.0}
 
 
-func begin(_ctx: AiContext, person: PersonData, _step: Dictionary) -> void:
+func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	person.pose = PersonData.Pose.SLEEP
 	person.set_flag(PersonData.FLAG_INDOORS, true)
+	# A child put to bed for the night (not taken up again after a load).
+	if float(step.get("elapsed", 0.0)) <= 0.0 and ctx.stage_of(person) == PersonData.LifeStage.CHILD \
+			and is_bedtime_for(person, ctx.clock.hour() if ctx.clock != null else 12.0):
+		ctx.bedtimes.append(person.id)
 
 
 func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float) -> Status:
@@ -33,6 +39,10 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 ## Is it still night for this person (early risers and late ones)?
 static func is_night_for(person: PersonData, hour: float) -> bool:
 	return hour >= NIGHT_FROM or hour < rise_hour(person)
+
+
+static func is_bedtime_for(person: PersonData, hour: float) -> bool:
+	return hour >= BEDTIME_FROM or hour < rise_hour(person)
 
 
 static func rise_hour(person: PersonData) -> float:

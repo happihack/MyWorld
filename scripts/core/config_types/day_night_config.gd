@@ -8,13 +8,10 @@ extends ConfigBase
 
 @export_group("Hours")
 @export_range(0.0, 12.0, 0.25) var sunrise_hour: float = 5.5
-@export_range(12.0, 24.0, 0.25) var sunset_hour: float = 20.5
+@export_range(12.0, 24.0, 0.25) var sunset_hour: float = 19.25
 ## How long dawn and dusk take (hours): the light turns over this long, half
 ## before and half after the sun crosses the horizon.
 @export_range(0.25, 4.0, 0.25) var twilight_hours: float = 1.5
-## Lights in windows burn from dusk until this hour, and low after it.
-@export_range(18.0, 30.0, 0.25) var lights_out_hour: float = 23.0
-@export_range(0.0, 1.0, 0.05) var late_window_light: float = 0.3
 
 @export_group("Sun")
 ## How high the sun stands at noon, and how low a sun (or moon) still casts

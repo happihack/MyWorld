@@ -9,6 +9,7 @@ var session: WorldSession
 var behavior: BehaviorSystem
 var ctx: AiContext
 var changes: Array = [] # [person id, activity]
+var _routines: Dictionary = {} # OccupationDef -> its routine, while a test has taken it away
 
 
 func before_each() -> void:
@@ -19,6 +20,9 @@ func before_each() -> void:
 
 
 func after_each() -> void:
+	for def: OccupationDef in _routines:
+		def.set_routine(_routines[def])
+	_routines.clear()
 	session.queue_free()
 	await wait_frames(1)
 
@@ -122,7 +126,7 @@ func _until(person: PersonData, activity: StringName, limit: float = 600.0) -> b
 func test_the_activities_are_defined_in_data() -> void:
 	var library := session.activities
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"drink", &"eat", &"explore", &"go_home", &"play", &"sleep", &"socialize", &"work"] as Array[StringName])
+	assert_eq(library.ids(), [&"drink", &"eat", &"explore", &"go_home", &"play", &"sleep", &"socialize", &"tag_along", &"work"] as Array[StringName])
 	_set_hour(10.0)
 	var person := _adult()
 	for id in library.ids():
@@ -131,7 +135,9 @@ func test_the_activities_are_defined_in_data() -> void:
 		assert_true(UIText.ACTIVITY_NAMES.has(id), "wording for %s" % id)
 		for requirement in def.requires:
 			assert_true(Planner.REQUIREMENTS.has(requirement), "%s requires '%s'" % [id, requirement])
-		var steps := Planner.plan(id, person, ctx)
+		# (What only children do is planned for a child.)
+		var who := person if def.allows(PersonData.LifeStage.ADULT) else _of(PersonData.LifeStage.CHILD)
+		var steps := Planner.plan(id, who, ctx)
 		assert_true(steps.size() >= 2, "the planner knows how to %s" % id)
 		for step: Dictionary in steps:
 			assert_true(behavior._steps.has(str(step["type"])), "a step the system can carry out (%s)" % step["type"])
@@ -189,10 +195,20 @@ func test_each_pressing_need_has_its_answer() -> void:
 	assert_eq(Brain.decide(person, ctx).activity, &"drink")
 
 
+## Takes the routine from a person's occupation for the length of a test
+## (what the brain does by itself is what is being looked at).
+func _without_routine(person: PersonData) -> void:
+	var def := session.occupations.get_def(person.occupation_id)
+	if not _routines.has(def):
+		_routines[def] = def.routine
+	def.set_routine(PackedStringArray())
+
+
 func test_brain_variety() -> void:
 	# Someone with nothing pressing, on an ordinary morning: 1,000 decisions.
 	_set_hour(10.0)
 	var person := _adult()
+	_without_routine(person)
 	person.traits = Traits.neutral()
 	person.activity_log = {}
 	person.needs = PackedFloat32Array([0.75, 0.75, 0.8, 0.6, 0.7, 1.0])
@@ -230,6 +246,7 @@ func test_the_dice_are_the_worlds_own() -> void:
 func test_creative_people_are_less_predictable() -> void:
 	_set_hour(10.0)
 	var person := _adult()
+	_without_routine(person)
 	person.activity_log = {}
 	person.needs = PackedFloat32Array([0.75, 0.75, 0.8, 0.6, 0.7, 1.0])
 	var favourite := [0, 0]
@@ -370,7 +387,8 @@ func test_plan_hungry_home_food_eat_work() -> void:
 	assert_eq(_activity(person), &"eat")
 	assert_eq(BehaviorSystem.reason_of(person), &"hunger")
 	assert_eq(_step_type(person), "walk_to")
-	assert_eq(BehaviorSystem.current_step(person)["target"], fire.tile, "to where the food is")
+	assert_eq(BehaviorSystem.current_step(person)["target"], ctx.places.meal_spot(person), "to their place by the food")
+	assert_true(Vector2((BehaviorSystem.current_step(person)["target"] as Vector2i) - fire.tile).length() < 1.6, "beside the fire")
 	assert_true(session.movement.is_walking(person.id))
 	# FOOD: beside the fire.
 	var walked := 0.0
@@ -537,7 +555,7 @@ func test_exploring_leads_somewhere_new() -> void:
 	_content(person)
 	var home := session.props.get_prop(person.home_building_id)
 	assert_eq(ctx.places.visited_count(), 0)
-	behavior.set_plan(person, &"explore", &"nature", Planner.plan(&"explore", person, ctx))
+	behavior.set_plan(person, &"explore", &"nature", Planner.plan(&"explore", person, ctx), 1.0)
 	var target: Vector2i = BehaviorSystem.current_step(person)["target"]
 	var away := Vector2(target - home.tile).length()
 	assert_true(away >= Places.EXPLORE_MIN - 1.0 and away <= Places.EXPLORE_MAX + 1.0, "a walk, not a journey (%.1f tiles)" % away)

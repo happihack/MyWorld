@@ -112,7 +112,7 @@ func test_what_is_said_about_a_person() -> void:
 		assert_has(text, String(need_name))
 	assert_has(text, "hunger   [#.........] 0.10")
 	assert_has(text, "doing: Eating — hungry  (eat")
-	assert_has(text, "> walk_to  target %s" % [session.props.get_prop(session.start.campfire_id).tile], "the step being carried out is marked")
+	assert_has(text, "> walk_to  target %s" % [session.behavior.ctx.places.meal_spot(person)], "the step being carried out is marked")
 	assert_has(text, "  eat  at")
 	assert_has(text, "0/25 min")
 	assert_has(text, "scores: eat ")

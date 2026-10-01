@@ -65,6 +65,39 @@ func food_tile(_person: PersonData) -> Variant:
 	return fire.tile if fire != null else null
 
 
+## The person's place at a meal: one of the tiles around the fire, always
+## the same one for them (so the band sits in a ring, not on one spot). The
+## fire's own tile if nobody can stand around it.
+func meal_spot(person: PersonData) -> Vector2i:
+	var fire: Variant = food_tile(person)
+	if fire == null:
+		return person.position
+	var around: Array[Vector2i] = []
+	for offset: Vector2i in [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1),
+			Vector2i(0, -1), Vector2i(1, -1)]:
+		var tile: Vector2i = (fire as Vector2i) + offset
+		if _pathfinder.can_stand(tile) and _pathfinder.weight_at(tile) < Pathfinder.WEIGHT_OBSTACLE:
+			around.append(tile)
+	if around.is_empty():
+		return fire
+	return around[posmod(person.id, around.size())]
+
+
+## A parent of the person who is up and about (the nearer one), or null.
+func parent_about(person: PersonData) -> PersonData:
+	var best: PersonData = null
+	var best_distance := INF
+	for id in person.parents:
+		var parent := _people.get_person(id)
+		if parent == null or parent.has_flag(PersonData.FLAG_INDOORS) or parent.pose == PersonData.Pose.SLEEP:
+			continue
+		var distance := parent.world2d().distance_squared_to(person.world2d())
+		if distance < best_distance:
+			best_distance = distance
+			best = parent
+	return best
+
+
 ## The nearest water to drink from (a tile of water with dry land beside it),
 ## or null.
 func water_tile(from: Vector2i, now: int = -1) -> Variant:

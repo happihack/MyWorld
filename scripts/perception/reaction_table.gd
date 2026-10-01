@@ -18,10 +18,12 @@ const UNKNOWN_INTELLIGENCE := &"unknown_intelligence"
 const MULTIPLE_ENTITIES := &"multiple_entities"
 const HALLUCINATION := &"hallucination"
 const PHYSICS := &"physics"
+## Only for someone asleep: it was a dream.
+const DREAM := &"dream"
 ## The order is the order of PersonData.beliefs (part of the save format:
 ## append, never reorder).
 const INTERPRETATIONS: Array[StringName] = [NATURAL, SPIRIT, DEITY, ANCESTOR, EXPERIMENT, UNKNOWN_INTELLIGENCE,
-	MULTIPLE_ENTITIES, HALLUCINATION, PHYSICS]
+	MULTIPLE_ENTITIES, HALLUCINATION, PHYSICS, DREAM]
 
 # --- emotions (indices) ---------------------------------------------------------------------
 enum Emotion { FEAR, CURIOSITY, AWE, JOY, ANNOYANCE }
@@ -41,6 +43,8 @@ const DISMISS := &"dismiss"
 const TELL := &"tell"
 ## What a listener does (not chosen for a stimulus of one's own).
 const LISTEN := &"listen"
+## What a sleeper does who takes it for a dream: stirs, and sleeps on.
+const STIR := &"stir"
 const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUGH, WAVE, PRAY, DISMISS, TELL]
 
 @export_group("Stimuli")
@@ -69,6 +73,8 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 @export_range(0.0, 3.0, 0.05) var ordinary_factor: float = 0.7
 ## How much of what happens around them people take in, by what they are at.
 @export_range(0.0, 1.0, 0.01) var attention_asleep: float = 0.1
+## A knock on the wall they sleep behind gets through this many times better.
+@export_range(1.0, 10.0, 0.1) var own_wall_factor: float = 3.5
 @export_range(0.0, 1.0, 0.01) var attention_working: float = 0.7
 @export_range(0.0, 1.0, 0.01) var attention_walking: float = 0.85
 @export_range(0.0, 1.0, 0.01) var attention_reacting: float = 0.6
@@ -85,8 +91,10 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"multiple_entities": {Traits.Axis.CREATIVITY: 0.4, Traits.Axis.SUSPICION: 0.3},
 	&"hallucination": {Traits.Axis.SPIRITUALITY: -0.5, Traits.Axis.SUSPICION: 0.2, Traits.Axis.BRAVERY: 0.15},
 	&"physics": {Traits.Axis.INTELLIGENCE: 0.7, Traits.Axis.SPIRITUALITY: -0.4, Traits.Axis.CURIOSITY: 0.3},
+	&"dream": {Traits.Axis.CREATIVITY: 0.25},
 }
 ## What speaks for an interpretation in the circumstances: feature -> weight.
+## "asleep": they were sleeping when it happened.
 ## Features (each 0 … 1): "ordinary" (not anomalous), "large", "local",
 ## "weatherlike", "intense", "faint", "direct" (it happened to me), "alone"
 ## (nobody else noticed), "tired", "familiar" (it has happened before), "child".
@@ -100,19 +108,21 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"multiple_entities": {&"familiar": 0.3},
 	&"hallucination": {&"alone": 0.3, &"direct": 0.1, &"faint": 0.45, &"tired": 0.5, &"intense": -0.5, &"large": -0.6, &"familiar": -0.3},
 	&"physics": {&"familiar": 0.3, &"large": 0.2},
+	&"dream": {&"asleep": 1.75, &"intense": -0.6, &"large": -0.6, &"familiar": -0.2},
 }
 ## What every interpretation starts with (before culture, nature, evidence).
 @export var interpretation_base: Dictionary = {
 	&"natural": 0.3, &"spirit": 0.3, &"deity": 0.2, &"ancestor": 0.15, &"experiment": 0.0,
 	&"unknown_intelligence": 0.15, &"multiple_entities": 0.0, &"hallucination": 0.1, &"physics": 0.1,
+	&"dream": 0.3,
 }
 ## What a person has to know for an interpretation to occur to them
 ## (PersonData.knowledge keys); "" = nothing. "death" = someone of theirs
-## has died; "never" = not yet in the world at all.
+## has died; "asleep" = only while sleeping; "never" = not yet in the world at all.
 @export var interpretation_gates: Dictionary = {
 	&"natural": "", &"spirit": "", &"deity": "", &"hallucination": "", &"unknown_intelligence": "",
 	&"ancestor": "death", &"experiment": "scientific_method", &"physics": "natural_philosophy",
-	&"multiple_entities": "never",
+	&"multiple_entities": "never", &"dream": "asleep",
 }
 ## How far a settlement's own leanings can go (they come from the world's seed).
 @export_range(0.0, 2.0, 0.01) var culture_prior_spread: float = 0.35
@@ -144,6 +154,7 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"multiple_entities": [0.5, 0.5, 0.3, 0.0, 0.1],
 	&"hallucination": [0.15, 0.1, 0.0, 0.0, 0.25],
 	&"physics": [0.1, 0.8, 0.15, 0.1, 0.0],
+	&"dream": [0.05, 0.1, 0.15, 0.1, 0.0],
 }
 ## What a person's nature adds to each feeling: emotion -> {axis -> weight}.
 @export var emotion_traits: Dictionary = {
@@ -191,6 +202,7 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"experiment": {&"pray": -10.0, &"investigate": 0.3},
 	&"physics": {&"pray": -10.0, &"investigate": 0.5},
 	&"multiple_entities": {},
+	&"dream": {},
 }
 @export_range(0.02, 2.0, 0.01) var reaction_temperature: float = 0.22
 ## How long each reaction is held, in game minutes.

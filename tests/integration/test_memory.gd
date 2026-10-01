@@ -418,6 +418,8 @@ func test_repeated_touch_changes_reaction() -> void:
 	assert_true(late_fear < early_fear * 0.75, "less frightening (%.2f -> %.2f)" % [early_fear, late_fear])
 	assert_true(joys[9] > joys[0], "the trusting come to like it (%.2f -> %.2f)" % [joys[0], joys[9]])
 	# And over many people: the fearful run far less the tenth time than the first.
+	behavior.set_plan(person, BehaviorSystem.ACTIVITY_CALLED, BehaviorSystem.ACTIVITY_CALLED, [RestStep.make(600.0)]) # (awake)
+	person.set_flag(PersonData.FLAG_INDOORS, false)
 	var first_runs := 0
 	var tenth_runs := 0
 	for round in 120:

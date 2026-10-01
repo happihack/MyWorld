@@ -9,3 +9,4 @@ life_stages = Array[int]([0])
 starting_share = 1.0
 trait_weights = {}
 placeholder = false
+routine = PackedStringArray("06:30 wake", "07:00 eat", "08:00 play", "10:30 tag_along", "12:00 eat", "13:00 play", "16:00 tag_along", "18:00 eat", "19:30 sleep")

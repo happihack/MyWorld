@@ -20,6 +20,12 @@ var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
 var _day_night: DayNight
+var _people: PersonRegistry
+## The settlement's huts (prop ids), for whose lights are out.
+var _hut_ids: Array[int] = []
+var _house_lights_in := 0
+## Lights are looked at this often (frames).
+const HOUSE_LIGHTS_EVERY := 20
 var _water_material: ShaderMaterial
 var _rig: CameraRig
 var _highlight: PickHighlight
@@ -117,6 +123,7 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 		var tile := start.settlement_tile
 		fire_at = Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step, tile.y + 0.5)
 	_day_night.set_fire(fire_at, has_fire)
+	_hut_ids = start.hut_ids.duplicate() if start != null else ([] as Array[int])
 	_rig.ground_height = _ground_height_at
 	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
@@ -125,7 +132,30 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 ## Shows the people of the world that is being shown (call after show_world).
 func show_people(people: PersonRegistry, clock: GameClock, occupations: OccupationLibrary) -> void:
 	_people_view.show_people(_world, people, clock, occupations)
+	_people = people
 	_day_night.bind(clock) # the light of the day follows the same clock
+	refresh_house_lights()
+
+
+## Which houses have their lights out: those where everyone is asleep (or
+## nobody lives). Looked at a few times a second; call directly to have it now.
+func refresh_house_lights() -> void:
+	var dark: Array[Vector3] = []
+	if _world != null and _props != null:
+		for id in _hut_ids:
+			var hut := _props.get_prop(id)
+			if hut == null:
+				continue
+			var anyone_up := false
+			if _people != null:
+				for person in _people.living_in(id):
+					if not (person.pose == PersonData.Pose.SLEEP and person.has_flag(PersonData.FLAG_INDOORS)):
+						anyone_up = true
+						break
+			if not anyone_up:
+				var at := hut.position2d()
+				dark.append(Vector3(at.x, _world.get_height(hut.tile) * _world.height_step, at.y))
+	_day_night.set_dark_houses(dark)
 
 
 ## The light of the day (sun, moon, windows, fire).
@@ -149,6 +179,8 @@ func clear() -> void:
 	_world = null
 	_props = null
 	_loose = null
+	_people = null
+	_hut_ids = []
 
 
 func ambient() -> AmbientLife:
@@ -263,6 +295,10 @@ func _process(_delta: float) -> void:
 		_water_wait = WATER_REBUILD_EVERY_FRAMES
 	_lighting.set_view_distance(_rig.distance())
 	_ambient.set_night(_day_night.night(), _day_night.hour())
+	_house_lights_in -= 1
+	if _house_lights_in <= 0:
+		_house_lights_in = HOUSE_LIGHTS_EVERY
+		refresh_house_lights()
 
 
 func _on_props_changed(coord: Vector2i) -> void:

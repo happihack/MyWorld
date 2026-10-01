@@ -50,7 +50,14 @@ func emit(stimulus: Stimulus) -> int:
 			var person := ctx.people.get_person(id)
 			if person == null:
 				continue
-			var taken := salience(stimulus, person.world2d().distance_to(stimulus.position), attention(person, ctx, table), table)
+			var attentive := attention(person, ctx, table)
+			var distance := person.world2d().distance_to(stimulus.position)
+			# A knock on the wall one sleeps behind is as near as can be.
+			if stimulus.building_id != 0 and person.home_building_id == stimulus.building_id \
+					and person.has_flag(PersonData.FLAG_INDOORS):
+				attentive = minf(attentive * table.own_wall_factor, 1.0)
+				distance = 0.0
+			var taken := salience(stimulus, distance, attentive, table)
 			if taken >= table.notice_threshold:
 				takers.append([id, taken, false])
 	for taker: Array in takers:

@@ -11,3 +11,4 @@ trait_weights = {}
 accessory = &"staff"
 work_target = &"fire"
 placeholder = false
+routine = PackedStringArray("06:00 wake", "07:30 eat", "08:30 work", "12:00 eat", "13:00 socialize", "15:00 go_home", "17:00 socialize", "18:00 eat", "19:30 go_home", "20:00 sleep")

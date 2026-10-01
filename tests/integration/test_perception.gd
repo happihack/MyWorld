@@ -962,9 +962,13 @@ func test_telling_someone_passes_it_on() -> void:
 	assert_eq(PersonCard.activity_line(teller), "Going to tell someone — thinks a god reached down")
 	var before := Interpretation.beliefs_of(listener).duplicate()
 	var company := Needs.value(teller.needs, Needs.Need.SOCIAL)
-	_run(30.0)
+	var waited := 0.0
+	while reacted.is_empty() and waited < 30.0:
+		_run(0.5)
+		waited += 0.5
 	# The teller went over and talked.
 	assert_true(teller.world2d().distance_to(listener.world2d()) <= TellStep.EARSHOT, "they stood together")
+	_run(10.0)
 	# The listener heard of it, second hand, and made something of it.
 	assert_eq(reacted.size(), 1, "one reaction: the listener's")
 	assert_eq(reacted[0][0], listener.id)
@@ -988,6 +992,8 @@ func test_telling_someone_passes_it_on() -> void:
 			agreed += 1
 	assert_true(agreed > 55, "being told sways (%d of 100)" % agreed)
 	# Nobody to tell: the telling comes to nothing, quietly.
+	session.movement.stop(teller.id)
+	session.people.move(teller.id, listener.position + Vector2i(1, 0), Vector2(0.5, 0.5), 0.0) # (wherever they had gone)
 	behavior.set_plan(teller, BehaviorSystem.ACTIVITY_REACT, ReactionTable.DEITY,
 		[TellStep.make(listener.id, 5.0, Stimulus.TOUCH, ReactionTable.DEITY, 0.8)])
 	assert_eq(teller.emote, &"speech")

@@ -11,6 +11,6 @@ need_weights = {
 "sleep": 0.3
 }
 trait_weights = {}
-hours = PackedFloat32Array(1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 1.0, 1.0, 1.5, 1.5, 1.5, 1.5, 1.5)
+hours = PackedFloat32Array(1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.8, 0.6, 0.6, 0.7, 1.2, 1.5, 1.5, 1.5)
 requires = Array[StringName]([&"home"])
 repeat_after_minutes = 0.0

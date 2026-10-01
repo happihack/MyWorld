@@ -4,7 +4,7 @@ extends RefCounted
 ## each plain data (see ActionStep). An empty list means it cannot be done
 ## right now — nothing to eat, nowhere to sleep, nobody to talk to.
 
-const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company"]
+const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent"]
 
 
 ## Is what an activity requires there for this person? (Cheap: asked for
@@ -22,6 +22,8 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 			return def != null and def.work_target != &"" and def.allows(ctx.stage_of(person))
 		&"company":
 			return ctx.places.has_company(person, ctx.now())
+		&"parent":
+			return ctx.places.parent_about(person) != null
 	return false
 
 
@@ -33,7 +35,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var food: Variant = ctx.places.food_tile(person)
 			if food == null:
 				return []
-			return [WalkToStep.make(food, person.sub_tile_offset), EatStep.make(food)]
+			# A meal, if this is the hour for one: everyone in their place
+			# around the fire, staying until it is over.
+			var hour := ctx.clock.hour() if ctx.clock != null else 12.0
+			var meal: bool = Brain.due_now(person, ctx, hour)[0] == &"eat"
+			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)), EatStep.make(food, meal)]
 		&"drink":
 			var water: Variant = ctx.places.water_tile(person.position, ctx.now())
 			if water == null:
@@ -64,6 +70,14 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			if target == null:
 				return []
 			return [WalkToStep.make(target), RestStep.make(snappedf(rng.randf_range(5.0, 12.0), 1.0))]
+		&"tag_along":
+			# A child goes to a parent and keeps them company at whatever they are doing.
+			var parent := ctx.places.parent_about(person)
+			if parent == null:
+				return []
+			var walk := WalkToStep.make(_beside(parent.position, person.position, ctx), person.sub_tile_offset)
+			walk["toward"] = parent.id
+			return [walk, SocializeStep.make(parent.id, snappedf(rng.randf_range(25.0, 50.0), 1.0))]
 		&"play":
 			var spot: Variant = ctx.places.play_tile(person, rng)
 			if spot == null:
