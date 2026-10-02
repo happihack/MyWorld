@@ -33,6 +33,22 @@ extends ConfigBase
 @export var invert_x: bool = false
 @export var invert_y: bool = false
 
+@export_group("Calibration")
+## "Hold still": so many seconds of readings, none of them further than
+## this many degrees from what the others say.
+@export_range(0.2, 10.0, 0.1) var calibration_hold_seconds: float = 1.5
+@export_range(0.1, 20.0, 0.1) var calibration_spread_degrees: float = 2.0
+## "Place your phone flat": within this many degrees of lying flat, face up.
+@export_range(1.0, 45.0, 0.5) var calibration_flat_degrees: float = 10.0
+
+@export_group("Touch tilt")
+## Two fingers dragged this far (the UI's units; the screen is 1080 wide)
+## tilt the box as far as it goes.
+@export_range(40.0, 2000.0, 1.0) var touch_tilt_reach: float = 320.0
+## How quickly a touch tilt follows the fingers, and comes back level when
+## they are lifted (degrees a second).
+@export_range(1.0, 2000.0, 1.0) var touch_tilt_speed: float = 240.0
+
 @export_group("Shake")
 ## The window a shake is judged over, in milliseconds.
 @export_range(100, 3000) var window_ms: int = 600

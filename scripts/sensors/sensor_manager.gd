@@ -24,6 +24,9 @@ signal shake_event(shake_class: int, intensity: float, direction: Vector3)
 signal availability_changed(available: bool)
 ## The sensors are being read from now on, or no longer.
 signal sampling_changed(sampling: bool)
+## A reading was taken: gravity as it was felt (m/s², not smoothed), and
+## the seconds since the last. (For the calibration screen.)
+signal sampled(gravity: Vector3, delta: float)
 
 enum Availability { UNKNOWN, AVAILABLE, UNAVAILABLE }
 
@@ -61,6 +64,7 @@ var reads := 0
 
 var _config: MotionConfig
 var _enabled := true
+var _touch_tilt := false
 var _in_front := true
 var _world_visible := false
 var _sampling := false
@@ -86,6 +90,7 @@ func _ready() -> void:
 	detector = ShakeDetector.new(_config)
 	virtual = VirtualSensors.new(_config)
 	_enabled = bool(Settings.get_value(&"motion/enabled"))
+	_touch_tilt = bool(Settings.get_value(&"motion/touch_tilt"))
 	virtual_allowed = OS.is_debug_build() or bool(Settings.get_value(&"debug/enabled"))
 	_apply_settings()
 	Settings.setting_changed.connect(_on_setting_changed)
@@ -95,6 +100,20 @@ func _ready() -> void:
 
 
 # --- when the sensors are read ------------------------------------------------------------------------
+
+## Is the box tilted by dragging two fingers? Yes if the player has
+## switched that on — and on a device that has no motion sensors (unless
+## motion controls are switched off altogether).
+func touch_tilt_enabled() -> bool:
+	return _touch_tilt or (_enabled and availability == Availability.UNAVAILABLE)
+
+
+## Two fingers have dragged the box to `where` (-1 … 1; 1 = as far as it
+## goes; zero: lifted — it comes back level).
+func set_touch_tilt(where: Vector2) -> void:
+	virtual.touch = where.limit_length(1.0) if touch_tilt_enabled() and MotionFilter.is_usable(Vector3(where.x, where.y, 0.0)) \
+		else Vector2.ZERO
+
 
 ## Tells the manager whether the world is on screen (the game's main
 ## scene says so): without it there is nothing to tilt.
@@ -111,9 +130,9 @@ func is_available() -> bool:
 	return availability == Availability.AVAILABLE
 
 
-## Why the sensors are not read ("" if they are).
+## Why nothing is read ("" if it is).
 func idle_reason() -> String:
-	if not _enabled:
+	if not _enabled and not _touch_tilt:
 		return "motion controls off"
 	if not _in_front:
 		return "app not in front"
@@ -142,8 +161,8 @@ func sample(delta: float, now_ms: int) -> void:
 	if virtual_allowed:
 		virtual.keys = Vector2(Input.get_axis(&"debug_tilt_left", &"debug_tilt_right"),
 			Input.get_axis(&"debug_tilt_back", &"debug_tilt_forward"))
-		virtual.advance(delta)
-	_using_virtual = virtual_allowed and virtual.is_in_use(now_ms)
+	virtual.advance(delta)
+	_using_virtual = (virtual_allowed and virtual.is_in_use(now_ms)) or virtual.touch_in_use()
 	var gravity := Vector3.ZERO
 	var acceleration := Vector3.ZERO
 	var felt := Vector3.ZERO # what the tilt is read from
@@ -152,6 +171,10 @@ func sample(delta: float, now_ms: int) -> void:
 		acceleration = virtual.acceleration(now_ms, gravity)
 		felt = gravity
 		rotation_rate = Vector3.ZERO
+	elif not _enabled:
+		# Motion controls are off: the sensors are left alone.
+		_publish_tilt(Vector2.ZERO, Vector2.ZERO)
+		return
 	else:
 		# A device without sensors is asked again only now and then.
 		if availability == Availability.UNAVAILABLE:
@@ -175,6 +198,8 @@ func sample(delta: float, now_ms: int) -> void:
 				_felt_gravity = _felt_gravity.lerp(acceleration,
 					clampf(1.0 - exp(-delta / _config.gravity_estimate_seconds), 0.0, 1.0))
 			felt = _felt_gravity
+	if felt != Vector3.ZERO and MotionFilter.is_usable(felt):
+		sampled.emit(felt, delta)
 	# Tilt.
 	if felt != Vector3.ZERO or not MotionFilter.is_usable(felt):
 		if filter.push(felt, delta) == MotionFilter.Reject.NONE and not _using_virtual:
@@ -207,6 +232,20 @@ func calibrate_to_current(keep: bool = true) -> bool:
 		Settings.set_value(&"motion/baseline_gravity", filter.baseline())
 		Settings.set_value(&"motion/calibrated", true)
 	Log.info(Log.Category.SENSOR, "Motion calibrated", {"baseline": filter.baseline(), "kept": keep})
+	_publish_tilt(filter.tilt_vector, filter.tilt_degrees)
+	return true
+
+
+## Takes `direction` (where gravity points when the world is level) as
+## level, and keeps it in the settings. False if it cannot be one.
+func calibrate_to(direction: Vector3) -> bool:
+	if not filter.set_baseline(direction):
+		return false
+	_baseline_set = true
+	_calibrated = true
+	Settings.set_value(&"motion/baseline_gravity", filter.baseline())
+	Settings.set_value(&"motion/calibrated", true)
+	Log.info(Log.Category.SENSOR, "Motion calibrated", {"baseline": filter.baseline(), "kept": true})
 	_publish_tilt(filter.tilt_vector, filter.tilt_degrees)
 	return true
 
@@ -304,6 +343,11 @@ func _on_setting_changed(key: StringName, value: Variant) -> void:
 		&"motion/enabled":
 			_enabled = bool(value)
 			_update_sampling()
+		&"motion/touch_tilt":
+			_touch_tilt = bool(value)
+			if not touch_tilt_enabled():
+				virtual.touch = Vector2.ZERO
+			_update_sampling()
 		&"motion/tilt_sensitivity":
 			filter.set_sensitivity(float(value))
 		&"motion/shake_sensitivity":
@@ -313,7 +357,7 @@ func _on_setting_changed(key: StringName, value: Variant) -> void:
 		&"debug/enabled":
 			virtual_allowed = OS.is_debug_build() or bool(value)
 			if not virtual_allowed:
-				virtual.reset()
+				virtual.reset_debug()
 
 
 func _set_in_front(in_front: bool) -> void:
@@ -322,7 +366,7 @@ func _set_in_front(in_front: bool) -> void:
 
 
 func _update_sampling() -> void:
-	var wanted := _enabled and _in_front and _world_visible
+	var wanted := (_enabled or _touch_tilt) and _in_front and _world_visible
 	if wanted == _sampling:
 		return
 	_sampling = wanted

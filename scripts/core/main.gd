@@ -37,6 +37,9 @@ var _observing := false
 var follow := CameraFollow.new()
 ## Where the followed person was seen last frame (INF: not yet).
 var _follow_seen := Vector3.INF
+## How far two fingers have dragged the box (the touch way of tilting):
+## -1 … 1, see SensorManager.set_touch_tilt.
+var _touch_tilt := Vector2.ZERO
 ## The camera never aims further ahead of a followed person than this (tiles).
 const FOLLOW_LEAD_MAX := 1.5
 ## People at work are heard and seen at most this often (real time).
@@ -474,6 +477,8 @@ func _on_gesture(gesture: Gesture) -> void:
 		ui_root.hints().note_touch() # busy, but carrying a rock is not exploring
 		return
 	ui_root.hints().note_gesture(gesture)
+	if _tilt_by_touch(gesture):
+		return
 	world_view.camera_rig().handle_gesture(gesture)
 	match gesture.type:
 		Gesture.Type.DRAG_START, Gesture.Type.MULTI_START:
@@ -625,6 +630,31 @@ func _note_pick(target: Picker.Result, response: InteractionResponse) -> void:
 		return
 	var near := target.kind == Picker.Kind.ENTITY and not target.direct
 	_last_pick = "%s%s -> %s" % [response.description, " (near)" if near else "", response.effect]
+
+
+## Two fingers dragged across the screen tilt the box (where that is how
+## it is tilted: the setting, or a device without motion sensors): to the
+## right and the right edge goes down, up and the top edge does. Lifted,
+## it comes back level. Pinching and twisting still zoom and turn the view.
+## Returns true if the gesture was used up by it.
+func _tilt_by_touch(gesture: Gesture) -> bool:
+	match gesture.type:
+		Gesture.Type.MULTI_START, Gesture.Type.MULTI_END:
+			if _touch_tilt != Vector2.ZERO:
+				_touch_tilt = Vector2.ZERO
+				SensorManager.set_touch_tilt(Vector2.ZERO)
+		Gesture.Type.TWO_FINGER_DRAG:
+			if not SensorManager.touch_tilt_enabled():
+				return false
+			_touch_tilt = (_touch_tilt + Vector2(gesture.delta.x, -gesture.delta.y) / Config.motion.touch_tilt_reach).limit_length(1.0)
+			SensorManager.set_touch_tilt(_touch_tilt)
+			return true
+	return false
+
+
+## How far the box is tilted by touch right now (-1 … 1).
+func touch_tilt() -> Vector2:
+	return _touch_tilt
 
 
 ## Glides the camera to a place (world X/Z), no further away than the

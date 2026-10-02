@@ -26,6 +26,7 @@ const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
 const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
 const HISTORY_CARD := preload("res://scenes/ui/panels/history_card.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
+const CALIBRATION := preload("res://scenes/ui/calibration.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
 const MAX_UI_SCALE := 3.0
 
@@ -52,6 +53,7 @@ var _follow_banner: FollowBanner
 var _journal_button: JournalButton
 var _speed_control: SpeedControl
 var _toasts: ToastStack
+var _menu_button: MenuButtonRound
 
 
 func _ready() -> void:
@@ -112,6 +114,13 @@ func _ready() -> void:
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
 	for pressed: Signal in [_follow_banner.follow_pressed, _follow_banner.stop_pressed, _follow_banner.locate_pressed]:
 		pressed.connect(_tick)
+	# The menu (for now: the motion settings), top left.
+	_menu_button = MenuButtonRound.new()
+	add_child(_menu_button)
+	move_child(_menu_button, _panel_layer.get_index())
+	_menu_button.pressed.connect(func() -> void:
+		_tick()
+		toggle_motion_settings())
 	# What the player is told as it happens: between the marked people and
 	# the clock, below the banner.
 	_toasts = ToastStack.new()
@@ -209,6 +218,59 @@ func follow_banner() -> FollowBanner:
 ## The names of the people marked as important.
 func pins() -> PinList:
 	return _pins
+
+
+## The button that opens the settings.
+func menu_button() -> MenuButtonRound:
+	return _menu_button
+
+
+## The motion settings, in place of any other card.
+func open_motion_settings() -> MotionSettingsPanel:
+	var open := motion_settings()
+	if open != null:
+		return open
+	close_all_panels()
+	var panel := MotionSettingsPanel.new()
+	open_panel(panel)
+	panel.calibrate_requested.connect(func() -> void:
+		_tick()
+		open_calibration())
+	return panel
+
+
+## Opens the motion settings, or closes them if they are open.
+func toggle_motion_settings() -> void:
+	var open := motion_settings()
+	if open != null:
+		open.close()
+	else:
+		open_motion_settings()
+
+
+func motion_settings() -> MotionSettingsPanel:
+	for panel: UIPanel in _panels:
+		if panel is MotionSettingsPanel and not panel.is_closing():
+			return panel
+	return null
+
+
+## The calibration screen, on top of whatever is open (closing it comes
+## back to that).
+func open_calibration() -> CalibrationPanel:
+	var open := calibration_panel()
+	if open != null:
+		return open
+	var panel: CalibrationPanel = CALIBRATION.instantiate()
+	open_panel(panel)
+	return panel
+
+
+func calibration_panel() -> CalibrationPanel:
+	for panel: UIPanel in _panels:
+		if panel is CalibrationPanel and not panel.is_closing():
+			return panel
+	return null
 
 
 ## The toasts: what the player is told as it happens.

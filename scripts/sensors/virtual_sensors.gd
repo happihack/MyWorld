@@ -14,10 +14,15 @@ const REST_MS := 500
 var keys := Vector2.ZERO
 ## Where the debug stick is held: likewise (zero when let go).
 var stick := Vector2.ZERO
+## Where two fingers have dragged the box (the touch way of tilting, for
+## everyone — not a debug tool): -1 … 1, 1 = as far as it goes.
+var touch := Vector2.ZERO
 ## The tilt that stands for now, in degrees (it comes and goes at a speed).
 var tilt_degrees := Vector2.ZERO
 
 var _config: MotionConfig
+var _debug_degrees := Vector2.ZERO
+var _touch_degrees := Vector2.ZERO
 var _shake_class := -1
 var _shake_start_ms := 0
 var _shake_end_ms := 0
@@ -31,15 +36,31 @@ func _init(config: MotionConfig = null) -> void:
 func reset() -> void:
 	keys = Vector2.ZERO
 	stick = Vector2.ZERO
+	touch = Vector2.ZERO
 	tilt_degrees = Vector2.ZERO
+	_debug_degrees = Vector2.ZERO
+	_touch_degrees = Vector2.ZERO
 	_shake_class = -1
 
 
-## Is anything being made up right now?
+## Is anything being made up right now by the debug tools (keys, stick, a shake)?
 func is_in_use(now_ms: int) -> bool:
-	if keys != Vector2.ZERO or stick != Vector2.ZERO or tilt_degrees.length() > 0.01:
+	if keys != Vector2.ZERO or stick != Vector2.ZERO or _debug_degrees.length() > 0.01:
 		return true
 	return _shake_class >= 0 and now_ms <= _shake_end_ms + REST_MS
+
+
+## Is the box tilted by touch (or still on its way back level)?
+func touch_in_use() -> bool:
+	return touch != Vector2.ZERO or _touch_degrees.length() > 0.01
+
+
+## Forgets what the debug tools were doing (they have been locked).
+func reset_debug() -> void:
+	keys = Vector2.ZERO
+	stick = Vector2.ZERO
+	_debug_degrees = Vector2.ZERO
+	_shake_class = -1
 
 
 func is_shaking(now_ms: int) -> bool:
@@ -50,7 +71,15 @@ func is_shaking(now_ms: int) -> bool:
 func advance(delta: float) -> void:
 	var config := _settings()
 	var target := (keys + stick).limit_length(1.0) * config.virtual_tilt_degrees
-	tilt_degrees = tilt_degrees.move_toward(target, config.virtual_tilt_speed * maxf(delta, 0.0))
+	_debug_degrees = _debug_degrees.move_toward(target, config.virtual_tilt_speed * maxf(delta, 0.0))
+	# Touch: from the first bit of dragging on (the dead zone is for hands
+	# that shake, not for fingers that mean it) to as far as it goes.
+	var pulled := touch.limit_length(1.0)
+	var touch_target := Vector2.ZERO
+	if pulled != Vector2.ZERO:
+		touch_target = pulled.normalized() * lerpf(config.dead_zone_degrees, config.clamp_degrees, pulled.length())
+	_touch_degrees = _touch_degrees.move_toward(touch_target, config.touch_tilt_speed * maxf(delta, 0.0))
+	tilt_degrees = (_debug_degrees + _touch_degrees).limit_length(config.clamp_degrees)
 
 
 ## Begins a shake of a class (ShakeDetector.ShakeClass): strong and long

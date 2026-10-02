@@ -1,0 +1,64 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/panels/calibration_panel.gd" id="1_panel"]
+[ext_resource type="Script" path="res://scripts/ui/widgets/close_button.gd" id="2_close"]
+
+[node name="Calibration" type="PanelContainer"]
+script = ExtResource("1_panel")
+
+[node name="Content" type="VBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="Header" type="HBoxContainer" parent="Content"]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="Content/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"TitleLabel"
+text = "Level the box"
+
+[node name="Close" type="Button" parent="Content/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+script = ExtResource("2_close")
+
+[node name="Separator" type="HSeparator" parent="Content"]
+layout_mode = 2
+
+[node name="Step" type="Label" parent="Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+text = "Place your phone flat."
+horizontal_alignment = 1
+vertical_alignment = 1
+autowrap_mode = 3
+
+[node name="Level" type="Control" parent="Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 260)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Progress" type="ProgressBar" parent="Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+max_value = 1.0
+show_percentage = false
+
+[node name="UseCurrent" type="Button" parent="Content"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Use current angle as level"
+
+[node name="Done" type="Button" parent="Content"]
+unique_name_in_owner = true
+layout_mode = 2
+focus_mode = 0
+text = "Cancel"

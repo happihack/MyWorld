@@ -23,6 +23,9 @@ const DEFAULTS := {
 	&"motion/rotation_sensitivity": 1.0,
 	&"motion/calibrated": false,
 	&"motion/baseline_gravity": Vector3.ZERO,
+	## Tilt by dragging two fingers. (On a device without motion sensors
+	## that is how it is done anyway — see SensorManager.touch_tilt_enabled.)
+	&"motion/touch_tilt": false,
 	&"accessibility/ui_scale": 1.0,
 	&"accessibility/text_scale": 1.0,
 	&"accessibility/reduced_motion": false,
