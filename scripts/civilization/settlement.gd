@@ -173,6 +173,18 @@ func days_of_food() -> float:
 	return stockpile.food() / need if need > 0.0 else INF
 
 
+## How many times as much as usual the settlement wants in store now, for
+## something of which it wants `most` times as much by winter: more and
+## more as winter comes near (SettlementConfig.winter_prepare_days), and in
+## winter itself half way back to the usual (it lives off what it laid in).
+func winter_factor(now: int, most: float) -> float:
+	if Seasons.is_winter(now):
+		return lerpf(1.0, most, 0.5)
+	if _config.winter_prepare_days <= 0.0:
+		return 1.0
+	return lerpf(1.0, most, clampf(1.0 - Seasons.days_until_winter(now) / _config.winter_prepare_days, 0.0, 1.0))
+
+
 # --- short of food ------------------------------------------------------------------------------------
 
 func is_short() -> bool:

@@ -14,6 +14,7 @@ const RAIN_SHADER := preload("res://assets/shaders/rain.gdshader")
 const NOTHING := 0.01
 
 @onready var _rain: MultiMeshInstance3D = %Rain
+@onready var _leaves: MultiMeshInstance3D = %Leaves
 
 ## What is shown right now (it eases towards what the weather is).
 var cover := 0.0
@@ -24,6 +25,13 @@ var snowing := false
 var wind := Vector2.ZERO
 ## How wet the ground is, 0 … 1.
 var wetness := 0.0
+## How much snow lies and how frozen the water is, 0 … 1 (as shown).
+var snow := 0.0
+var ice := 0.0
+## Where in the year what is shown stands (0 … 4, see Seasons).
+var season := -1.0
+## How many leaves are in the air, 0 … 1.
+var leaf_fall := 0.0
 ## How bright the lightning is right now, 0 … 1.
 var flash := 0.0
 ## For tests and the overlay.
@@ -39,7 +47,10 @@ var _day_night: DayNight
 var _lighting: WorldLighting
 var _prop_material: ShaderMaterial
 var _terrain_material: ShaderMaterial
+var _water_material: ShaderMaterial
+var _ambient: AmbientLife
 var _rain_material: ShaderMaterial
+var _leaf_material: ShaderMaterial
 var _config: WeatherFxConfig
 var _box := Rect2(-1000.0, -1000.0, 2000.0, 2000.0)
 var _top := 12.0
@@ -59,6 +70,11 @@ func _ready() -> void:
 	_rain.material_override = _rain_material
 	_rain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rain.visible = false
+	_leaf_material = ShaderMaterial.new()
+	_leaf_material.shader = RAIN_SHADER
+	_leaves.material_override = _leaf_material
+	_leaves.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_leaves.visible = false
 	_build_drops(GraphicsQuality.current())
 	_strike_in = _next_strike()
 	reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
@@ -68,7 +84,9 @@ func _ready() -> void:
 ## What it drives: the camera (where the rain falls), the light of the day,
 ## the atmosphere, and the materials of the props (sway) and the ground (wet).
 func setup(rig: CameraRig, day_night: DayNight, lighting: WorldLighting, prop_material: ShaderMaterial,
-		terrain_material: ShaderMaterial) -> void:
+		terrain_material: ShaderMaterial, water_material: ShaderMaterial = null, ambient: AmbientLife = null) -> void:
+	_water_material = water_material
+	_ambient = ambient
 	_rig = rig
 	_day_night = day_night
 	_lighting = lighting
@@ -103,6 +121,9 @@ func snap() -> void:
 	snowing = target["snow"]
 	wind = target["wind"]
 	wetness = 1.0 if falling > NOTHING and not snowing else 0.0
+	snow = _weather.snow_cover if _weather != null else 0.0
+	ice = 1.0 if _weather != null and _weather.is_frozen() else 0.0
+	season = -1.0 # (shown anew)
 	_apply()
 
 
@@ -148,6 +169,9 @@ func advance(delta: float) -> void:
 		wetness = move_toward(wetness, 1.0, delta * speed / _config.wetting_seconds)
 	else:
 		wetness = move_toward(wetness, 0.0, delta * speed / _config.drying_seconds)
+	# Snow comes and goes with what lies; water freezes over and thaws.
+	snow = move_toward(snow, _weather.snow_cover if _weather != null else 0.0, share * 0.5)
+	ice = move_toward(ice, 1.0 if _weather != null and _weather.is_frozen() else 0.0, share * 0.5)
 	_advance_lightning(delta)
 	_apply()
 
@@ -162,8 +186,9 @@ func strike() -> void:
 
 
 func debug_text() -> String:
-	return "sky: cover %.2f  fog %.2f  %s %.2f (%d drops)  wind (%.2f, %.2f)  wet %.2f  flashes %d" % [cover, fog,
-		"snow" if snowing else "rain", falling, _drop_count if _rain.visible else 0, wind.x, wind.y, wetness, flashes]
+	return "sky: cover %.2f  fog %.2f  %s %.2f (%d drops)  wind (%.2f, %.2f)  wet %.2f  flashes %d\nseason %.2f  snow %.2f  ice %.2f  leaves %.2f" % [
+		cover, fog, "snow" if snowing else "rain", falling, _drop_count if _rain.visible else 0, wind.x, wind.y, wetness, flashes,
+		season, snow, ice, leaf_fall]
 
 
 # --- internals --------------------------------------------------------------------------------------
@@ -241,7 +266,64 @@ func _apply() -> void:
 			_prop_material.set_shader_parameter(&"wind_direction", wind.normalized())
 	if _terrain_material != null:
 		_terrain_material.set_shader_parameter(&"wetness", wetness * _config.wet_ground)
+	_apply_seasons()
 	AudioManager.set_weather(falling if not snowing else 0.0, wind.length())
+
+
+## The seasons: the colour of what grows, bare trees, leaves in the air,
+## snow on the ground and ice on the water — and how warm it is for the
+## birds and the crickets.
+func _apply_seasons() -> void:
+	var seasons := Config.seasons
+	var at := Seasons.position(_clock.tick) if _clock != null else 1.5
+	# (The year turns slowly: its colours are set anew only when it has moved.)
+	if absf(at - season) > 0.002:
+		season = at
+		leaf_fall = Seasons.blend(seasons.leaf_fall, at)
+		if _prop_material != null:
+			_prop_material.set_shader_parameter(&"season_tint", Seasons.blend_color(seasons.foliage, at))
+			_prop_material.set_shader_parameter(&"season_tint_other", Seasons.blend_color(seasons.foliage_other, at))
+			_prop_material.set_shader_parameter(&"season_strength", Seasons.blend(seasons.foliage_strength, at))
+			_prop_material.set_shader_parameter(&"bare", Seasons.blend(seasons.bare, at))
+		if _terrain_material != null:
+			_terrain_material.set_shader_parameter(&"season_ground", Seasons.blend_color(seasons.ground, at))
+			_terrain_material.set_shader_parameter(&"season_strength", Seasons.blend(seasons.ground_strength, at))
+	for material: ShaderMaterial in [_prop_material, _terrain_material]:
+		if material != null:
+			material.set_shader_parameter(&"snow", snow)
+			material.set_shader_parameter(&"snow_color", seasons.snow_color)
+	if _water_material != null:
+		_water_material.set_shader_parameter(&"frozen", ice)
+		_water_material.set_shader_parameter(&"ice_color", seasons.ice_color)
+		var deep := Config.terrain_palette.water_deep_levels * Config.world.height_step
+		_water_material.set_shader_parameter(&"ice_depth", clampf(seasons.ice_depth / deep, 0.0, 1.0) if deep > 0.0 else 1.0)
+	if _ambient != null and _weather != null:
+		_ambient.set_warmth(_weather.temperature())
+	# Leaves in the air: the rain's drops, few, slow and brown.
+	var falling_leaves := leaf_fall > NOTHING and _drop_count > 0 and not reduced_motion
+	if _leaves.visible != falling_leaves:
+		_leaves.visible = falling_leaves
+	if falling_leaves:
+		var center := Vector2(_rig.pivot().x, _rig.pivot().z) if _rig != null else _box.get_center()
+		var distance := _rig.distance() if _rig != null else 30.0
+		_leaf_material.set_shader_parameter(&"area_center", center)
+		_leaf_material.set_shader_parameter(&"area_size", clampf(distance * _config.area_per_distance, _config.area_min, _config.area_max))
+		_leaf_material.set_shader_parameter(&"top", _top * 0.45)
+		_leaf_material.set_shader_parameter(&"bottom", _bottom)
+		_leaf_material.set_shader_parameter(&"fall_speed", 1.1)
+		_leaf_material.set_shader_parameter(&"wind", wind * _config.wind_carry * 0.6)
+		_leaf_material.set_shader_parameter(&"amount", leaf_fall * 0.35)
+		_leaf_material.set_shader_parameter(&"snow", 1.0)
+		_leaf_material.set_shader_parameter(&"flake_size", 0.09)
+		_leaf_material.set_shader_parameter(&"tint", seasons.leaf_color)
+		_leaf_material.set_shader_parameter(&"daylight", 1.0 - 0.75 * _day_night.night() if _day_night != null else 1.0)
+		_leaf_material.set_shader_parameter(&"box_min", _box.position)
+		_leaf_material.set_shader_parameter(&"box_max", _box.end)
+		_leaves.custom_aabb = AABB(Vector3(_box.position.x, _bottom, _box.position.y), Vector3(_box.size.x, _top - _bottom, _box.size.y))
+
+
+func leaves_node() -> MultiMeshInstance3D:
+	return _leaves
 
 
 ## The drops: one quad, drawn as many times as the quality allows; where
@@ -262,6 +344,7 @@ func _build_drops(level: GraphicsQuality.Level) -> void:
 		mesh.set_instance_transform(i, Transform3D.IDENTITY)
 		mesh.set_instance_custom_data(i, Color(rng.randf(), rng.randf(), rng.randf(), float(i) / maxf(_drop_count, 1.0)))
 	_rain.multimesh = mesh
+	_leaves.multimesh = mesh # (the same drops, drawn as leaves)
 
 
 func _on_setting_changed(key: StringName, _value: Variant) -> void:

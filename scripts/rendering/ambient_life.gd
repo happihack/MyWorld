@@ -25,6 +25,9 @@ var _formation: Array[Vector3] = []
 var _bird_positions: Array[Vector3] = []
 ## Seconds until the next bird call.
 var _chirp_in := 10.0
+## How much of their song the birds have, and the crickets of theirs (the cold takes it).
+var _song := 1.0
+var _crickets := 1.0
 ## How much it is night (0 … 1) and the hour, as the day/night cycle has it.
 var _night := 0.0
 var _hour := 12.0
@@ -92,8 +95,21 @@ func fire_lit() -> bool:
 func set_night(night: float, hour: float) -> void:
 	_night = clampf(night, 0.0, 1.0)
 	_hour = hour
-	_birds.visible = _night < 0.85
-	AudioManager.set_night(_night)
+	_birds.visible = _night < 0.85 and _song > 0.05
+	AudioManager.set_night(_night * _crickets)
+
+
+## Tells the ambient life how warm it is (°C): in the cold no bird sings
+## (they are gone) and no cricket chirps.
+func set_warmth(celsius: float) -> void:
+	var seasons := Config.seasons
+	_song = smoothstep(seasons.birds_from, seasons.birds_full, celsius)
+	_crickets = smoothstep(seasons.crickets_from, seasons.crickets_full, celsius)
+
+
+## How much of their song the birds have (0 in the cold … 1).
+func bird_song() -> float:
+	return _song
 
 
 func night() -> float:
@@ -104,11 +120,11 @@ func night() -> float:
 ## night, most of all around sunrise.
 func chirp_rate() -> float:
 	var config := Config.day_night
-	if _night > 0.85:
+	if _night > 0.85 or _song <= 0.05:
 		return 0.0
 	var from_dawn := absf(_hour - (config.sunrise_hour + 0.75))
 	var chorus := 1.0 - smoothstep(0.75, 2.0, from_dawn)
-	return lerpf(1.0, Config.feedback.dawn_chorus, chorus) * (1.0 - _night * 0.6)
+	return lerpf(1.0, Config.feedback.dawn_chorus, chorus) * (1.0 - _night * 0.6) * _song
 
 
 func _process(delta: float) -> void:

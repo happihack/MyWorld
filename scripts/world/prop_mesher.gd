@@ -104,7 +104,7 @@ static func _append(out: Buffers, template: PropMeshLibrary.Template, xform: Tra
 		out.normals.append(normal_basis * template.normals[i])
 		var c := template.colors[i]
 		out.colors.append(Color(c.r * tint, c.g * tint, c.b * tint, c.a))
-		out.uvs.append(Vector2(template.glow_of(i), 0.0))
+		out.uvs.append(Vector2(template.glow_of(i), template.leaf_of(i)))
 
 
 ## Living things vary a little in brightness; built things do not.

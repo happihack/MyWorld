@@ -29,6 +29,7 @@ var motion: MotionConfig
 ## The climate of the worlds there are so far (one: temperate).
 var climate: ClimateConfig
 var weather_fx: WeatherFxConfig
+var seasons: SeasonsConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -61,6 +62,7 @@ func reload() -> void:
 	motion = _load("motion_config.tres", MotionConfig) as MotionConfig
 	climate = _load("weather_temperate.tres", ClimateConfig) as ClimateConfig
 	weather_fx = _load("weather_fx.tres", WeatherFxConfig) as WeatherFxConfig
+	seasons = _load("seasons_config.tres", SeasonsConfig) as SeasonsConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

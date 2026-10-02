@@ -97,7 +97,7 @@ func _ready() -> void:
 	_effects.setup(_prop_material)
 	_weather_fx = WEATHER_FX.instantiate()
 	add_child(_weather_fx)
-	_weather_fx.setup(_rig, _day_night, _lighting, _prop_material, _terrain_material)
+	_weather_fx.setup(_rig, _day_night, _lighting, _prop_material, _terrain_material, _water_material, _ambient)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -188,6 +188,10 @@ func terrain_material() -> ShaderMaterial:
 
 func prop_material() -> ShaderMaterial:
 	return _prop_material
+
+
+func water_material() -> ShaderMaterial:
+	return _water_material
 
 
 ## The light of the day (sun, moon, windows, fire).

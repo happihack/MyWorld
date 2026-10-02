@@ -75,7 +75,9 @@ func refresh(settlement: Settlement, now: int) -> void:
 	if settlement != null:
 		var stock := settlement.stockpile
 		# Food: so many days of it in store.
-		var food_wanted := settlement.food_need_per_day() * _config.food_days_wanted
+		# (More before winter: see Settlement.winter_factor.)
+		var food_wanted := settlement.food_need_per_day() * _config.food_days_wanted \
+			* settlement.winter_factor(now, _config.winter_food_factor)
 		var food := stock.food()
 		if food_wanted > 0.0 and food < food_wanted:
 			wanted.append([GATHER, &"berries", ResourceNodes.BUSH, 1.0 - food / food_wanted, food, food_wanted])
@@ -83,7 +85,8 @@ func refresh(settlement: Settlement, now: int) -> void:
 			if settlement.fauna != null and settlement.hunter_count() > 0 and settlement.fauna.has_game():
 				wanted.append([HUNT, &"meat", &"game", 1.0 - food / food_wanted, food, food_wanted])
 		# Wood: so many days of what the fire burns.
-		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted
+		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted \
+			* settlement.winter_factor(now, _config.winter_wood_factor)
 		var wood := float(stock.amount(&"wood"))
 		if wood_wanted > 0.0 and wood < wood_wanted:
 			wanted.append([GATHER, &"wood", ResourceNodes.TREE, 1.0 - wood / wood_wanted, wood, wood_wanted])

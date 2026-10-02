@@ -22,6 +22,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	11: _v11_to_v12,
 	12: _v12_to_v13,
 	13: _v13_to_v14,
+	14: _v14_to_v15,
 }
 
 
@@ -342,6 +343,26 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 15 (M9.2) adds the ground's snow and frost to the weather. An
+## older world has none: bare, thawed ground, whatever the season (the
+## next snowfall and the next cold night put that right).
+static func _v14_to_v15(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	var weather: Variant = (state as Dictionary).get("weather")
+	if typeof(weather) == TYPE_DICTIONARY and not (weather as Dictionary).is_empty():
+		for key: String in ["snow", "frost"]:
+			if not (weather as Dictionary).has(key):
+				(weather as Dictionary)[key] = 0.0
+		if not (weather as Dictionary).has("frozen"):
+			(weather as Dictionary)["frozen"] = false
 	return data
 
 

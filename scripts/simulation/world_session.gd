@@ -131,8 +131,14 @@ func _init() -> void:
 	piles.stored.connect(chronicle.on_stored)
 	weather.changed.connect(chronicle.on_weather_changed)
 	weather.condition_changed.connect(chronicle.on_condition_changed)
-	# The fields' rain is the weather's.
+	# The fields' rain is the weather's, and its frost.
 	farming.rain_source = weather.rain_on
+	farming.frozen_source = weather.is_frozen
+	farming.frost_killed.connect(chronicle.on_crop_frozen)
+	fauna.migrated.connect(chronicle.on_migrated)
+	# Shallow water that is frozen carries.
+	weather.frozen_changed.connect(func(frozen: bool) -> void:
+		pathfinder.set_frozen(frozen, Config.seasons.ice_depth))
 	# A field is sown with grain from the stores.
 	farming.seed_source = func(units: int) -> bool:
 		return settlement != null and settlement.stockpile.take(&"grain", units) == units
@@ -615,6 +621,7 @@ func _activate() -> void:
 	weather.from_dict(_saved_weather)
 	_saved_weather = {}
 	weather.advance_to(clock.tick)
+	pathfinder.set_frozen(weather.frozen, Config.seasons.ice_depth)
 	ai.weather = weather
 	farming.bind(world, props, ids, pathfinder, start, people, occupations, generator, world_seed, Config.farming)
 	farming.from_dict(_saved_farming)

@@ -9,3 +9,8 @@ script = ExtResource("1_fx")
 unique_name_in_owner = true
 visible = false
 cast_shadow = 0
+
+[node name="Leaves" type="MultiMeshInstance3D" parent="."]
+unique_name_in_owner = true
+visible = false
+cast_shadow = 0

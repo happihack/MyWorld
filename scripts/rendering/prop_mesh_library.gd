@@ -30,6 +30,27 @@ class Template:
 	func glow_of(index: int) -> float:
 		return glow[index] if index < glow.size() else 0.0
 
+	## How much of a leaf each vertex is (see prop.gdshader): 0 nothing that
+	## changes with the seasons, up to 1 a leaf that turns in autumn and
+	## falls in winter; in between what only changes colour (grass, bushes,
+	## a little: needles). Shorter than `vertices` where nothing after it is.
+	var leaf := PackedFloat32Array()
+
+	## Marks everything added since vertex `from` as leaves.
+	func leaf_from(from: int, value: float) -> void:
+		leaf.resize(vertices.size())
+		for i in range(from, vertices.size()):
+			leaf[i] = value
+
+	func leaf_of(index: int) -> float:
+		return leaf[index] if index < leaf.size() else 0.0
+
+
+## How much of a leaf a vertex is (Template.leaf): leaves that are shed,
+## green that only turns colour, needles that hardly change.
+const LEAF_SHED := 1.0
+const LEAF_TURNS := 0.6
+const LEAF_EVERGREEN := 0.2
 
 const TRUNK := Color(0.42, 0.29, 0.18)
 const TRUNK_DARK := Color(0.33, 0.22, 0.14)
@@ -204,6 +225,7 @@ static func _broadleaf(radius: float, height: float, twist: float) -> Template:
 	_band(t, _ring(0.0, 0.085, 5, twist), _ring(trunk_top, 0.06, 5, twist), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.25))
 	# Canopy: a chunky blob — narrow bottom, wide middle, pointed top.
 	var c0 := trunk_top - 0.08
+	var canopy := t.vertices.size()
 	var bottom := _ring(c0, radius * 0.55, 6, twist)
 	var middle := _ring(c0 + (height - c0) * 0.42, radius, 6, twist + 0.5)
 	var upper := _ring(c0 + (height - c0) * 0.78, radius * 0.62, 6, twist)
@@ -211,6 +233,7 @@ static func _broadleaf(radius: float, height: float, twist: float) -> Template:
 	_band(t, bottom, middle, _rgba(LEAF, 0.35), _rgba(LEAF, 0.6))
 	_band(t, middle, upper, _rgba(LEAF, 0.6), _rgba(LEAF_LIGHT, 0.85))
 	_fan(t, upper, Vector3(0, height, 0), _rgba(LEAF_LIGHT, 0.85), _rgba(LEAF_LIGHT, 1.0))
+	t.leaf_from(canopy, LEAF_SHED)
 	return t
 
 
@@ -219,6 +242,7 @@ static func _conifer(radius: float, height: float) -> Template:
 	var trunk_top := height * 0.22
 	_band(t, _ring(0.0, 0.07, 5, 0.0), _ring(trunk_top, 0.055, 5, 0.0), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.15))
 	# Three stacked cones, each smaller and lighter than the one below.
+	var needles := t.vertices.size()
 	var tiers := 3
 	for i in tiers:
 		var f0 := float(i) / tiers
@@ -232,6 +256,7 @@ static func _conifer(radius: float, height: float) -> Template:
 		var skirt := _ring(y0, r, 6, i * 0.5)
 		_fan(t, skirt, Vector3(0, y1, 0), _rgba(col, sway0), _rgba(col.lightened(0.08), sway1))
 		_fan(t, skirt, Vector3(0, y0 + 0.02, 0), _rgba(col.darkened(0.25), sway0), _rgba(col.darkened(0.25), sway0), true)
+	t.leaf_from(needles, LEAF_EVERGREEN)
 	return t
 
 
@@ -332,6 +357,7 @@ static func _bush(radius: float, height: float, berries: int = 4) -> Template:
 	var middle := _ring(height * 0.55, radius, 6, 0.5)
 	_band(t, base, middle, _rgba(BUSH, 0.1), _rgba(BUSH, 0.35))
 	_fan(t, middle, Vector3(0, height, 0), _rgba(BUSH, 0.35), _rgba(BUSH_LIGHT, 0.5))
+	t.leaf_from(0, LEAF_TURNS)
 	# Berries: tiny bright diamonds sitting on the foliage.
 	for i in berries:
 		var angle := TAU * (i + 0.3) / 4.0
@@ -442,6 +468,7 @@ static func _grass_tuft() -> Template:
 		# Two-sided blade (the prop shader culls back faces).
 		_tri(t, base - side, base + side, tip, _rgba(GRASS_BLADE, 0.0), _rgba(GRASS_BLADE, 0.0), _rgba(GRASS_TIP, 0.9))
 		_tri(t, base + side, base - side, tip, _rgba(GRASS_BLADE, 0.0), _rgba(GRASS_BLADE, 0.0), _rgba(GRASS_TIP, 0.9))
+	t.leaf_from(0, LEAF_TURNS)
 	return t
 
 

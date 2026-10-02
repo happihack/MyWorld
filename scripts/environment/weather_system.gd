@@ -17,6 +17,8 @@ extends RefCounted
 signal changed(old: StringName, now: StringName)
 ## A condition has begun (or is over): DROUGHT, HEAT_WAVE, COLD_SNAP.
 signal condition_changed(condition: StringName, active: bool)
+## The ground and the shallow water have frozen (or thawed).
+signal frozen_changed(frozen: bool)
 
 const CLEAR := &"clear"
 const CLOUDY := &"cloudy"
@@ -49,6 +51,12 @@ var since_tick := 0
 ## Where the wind blows to (degrees; 0 = +X, 90 = +Z) and how hard (0 … 1).
 var wind_degrees := 20.0
 var wind_speed := 0.2
+## How much snow lies (0 … 1: everything white).
+var snow_cover := 0.0
+## How deep the frost is in the ground (0 … 1), and whether the ground and
+## the shallow water are frozen (they freeze late and thaw late).
+var frost := 0.0
+var frozen := false
 ## For the overlay.
 var steps_done := 0
 
@@ -84,6 +92,9 @@ func reset() -> void:
 	since_tick = 0
 	wind_degrees = float(_hash(0, _SALT_TURN) % 360)
 	wind_speed = 0.2
+	snow_cover = 0.0
+	frost = 0.0
+	frozen = false
 	steps_done = 0
 	_step = -1
 	_held_until = -1
@@ -249,6 +260,11 @@ func rainfall_over(day: int, days: int) -> float:
 	return total
 
 
+## Are the ground and the shallow water frozen?
+func is_frozen() -> bool:
+	return frozen
+
+
 func has_condition(condition: StringName) -> bool:
 	return _conditions.has(condition)
 
@@ -274,7 +290,8 @@ func debug_text() -> String:
 	return "weather: %s%s since %s  %.1f°C  wind %.2f to %d°  cover %.2f  rain today %.1f (7 days: %.1f)%s" % [
 		state, " (HELD)" if is_held() else "", _hour_text(since_tick), temperature(), wind_speed, roundi(wind_degrees), cloud_cover(),
 		float(_rain.get(today, 0.0)), rainfall_over(today, 7),
-		"  CONDITIONS: " + ", ".join(conditions()) if not _conditions.is_empty() else ""]
+		"  CONDITIONS: " + ", ".join(conditions()) if not _conditions.is_empty() else ""] \
+		+ "\nground: snow %.2f  frost %.2f%s" % [snow_cover, frost, "  FROZEN" if frozen else ""]
 
 
 # --- saving -----------------------------------------------------------------------------------------
@@ -285,6 +302,7 @@ func to_dict() -> Dictionary:
 		"wind_degrees": wind_degrees, "wind_speed": wind_speed,
 		"rain": _rain.duplicate(), "warmest": _warmest.duplicate(), "coldest": _coldest.duplicate(),
 		"conditions": _strings(_conditions),
+		"snow": snow_cover, "frost": frost, "frozen": frozen,
 	}
 
 
@@ -302,6 +320,9 @@ func from_dict(data: Dictionary) -> void:
 	_held_until = _int(data.get("held_until"), -1)
 	wind_degrees = _number(data.get("wind_degrees"), wind_degrees)
 	wind_speed = clampf(_number(data.get("wind_speed"), wind_speed), 0.0, 1.0)
+	snow_cover = clampf(_number(data.get("snow"), 0.0), 0.0, 1.0)
+	frost = clampf(_number(data.get("frost"), 0.0), 0.0, 1.0)
+	frozen = bool(data["frozen"]) if typeof(data.get("frozen")) == TYPE_BOOL else false
 	_rain = _days(data.get("rain"))
 	_warmest = _days(data.get("warmest"))
 	_coldest = _days(data.get("coldest"))
@@ -324,6 +345,7 @@ func _do_step(index: int) -> void:
 	steps_done += 1
 	_note_rain(calendar - step_minutes, calendar)
 	_note_temperature(now)
+	_note_ground(now, step_minutes / 60.0)
 	if posmod(calendar, DAY) < step_minutes:
 		_end_day(floori(float(calendar) / DAY) - 1)
 	if _held_until >= 0:
@@ -395,6 +417,30 @@ func _note_temperature(tick: int) -> void:
 	var now := temperature(tick)
 	_warmest[day] = maxf(float(_warmest.get(day, -INF)), now)
 	_coldest[day] = minf(float(_coldest.get(day, INF)), now)
+
+
+## Snow and frost over the `hours` that have passed under the weather as
+## it is: snow lies down while it snows and melts in the warm (and in the
+## rain); the ground freezes in the cold and thaws in the warm.
+func _note_ground(tick: int, hours: float) -> void:
+	var seasons := Config.seasons
+	var warmth := temperature(tick)
+	if state == SNOW:
+		snow_cover += seasons.snow_per_hour * hours
+	if warmth > 0.0:
+		snow_cover -= seasons.melt_per_degree_hour * warmth * hours
+	if is_raining():
+		snow_cover -= seasons.rain_melt_per_hour * hours
+	snow_cover = clampf(snow_cover, 0.0, 1.0)
+	if warmth < 0.0:
+		frost += seasons.freeze_per_degree_hour * -warmth * hours
+	else:
+		frost -= seasons.thaw_per_degree_hour * warmth * hours
+	frost = clampf(frost, 0.0, 1.0)
+	var now_frozen := frost >= seasons.frozen_from if not frozen else frost > seasons.thawed_below
+	if now_frozen != frozen:
+		frozen = now_frozen
+		frozen_changed.emit(frozen)
 
 
 ## A day is over: are the conditions (still) there? And what is too long

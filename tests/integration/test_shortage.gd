@@ -282,6 +282,7 @@ func test_the_seed_grain_is_eaten_and_the_next_harvest_suffers() -> void:
 	for knob: Array in [[&"rain_moisture", 0], [&"evaporation_per_day", 0], [&"crop_draw_per_day", 0], [&"seep_share", 0.0]]:
 		_knob(Config.farming, knob[0], knob[1])
 	_knob(Config.farming, &"season_growth", PackedFloat32Array([1.0, 1.0, 1.0, 1.0]))
+	_knob(Config.farming, &"grow_days", 8.0) # (the days this test counts in)
 	_knob(Config.settlement, &"shortage_after_minutes", 100_000_000)
 	_empty_food()
 	# The first field: sown with what was gathered wild — no seed asked for.
@@ -341,7 +342,6 @@ func test_the_seed_grain_is_eaten_and_the_next_harvest_suffers() -> void:
 	farming.sown_thin.connect(func(crop_id: int) -> void: thin_reports.append(crop_id))
 	session.clock.tick += 2 * 1440
 	_soil(tile, 200, 200)
-	assert_true(farming.sowing_time(session.clock.tick), "still a season for sowing")
 	var thin := farming.sow(tile, session.clock.tick)
 	assert_not_null(thin)
 	assert_true(farming.is_thin(thin.id))

@@ -16,6 +16,8 @@ signal died(animal_id: int, species: StringName, cause: StringName, position: Ve
 signal born(animal_id: int, species: StringName)
 ## An animal took fright and ran.
 signal fled(animal_id: int)
+## A group has set out for other ground (in autumn, in spring).
+signal migrated(species: StringName, group: int, to: Vector2)
 
 const STEP_MINUTES := 30
 ## When time comes a minute at a time (the running game), animals that are
@@ -44,6 +46,17 @@ const STALKED_SHARE := 0.4
 ## After a kill a predator's home moves this much of the way to where it
 ## made it (they live where their prey is).
 const HOME_DRIFT := 0.3
+## A group that moves on goes at least this far (tiles).
+const MIGRATION_MIN_TILES := 12.0
+## Animals on their way to other ground go at this share of their amble.
+const JOURNEY_PACE := 0.6
+## One on its way has arrived this near where the group will live (tiles).
+const JOURNEY_ARRIVED := 2.5
+## Whoever has not arrived by this day of the season lives there all the
+## same (and gets there as it can).
+const JOURNEY_OVER_DAY := 4
+## How many places a group looks at for a way that keeps clear of people.
+const JOURNEY_TRIES := 6
 ## The last few of a kind keep hidden: a predator catches nothing when there
 ## are no more than this many of its prey — and when the last pair grows
 ## old, a young one takes the old one's place. (No kind dies out by itself;
@@ -80,6 +93,14 @@ var _pathfinder: Pathfinder
 var _day := -1_000_000
 var _births: Dictionary = {} # species -> young not yet whole (0 … 1)
 var _next_group := 1
+## Herds on their way to other ground: group -> where to (Vector2). Each
+## of the group walks there by a way of its own, and lives there once it
+## has arrived (`home`); the journey is over when they all do.
+var _journeys: Dictionary = {}
+## The way each one on a journey is following (animal id -> the middles of
+## its tiles) and how far along it is. Not saved: found again when wanted.
+var _ways: Dictionary = {}
+var _way_at: Dictionary = {}
 var _wade := 0.24
 var _shores: Dictionary = {} # group -> Vector2 (where they drink) or Vector2.INF
 var _unreached: Dictionary = {} # group -> the tick a hunter found no way to it
@@ -175,9 +196,11 @@ func advance_to(now: int) -> void:
 		_days(last_tick)
 	total_usec += Time.get_ticks_usec() - started
 	if now > last_tick:
-		# Too long to live through: only the days count.
+		# Too long to live through: only the days count (and whoever was on
+		# the way somewhere has got there).
 		last_tick = now
 		_days(now)
+		_end_journeys(now, true)
 
 
 ## Something startling happened at `at` (the player's hand, a falling tree):
@@ -285,7 +308,8 @@ func debug_text() -> String:
 
 func to_dict() -> Dictionary:
 	return {"seeded": seeded, "fish": fish, "last_tick": last_tick, "day": _day, "births": _births.duplicate(),
-		"next_group": _next_group, "animals": registry.to_dict() if registry != null else {}}
+		"next_group": _next_group, "journeys": _journeys.duplicate(),
+		"animals": registry.to_dict() if registry != null else {}}
 
 
 ## Restores the saved state (call after bind). Returns how many animal
@@ -304,6 +328,15 @@ func from_dict(data: Dictionary) -> int:
 	var saved: Variant = data.get("animals")
 	var skipped := registry.from_dict(saved if typeof(saved) == TYPE_DICTIONARY else {}) if registry != null else 0
 	_next_group = maxi(int(data.get("next_group", 1)), 1)
+	_journeys = {}
+	_ways = {}
+	_way_at = {}
+	var under_way: Variant = data.get("journeys")
+	if typeof(under_way) == TYPE_DICTIONARY:
+		for group: Variant in under_way:
+			var to: Variant = (under_way as Dictionary)[group]
+			if typeof(group) == TYPE_INT and typeof(to) == TYPE_VECTOR2 and (to as Vector2).is_finite():
+				_journeys[group] = to
 	if registry != null:
 		for animal in registry.all_animals():
 			_next_group = maxi(_next_group, animal.group + 1)
@@ -318,6 +351,8 @@ func from_dict(data: Dictionary) -> int:
 # --- one step ---------------------------------------------------------------------------------------
 
 func _step(minutes: int, now: int) -> void:
+	if not _journeys.is_empty():
+		_advance_journeys(minutes, now)
 	var fine := minutes < CALM_EVERY
 	var calm_turn := not fine or posmod(now, CALM_EVERY) < minutes
 	if fine and not calm_turn and _hurried == 0:
@@ -362,6 +397,8 @@ func _live(animal: AnimalData, def: SpeciesDef, minutes: int, now: int, hour: fl
 		var threat := _threat(animal, def, about, hunters)
 		if threat != Vector2.INF:
 			_flee(animal, threat, now)
+	if _on_journey(animal) and animal.state != AnimalData.State.FLEE and animal.state != AnimalData.State.HUNT:
+		return # (on its way to other ground: `_advance_journeys` walks it)
 	match animal.state:
 		AnimalData.State.FLEE:
 			if now >= animal.state_until:
@@ -618,6 +655,12 @@ func _days(now: int) -> void:
 
 
 func _one_day(now: int) -> void:
+	var season := Config.time.season_of(now)
+	# The first day of autumn and of spring: those who do move on.
+	if Config.time.day_of_season(now) == 1 and (season == Seasons.AUTUMN or season == Seasons.SPRING):
+		_migrate(now)
+	elif Config.time.day_of_season(now) == JOURNEY_OVER_DAY and not _journeys.is_empty():
+		_end_journeys(now, false)
 	for id in species.ids():
 		var def := species.get_def(id)
 		if def.aggregate:
@@ -646,9 +689,9 @@ func _one_day(now: int) -> void:
 				_die(hungry[_rng.randi_range(0, hungry.size() - 1)], &"hunger")
 				here -= 1
 		# Young: the more, the more room there is; none without two grown ones.
-		if grown.size() < 2 or here >= holds:
+		if grown.size() < 2 or here >= holds or not def.mates_in(season):
 			continue
-		var expected := def.birth_rate * grown.size() * maxf(1.0 - float(here) / float(holds), 0.0)
+		var expected := def.birth_rate * def.mating_boost() * grown.size() * maxf(1.0 - float(here) / float(holds), 0.0)
 		var due := expected + float(_births.get(id, 0.0))
 		while due >= 1.0 and registry.count(id) < holds:
 			due -= 1.0
@@ -657,6 +700,174 @@ func _one_day(now: int) -> void:
 			if young != null:
 				born.emit(young.id, id)
 		_births[id] = clampf(due, 0.0, 1.0)
+
+
+## Every group of a species that migrates looks for other ground to live
+## on, well away from where it lives now, and sets out for it.
+func _migrate(_now: int) -> void:
+	for id in species.ids():
+		var def := species.get_def(id)
+		if def.aggregate or not def.migrates:
+			continue
+		var homes := {} # group -> where it lives
+		for animal in registry.of_species(id):
+			homes[animal.group] = animal.home
+		for group: int in homes:
+			if _journeys.has(group):
+				continue # (still on its way from last time)
+			var from: Vector2 = homes[group]
+			# Somewhere they can walk to without passing the people's huts.
+			for found: Vector2 in _other_ground(from):
+				if _pathfinder != null and not _clear_way(WorldCoords.world2d_to_tile(from), WorldCoords.world2d_to_tile(found),
+						def.fear_radius + 2.0):
+					continue
+				_journeys[group] = found
+				migrated.emit(id, group, found)
+				break
+
+
+## Open ground well away from `from` (and from the settlement) where a
+## group might live: a few places, the best first.
+func _other_ground(from: Vector2) -> Array[Vector2]:
+	var b := _world.bounds.grow(-3)
+	var settlement := Vector2(_start.settlement_tile) if _start != null else Vector2.INF
+	var scored: Array = [] # [how good, where]
+	for attempt in 80:
+		var tile := Vector2i(_rng.randi_range(b.position.x, b.end.x - 1), _rng.randi_range(b.position.y, b.end.y - 1))
+		var at := Vector2(tile) + Vector2(0.5, 0.5)
+		if at.distance_to(from) < MIGRATION_MIN_TILES or not _can_stand(tile) or _world.get_water(tile) > 0.0:
+			continue
+		var terrain := _world.get_terrain(tile)
+		if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT:
+			continue
+		if settlement != Vector2.INF and at.distance_to(settlement) < SETTLEMENT_CLEARANCE:
+			continue
+		# (Green ground, and not further than need be: the further, the likelier the way leads past people.)
+		var green := float(_world.chunk_at_tile(tile).vegetation[_world.index_at_tile(tile)]) / 255.0
+		scored.append([green * 10.0 - at.distance_to(from) * 0.3, at])
+	scored.sort_custom(func(a: Array, c: Array) -> bool: return a[0] > c[0])
+	var places: Array[Vector2] = []
+	for entry: Array in scored.slice(0, JOURNEY_TRIES):
+		places.append(entry[1])
+	return places
+
+
+## Whether there is a way from one tile to another that keeps `clearance`
+## tiles away from the settlement (animals do not walk past people).
+func _clear_way(from: Vector2i, to: Vector2i, clearance: float) -> bool:
+	var way := _pathfinder.find_path(from, to)
+	if way.size() < 2:
+		return false
+	if _start == null:
+		return true
+	var settlement := Vector2(_start.settlement_tile)
+	for tile in way:
+		if Vector2(tile).distance_to(settlement) < clearance:
+			return false
+	return true
+
+
+## Whether an animal is on its way to where its group is moving to.
+func _on_journey(animal: AnimalData) -> bool:
+	return not _journeys.is_empty() and _journeys.has(animal.group) and animal.home != _journeys[animal.group]
+
+
+## Herds on their way: each one walks the way there, in the hours it is
+## awake (a fright or a hunt comes first), and lives there once it arrives.
+func _advance_journeys(minutes: int, now: int) -> void:
+	var hour := Config.time.minute_of_day(now) / 60.0
+	var arrived := {} # group -> whether nobody of it is still on the way
+	for group: int in _journeys:
+		arrived[group] = true
+	for animal in registry.all_animals():
+		if not _on_journey(animal):
+			continue
+		var to: Vector2 = _journeys[animal.group]
+		arrived[animal.group] = false
+		var def := species.get_def(animal.species)
+		if def == null or animal.state == AnimalData.State.FLEE or animal.state == AnimalData.State.HUNT:
+			_forget_way(animal.id)
+			continue
+		if def.sleeps_at(hour):
+			animal.state = AnimalData.State.SLEEP # (where they are: there is no going home)
+			continue
+		animal.state = AnimalData.State.WANDER
+		animal.target = to
+		if animal.position.distance_to(to) <= JOURNEY_ARRIVED or _follow(animal, to, def.walk_speed * JOURNEY_PACE * minutes):
+			animal.home = to
+			_forget_way(animal.id)
+			_rest(animal, now, 20, 60)
+	for group: int in arrived:
+		if arrived[group]:
+			_journeys.erase(group)
+
+
+## Moves an animal up to `distance` tiles along its way to `to`. True if
+## it is there — or there is no way for it (then it tries as it always
+## does: straight for where it lives).
+func _follow(animal: AnimalData, to: Vector2, distance: float) -> bool:
+	var way: PackedVector2Array = _ways.get(animal.id, PackedVector2Array())
+	var index: int = _way_at.get(animal.id, 0)
+	if way.is_empty() or index >= way.size() or animal.position.distance_to(way[index]) > 1.6:
+		# No way yet, or it was driven off it: from where it stands.
+		way = PackedVector2Array()
+		if _pathfinder != null:
+			for tile in _pathfinder.find_path(WorldCoords.world2d_to_tile(animal.position), WorldCoords.world2d_to_tile(to)):
+				way.append(Vector2(tile) + Vector2(0.5, 0.5))
+		if way.size() < 2:
+			return true
+		index = 0
+		_ways[animal.id] = way
+	var at := animal.position
+	var facing := animal.facing
+	var left := distance
+	while left > 0.0001 and index < way.size():
+		var gap := at.distance_to(way[index])
+		if gap <= 0.05:
+			index += 1
+			continue
+		var stride := minf(left, gap)
+		var next := at + (way[index] - at) / gap * stride
+		facing = (next - at).angle()
+		at = next
+		left -= stride
+	_way_at[animal.id] = index
+	if at != animal.position or facing != animal.facing:
+		registry.move(animal.id, at, facing)
+	return index >= way.size()
+
+
+func _forget_way(id: int) -> void:
+	_ways.erase(id)
+	_way_at.erase(id)
+
+
+## The journeys are over. `there`: time went by that nobody lived through,
+## and those on the way have arrived; otherwise they have been long enough
+## about it, and whoever is still on the way gets there as it can.
+func _end_journeys(now: int, there: bool) -> void:
+	for animal in registry.all_animals():
+		if not _on_journey(animal):
+			continue
+		var to: Vector2 = _journeys[animal.group]
+		if there:
+			var at := to
+			for attempt in 6:
+				var near := _scatter(to, 2.0)
+				if _can_stand(WorldCoords.world2d_to_tile(near)):
+					at = near
+					break
+			registry.move(animal.id, at, animal.facing)
+		animal.home = to
+		_rest(animal, now, 20, 60)
+	_journeys.clear()
+	_ways.clear()
+	_way_at.clear()
+
+
+## How many herds are on their way to other ground.
+func journey_count() -> int:
+	return _journeys.size()
 
 
 ## How many of a species the box keeps: its capacity — and for a predator,

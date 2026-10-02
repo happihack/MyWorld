@@ -20,6 +20,11 @@ enum Diet { GRAZER, PREDATOR, FISH }
 @export_range(1, 50) var group_max: int = 5
 ## Young per grown animal per day when there is plenty of room.
 @export_range(0.0, 2.0, 0.005) var birth_rate: float = 0.05
+## The seasons in which young are born (0 = spring). As many are born in
+## a year as if they came all year round.
+@export var mating_seasons: PackedInt32Array = PackedInt32Array([0])
+## Does the group move to other ground when autumn and spring come?
+@export var migrates: bool = false
 ## Game days until a young one is grown, and how long one lives.
 @export_range(1, 2000) var adult_days: int = 24
 @export_range(1, 5000) var lifespan_days: int = 240
@@ -60,6 +65,17 @@ enum Diet { GRAZER, PREDATOR, FISH }
 @export var color: Color = Color(0.6, 0.45, 0.3)
 ## Which shape it is drawn with (AnimalMeshLibrary): "deer", "rabbit", "fox".
 @export var shape: StringName = &""
+
+
+## Are young born in this season?
+func mates_in(season: int) -> bool:
+	return mating_seasons.is_empty() or mating_seasons.has(season)
+
+
+## How many times the yearly rate births come at in a mating season (they
+## are all the year's births).
+func mating_boost() -> float:
+	return 4.0 / mating_seasons.size() if not mating_seasons.is_empty() else 1.0
 
 
 func is_hunted() -> bool:

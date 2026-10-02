@@ -39,6 +39,8 @@ const TYPE_STORM := &"storm"
 const TYPE_DROUGHT := &"drought"
 const TYPE_HEAT_WAVE := &"heat_wave"
 const TYPE_COLD_SNAP := &"cold_snap"
+const TYPE_CROP_FROZEN := &"crop_frozen"
+const TYPE_HERD_MOVED := &"herd_moved"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -192,6 +194,24 @@ func on_crop_failed(crop_id: int) -> void:
 	_log.record(TYPE_CROP_FAILURE, params, causes)
 
 
+## A crop was killed by frost: because of the cold snap, if there is one.
+func on_crop_frozen(crop_id: int) -> void:
+	if not _writing():
+		return
+	var crop := _props.get_prop(crop_id) if _props != null else null
+	var params := {"settlement": _settlement_id()}
+	if crop != null:
+		params["position"] = Places.middle_of(crop.tile)
+	_log.record(TYPE_CROP_FROZEN, params, [condition_id(WeatherSystem.COLD_SNAP)])
+
+
+## A herd has set out for other ground.
+func on_migrated(species: StringName, _group: int, to: Vector2) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_HERD_MOVED, {"species": String(species), "position": to})
+
+
 ## A plot was sown without seed: because the seed was eaten, if it was.
 func on_sown_thin(crop_id: int) -> void:
 	if not _writing():
@@ -340,7 +360,7 @@ func shortage_causes() -> Array:
 		return causes
 	var now := _now()
 	var window := roundi(_config.cause_window_days * TimeConfig.MINUTES_PER_DAY)
-	for type: StringName in [TYPE_CROP_FAILURE, TYPE_POOR_HARVEST, TYPE_SPOILED]:
+	for type: StringName in [TYPE_CROP_FAILURE, TYPE_CROP_FROZEN, TYPE_POOR_HARVEST, TYPE_SPOILED]:
 		for event in _log.of_type(type, now - window, now):
 			causes.append(event.id)
 	if _forage_id != 0:

@@ -219,7 +219,8 @@ func test_animals_graze_wander_drink_and_sleep() -> void:
 			states[[animal.species, animal.state]] = true
 			if def.diet == SpeciesDef.Diet.GRAZER and animal.state == AnimalData.State.SLEEP:
 				farthest = maxf(farthest, animal.position.distance_to(animal.home) - def.home_range)
-			longest_step = maxf(longest_step, animal.position.distance_to(before[animal.id]) - def.run_speed * 10.0)
+			# (Young born on the way have no "before".)
+			longest_step = maxf(longest_step, animal.position.distance_to(before.get(animal.id, animal.position)) - def.run_speed * 10.0)
 			before[animal.id] = animal.position
 			assert_true(session.world.bounds.has_point(animal.tile()), "inside the box")
 			assert_true(session.world.get_water(animal.tile()) <= Pathfinder.WADE_DEPTH * session.world.height_step + 0.001, "not in deep water")

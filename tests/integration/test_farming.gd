@@ -233,6 +233,7 @@ func test_plots_are_tilled_beside_each_other_near_the_settlement() -> void:
 # --- growth -----------------------------------------------------------------------------------------
 
 func test_production_crops() -> void:
+	_knob(&"grow_days", 8.0) # (the days this test counts in)
 	_still_soil()
 	var ripened: Array = []
 	var failed: Array = []
@@ -366,10 +367,18 @@ func test_growth_follows_soil_and_season() -> void:
 	assert_near(float(per_season[1]) / per_season[0], 1.0, 0.03, "summer as spring")
 	assert_near(float(per_season[2]) / per_season[0], config.season_growth[2], 0.05, "autumn slower")
 	assert_eq(per_season[3], 0, "nothing in winter")
-	# Sowing is for spring and summer.
+	# Sowing is for spring — while what is sown can still ripen before winter.
 	assert_true(farming.sowing_time(0))
-	assert_true(farming.sowing_time(Config.time.days_per_season * 1440 + 5))
+	assert_true(farming.ripens_before_winter(0))
+	assert_true(farming.growing_days_left(0) > farming.growing_days_left(4 * 1440))
+	assert_false(farming.sowing_time(Config.time.days_per_season * 1440 + 5), "summer: too late for this year")
 	assert_false(farming.sowing_time(2 * Config.time.days_per_season * 1440 + 5))
+	assert_false(farming.sowing_time(3 * Config.time.days_per_season * 1440 + 5))
+	assert_near(farming.growing_days_left(3 * Config.time.days_per_season * 1440 + 5), 0.0, 0.001, "winter")
+	# Grain that ripens quickly can be sown later.
+	_knob(&"grow_days", 4.0)
+	assert_true(farming.sowing_time(Config.time.days_per_season * 1440 + 5))
+	assert_false(farming.sowing_time(3 * Config.time.days_per_season * 1440 + 5), "but never in winter")
 	assert_false(farming.sowing_time(_winter_tick()))
 	assert_true(farming.sowing_time(Config.time.ticks_per_year() + 5), "and spring again")
 
@@ -698,6 +707,9 @@ func test_a_year_of_farming() -> void:
 			grain_in[0] += amount)
 	var hungriest := 1.0
 	var plots_by_season: Array = []
+	var worn := 0
+	var ripe_in_season := [0, 0, 0, 0]
+	farming.ripened.connect(func(_id: int) -> void: ripe_in_season[Config.time.season_of(session.clock.tick)] += 1)
 	var year_days := Config.time.days_per_year()
 	for day in year_days:
 		for part in 4:
@@ -706,6 +718,10 @@ func test_a_year_of_farming() -> void:
 				hungriest = minf(hungriest, Needs.value(p.needs, Needs.Need.HUNGER))
 		if (day + 1) % Config.time.days_per_season == 0:
 			plots_by_season.append("%d plots, %d grain in store" % [farming.plot_count(), session.stored(&"grain")])
+		# The ground that has just borne grain is the poorer for it (it rests over winter).
+		if day == 2 * Config.time.days_per_season + 2:
+			for crop in farming.crops():
+				worn += 1 if farming.fertility(crop.tile) < int(session.generator.sample_tile(crop.tile)["fertility"]) else 0
 	var rain_days := 0
 	for day in year_days:
 		rain_days += 1 if farming.rain_on(day) else 0
@@ -718,11 +734,12 @@ func test_a_year_of_farming() -> void:
 	assert_true(grain_in[0] >= 12, "and was brought in (%d)" % grain_in[0])
 	assert_true(hungriest > 0.05, "nobody starved (%.2f)" % hungriest)
 	assert_true(session.settlement.fire_lit())
-	# The ground that bore grain is the poorer for it.
-	var worn := 0
-	for crop in farming.crops():
-		worn += 1 if farming.fertility(crop.tile) < int(session.generator.sample_tile(crop.tile)["fertility"]) else 0
 	assert_true(worn >= 3, "fertility was taken out (%d plots)" % worn)
+	# One sowing in spring, one harvest: at the end of summer and in autumn.
+	assert_eq(ripe_in_season[0] + ripe_in_season[3], 0, "none in spring, none in winter (%s)" % str(ripe_in_season))
+	assert_true(ripe_in_season[1] + ripe_in_season[2] >= 3)
+	for crop in farming.crops():
+		assert_eq(Farming.stage_of(crop), Farming.Stage.STUBBLE, "the field lies bare over winter")
 	# It all survives a save: plots, stages, soil.
 	var data: Dictionary = bytes_to_var(var_to_bytes(session.to_dict()))
 	var loaded: WorldSession = SessionScript.new()

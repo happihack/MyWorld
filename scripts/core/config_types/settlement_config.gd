@@ -17,6 +17,14 @@ extends ConfigBase
 @export_range(0.0, 30.0, 0.1) var starting_food_days: float = 1.0
 @export_range(0, 1000) var starting_wood: int = 6
 
+@export_group("Before winter")
+## From this many days before winter the settlement wants more in store:
+## by winter's first day this many times as much food, and wood. (In
+## winter itself: half way between that and the usual.)
+@export_range(0.0, 60.0, 0.5) var winter_prepare_days: float = 6.0
+@export_range(1.0, 10.0, 0.1) var winter_food_factor: float = 2.0
+@export_range(1.0, 10.0, 0.1) var winter_wood_factor: float = 2.0
+
 @export_group("Shortage")
 ## With less than this many days of food in store for this many game
 ## minutes, the settlement is short of food: it rations, and forages further.

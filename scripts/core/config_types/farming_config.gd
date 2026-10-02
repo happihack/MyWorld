@@ -11,12 +11,15 @@ extends ConfigBase
 @export_range(2, 64) var site_max_distance: int = 9
 ## Seasons (0 = spring) in which people sow.
 @export var sowing_seasons: PackedInt32Array = PackedInt32Array([0, 1])
+## Nothing is sown that could not ripen before winter: counted with this
+## share of the growing days there are left (below 1: a little hope).
+@export_range(0.1, 2.0, 0.05) var ripen_margin: float = 1.0
 ## A harvested plot lies fallow this many days before it is sown again.
 @export_range(0.0, 60.0, 0.5) var fallow_days: float = 1.0
 
 @export_group("Growth")
 ## Game days from sowing to ripe grain, in good soil and a growing season.
-@export_range(0.5, 120.0, 0.5) var grow_days: float = 8.0
+@export_range(0.5, 120.0, 0.5) var grow_days: float = 14.0
 ## How well things grow in each season (0 = spring): nothing grows in winter.
 @export var season_growth: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 0.6, 0.0])
 ## Soil moisture (0 … 255) below which a crop stands still and wilts, and

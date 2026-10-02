@@ -77,6 +77,10 @@ var _solid := PackedByteArray()
 var _weight := PackedFloat32Array()
 var _height := PackedInt32Array()
 var _water_class := PackedByteArray()
+## Frozen: water no deeper than `_ice_depth` (world units) is ice — walked
+## on and stood on like ground.
+var _frozen := false
+var _ice_depth := 0.0
 var _prop_kind := PackedByteArray() # PropData.Kind + 1, 0 = nothing
 var _dirty: Dictionary = {} # tile -> true
 var _obstacles: Dictionary = {} # tile -> how many boulders / logs lie on it
@@ -92,6 +96,7 @@ var _next_request := 1
 ## and lies in the way; `water` (optional) reports where water moves.
 func bind(world: WorldData, props: PropRegistry = null, loose: LooseObjectRegistry = null, water: WaterSim = null) -> void:
 	unbind()
+	_frozen = false # (a new world: the weather says when it freezes)
 	_world = world
 	_props = props
 	_loose = loose
@@ -173,7 +178,7 @@ func rebuild() -> void:
 				var i := ly * size + lx
 				var id := row + x
 				var depth := chunk.water[i]
-				var water := _DEEP if depth > deep else (_WADE if depth > WET_DEPTH else _DRY)
+				var water := _class_of(depth)
 				var kind := _kind_at(Vector2i(x, origin.y + ly))
 				_height[id] = chunk.height[i]
 				_water_class[id] = water
@@ -382,6 +387,38 @@ func serve(budget_usec: int = 1000) -> int:
 
 # --- keeping up with the world ------------------------------------------------------------------
 
+## The shallow water has frozen over (or thawed): water no deeper than
+## `ice_depth` (world units) carries like ground while it is frozen.
+## Returns how many tiles that concerns.
+func set_frozen(frozen: bool, ice_depth: float) -> int:
+	if frozen == _frozen and is_equal_approx(ice_depth, _ice_depth):
+		return 0
+	_frozen = frozen
+	_ice_depth = ice_depth
+	var concerned := 0
+	if _world == null:
+		return 0
+	for y in range(_bounds.position.y, _bounds.end.y):
+		for x in range(_bounds.position.x, _bounds.end.x):
+			var tile := Vector2i(x, y)
+			if _water_class[_id(tile)] != _water_at(tile):
+				_dirty[tile] = true
+				concerned += 1
+	return concerned
+
+
+func is_frozen() -> bool:
+	return _frozen
+
+
+## Is this tile ice (frozen water that carries)?
+func is_ice(tile: Vector2i) -> bool:
+	if not _frozen or _world == null or not _bounds.has_point(tile):
+		return false
+	var depth := _world.get_water(tile)
+	return depth > WET_DEPTH and depth <= _ice_depth
+
+
 ## The tile may have changed (ground, water, what stands or lies on it).
 func mark_dirty(tile: Vector2i) -> void:
 	if _bounds.has_point(tile):
@@ -476,10 +513,15 @@ func _kind_at(tile: Vector2i) -> int:
 
 
 func _water_at(tile: Vector2i) -> int:
-	var depth := _world.get_water(tile)
-	if depth > WADE_DEPTH * _world.height_step:
-		return _DEEP
-	return _WADE if depth > WET_DEPTH else _DRY
+	return _class_of(_world.get_water(tile))
+
+
+## What water of a depth is to someone on foot: dry ground (also ice),
+## water to wade through, or too deep.
+func _class_of(depth: float) -> int:
+	if depth <= WET_DEPTH or (_frozen and depth <= _ice_depth):
+		return _DRY
+	return _DEEP if depth > WADE_DEPTH * _world.height_step else _WADE
 
 
 ## Reads what decides whether a tile can be stood on and how it joins its

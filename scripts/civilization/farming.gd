@@ -28,6 +28,8 @@ signal sown_thin(crop_id: int)
 signal harvest_thin(crop_id: int)
 ## A dry spell began (so many days without rain), or ended.
 signal dry_spell(began: bool, days: int)
+## A growing crop was killed by frost.
+signal frost_killed(crop_id: int)
 
 enum Stage { SOWN, SPROUT, GROWING, RIPE, STUBBLE, FAILED }
 
@@ -52,6 +54,8 @@ var last_settle_tick := -1_000_000
 ## The weather: called with a game day, returns whether it rained on it.
 ## Not set: the placeholder below (FarmingConfig.rain_chance) says.
 var rain_source := Callable()
+## Is the ground frozen? (The weather says; not set: never.)
+var frozen_source := Callable()
 ## Where seed comes from: called with the units wanted, returns true if
 ## they were there (and are taken). Not set: sowing needs no seed.
 var seed_source := Callable()
@@ -223,9 +227,36 @@ func dry_days() -> int:
 	return _dry_days
 
 
-## Is it a season for sowing?
+## Is it a time for sowing: a season for it, the ground not frozen — and
+## time enough left for what is sown to ripen before winter?
 func sowing_time(now: int) -> bool:
-	return _config.sows_in(Config.time.season_of(now))
+	return _config.sows_in(Config.time.season_of(now)) and not ground_frozen() and ripens_before_winter(now)
+
+
+func ground_frozen() -> bool:
+	return frozen_source.is_valid() and bool(frozen_source.call())
+
+
+## Would grain sown now ripen before winter? Counted in days of good
+## growth: each day until winter counts what its season lets grow (a
+## tended crop grows faster).
+func ripens_before_winter(now: int) -> bool:
+	return growing_days_left(now) * _config.ripen_margin >= _config.grow_days
+
+
+## Days of full growth there are between `now` and winter, for a crop that
+## is tended.
+func growing_days_left(now: int) -> float:
+	var time := Config.time
+	var day := time.day_index(now)
+	var total := 0.0
+	for ahead in time.days_per_year():
+		@warning_ignore("integer_division")
+		var season := posmod(day + ahead, time.days_per_year()) / time.days_per_season
+		if season == Seasons.WINTER:
+			break
+		total += _config.season_factor(season)
+	return total * (1.0 + _config.tend_bonus)
 
 
 ## The soil's moisture at a tile, 0 … 255.
@@ -449,7 +480,16 @@ func settle(now: int) -> void:
 		_weather_day(_day - 1)
 		_soil_day(_day - 1)
 	_day = today
+	var frost := ground_frozen()
 	for crop in crops():
+		if frost and is_growing(crop):
+			# Frost: what was still growing is dead.
+			crop.variant = Stage.FAILED
+			crop.stock = -1
+			crop.stock_tick = now
+			_props.changed(crop.id)
+			frost_killed.emit(crop.id)
+			continue
 		_grow(crop, now)
 
 
