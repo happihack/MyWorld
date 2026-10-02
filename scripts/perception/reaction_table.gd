@@ -65,6 +65,9 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"rain_fell": [0.18, 0.35, 9.0, false, true, true],
 	&"sourceless_wind": [0.4, 0.75, 9.0, true, false, true],
 	&"ground_carved": [0.5, 0.5, 8.0, true, false, false],
+	&"thunderstorm": [0.45, 0.45, 40.0, false, true, true],
+	&"rain_returned": [0.3, 0.3, 40.0, false, true, true],
+	&"flood": [0.8, 0.8, 40.0, false, true, false],
 	&"object_found": [0.3, 0.5, 0.0, true, false, false],
 }
 

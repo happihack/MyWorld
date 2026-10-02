@@ -131,6 +131,12 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			# At night, going home is going (back) to bed, until morning.
 			if SleepStep.is_night_for(person, ctx.clock.hour() if ctx.clock != null else 12.0):
 				return [WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()]
+			# In bad weather it is taking shelter: indoors, until it has been a while.
+			var from := ctx.shelter_reason()
+			if from != &"":
+				var stay := Config.exposure.shelter_minutes
+				return [WalkToStep.make(home, person.sub_tile_offset),
+					RestStep.make(snappedf(rng.randf_range(stay.x, stay.y), 1.0), home, from)]
 			return [WalkToStep.make(home, person.sub_tile_offset), RestStep.make(snappedf(rng.randf_range(20.0, 45.0), 1.0), home)]
 	return []
 

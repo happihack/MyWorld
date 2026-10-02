@@ -28,6 +28,10 @@ const ROUTINE_PULL := 0.25
 ## When something else has come due, what one is at holds one less: the
 ## score it was begun with no longer counts, and this share of the hysteresis.
 const DUE_HYSTERESIS := 0.5
+## What is done out of doors (bad weather takes from its worth; from work less).
+const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along"]
+## Why someone goes home who goes in out of the weather.
+const REASON_WEATHER := &"weather"
 ## ...but only if it was begun for no pressing reason (with less than this
 ## speaking for it): nobody leaves a meal they were starving for because the
 ## hour says work.
@@ -107,6 +111,15 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 		var trade := ctx.occupations.get_def(person.occupation_id)
 		if trade != null:
 			total *= ctx.settlement.jobs.work_factor(trade.work_target, trade.helps_with)
+	# The weather: it drives people home, and takes from what is done out of doors.
+	var pull := ctx.shelter_pull()
+	if pull > 0.0:
+		if def.id == &"go_home":
+			total += Config.exposure.shelter_weight * pull
+		elif def.id == &"work":
+			total *= 1.0 - Config.exposure.work_cut * pull
+		elif OUTDOORS.has(def.id):
+			total *= 1.0 - Config.exposure.outdoor_cut * pull
 	if def.repeat_after_minutes > 0.0 and person.activity_log.has(def.id_text()):
 		var since := float(ctx.now() - int(person.activity_log[def.id_text()]))
 		total -= REPEAT_PENALTY * clampf(1.0 - since / def.repeat_after_minutes, 0.0, 1.0)
@@ -172,13 +185,22 @@ static func decide(person: PersonData, ctx: AiContext, current: StringName = &""
 				kept.append(values[i])
 		if kept_ids.is_empty():
 			decision.activity = current
-			decision.reason = reason_for(ctx.activities.get_def(current), person)
+			decision.reason = _reason(ctx.activities.get_def(current), person, ctx)
 			return decision
 		ids = kept_ids
 		values = kept
 	decision.activity = _draw(ids, values, temperature(person), ctx.rng)
-	decision.reason = reason_for(ctx.activities.get_def(decision.activity), person)
+	decision.reason = _reason(ctx.activities.get_def(decision.activity), person, ctx)
 	return decision
+
+
+## Why this, now: the weather, for someone going in out of it; otherwise
+## what `reason_for` says.
+static func _reason(def: ActivityDef, person: PersonData, ctx: AiContext) -> StringName:
+	if def != null and def.id == &"go_home" and ctx.shelter_reason() != &"" \
+			and Needs.urgency(person.needs, Needs.Need.SAFETY) < 0.5:
+		return REASON_WEATHER
+	return reason_for(def, person)
 
 
 ## How unpredictable a person is: the creative more than the plain.

@@ -33,6 +33,7 @@ var seasons: SeasonsConfig
 var hydrology: HydrologyConfig
 var vegetation: VegetationConfig
 var tools: ToolsConfig
+var exposure: ExposureConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -69,6 +70,7 @@ func reload() -> void:
 	hydrology = _load("hydrology_config.tres", HydrologyConfig) as HydrologyConfig
 	vegetation = _load("vegetation_config.tres", VegetationConfig) as VegetationConfig
 	tools = _load("tools_config.tres", ToolsConfig) as ToolsConfig
+	exposure = _load("exposure_config.tres", ExposureConfig) as ExposureConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

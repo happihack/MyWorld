@@ -55,6 +55,11 @@ static func text(entry: Array, people: PersonRegistry = null, config: TimeConfig
 			var particular := "DAY_WORK_" + detail.to_upper()
 			if detail != "" and has(particular):
 				key = particular
+		"go_home":
+			# (In out of the weather: "takes shelter from the rain".)
+			var sheltering := "DAY_" + detail.to_upper()
+			if detail != "" and has(sheltering):
+				key = sheltering
 	if not has(key):
 		return kind.replace("_", " ")
 	return translate(key).format({"name": who})

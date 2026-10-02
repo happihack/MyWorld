@@ -30,6 +30,8 @@ signal harvest_thin(crop_id: int)
 signal dry_spell(began: bool, days: int)
 ## A growing crop was killed by frost.
 signal frost_killed(crop_id: int)
+## A crop has drowned (its plot stood under water).
+signal drowned(crop_id: int)
 
 enum Stage { SOWN, SPROUT, GROWING, RIPE, STUBBLE, FAILED }
 
@@ -487,7 +489,16 @@ func settle(now: int) -> void:
 		_soil_day(_day - 1)
 	_day = today
 	var frost := ground_frozen()
+	var deep := Config.hydrology.flood_depth
 	for crop in crops():
+		if _world.get_water(crop.tile) >= deep and (is_growing(crop) or stage_of(crop) == Stage.RIPE):
+			# Under water: what stood on the plot is lost.
+			crop.variant = Stage.FAILED
+			crop.stock = -1
+			crop.stock_tick = now
+			_props.changed(crop.id)
+			drowned.emit(crop.id)
+			continue
 		if frost and is_growing(crop):
 			# Frost: what was still growing is dead.
 			crop.variant = Stage.FAILED

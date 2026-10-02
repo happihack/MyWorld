@@ -7,6 +7,10 @@ extends RefCounted
 
 ## The fire went out, or was lit again.
 signal fire_changed(lit: bool)
+## A flood has taken so much of something that lay in store.
+signal flood_took(resource: StringName, amount: int)
+## A hut the water stood in has been rebuilt on higher ground.
+signal home_moved(hut_id: int, from: Vector2i, to: Vector2i)
 ## Food went bad in a pile (anywhere in the world).
 signal spoiled(resource: StringName, amount: int)
 ## Someone took up another occupation (the first farmer).
@@ -71,6 +75,18 @@ var _served: Dictionary = {}
 var _served_day := -1_000_000
 ## The tick at which the fire wants its next piece of wood (-1 = not begun).
 var _burn_tick := -1
+## The weather, the river, the land and the paths (set by the session; may
+## be null: then there is no cold, no flood and no moving house).
+var weather: WeatherSystem
+var hydrology: Hydrology
+var world: WorldData
+var pathfinder: Pathfinder
+## The highest the water has ever stood in the settlement (world units; a
+## hut is rebuilt above it), and the huts it has stood in, to be moved.
+var flood_level := 0.0
+var _moves: Array[int] = []
+var _flood_hour := -1_000_000
+var _move_day := -1_000_000
 ## The game day up to which the days' housekeeping (spoilage) is done.
 var _day := -1_000_000
 var _farmer_check_tick := -1_000_000
@@ -102,6 +118,10 @@ func bind(start: WorldSetup.StartInfo, people: PersonRegistry, props: PropRegist
 	_empty_since = -1
 	_served.clear()
 	_served_day = -1_000_000
+	flood_level = 0.0
+	_moves.clear()
+	_flood_hour = -1_000_000
+	_move_day = -1_000_000
 
 
 func unbind() -> void:
@@ -315,6 +335,7 @@ func step(now: int) -> void:
 	if _props == null:
 		return
 	_burn(now)
+	_flood(now)
 	var today := Config.time.day_index(now)
 	if _day == -1_000_000 or today < _day:
 		_day = today
@@ -336,6 +357,7 @@ func step(now: int) -> void:
 		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
 		_keep_seed()
+		_relocate(now)
 		jobs.refresh(self, now)
 		_check_shortage(now)
 
@@ -350,11 +372,21 @@ func debug_text() -> String:
 func to_dict() -> Dictionary:
 	return {"burn_tick": _burn_tick, "day": _day, "jobs": jobs.to_dict(), "shortage": shortage, "seed_eaten": seed_eaten,
 		"forage_low": forage_low, "low_since": _low_since, "empty_since": _empty_since,
-		"served": _served.duplicate(), "served_day": _served_day}
+		"served": _served.duplicate(), "served_day": _served_day,
+		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day}
 
 
 func from_dict(data: Dictionary) -> void:
 	_burn_tick = int(data["burn_tick"]) if typeof(data.get("burn_tick")) == TYPE_INT else -1
+	var level: Variant = data.get("flood_level")
+	flood_level = maxf(float(level), 0.0) if (typeof(level) == TYPE_FLOAT or typeof(level) == TYPE_INT) and is_finite(float(level)) else 0.0
+	_moves.clear()
+	var moves: Variant = data.get("moves")
+	if typeof(moves) == TYPE_ARRAY:
+		for hut_id: Variant in moves:
+			if typeof(hut_id) == TYPE_INT and _start != null and _start.hut_ids.has(hut_id) and not _moves.has(hut_id):
+				_moves.append(hut_id)
+	_move_day = int(data["move_day"]) if typeof(data.get("move_day")) == TYPE_INT else -1_000_000
 	_day = int(data["day"]) if typeof(data.get("day")) == TYPE_INT else -1_000_000
 	var board: Variant = data.get("jobs")
 	jobs.from_dict(board if typeof(board) == TYPE_DICTIONARY else {})
@@ -466,7 +498,15 @@ func _burn(now: int) -> void:
 	var prop := fire()
 	if prop == null or _config.fire_wood_per_day <= 0.0:
 		return
-	var minutes_per_log := maxi(roundi(Config.time.MINUTES_PER_DAY / _config.fire_wood_per_day), 1)
+	# Under water there is no fire (and none is lit).
+	if is_under_water(prop.tile):
+		if prop.stock != 0:
+			prop.stock = 0
+			_props.changed(prop.id)
+			fire_changed.emit(false)
+		return
+	# (In the cold it burns more.)
+	var minutes_per_log := maxi(roundi(Config.time.MINUTES_PER_DAY / (_config.fire_wood_per_day * cold_factor(now))), 1)
 	if _burn_tick < 0 or now < _burn_tick - minutes_per_log:
 		_burn_tick = now + minutes_per_log # (a new fire, or the clock set back)
 	var lit := prop.stock != 0
@@ -488,6 +528,188 @@ func _burn(now: int) -> void:
 		prop.stock = -1 if lit else 0
 		_props.changed(prop.id)
 		fire_changed.emit(lit)
+
+
+# --- cold and flood -----------------------------------------------------------------------------------
+
+## How many times as much wood the fire burns for the cold (1 = as usual).
+func cold_factor(now: int) -> float:
+	return Exposure.fire_factor(weather.temperature(now)) if weather != null else 1.0
+
+
+## Does water stand on a tile deep enough to count as a flood?
+func is_under_water(tile: Vector2i) -> bool:
+	return world != null and world.get_water(tile) >= Config.hydrology.flood_depth
+
+
+## How many huts are waiting to be rebuilt on higher ground.
+func pending_moves() -> int:
+	return _moves.size()
+
+
+## Once a game hour: is the water in the settlement? Then it is remembered
+## how high it stood and which huts it stood in, everyone flooded out has
+## somewhere dry to go, and the flood takes of what lies in store.
+func _flood(now: int) -> void:
+	@warning_ignore("integer_division")
+	var hour := now / 60
+	if hour == _flood_hour or world == null or _start == null:
+		return
+	_flood_hour = hour
+	var wet: Array[PropData] = []
+	for prop in buildings():
+		if is_under_water(prop.tile):
+			wet.append(prop)
+	if wet.is_empty():
+		if _places != null:
+			_places.refuge = null
+		return
+	for prop in wet:
+		flood_level = maxf(flood_level, world.get_height(prop.tile) * world.height_step + world.get_water(prop.tile))
+		if prop.kind == PropData.Kind.HUT and not _moves.has(prop.id):
+			_moves.append(prop.id)
+	if _places != null and _places.refuge == null:
+		_places.refuge = _find_refuge()
+	# The stores: food spoils in the water, wood floats away.
+	if _piles == null or _library == null:
+		return
+	var config := Config.exposure
+	var lost := {}
+	for pile in _piles.piles():
+		if not is_under_water(pile.tile()):
+			continue
+		var def := _library.get_def(pile.resource)
+		var share := config.flood_food_share_per_hour if def != null and def.is_food() else \
+			(config.flood_wood_share_per_hour if pile.resource == &"wood" else 0.0)
+		if share <= 0.0:
+			continue
+		pile.spoil += pile.amount * share
+		var gone := mini(floori(pile.spoil), pile.amount)
+		if gone <= 0:
+			continue
+		pile.spoil -= gone
+		var resource := pile.resource
+		_piles.take_from(pile.id, gone)
+		lost[resource] = int(lost.get(resource, 0)) + gone
+	for resource: StringName in lost:
+		flood_took.emit(resource, int(lost[resource]))
+
+
+## Dry ground near the fire, not lower than it, for those flooded out.
+func _find_refuge() -> Variant:
+	var hearth := fire()
+	if hearth == null or world == null:
+		return null
+	var best: Variant = null
+	var best_distance := INF
+	var reach := ceili(Config.exposure.move_radius)
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var tile := hearth.tile + Vector2i(dx, dy)
+			if not world.is_in_bounds(tile) or world.get_water(tile) > 0.0 or world.get_height(tile) <= world.get_height(hearth.tile):
+				continue
+			if _props.has_prop_at(tile) or (pathfinder != null and not pathfinder.can_stand(tile)):
+				continue
+			var distance := Vector2(dx, dy).length()
+			if distance < best_distance:
+				best_distance = distance
+				best = tile
+	return best
+
+
+## Once a day, by daylight, when the water has gone and there is wood for
+## it: a hut the flood stood in is rebuilt on ground the water has never
+## reached (what the settlement remembers of floods decides where).
+func _relocate(now: int) -> void:
+	if _moves.is_empty() or world == null or _props == null:
+		return
+	var today := Config.time.day_index(now)
+	var hour := Config.time.minute_of_day(now) / 60.0
+	if today == _move_day or hour < 9.0 or hour > 17.0 or (_places != null and _places.refuge != null):
+		return
+	var config := Config.exposure
+	if stockpile.amount(&"wood") < config.move_wood + ceili(_config.fire_wood_per_day):
+		return
+	# The first of them that nobody is in (not from under someone asleep or sheltering).
+	var indoors := {}
+	for person in members():
+		if person.has_flag(PersonData.FLAG_INDOORS):
+			indoors[person.home_building_id] = true
+	var hut: PropData = null
+	for hut_id: int in _moves.duplicate():
+		var prop := _props.get_prop(hut_id)
+		if prop == null:
+			_moves.erase(hut_id)
+		elif not indoors.has(hut_id):
+			hut = prop
+			break
+	if hut == null:
+		return
+	_move_day = today
+	var site: Variant = _site_for(hut)
+	if site == null:
+		_moves.erase(hut.id) # (no higher ground in reach: it stays where it is)
+		return
+	var from := hut.tile
+	_props.remove(hut.id)
+	hut.tile = site
+	if not _props.add(hut):
+		hut.tile = from
+		_props.add(hut)
+		_moves.erase(hut.id)
+		return
+	stockpile.take(&"wood", config.move_wood)
+	_moves.erase(hut.id)
+	home_moved.emit(hut.id, from, site)
+
+
+## Where a hut is rebuilt: open ground above the highest water the
+## settlement has seen, that can be walked to, clear of other buildings —
+## the nearest such to the fire.
+func _site_for(hut: PropData) -> Variant:
+	var hearth := fire()
+	if hearth == null:
+		return null
+	var config := Config.exposure
+	var best: Variant = null
+	var best_distance := INF
+	var reach := ceili(config.move_radius)
+	# (Not where someone is standing, or something lies.)
+	var taken := {}
+	if _people != null:
+		for person in _people.all_people():
+			taken[person.position] = true
+	if _piles != null:
+		for pile in _piles.piles():
+			taken[pile.tile()] = true
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var distance := Vector2(dx, dy).length()
+			if distance > config.move_radius or distance >= best_distance:
+				continue
+			var tile := hearth.tile + Vector2i(dx, dy)
+			if taken.has(tile):
+				continue
+			if not world.is_in_bounds(tile) or world.get_water(tile) > 0.0 \
+					or world.get_height(tile) * world.height_step <= flood_level + 0.01:
+				continue
+			var terrain := world.get_terrain(tile)
+			if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT:
+				continue
+			var clear := true
+			for y in range(-config.move_spacing, config.move_spacing + 1):
+				for x in range(-config.move_spacing, config.move_spacing + 1):
+					var near := _props.prop_at(tile + Vector2i(x, y))
+					if near != null and near.id != hut.id and (x == 0 and y == 0 or near.kind == PropData.Kind.HUT
+							or near.kind == PropData.Kind.CAMPFIRE or near.kind == PropData.Kind.CROP):
+						clear = false
+			if not clear:
+				continue
+			if pathfinder != null and (not pathfinder.can_stand(tile) or not pathfinder.is_reachable(hearth.tile + Vector2i(1, 0), tile)):
+				continue
+			best = tile
+			best_distance = distance
+	return best
 
 
 func _spoil() -> void:

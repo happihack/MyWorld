@@ -26,6 +26,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	15: _v15_to_v16,
 	16: _v16_to_v17,
 	17: _v17_to_v18,
+	18: _v18_to_v19,
 }
 
 
@@ -346,6 +347,25 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 19 (M9.6) adds what the settlement remembers of floods: how high
+## the water has stood in it, and the huts waiting to be rebuilt on higher
+## ground. An older world's settlement has seen no flood.
+static func _v18_to_v19(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	var settlement: Variant = (state as Dictionary).get("settlement")
+	if typeof(settlement) == TYPE_DICTIONARY and not (settlement as Dictionary).is_empty():
+		if not (settlement as Dictionary).has("flood_level"):
+			(settlement as Dictionary)["flood_level"] = 0.0
+		if not (settlement as Dictionary).has("moves"):
+			(settlement as Dictionary)["moves"] = []
 	return data
 
 

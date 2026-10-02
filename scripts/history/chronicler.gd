@@ -46,6 +46,9 @@ const TYPE_LOW_WATER := &"low_water"
 const TYPE_FLOOD := &"flood"
 const TYPE_BANK_ERODED := &"bank_eroded"
 const TYPE_TREE_WITHERED := &"tree_withered"
+const TYPE_STORES_FLOODED := &"stores_flooded"
+const TYPE_HOME_MOVED := &"home_moved"
+const TYPE_COLD_SICK := &"person_cold_sick"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -196,6 +199,10 @@ func on_crop_failed(crop_id: int) -> void:
 	var low := condition_id(TYPE_LOW_WATER)
 	if low != 0:
 		causes.append(low)
+	# (And behind both, the drought, if there is one.)
+	var drought := condition_id(WeatherSystem.DROUGHT)
+	if drought != 0:
+		causes.append(drought)
 	var crop := _props.get_prop(crop_id) if _props != null else null
 	var params := {"settlement": _settlement_id()}
 	if crop != null:
@@ -323,6 +330,52 @@ func on_tree_died(tile: Vector2i, cause: StringName) -> void:
 	_log.record(TYPE_TREE_WITHERED, {"position": Places.middle_of(tile)}, causes)
 
 
+## The flood going on — or the last one, if it is not long over (0 = none).
+func flood_id() -> int:
+	var going := condition_id(TYPE_FLOOD)
+	if going != 0 or _log == null:
+		return going
+	var last := _log.latest(TYPE_FLOOD)
+	if last != null and _now() - int(last.effects.get("ended", last.tick)) <= 30 * TimeConfig.MINUTES_PER_DAY:
+		return last.id
+	return 0
+
+
+## A crop has drowned: because of the flood.
+func on_crop_drowned(crop_id: int) -> void:
+	if not _writing():
+		return
+	var crop := _props.get_prop(crop_id) if _props != null else null
+	var params := {"settlement": _settlement_id()}
+	if crop != null:
+		params["position"] = Places.middle_of(crop.tile)
+	_log.record(TYPE_CROP_FAILURE, params, [flood_id()] if flood_id() != 0 else [])
+
+
+## The flood has taken of what lay in store.
+func on_flood_took(resource: StringName, amount: int) -> void:
+	if not _writing() or amount <= 0:
+		return
+	# One event for a flood: what it goes on to take is added to it.
+	var flood := flood_id()
+	var known := _log.latest(TYPE_STORES_FLOODED)
+	if known != null and flood != 0 and Array(known.causes).has(flood):
+		_log.note_effect(known.id, "lost", int(known.effects.get("lost", 0)) + amount)
+		return
+	var event := _log.record(TYPE_STORES_FLOODED, {"position": _fire_place(), "settlement": _settlement_id()},
+		[flood] if flood != 0 else [])
+	if event != null:
+		_log.note_effect(event.id, "lost", int(event.effects.get("lost", 0)) + amount)
+
+
+## A hut has been rebuilt on higher ground: because of the flood.
+func on_home_moved(_hut_id: int, _from: Vector2i, to: Vector2i) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_HOME_MOVED, {"position": Places.middle_of(to), "settlement": _settlement_id()},
+		[flood_id()] if flood_id() != 0 else [])
+
+
 ## Something that goes on for a while begins (an event) or ends (noted on it).
 func _going(type: StringName, active: bool, params: Dictionary, causes: Array) -> void:
 	var key := String(type)
@@ -391,7 +444,8 @@ func on_fire_changed(lit: bool) -> void:
 		_log.record(TYPE_FIRE_RELIT, {"position": _fire_place(), "settlement": _settlement_id()}, [_fire_out_id])
 		_fire_out_id = 0
 	else:
-		var event := _log.record(TYPE_FIRE_OUT, {"position": _fire_place(), "settlement": _settlement_id()})
+		var event := _log.record(TYPE_FIRE_OUT, {"position": _fire_place(), "settlement": _settlement_id()},
+			[condition_id(TYPE_FLOOD)] if condition_id(TYPE_FLOOD) != 0 else [])
 		_fire_out_id = event.id if event != null else 0
 
 
@@ -440,7 +494,7 @@ func shortage_causes() -> Array:
 		return causes
 	var now := _now()
 	var window := roundi(_config.cause_window_days * TimeConfig.MINUTES_PER_DAY)
-	for type: StringName in [TYPE_CROP_FAILURE, TYPE_CROP_FROZEN, TYPE_POOR_HARVEST, TYPE_SPOILED]:
+	for type: StringName in [TYPE_CROP_FAILURE, TYPE_CROP_FROZEN, TYPE_POOR_HARVEST, TYPE_SPOILED, TYPE_STORES_FLOODED]:
 		for event in _log.of_type(type, now - window, now):
 			causes.append(event.id)
 	if _forage_id != 0:
@@ -467,19 +521,30 @@ func on_hunted(person_id: int, species: StringName) -> void:
 		"settlement": _settlement_id()})
 
 
-## Someone is weak with hunger: because of the shortage, if there is one.
+## Someone is weak with hunger: because of the shortage, if there is one —
+## or ill with the cold: because of the bitter cold, or the fire gone out.
 func on_fell_ill(person_id: int, condition: StringName) -> void:
-	if not _writing() or condition != Hardship.HUNGER:
+	if not _writing():
+		return
+	if condition == Exposure.COLD:
+		var causes: Array = []
+		for id: int in [condition_id(WeatherSystem.COLD_SNAP), _fire_out_id]:
+			if id != 0:
+				causes.append(id)
+		_log.record(TYPE_COLD_SICK, {"participants": [person_id], "position": _place_of(person_id),
+			"settlement": _settlement_id()}, causes)
+		return
+	if condition != Hardship.HUNGER:
 		return
 	_log.record(TYPE_SICK, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()},
 		[_empty_id if _empty_id != 0 else _shortage_id])
 
 
 func on_recovered(person_id: int, condition: StringName) -> void:
-	if not _writing() or condition != Hardship.HUNGER:
+	if not _writing() or (condition != Hardship.HUNGER and condition != Exposure.COLD):
 		return
 	var sick := 0
-	for event in _log.of_type(TYPE_SICK):
+	for event in _log.of_type(TYPE_COLD_SICK if condition == Exposure.COLD else TYPE_SICK):
 		if event.involves(person_id):
 			sick = event.id
 	_log.record(TYPE_RECOVERED, {"participants": [person_id], "position": _place_of(person_id),

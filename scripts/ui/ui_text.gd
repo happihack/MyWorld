@@ -81,6 +81,7 @@ const TOOL_REVEALED := {
 	&"water": "A new power: Water — tap to scoop and pour, hold and drag to carve",
 }
 
+const ILL_WITH_COLD := "Ill with the cold"
 const WATER_NAME := "Water"
 
 ## Words for what stands out in a person (ids from Traits).

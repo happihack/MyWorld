@@ -32,7 +32,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	if target != 0 and prop == null:
 		return Status.DONE
 	Needs.satisfy(person.needs, Needs.Need.PURPOSE, minutes / Config.needs.full_work_minutes)
-	var time_up := tick(step, minutes)
+	# (In great heat the work goes slower: less of it gets done in the time.)
+	var time_up := tick(step, minutes * Exposure.work_pace(ctx.temperature()))
 	# (One stroke per turn at most: a turn that covers several is still one
 	# thing seen and heard.)
 	var strokes := int(float(step["elapsed"]) / STROKE_MINUTES)

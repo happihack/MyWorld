@@ -65,7 +65,32 @@ func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfi
 ## The tile of the person's home, or null if they have none.
 func home_tile(person: PersonData) -> Variant:
 	var home := _props.get_prop(person.home_building_id) if _props != null else null
-	return home.tile if home != null else null
+	if home == null:
+		return null
+	# Flooded out: where the settlement has taken refuge is home for now.
+	if refuge != null and _world != null and _world.get_water(home.tile) >= Config.hydrology.flood_depth:
+		return refuge
+	return home.tile
+
+
+## Is the person at their hut (at its door: on its tile or one beside it)
+## — and is it a hut to be in (not under water)?
+func is_at_home(person: PersonData) -> bool:
+	var home := _props.get_prop(person.home_building_id) if _props != null else null
+	if home == null or is_flooded_out(person):
+		return false
+	return maxi(absi(person.position.x - home.tile.x), absi(person.position.y - home.tile.y)) <= 1
+
+
+## Is the person's hut under water (so that they live at the refuge for now)?
+func is_flooded_out(person: PersonData) -> bool:
+	var home := _props.get_prop(person.home_building_id) if _props != null else null
+	return home != null and _world != null and _world.get_water(home.tile) >= Config.hydrology.flood_depth
+
+
+## Where everyone whose hut is under water goes instead (dry ground near
+## the settlement; the settlement says, while a flood lasts). Null: nowhere.
+var refuge: Variant = null
 
 
 ## The middle of a tile, on the ground plane.

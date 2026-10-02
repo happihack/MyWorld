@@ -60,8 +60,8 @@ extends ConfigBase
 @export_group("The ground beside it")
 ## How much of the moisture the land holds by itself is there for every
 ## unit the river stands lower or higher (1 = as made), within bounds.
-@export_range(0.0, 10.0, 0.1) var groundwater_per_level: float = 1.9
-@export_range(0.0, 1.0, 0.05) var groundwater_least: float = 0.45
+@export_range(0.0, 10.0, 0.1) var groundwater_per_level: float = 2.4
+@export_range(0.0, 1.0, 0.05) var groundwater_least: float = 0.4
 @export_range(1.0, 2.0, 0.05) var groundwater_most: float = 1.15
 ## Soil dries as usual on a day whose warmest hour had this many degrees;
 ## more on hotter days, less on cooler ones, within bounds.

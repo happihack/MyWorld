@@ -21,7 +21,9 @@ static func make() -> Dictionary:
 
 func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	person.pose = PersonData.Pose.SLEEP
-	person.set_flag(PersonData.FLAG_INDOORS, true)
+	# Indoors — unless they are flooded out of their hut: then they sleep in
+	# the open, to be seen.
+	person.set_flag(PersonData.FLAG_INDOORS, ctx.places == null or not ctx.places.is_flooded_out(person))
 	# A child put to bed for the night (not taken up again after a load).
 	if float(step.get("elapsed", 0.0)) <= 0.0 and ctx.stage_of(person) == PersonData.LifeStage.CHILD \
 			and is_bedtime_for(person, ctx.clock.hour() if ctx.clock != null else 12.0):

@@ -75,6 +75,47 @@ func now() -> int:
 	return clock.tick if clock != null else 0
 
 
+# The weather as people feel it, worked out once for every moment (it is
+# asked about for every activity of every decision).
+var _weather_tick := -1_000_000
+var _shelter_pull := 0.0
+var _shelter_reason: StringName = &""
+var _temperature := 15.0
+
+
+## How strongly the weather drives people indoors now, 0 … 1.
+func shelter_pull() -> float:
+	_feel_weather()
+	return _shelter_pull
+
+
+## What they take shelter from ("rain", "storm", "snow", "cold"); &"" if nothing.
+func shelter_reason() -> StringName:
+	_feel_weather()
+	return _shelter_reason
+
+
+## How warm it is at the settlement now (°C).
+func temperature() -> float:
+	_feel_weather()
+	return _temperature
+
+
+func _feel_weather() -> void:
+	var tick := now()
+	if tick == _weather_tick:
+		return
+	_weather_tick = tick
+	if weather == null:
+		_shelter_pull = 0.0
+		_shelter_reason = &""
+		_temperature = 15.0
+		return
+	_temperature = weather.temperature(tick)
+	_shelter_pull = Exposure.pull(weather, tick)
+	_shelter_reason = Exposure.reason(weather, tick)
+
+
 ## The person's stage of life (looked up once per game day and person:
 ## everything a person does asks for it).
 func stage_of(person: PersonData) -> PersonData.LifeStage:

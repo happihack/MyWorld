@@ -147,6 +147,7 @@ func _init() -> void:
 	farming.rain_source = weather.rain_on
 	farming.frozen_source = weather.is_frozen
 	farming.frost_killed.connect(chronicle.on_crop_frozen)
+	farming.drowned.connect(chronicle.on_crop_drowned)
 	# The river: its level is the weather's doing; the fields feel it.
 	hydrology = Hydrology.new()
 	hydrology.settled_source = settled_tiles
@@ -164,6 +165,17 @@ func _init() -> void:
 	nodes.depleted.connect(vegetation.on_depleted)
 	nodes.regrown.connect(vegetation.on_regrown)
 	vegetation.tree_died.connect(chronicle.on_tree_died)
+	# A storm breaking, the rain coming back after a drought, the river in
+	# the huts: nature's doing — and noticed.
+	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
+		if now == WeatherSystem.STORM:
+			emit_natural(Stimulus.THUNDERSTORM))
+	weather.condition_changed.connect(func(condition: StringName, active: bool) -> void:
+		if condition == WeatherSystem.DROUGHT and not active:
+			emit_natural(Stimulus.RAIN_RETURNED))
+	hydrology.flood_changed.connect(func(active: bool, _tiles: int, at: Vector2) -> void:
+		if active:
+			emit_natural(Stimulus.FLOOD, at))
 	# The player's powers show themselves when the world gives the idea of them.
 	powers = ToolReveals.new()
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
@@ -443,6 +455,19 @@ func _process(delta: float) -> void:
 			settlement.step(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
+
+
+## What nature does is noticed too (and people make of it what they will):
+## something of `kind` happens around `at` — the settlement's fire, if no
+## place is given.
+func emit_natural(kind: StringName, at: Vector2 = Vector2.INF) -> void:
+	if not is_active or perception == null:
+		return
+	if at == Vector2.INF:
+		if settlement == null or settlement.fire() == null:
+			return
+		at = settlement.fire().position2d()
+	perception.emit(Stimulus.natural(kind, at, clock.tick, Config.reactions))
 
 
 ## Once a game hour: does a crop stand dry in the field (the idea of rain)?
@@ -755,6 +780,10 @@ func _activate() -> void:
 		settlement = Settlement.new()
 		settlement.bind(start, people, props, piles, ai.places, resources, loose, Config.settlement)
 		settlement.farming = farming
+		settlement.weather = weather
+		settlement.hydrology = hydrology
+		settlement.world = world
+		settlement.pathfinder = pathfinder
 		settlement.occupations = occupations
 		settlement.fauna = fauna
 		settlement.nodes = nodes
@@ -766,6 +795,8 @@ func _activate() -> void:
 		settlement.fire_changed.connect(chronicle.on_fire_changed)
 		settlement.spoiled.connect(chronicle.on_spoiled)
 		settlement.took_up.connect(chronicle.on_took_up)
+		settlement.flood_took.connect(chronicle.on_flood_took)
+		settlement.home_moved.connect(chronicle.on_home_moved)
 	_saved_settlement = {}
 	# The world's history: what the save has of it. (A world from before
 	# there was one begins it now: what it has in store is no discovery.)

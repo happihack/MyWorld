@@ -339,6 +339,9 @@ func _note_change(person: PersonData, activity: StringName, steps: Array) -> voi
 		match str((step as Dictionary).get("type", "")):
 			"sleep":
 				to_bed = true
+			"rest":
+				if (step as Dictionary).has("shelter"):
+					detail = "shelter_" + str((step as Dictionary)["shelter"])
 			"socialize":
 				other = int((step as Dictionary).get("partner", 0))
 			"work":
@@ -393,6 +396,7 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	Needs.decay(person, minutes, Config.needs, ctx.stage_of(person),
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
 	Hardship.live(person, ctx, minutes)
+	Exposure.live(person, ctx, minutes)
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
 		return
