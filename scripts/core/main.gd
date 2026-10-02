@@ -123,6 +123,8 @@ func _ready() -> void:
 		return session.fauna.debug_text())
 	debug_overlay.register_section(&"weather", func() -> String:
 		return "%s\n%s\n%s" % [session.weather.debug_text(), world_view.weather_fx().debug_text(), session.hydrology.debug_text()])
+	debug_overlay.register_section(&"land", func() -> String:
+		return "%s\n%s" % [session.soil.debug_text(), session.vegetation.debug_text()])
 	debug_overlay.register_section(&"events", func() -> String:
 		return "%s\n%s\n%s" % [session.events.debug_text(3), NotificationManager.debug_text(), session.stats.debug_text()])
 	debug_overlay.register_section(&"farming", func() -> String:

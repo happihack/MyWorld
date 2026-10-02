@@ -47,6 +47,9 @@ var loose_system: LooseObjectSystem
 var water: WaterSim
 ## How the river stands: rain, dry weeks, floods (the coarse side of the water).
 var hydrology: Hydrology
+## The soil of all the land, and what grows on it.
+var soil: SoilSystem
+var vegetation: VegetationSystem
 ## What the player has done to this world.
 var history: PlayerHistory
 ## Everyone who lives here.
@@ -100,6 +103,8 @@ var stats: StatsRecorder
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
 var _saved_hydrology: Dictionary = {}
+var _saved_soil: Dictionary = {}
+var _saved_vegetation: Dictionary = {}
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
@@ -149,6 +154,12 @@ func _init() -> void:
 	hydrology.eroded.connect(chronicle.on_bank_eroded)
 	farming.groundwater_source = hydrology.groundwater
 	farming.drying_source = hydrology.drying
+	# The land: its soil, its grass and its trees.
+	soil = SoilSystem.new()
+	vegetation = VegetationSystem.new()
+	nodes.depleted.connect(vegetation.on_depleted)
+	nodes.regrown.connect(vegetation.on_regrown)
+	vegetation.tree_died.connect(chronicle.on_tree_died)
 	fauna.migrated.connect(chronicle.on_migrated)
 	# Shallow water that is frozen carries.
 	weather.frozen_changed.connect(func(frozen: bool) -> void:
@@ -209,6 +220,8 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_stats = {}
 	_saved_weather = {}
 	_saved_hydrology = {}
+	_saved_soil = {}
+	_saved_vegetation = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -268,8 +281,14 @@ func load_from(data: Dictionary) -> bool:
 	_saved_stats = {}
 	_saved_weather = {}
 	_saved_hydrology = {}
+	_saved_soil = {}
+	_saved_vegetation = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("soil")) == TYPE_DICTIONARY:
+			_saved_soil = state["soil"]
+		if typeof((state as Dictionary).get("vegetation")) == TYPE_DICTIONARY:
+			_saved_vegetation = state["vegetation"]
 		if typeof((state as Dictionary).get("hydrology")) == TYPE_DICTIONARY:
 			_saved_hydrology = state["hydrology"]
 		if typeof((state as Dictionary).get("weather")) == TYPE_DICTIONARY:
@@ -368,6 +387,8 @@ func to_dict() -> Dictionary:
 			"stats": stats.to_dict(),
 			"weather": weather.to_dict(),
 			"hydrology": hydrology.to_dict(),
+			"soil": soil.to_dict(),
+			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -397,6 +418,7 @@ func _process(delta: float) -> void:
 	if is_active:
 		simulation.advance(delta)
 		weather.advance_to(clock.tick)
+		soil.advance_to(clock.tick)
 		if nodes.due(clock.tick):
 			nodes.settle(clock.tick)
 		if settlement != null:
@@ -446,6 +468,8 @@ func sample_stats() -> Dictionary:
 		&"population": float(count),
 		&"food": stores.food() if stores != null else 0.0,
 		&"water": water.total_volume(),
+		&"trees": float(vegetation.tree_count()),
+		&"grass": vegetation.grass_cover(),
 		&"wood": float(stores.amount(&"wood")) if stores != null else 0.0,
 		&"stone": float(stores.amount(&"stone")) if stores != null else 0.0,
 		&"health": health / count if count > 0 else 0.0,
@@ -662,6 +686,13 @@ func _activate() -> void:
 	farming.from_dict(_saved_farming)
 	_saved_farming = {}
 	ai.farming = farming
+	# The land's soil and plants go on from where the save left them.
+	soil.bind(world, generator, props, weather, hydrology, Config.vegetation, Config.farming)
+	soil.from_dict(_saved_soil)
+	_saved_soil = {}
+	vegetation.bind(world, props, nodes, soil, weather, ids, rng.stream(&"vegetation"), clock, Config.vegetation, fire_at)
+	vegetation.from_dict(_saved_vegetation)
+	_saved_vegetation = {}
 	# The animals: those the save has — or, for a world that never had any, its first.
 	if species == null:
 		species = SpeciesLibrary.load_from()

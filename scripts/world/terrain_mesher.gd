@@ -60,7 +60,7 @@ static func build_buffers(world: WorldData, coord: Vector2i, palette: TerrainPal
 			var g := (ly + 1) * w + (lx + 1)
 			var y := level * height_step
 			var shade := _tile_shade(tile, palette.tile_variation)
-			var top_color := _scaled(palette.top(terrain), shade)
+			var top_color := _scaled(palette.grass(chunk.vegetation[i]) if terrain == ChunkData.Terrain.GRASS else palette.top(terrain), shade)
 
 			# Top face with corner ambient occlusion.
 			var ao00 := _corner_light(grid, w, g, -1, -1, level, palette.corner_occlusion)

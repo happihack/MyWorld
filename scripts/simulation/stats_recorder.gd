@@ -5,7 +5,8 @@ extends RefCounted
 ## they are. A ring of samples: when it is full the oldest go. Saved with
 ## the world.
 
-const SERIES: Array[StringName] = [&"population", &"food", &"water", &"wood", &"stone", &"health", &"mood", &"temperature"]
+const SERIES: Array[StringName] = [&"population", &"food", &"water", &"wood", &"stone", &"health", &"mood", &"temperature",
+	&"trees", &"grass"]
 
 ## Asked for a sample: returns {series name -> float} (see WorldSession.sample_stats).
 var source := Callable()

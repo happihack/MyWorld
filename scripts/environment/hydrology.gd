@@ -29,6 +29,8 @@ signal low_water_changed(active: bool)
 signal flood_changed(active: bool, tiles: int, at: Vector2)
 ## The river took a tile of its bank.
 signal eroded(tile: Vector2i)
+## The water has run off these tiles (they were under it, and are dry now).
+signal drained(tiles: Array[Vector2i])
 
 const _DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 const _SALT_SPRING := 0x51A7
@@ -302,14 +304,18 @@ func apply(force: bool = false) -> Array[Vector2i]:
 	var top := _surface + applied
 	for tile: Vector2i in wet:
 		_set_depth(tile, top - _world.get_height(tile) * height_step, changed, not _body.has(tile))
+	var left: Array[Vector2i] = []
 	for tile: Vector2i in _body:
 		if not wet.has(tile):
 			_set_depth(tile, 0.0, changed, false)
+			left.append(tile)
 	_body = wet
 	if _water != null and not changed.is_empty():
 		_syncing = true
 		_water.sync(changed)
 		_syncing = false
+	if not left.is_empty():
+		drained.emit(left)
 	level_changed.emit(applied)
 	return changed
 

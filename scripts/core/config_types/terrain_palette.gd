@@ -27,6 +27,12 @@ extends ConfigBase
 	Color(0.33, 0.26, 0.20), # MUD
 	Color(0.24, 0.24, 0.24), # ASH
 ]
+## Grass with little growing on it goes towards this colour: by
+## `sparse_strength` where nothing grows, not at all from `lush_from`
+## (ChunkData.vegetation) up.
+@export var sparse_grass: Color = Color(0.74, 0.68, 0.36)
+@export_range(0.0, 1.0, 0.01) var sparse_strength: float = 0.8
+@export_range(1, 255) var lush_from: int = 90
 ## Each tile's brightness varies by up to this fraction (hides the grid a little).
 @export_range(0.0, 0.2, 0.005) var tile_variation: float = 0.035
 ## How much one taller neighbour darkens a top-face corner (ambient occlusion).
@@ -54,6 +60,12 @@ extends ConfigBase
 
 func top(terrain: int) -> Color:
 	return top_colors[terrain] if terrain >= 0 and terrain < top_colors.size() else Color.MAGENTA
+
+
+## The colour of grass with so much growing on it (ChunkData.vegetation).
+func grass(vegetation: int) -> Color:
+	var thin := (1.0 - smoothstep(0.0, float(lush_from), float(vegetation))) * sparse_strength
+	return top_colors[ChunkData.Terrain.GRASS].lerp(sparse_grass, thin)
 
 
 func side(terrain: int) -> Color:

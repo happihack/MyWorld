@@ -24,6 +24,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	13: _v13_to_v14,
 	14: _v14_to_v15,
 	15: _v15_to_v16,
+	16: _v16_to_v17,
 }
 
 
@@ -344,6 +345,22 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 17 (M9.4) adds the soil's and the plants' books. An older world's
+## land is taken as it is: its soil and grass go on from there, and the
+## trees it has are the measure of its forest.
+static func _v16_to_v17(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	for key: String in ["soil", "vegetation"]:
+		if not (state as Dictionary).has(key):
+			(state as Dictionary)[key] = {}
 	return data
 
 

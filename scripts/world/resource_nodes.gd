@@ -206,6 +206,19 @@ func take(prop_id: int, units: int, now: int) -> int:
 	return given
 
 
+## A sapling: a tree newly seeded is a felled one with the first of its
+## growth, and grows up like a felled one growing back.
+func plant(prop: PropData, now: int) -> void:
+	if prop == null or prop.kind != PropData.Kind.TREE:
+		return
+	prop.felled = true
+	prop.stock = maxi(ceili(capacity(prop) * _config.sapling_from), 1)
+	prop.stock_tick = now
+	_tracked[prop.id] = true
+	if _props != null:
+		_props.changed(prop.id)
+
+
 ## Is it time to work out regrowth again?
 func due(now: int) -> bool:
 	return _config != null and now - last_settle_tick >= _config.regrow_check_minutes

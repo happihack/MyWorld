@@ -125,7 +125,8 @@ func test_neighbouring_chunks_share_a_seamless_border() -> void:
 func test_colours_come_from_the_palette() -> void:
 	var w := _world(func(world: WorldData) -> void: world.set_terrain(Vector2i(3, 3), ChunkData.Terrain.SNOW))
 	var b := _buffers(w)
-	var grass := palette.top(ChunkData.Terrain.GRASS)
+	# (Nothing grows in this world: its grass has the colour of bare grass — see test_vegetation for lush.)
+	var grass := palette.grass(0)
 	var snow := palette.top(ChunkData.Terrain.SNOW)
 	var found_snow := false
 	for i in range(0, b.vertices.size(), 4):

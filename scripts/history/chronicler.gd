@@ -45,6 +45,7 @@ const TYPE_HIGH_WATER := &"high_water"
 const TYPE_LOW_WATER := &"low_water"
 const TYPE_FLOOD := &"flood"
 const TYPE_BANK_ERODED := &"bank_eroded"
+const TYPE_TREE_WITHERED := &"tree_withered"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -305,6 +306,21 @@ func on_bank_eroded(tile: Vector2i) -> void:
 	if not _writing():
 		return
 	_log.record(TYPE_BANK_ERODED, {"position": Places.middle_of(tile)}, [condition_id(TYPE_HIGH_WATER)])
+
+
+## A tree has died where the ground dried out — because of the drought or
+## the low river, if there is one — or a young one in the cold. (What burns
+## is the fire's to tell.)
+func on_tree_died(tile: Vector2i, cause: StringName) -> void:
+	if not _writing() or cause == VegetationSystem.CAUSE_FIRE:
+		return
+	var causes: Array = []
+	var because: Array = [condition_id(WeatherSystem.COLD_SNAP)] if cause == VegetationSystem.CAUSE_COLD \
+		else [condition_id(WeatherSystem.DROUGHT), condition_id(TYPE_LOW_WATER)]
+	for id: int in because:
+		if id != 0:
+			causes.append(id)
+	_log.record(TYPE_TREE_WITHERED, {"position": Places.middle_of(tile)}, causes)
 
 
 ## Something that goes on for a while begins (an event) or ends (noted on it).

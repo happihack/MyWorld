@@ -138,6 +138,14 @@ func mark_pristine() -> void:
 	dirty = DIRTY_MESH | DIRTY_WATER # freshly generated chunks still need meshes
 
 
+## Layers were written directly (a whole chunk's soil or grass at once,
+## without touching every tile): the chunk differs from what the generator
+## makes, and must be saved — and drawn anew, if `extra_dirty` says so.
+func mark_changed(extra_dirty: int = 0) -> void:
+	modified = true
+	dirty |= DIRTY_SAVE | extra_dirty
+
+
 func clear_dirty(bits: int) -> void:
 	dirty &= ~bits
 
