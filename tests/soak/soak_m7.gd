@@ -170,6 +170,8 @@ func _run() -> void:
 	print("SOAK least food in store %.2f days (below %.1f days %d times, for %d minutes at the longest)  hungriest anyone was %.2f  worst health %.2f" % [
 		least_food_days, low_below, low_stretches, longest_low, hungriest, worst_health])
 	print("SOAK looked up %d  decisions %d" % [s.behavior.skipped + s.behavior.decisions, s.behavior.decisions])
+	print("SOAK %s  (stepped back out of rising water %d times)" % [s.hydrology.debug_text().replace("
+", "  "), s.behavior.waded_out])
 	print("SOAK %d game minutes in %.1f s (%.3f ms a minute)" % [minutes, elapsed / 1000.0, float(elapsed) / minutes])
 	s.queue_free()
 	await process_frame

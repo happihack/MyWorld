@@ -45,6 +45,8 @@ var interactions: InteractionManager
 var loose_system: LooseObjectSystem
 ## Moves the water.
 var water: WaterSim
+## How the river stands: rain, dry weeks, floods (the coarse side of the water).
+var hydrology: Hydrology
 ## What the player has done to this world.
 var history: PlayerHistory
 ## Everyone who lives here.
@@ -97,6 +99,7 @@ var stats: StatsRecorder
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
+var _saved_hydrology: Dictionary = {}
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
@@ -135,6 +138,17 @@ func _init() -> void:
 	farming.rain_source = weather.rain_on
 	farming.frozen_source = weather.is_frozen
 	farming.frost_killed.connect(chronicle.on_crop_frozen)
+	# The river: its level is the weather's doing; the fields feel it.
+	hydrology = Hydrology.new()
+	hydrology.settled_source = settled_tiles
+	hydrology.occupied_source = func(tile: Vector2i) -> bool:
+		return props != null and props.prop_at(tile) != null
+	hydrology.high_water_changed.connect(chronicle.on_high_water)
+	hydrology.low_water_changed.connect(chronicle.on_low_water)
+	hydrology.flood_changed.connect(chronicle.on_flood)
+	hydrology.eroded.connect(chronicle.on_bank_eroded)
+	farming.groundwater_source = hydrology.groundwater
+	farming.drying_source = hydrology.drying
 	fauna.migrated.connect(chronicle.on_migrated)
 	# Shallow water that is frozen carries.
 	weather.frozen_changed.connect(func(frozen: bool) -> void:
@@ -194,6 +208,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_chronicle = {}
 	_saved_stats = {}
 	_saved_weather = {}
+	_saved_hydrology = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -252,8 +267,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_chronicle = {}
 	_saved_stats = {}
 	_saved_weather = {}
+	_saved_hydrology = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("hydrology")) == TYPE_DICTIONARY:
+			_saved_hydrology = state["hydrology"]
 		if typeof((state as Dictionary).get("weather")) == TYPE_DICTIONARY:
 			_saved_weather = state["weather"]
 		if typeof((state as Dictionary).get("events")) == TYPE_DICTIONARY:
@@ -349,6 +367,7 @@ func to_dict() -> Dictionary:
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
 			"weather": weather.to_dict(),
+			"hydrology": hydrology.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -384,6 +403,17 @@ func _process(delta: float) -> void:
 			settlement.step(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
+
+
+## The tiles where people live and work: their huts, the fire, the fields.
+func settled_tiles() -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	if props == null:
+		return tiles
+	for prop in props.all_props():
+		if prop.kind == PropData.Kind.HUT or prop.kind == PropData.Kind.CAMPFIRE or prop.kind == PropData.Kind.CROP:
+			tiles.append(prop.tile)
+	return tiles
 
 
 ## Where the settlement keeps `resource` (the middle of its storage tile),
@@ -620,6 +650,11 @@ func _activate() -> void:
 	weather.bind(clock, Config.climate, world_seed, world, level)
 	weather.from_dict(_saved_weather)
 	_saved_weather = {}
+	# The river stands where the save left it (and goes on with the weather).
+	hydrology.bind(world, water, weather, Config.hydrology, world_seed, generator.water_surface_height())
+	hydrology.from_dict(_saved_hydrology)
+	_saved_hydrology = {}
+	water.river_flow = hydrology.flow()
 	weather.advance_to(clock.tick)
 	pathfinder.set_frozen(weather.frozen, Config.seasons.ice_depth)
 	ai.weather = weather

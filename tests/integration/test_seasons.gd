@@ -169,6 +169,7 @@ func test_snow_lies_and_the_ground_freezes() -> void:
 
 func test_ice_carries() -> void:
 	var finder := session.pathfinder
+	session.hydrology.enabled = false # (the river stays where it is: this is about ice)
 	# Shallow water and deep water beside the land.
 	var shallow := Vector2i.ZERO
 	var deep := Vector2i.ZERO

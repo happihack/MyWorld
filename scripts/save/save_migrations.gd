@@ -23,6 +23,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	12: _v12_to_v13,
 	13: _v13_to_v14,
 	14: _v14_to_v15,
+	15: _v15_to_v16,
 }
 
 
@@ -343,6 +344,20 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 16 (M9.3) adds the river's level. An older world's river stands
+## where it was made (and goes on from there with the weather).
+static func _v15_to_v16(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("hydrology"):
+		(state as Dictionary)["hydrology"] = {}
 	return data
 
 

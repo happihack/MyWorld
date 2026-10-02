@@ -537,7 +537,10 @@ func test_weather_effects() -> void:
 	session.settlement.step(clock.tick)
 	var crop := farming.sow(tile, clock.tick)
 	assert_not_null(crop)
-	# A day under a clear sky: the soil dries, and the crop drinks.
+	# A day under a clear sky: the soil dries, and the crop drinks. (How much
+	# faster on a hot day, and what the river does to it: test_hydrology.)
+	farming.drying_source = Callable()
+	farming.groundwater_source = Callable()
 	weather.hold(WeatherSystem.CLEAR, _midnight(day + 1))
 	clock.tick = _midnight(day + 1) + 30
 	session.settlement.step(clock.tick)

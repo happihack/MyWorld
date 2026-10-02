@@ -41,6 +41,10 @@ const TYPE_HEAT_WAVE := &"heat_wave"
 const TYPE_COLD_SNAP := &"cold_snap"
 const TYPE_CROP_FROZEN := &"crop_frozen"
 const TYPE_HERD_MOVED := &"herd_moved"
+const TYPE_HIGH_WATER := &"high_water"
+const TYPE_LOW_WATER := &"low_water"
+const TYPE_FLOOD := &"flood"
+const TYPE_BANK_ERODED := &"bank_eroded"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -187,6 +191,10 @@ func on_crop_failed(crop_id: int) -> void:
 			dry = spell.id
 	if dry != 0:
 		causes.append(dry)
+	# (Or the ground dried out because the river stands so low.)
+	var low := condition_id(TYPE_LOW_WATER)
+	if low != 0:
+		causes.append(low)
 	var crop := _props.get_prop(crop_id) if _props != null else null
 	var params := {"settlement": _settlement_id()}
 	if crop != null:
@@ -252,6 +260,62 @@ func on_condition_changed(condition: StringName, active: bool) -> void:
 	var key := String(condition)
 	if active:
 		var event := _log.record(StringName(key), {})
+		_condition_ids[key] = event.id if event != null else 0
+	else:
+		var began := int(_condition_ids.get(key, 0))
+		if began != 0:
+			_log.note_effect(began, "ended", _now())
+		_condition_ids.erase(key)
+
+
+# --- the river ----------------------------------------------------------------------------------------
+
+## The river is at its banks' edge or over them — because of the storm, if
+## there was one in the last two days — or back in its bed.
+func on_high_water(active: bool) -> void:
+	if not _writing():
+		return
+	var causes: Array = []
+	if active and _log != null:
+		var now := _now()
+		var storms := _log.of_type(TYPE_STORM, now - 2 * TimeConfig.MINUTES_PER_DAY, now)
+		if not storms.is_empty():
+			causes.append(storms[-1].id)
+	_going(TYPE_HIGH_WATER, active, {}, causes)
+
+
+## The banks lie dry — because of the drought, if there is one — or are
+## under water again.
+func on_low_water(active: bool) -> void:
+	if not _writing():
+		return
+	_going(TYPE_LOW_WATER, active, {}, [condition_id(WeatherSystem.DROUGHT)])
+
+
+## Where people live is under water — because the river is over its banks —
+## or no longer.
+func on_flood(active: bool, tiles: int, at: Vector2) -> void:
+	if not _writing():
+		return
+	_going(TYPE_FLOOD, active, {"position": at, "tiles": tiles, "settlement": _settlement_id()}, [condition_id(TYPE_HIGH_WATER)])
+
+
+## The river took a piece of its bank (in high water).
+func on_bank_eroded(tile: Vector2i) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_BANK_ERODED, {"position": Places.middle_of(tile)}, [condition_id(TYPE_HIGH_WATER)])
+
+
+## Something that goes on for a while begins (an event) or ends (noted on it).
+func _going(type: StringName, active: bool, params: Dictionary, causes: Array) -> void:
+	var key := String(type)
+	if active:
+		var real: Array = []
+		for cause: int in causes:
+			if cause != 0:
+				real.append(cause)
+		var event := _log.record(type, params, real)
 		_condition_ids[key] = event.id if event != null else 0
 	else:
 		var began := int(_condition_ids.get(key, 0))

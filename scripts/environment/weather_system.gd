@@ -19,6 +19,11 @@ signal changed(old: StringName, now: StringName)
 signal condition_changed(condition: StringName, active: bool)
 ## The ground and the shallow water have frozen (or thawed).
 signal frozen_changed(frozen: bool)
+## A look at the sky has been taken: `hours` have passed up to `now`, under
+## the weather there still is (what follows it comes after this).
+signal stepped(now: int, hours: float)
+## The weather has been brought up to the clock (after one look at the sky or many).
+signal caught_up
 
 const CLEAR := &"clear"
 const CLOUDY := &"cloudy"
@@ -126,6 +131,7 @@ func advance_to(tick: int) -> void:
 	while _step < target:
 		_step += 1
 		_do_step(_step)
+	caught_up.emit()
 
 
 ## Holds the weather at `kind` until `until_tick` (the chain stands still
@@ -260,6 +266,16 @@ func rainfall_over(day: int, days: int) -> float:
 	return total
 
 
+## Has the weather been watched on that day (is it in the record)?
+func watched(day: int) -> bool:
+	return _warmest.has(day)
+
+
+## The warmest it got on a day (NAN if the day is not in the record).
+func warmest_on(day: int) -> float:
+	return float(_warmest[day]) if _warmest.has(day) else NAN
+
+
 ## Are the ground and the shallow water frozen?
 func is_frozen() -> bool:
 	return frozen
@@ -346,6 +362,7 @@ func _do_step(index: int) -> void:
 	_note_rain(calendar - step_minutes, calendar)
 	_note_temperature(now)
 	_note_ground(now, step_minutes / 60.0)
+	stepped.emit(now, step_minutes / 60.0)
 	if posmod(calendar, DAY) < step_minutes:
 		_end_day(floori(float(calendar) / DAY) - 1)
 	if _held_until >= 0:

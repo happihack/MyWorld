@@ -56,6 +56,12 @@ var last_settle_tick := -1_000_000
 var rain_source := Callable()
 ## Is the ground frozen? (The weather says; not set: never.)
 var frozen_source := Callable()
+## How much of the moisture the land holds by itself is there now (the
+## river says: less when it stands low; not set: all of it).
+var groundwater_source := Callable()
+## How fast soil dried on a game day, compared with an ordinary one (by how
+## warm it was; not set: as usual).
+var drying_source := Callable()
 ## Where seed comes from: called with the units wanted, returns true if
 ## they were there (and are taken). Not set: sowing needs no seed.
 var seed_source := Callable()
@@ -565,16 +571,18 @@ func _weather_day(day: int) -> void:
 ## One day for the soil of every plot.
 func _soil_day(day: int) -> void:
 	var rain := _config.rain_moisture if rain_on(day) else 0
+	var dried := roundi(_config.evaporation_per_day * (float(drying_source.call(day)) if drying_source.is_valid() else 1.0))
+	var ground := float(groundwater_source.call()) if groundwater_source.is_valid() else 1.0
 	for crop in crops():
 		var chunk := _world.chunk_at_tile(crop.tile)
 		if chunk == null:
 			continue
 		var i := _world.index_at_tile(crop.tile)
-		var moisture := int(chunk.moisture[i]) + rain - _config.evaporation_per_day
+		var moisture := int(chunk.moisture[i]) + rain - dried
 		if is_growing(crop) or stage_of(crop) == Stage.RIPE:
 			moisture -= _config.crop_draw_per_day
 		moisture = maxi(moisture, 0)
-		var base := _baseline_of(crop.tile)
+		var base := roundi(_baseline_of(crop.tile) * ground)
 		if moisture < base:
 			moisture += ceili((base - moisture) * _config.seep_share)
 		if _wet_beside(crop.tile):

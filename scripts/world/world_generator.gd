@@ -192,6 +192,11 @@ func generate_props(chunk: ChunkData) -> Array[PropData]:
 	return props
 
 
+## The height of the river's surface as the world is made (world units).
+func water_surface_height() -> float:
+	return _water_surface / float(FP) * height_step
+
+
 ## Which way the river runs at a tile: a unit vector on the ground plane
 ## (x = world X, y = world Z). The river follows the Z axis; downstream is +Z.
 func river_direction(tile: Vector2i) -> Vector2:

@@ -14,8 +14,11 @@ extends Node
 ##  - A thin film clings to the ground and does not flow, so a spill ends as
 ##    puddles instead of spreading thinner and thinner for ever.
 ##  - `current_at()` tells loose objects which way the water carries them:
-##    the flow of the simulation, plus the river's own gentle current — a
-##    placeholder until springs and inflow arrive with hydrology (M9.3).
+##    the flow of the simulation, plus the river's own gentle current
+##    (stronger when the river stands high: `river_flow`, from Hydrology).
+##
+## The river's level — rain, dry weeks, floods — is not flowed tile by tile:
+## that is Hydrology (M9.3), which sets level water and tells this (`sync`).
 
 ## Tiles whose water depth changed in the last step.
 signal tiles_changed(tiles: Array[Vector2i])
@@ -46,6 +49,8 @@ var soaked_total := 0.0
 ## Water the player has scooped up and not yet poured out again. It is part
 ## of the world's water (and saved with it): scooping must not destroy water.
 var carried := 0.0
+## How strongly the river runs, compared with how it was made (Hydrology sets it).
+var river_flow := 1.0
 ## Time the last frame's stepping took, microseconds (debug overlay).
 var last_step_usec := 0
 
@@ -75,6 +80,7 @@ func bind(world: WorldData, generator: WorldGenerator = null) -> void:
 	_time_bank = 0.0
 	soaked_total = 0.0
 	carried = 0.0
+	river_flow = 1.0
 	_width = 0
 	_rows = 0
 	if world == null:
@@ -146,6 +152,21 @@ func wake(tile: Vector2i) -> void:
 		_active[i] = true
 
 
+## The water (or the ground) of these tiles was set by someone else, and
+## lies as it should: they are read from the world again and reported as
+## changed, but not looked at for flowing (level water does not flow).
+func sync(tiles: Array[Vector2i]) -> void:
+	if _world == null or _width == 0 or tiles.is_empty():
+		return
+	for tile in tiles:
+		if not _world.is_in_bounds(tile):
+			continue
+		var i := _index(tile)
+		_ground[i] = _world.get_height(tile) * _world.height_step
+		_depth[i] = _world.get_water(tile)
+	tiles_changed.emit(tiles)
+
+
 # --- saving -----------------------------------------------------------------------------
 
 ## The water's books (the depths themselves are saved with their chunks).
@@ -194,7 +215,7 @@ func current_at(tile: Vector2i) -> Vector2:
 		# Depth moved per step, through a column `depth` deep.
 		current = (moved / maxf(depth, FILM) / STEP_SECONDS).limit_length(3.0)
 	if _generator != null and _world.get_terrain(tile) == ChunkData.Terrain.RIVERBED:
-		var strength := RIVER_CURRENT * clampf((depth - 0.1) / 0.3, 0.0, 1.0)
+		var strength := RIVER_CURRENT * river_flow * clampf((depth - 0.1) / 0.3, 0.0, 1.0)
 		# Downstream, and gently toward the middle of the channel, so what
 		# floats follows the river round its bends instead of nosing into a bank.
 		var to_middle := clampf((_generator.river_center_x(tile.y) - (tile.x + 0.5)) * 0.4, -0.6, 0.6)
