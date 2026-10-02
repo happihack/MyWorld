@@ -14,6 +14,8 @@ var _loose: LooseObjectRegistry
 var _radius := 1.6
 var _counts: Dictionary = {} # resource id -> units
 var _stale := true
+## What is kept back and not eaten: resource id -> units (seed grain).
+var _reserved: Dictionary = {}
 
 
 func bind(piles: PileStore, places: Places, library: ResourceLibrary, loose: LooseObjectRegistry,
@@ -53,6 +55,25 @@ func amount(resource: StringName) -> int:
 	return int(_counts.get(resource, 0))
 
 
+## Keeps `units` of `resource` back: they are in store, but not food (the
+## grain for the next sowing). 0 lets go of them.
+func set_reserve(resource: StringName, units: int) -> void:
+	if units > 0:
+		_reserved[resource] = units
+	else:
+		_reserved.erase(resource)
+
+
+## How many units of `resource` are kept back now (no more than there are).
+func reserved(resource: StringName) -> int:
+	return mini(int(_reserved.get(resource, 0)), amount(resource))
+
+
+## Units of `resource` that are there to be used up.
+func available(resource: StringName) -> int:
+	return maxi(amount(resource) - int(_reserved.get(resource, 0)), 0)
+
+
 ## Everything in store: resource id -> units (only what there is some of).
 func amounts() -> Dictionary:
 	_recount()
@@ -66,7 +87,7 @@ func food_units() -> int:
 	for resource: StringName in _counts:
 		var def := _library.get_def(resource) if _library != null else null
 		if def != null and def.is_food():
-			units += int(_counts[resource])
+			units += available(resource)
 	return units
 
 
@@ -77,7 +98,7 @@ func food() -> float:
 	for resource: StringName in _counts:
 		var def := _library.get_def(resource) if _library != null else null
 		if def != null and def.is_food():
-			bellies += int(_counts[resource]) * def.nutrition
+			bellies += available(resource) * def.nutrition
 	return bellies
 
 
@@ -103,14 +124,14 @@ func take(resource: StringName, units: int) -> int:
 
 
 ## Takes one unit of food — of what goes bad soonest, so that nothing is
-## left to rot while fresher food is eaten. Returns what it was (&"" if
-## there is none).
+## left to rot while fresher food is eaten (what is kept back is not
+## touched). Returns what it was (&"" if there is none).
 func take_food() -> StringName:
 	_recount()
 	var best: ResourceDef = null
 	for resource: StringName in _counts:
 		var def := _library.get_def(resource) if _library != null else null
-		if def == null or not def.is_food() or int(_counts[resource]) <= 0:
+		if def == null or not def.is_food() or available(resource) <= 0:
 			continue
 		if best == null or _keeps(def) < _keeps(best) or (_keeps(def) == _keeps(best) and String(def.id) < String(best.id)):
 			best = def
@@ -125,7 +146,7 @@ func debug_text() -> String:
 	names.sort_custom(func(a: StringName, b: StringName) -> bool: return String(a) < String(b))
 	var parts := PackedStringArray()
 	for resource: StringName in names:
-		parts.append("%s %d" % [resource, counts[resource]])
+		parts.append("%s %d" % [resource, counts[resource]] + (" (%d kept)" % reserved(resource) if reserved(resource) > 0 else ""))
 	return " ".join(parts) if not parts.is_empty() else "nothing"
 
 

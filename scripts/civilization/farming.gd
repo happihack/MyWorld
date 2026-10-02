@@ -22,6 +22,12 @@ signal ripened(crop_id: int)
 signal failed(crop_id: int)
 ## The first field of the world was sown.
 signal first_field(tile: Vector2i)
+## A plot was sown without seed kept for it (it will bear little).
+signal sown_thin(crop_id: int)
+## Such a plot has ripened.
+signal harvest_thin(crop_id: int)
+## A dry spell began (so many days without rain), or ended.
+signal dry_spell(began: bool, days: int)
 
 enum Stage { SOWN, SPROUT, GROWING, RIPE, STUBBLE, FAILED }
 
@@ -43,6 +49,9 @@ const MAX_DAYS_AT_ONCE := 30
 const _RAIN_SALT := 0x7A11
 
 var last_settle_tick := -1_000_000
+## Where seed comes from: called with the units wanted, returns true if
+## they were there (and are taken). Not set: sowing needs no seed.
+var seed_source := Callable()
 
 var _world: WorldData
 var _props: PropRegistry
@@ -62,6 +71,15 @@ var _baseline: Dictionary = {} # tile -> the moisture the land holds by itself
 ## What is left over of a crop's growth after the whole points (crop id ->
 ## 0 … 1), so that hours of slow growth are not rounded away.
 var _carry: Dictionary = {}
+## How many plots have been reaped since the world began. (The first field
+## is sown with what was gathered wild; after the first harvest, with grain
+## kept for it.)
+var _harvests := 0
+## Plots sown without seed: crop id -> true.
+var _thin: Dictionary = {}
+## Days without rain in a row, and whether that is a dry spell by now.
+var _dry_days := 0
+var _dry := false
 
 
 # --- rules (static) -------------------------------------------------------------------------------
@@ -129,6 +147,10 @@ func bind(world: WorldData, props: PropRegistry, ids: IdAllocator, pathfinder: P
 	_crops_version = -1
 	_baseline.clear()
 	_carry.clear()
+	_harvests = 0
+	_thin.clear()
+	_dry_days = 0
+	_dry = false
 
 
 ## Every plot there is (whatever stands on it).
@@ -163,6 +185,39 @@ func farmer_count() -> int:
 
 func plots_wanted() -> int:
 	return farmer_count() * _config.plots_per_farmer
+
+
+## How many plots have been reaped so far.
+func harvest_count() -> int:
+	return _harvests
+
+
+## Was this plot sown without seed?
+func is_thin(crop_id: int) -> bool:
+	return _thin.has(crop_id)
+
+
+## Units of grain to keep for the next sowing: seed for every plot that is
+## not growing anything (and for those still to be made). Nothing before the
+## first harvest: until then there is no grain to keep.
+func seed_wanted() -> int:
+	if _harvests <= 0 or _config.seed_per_plot <= 0:
+		return 0
+	var plots := maxi(plots_wanted() - plot_count(), 0)
+	for crop in crops():
+		var stage := stage_of(crop)
+		if stage == Stage.STUBBLE or stage == Stage.FAILED:
+			plots += 1
+	return plots * _config.seed_per_plot
+
+
+## Is there a dry spell (see FarmingConfig.dry_spell_days)?
+func is_dry_spell() -> bool:
+	return _dry
+
+
+func dry_days() -> int:
+	return _dry_days
 
 
 ## Is it a season for sowing?
@@ -263,6 +318,11 @@ func sow(tile: Vector2i, now: int) -> PropData:
 			return null
 		if first:
 			first_field.emit(tile)
+	# Seed: from what was kept of the last harvest. Without it the plot is
+	# sown with whatever can be gleaned, and bears little.
+	var seeded := true
+	if _config.seed_per_plot > 0 and _harvests > 0 and seed_source.is_valid():
+		seeded = bool(seed_source.call(_config.seed_per_plot))
 	crop.variant = Stage.SOWN
 	crop.growth = 0
 	crop.vigor = 1000
@@ -270,7 +330,13 @@ func sow(tile: Vector2i, now: int) -> PropData:
 	crop.stock_tick = now
 	crop.tended_tick = now
 	_props.changed(crop.id)
+	if seeded:
+		_thin.erase(crop.id)
+	else:
+		_thin[crop.id] = true
 	sown.emit(crop.id)
+	if not seeded:
+		sown_thin.emit(crop.id)
 	return crop
 
 
@@ -359,6 +425,7 @@ func finish(task: StringName, tile: Vector2i, crop_id: int, now: int) -> bool:
 
 ## The last grain has been taken off a ripe crop (see ResourceNodes.take).
 func reaped(crop: PropData, now: int) -> void:
+	_harvests += 1
 	_to_stubble(crop, now)
 
 
@@ -375,6 +442,7 @@ func settle(now: int) -> void:
 	while _day < today and made_up < MAX_DAYS_AT_ONCE:
 		_day += 1
 		made_up += 1
+		_weather_day(_day - 1)
 		_soil_day(_day - 1)
 	_day = today
 	for crop in crops():
@@ -397,17 +465,29 @@ func debug_text(now: int) -> String:
 
 
 func to_dict() -> Dictionary:
-	return {"day": _day}
+	var thin: Array = _thin.keys()
+	thin.sort()
+	return {"day": _day, "harvests": _harvests, "thin": thin, "dry_days": _dry_days, "dry": _dry}
 
 
 func from_dict(data: Dictionary) -> void:
 	_day = int(data["day"]) if typeof(data.get("day")) == TYPE_INT else -1_000_000
+	_harvests = maxi(int(data["harvests"]), 0) if typeof(data.get("harvests")) == TYPE_INT else 0
+	_dry_days = maxi(int(data["dry_days"]), 0) if typeof(data.get("dry_days")) == TYPE_INT else 0
+	_dry = bool(data["dry"]) if typeof(data.get("dry")) == TYPE_BOOL else false
+	_thin.clear()
+	var thin: Variant = data.get("thin")
+	if typeof(thin) == TYPE_ARRAY:
+		for id: Variant in thin:
+			if typeof(id) == TYPE_INT:
+				_thin[int(id)] = true
 
 
 # --- internals ------------------------------------------------------------------------------------
 
 func _to_stubble(crop: PropData, now: int) -> void:
 	_carry.erase(crop.id)
+	_thin.erase(crop.id)
 	crop.variant = Stage.STUBBLE
 	crop.growth = 0
 	crop.vigor = 1000
@@ -421,6 +501,21 @@ func _baseline_of(tile: Vector2i) -> int:
 	if not _baseline.has(tile):
 		_baseline[tile] = int(_generator.sample_tile(tile)["moisture"]) if _generator != null else soil(tile)
 	return _baseline[tile]
+
+
+## One day of the weather: rain, or one more day without.
+func _weather_day(day: int) -> void:
+	if rain_on(day):
+		var was := _dry_days
+		_dry_days = 0
+		if _dry:
+			_dry = false
+			dry_spell.emit(false, was)
+		return
+	_dry_days += 1
+	if not _dry and _dry_days >= _config.dry_spell_days:
+		_dry = true
+		dry_spell.emit(true, _dry_days)
 
 
 ## One day for the soil of every plot.
@@ -487,12 +582,15 @@ func _grow(crop: PropData, now: int) -> void:
 		# What it bears: more in fertile soil, less if it has suffered. The
 		# soil is the poorer for it.
 		var health := lerpf(0.5, 1.0, crop.vigor / 1000.0)
-		crop.stock = maxi(roundi(_config.yield_units * fertility_factor(fertility(crop.tile)) * health), 1)
+		crop.stock = maxi(roundi(_config.yield_units * fertility_factor(fertility(crop.tile)) * health
+			* (_config.thin_yield if _thin.has(crop.id) else 1.0)), 1)
 		var chunk := _world.chunk_at_tile(crop.tile)
 		var i := _world.index_at_tile(crop.tile)
 		chunk.set_fertility(i, maxi(int(chunk.fertility[i]) - _config.fertility_cost, mini(_config.fertility_floor, int(chunk.fertility[i]))))
 		_props.changed(crop.id)
 		ripened.emit(crop.id)
+		if _thin.has(crop.id):
+			harvest_thin.emit(crop.id)
 	elif shown_variant(crop, _config) != shown:
 		_props.changed(crop.id)
 	else:

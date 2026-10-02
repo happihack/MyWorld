@@ -12,6 +12,9 @@ enum Source { DIRECT, WITNESSED, TOLD, INHERITED, TAUGHT, WRITTEN }
 
 ## Kinds of memory (what the texts are keyed by, with `subject`).
 const KIND_EXPERIENCE := &"experience"
+## Something hard that was lived through (going hungry): no doing of the
+## player's, nothing to be interpreted — but remembered, and talked about.
+const KIND_HARDSHIP := &"hardship"
 
 var id := 0
 var owner_kind: OwnerKind = OwnerKind.PERSON

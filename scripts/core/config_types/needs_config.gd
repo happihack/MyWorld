@@ -32,6 +32,21 @@ extends ConfigBase
 @export_range(5.0, 1440.0, 1.0) var full_work_minutes: float = 240.0
 @export_range(0.0, 0.1, 0.0001) var safety_recovery_per_minute: float = 1.0 / 180.0
 
+@export_group("Going hungry")
+## Someone is going hungry with their hunger need below this, and is fed
+## again from this.
+@export_range(0.0, 1.0, 0.01) var hungry_below: float = 0.1
+@export_range(0.0, 1.0, 0.01) var fed_from: float = 0.35
+## Going hungry for this many game minutes makes them weak (sick with hunger).
+@export_range(1, 100000) var hunger_sick_after_minutes: int = 720
+## What their health loses a day while they are, down to this; and what it
+## gains a day once they are fed again.
+@export_range(0.0, 1.0, 0.01) var sick_health_per_day: float = 0.2
+@export_range(0.0, 1.0, 0.01) var sick_health_floor: float = 0.25
+@export_range(0.0, 1.0, 0.01) var recover_health_per_day: float = 0.25
+## In a shortage, someone this hungry remembers it (and talks of it).
+@export_range(0.0, 1.0, 0.01) var hunger_talk_below: float = 0.3
+
 
 func body_factor(stage: PersonData.LifeStage) -> float:
 	match stage:
@@ -49,4 +64,5 @@ func validate() -> PackedStringArray:
 		and full_work_minutes > 0.0, "needs must be fillable")
 	# A night's sleep must restore more than a day awake uses up.
 	_check(p, 1.0 / full_sleep_minutes > sleep_per_minute, "sleeping must restore faster than waking tires")
+	_check(p, hungry_below < fed_from, "hungry_below must be less than fed_from")
 	return p

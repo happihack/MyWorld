@@ -11,6 +11,22 @@ signal fire_changed(lit: bool)
 signal spoiled(resource: StringName, amount: int)
 ## Someone took up another occupation (the first farmer).
 signal took_up(person_id: int, occupation: StringName)
+## It is short of food, or out of it, or has enough again (see Shortage).
+signal shortage_changed(stage: int, was: int)
+## Out of food, it has begun to eat the grain it kept for seed.
+signal seed_released(units: int)
+## The bushes around it are picked bare (or have berries again).
+signal forage_changed(low: bool)
+
+## How short of food it is.
+enum Shortage {
+	NONE,
+	## Too little in store: it rations what there is, and people go further
+	## for berries.
+	SHORT,
+	## Nothing in store for hours: the seed grain is eaten.
+	EMPTY,
+}
 
 ## What the first farmer knows of farming when they take it up (a skill, 0 … 1).
 const FIRST_FARMER_SKILL := 0.2
@@ -29,6 +45,14 @@ var farming: Farming
 var fauna: AnimalSystem
 ## What people can be (null: nobody changes what they are).
 var occupations: OccupationLibrary
+## What the world's nodes still hold (null: the bushes are not looked at).
+var nodes: ResourceNodes
+var shortage: Shortage = Shortage.NONE
+## The grain kept for seed has been given out to be eaten (until the
+## shortage is over).
+var seed_eaten := false
+## Are the bushes around it picked bare?
+var forage_low := false
 
 var _start: WorldSetup.StartInfo
 var _people: PersonRegistry
@@ -36,6 +60,15 @@ var _props: PropRegistry
 var _piles: PileStore
 var _library: ResourceLibrary
 var _config: SettlementConfig
+var _places: Places
+## Since when there has been too little in store (-1: there is enough),
+## and nothing at all (-1: there is something).
+var _low_since := -1
+var _empty_since := -1
+## Rationing: what each person has had from the stores today (person id ->
+## bellies), and which day that is.
+var _served: Dictionary = {}
+var _served_day := -1_000_000
 ## The tick at which the fire wants its next piece of wood (-1 = not begun).
 var _burn_tick := -1
 ## The game day up to which the days' housekeeping (spoilage) is done.
@@ -57,10 +90,18 @@ func bind(start: WorldSetup.StartInfo, people: PersonRegistry, props: PropRegist
 	_piles = piles
 	_library = library
 	_config = config if config != null else Config.settlement
+	_places = places
 	jobs = JobBoard.new(_config)
 	stockpile.bind(piles, places, library, loose)
 	_burn_tick = -1
 	_day = -1_000_000
+	shortage = Shortage.NONE
+	seed_eaten = false
+	forage_low = false
+	_low_since = -1
+	_empty_since = -1
+	_served.clear()
+	_served_day = -1_000_000
 
 
 func unbind() -> void:
@@ -130,6 +171,49 @@ func food_need_per_day() -> float:
 func days_of_food() -> float:
 	var need := food_need_per_day()
 	return stockpile.food() / need if need > 0.0 else INF
+
+
+# --- short of food ------------------------------------------------------------------------------------
+
+func is_short() -> bool:
+	return shortage != Shortage.NONE
+
+
+## Bellies of food each person gets from the stores in a day while it rations.
+func ration() -> float:
+	return _config.food_per_person_day * _config.ration_share
+
+
+## May this person take (more) food from the stores today? Always, unless
+## it is short of food and they have had their share.
+func serves(person_id: int) -> bool:
+	return shortage == Shortage.NONE or float(_served.get(person_id, 0.0)) < ration()
+
+
+## Someone has taken food from the stores: `bellies` of it.
+func note_served(person_id: int, bellies: float) -> void:
+	_served[person_id] = float(_served.get(person_id, 0.0)) + bellies
+
+
+## What a person has had from the stores today, in bellies.
+func served_today(person_id: int) -> float:
+	return float(_served.get(person_id, 0.0))
+
+
+## The share of the bushes around the settlement that have nothing on
+## them (0 if there are none, or nobody keeps count).
+func bare_share() -> float:
+	if nodes == null or _props == null or _start == null:
+		return 0.0
+	var bushes := 0
+	var bare := 0
+	for prop in _props.all_props():
+		if prop.kind != PropData.Kind.BUSH or Vector2(prop.tile - _start.settlement_tile).length() > Places.WORK_RADIUS:
+			continue
+		bushes += 1
+		if nodes.available(prop) <= 0:
+			bare += 1
+	return float(bare) / float(bushes) if bushes > 0 else 0.0
 
 
 ## How many of its people hunt.
@@ -230,22 +314,31 @@ func step(now: int) -> void:
 	_day = today
 	if farming != null:
 		farming.settle(now)
+	if today != _served_day:
+		_served_day = today
+		_served.clear() # a new day: everyone's share anew
 	if now - _farmer_check_tick >= FARMER_CHECK_MINUTES or now < _farmer_check_tick:
 		_farmer_check_tick = now
 		ensure_farmer(now)
 		ensure_hunter(now)
+		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
+		_keep_seed()
 		jobs.refresh(self, now)
+		_check_shortage(now)
 
 
 func debug_text() -> String:
-	return "settlement %d: %d people in %d households, %d buildings  food for %.1f days  fire %s\nin store: %s   jobs: %s" % [
+	return "settlement %d: %d people in %d households, %d buildings  food for %.1f days%s  fire %s\nin store: %s   jobs: %s" % [
 		id, member_count(), households().size(), buildings().size(), minf(days_of_food(), 99.0),
+		["", "  SHORT OF FOOD (rationing)", "  OUT OF FOOD"][shortage] + ("  bushes bare" if forage_low else ""),
 		"burning" if fire_lit() else "OUT", stockpile.debug_text(), jobs.debug_text()]
 
 
 func to_dict() -> Dictionary:
-	return {"burn_tick": _burn_tick, "day": _day, "jobs": jobs.to_dict()}
+	return {"burn_tick": _burn_tick, "day": _day, "jobs": jobs.to_dict(), "shortage": shortage, "seed_eaten": seed_eaten,
+		"forage_low": forage_low, "low_since": _low_since, "empty_since": _empty_since,
+		"served": _served.duplicate(), "served_day": _served_day}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -253,9 +346,107 @@ func from_dict(data: Dictionary) -> void:
 	_day = int(data["day"]) if typeof(data.get("day")) == TYPE_INT else -1_000_000
 	var board: Variant = data.get("jobs")
 	jobs.from_dict(board if typeof(board) == TYPE_DICTIONARY else {})
+	shortage = clampi(int(data["shortage"]), 0, Shortage.size() - 1) as Shortage if typeof(data.get("shortage")) == TYPE_INT \
+		else Shortage.NONE
+	seed_eaten = bool(data["seed_eaten"]) if typeof(data.get("seed_eaten")) == TYPE_BOOL else false
+	forage_low = bool(data["forage_low"]) if typeof(data.get("forage_low")) == TYPE_BOOL else false
+	_low_since = int(data["low_since"]) if typeof(data.get("low_since")) == TYPE_INT else -1
+	_empty_since = int(data["empty_since"]) if typeof(data.get("empty_since")) == TYPE_INT else -1
+	_served_day = int(data["served_day"]) if typeof(data.get("served_day")) == TYPE_INT else -1_000_000
+	_served.clear()
+	var served: Variant = data.get("served")
+	if typeof(served) == TYPE_DICTIONARY:
+		for person_id: Variant in served:
+			var had: Variant = (served as Dictionary)[person_id]
+			if typeof(person_id) == TYPE_INT and (typeof(had) == TYPE_FLOAT or typeof(had) == TYPE_INT):
+				_served[person_id] = float(had)
+	_keep_seed()
+	_apply_reach()
 
 
 # --- internals ------------------------------------------------------------------------------------
+
+## The grain for the next sowing is kept back from what is eaten — until
+## hunger has the settlement eat it.
+func _keep_seed() -> void:
+	var wanted := farming.seed_wanted() if farming != null and not seed_eaten else 0
+	stockpile.set_reserve(&"grain", wanted)
+
+
+## Short of food, people go further for berries.
+func _apply_reach() -> void:
+	if _places != null:
+		_places.forage_reach = _config.forage_further_factor if shortage != Shortage.NONE else 1.0
+
+
+## Looks at what is in store: too little for some hours is a shortage
+## (rationing, foraging further); nothing at all for some hours and the
+## seed grain is eaten; enough again and it is over.
+func _check_shortage(now: int) -> void:
+	if member_count() == 0:
+		return
+	var days := days_of_food()
+	if days < _config.shortage_below_days:
+		if _low_since < 0 or now < _low_since:
+			_low_since = now
+	else:
+		_low_since = -1
+	if stockpile.food_units() <= 0:
+		if _empty_since < 0 or now < _empty_since:
+			_empty_since = now
+	else:
+		_empty_since = -1
+	match shortage:
+		Shortage.NONE:
+			if _low_since >= 0 and now - _low_since >= _config.shortage_after_minutes:
+				_set_shortage(Shortage.SHORT)
+		Shortage.SHORT:
+			if days >= _config.shortage_over_days:
+				_set_shortage(Shortage.NONE)
+			elif _empty_since >= 0 and now - _empty_since >= _config.empty_after_minutes:
+				_set_shortage(Shortage.EMPTY)
+		Shortage.EMPTY:
+			if days >= _config.shortage_over_days:
+				_set_shortage(Shortage.NONE)
+			elif days >= _config.shortage_below_days:
+				_set_shortage(Shortage.SHORT)
+
+
+func _set_shortage(stage: Shortage) -> void:
+	var was := shortage
+	if stage == was:
+		return
+	shortage = stage
+	# (Out of food altogether counts from when the shortage began.)
+	if was == Shortage.NONE and _empty_since >= 0:
+		_empty_since = maxi(_empty_since, jobs.last_refresh_tick)
+	_apply_reach()
+	if stage == Shortage.NONE:
+		seed_eaten = false
+		_keep_seed()
+	shortage_changed.emit(stage, was)
+	if stage == Shortage.EMPTY and not seed_eaten:
+		# Nothing left but the seed: it is eaten (and the next sowing is the poorer for it).
+		var seed := stockpile.reserved(&"grain")
+		if seed > 0:
+			seed_eaten = true
+			_keep_seed()
+			seed_released.emit(seed)
+
+
+## Are the bushes around the settlement picked bare — or do they have
+## berries again?
+func _check_forage() -> void:
+	if nodes == null:
+		return
+	var share := bare_share()
+	if not forage_low and share >= _config.forage_low_share:
+		forage_low = true
+		forage_changed.emit(true)
+	elif forage_low and share <= _config.forage_recovered_share:
+		forage_low = false
+		forage_changed.emit(false)
+
 
 ## The fire takes a piece of wood from the stores every so often; with none
 ## to take it goes out, and is lit again as soon as there is wood.

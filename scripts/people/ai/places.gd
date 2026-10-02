@@ -48,6 +48,9 @@ var memories: MemoryStore
 ## owns the world; without them every node is as good as another).
 var resources: ResourceLibrary
 var nodes: ResourceNodes
+## How many times as far as usual people go for berries (more than 1 when
+## the settlement is short of food; see Settlement).
+var forage_reach := 1.0
 
 
 func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfinder: Pathfinder,
@@ -170,7 +173,8 @@ func forage_place(person: PersonData, rng: RandomNumberGenerator) -> Dictionary:
 func has_food(person: PersonData, settlement: Settlement) -> bool:
 	if settlement == null:
 		return food_tile(person) != null
-	return person.food_in_hand > 0.0 or settlement.stockpile.food_units() > 0 or not forage_place(person, null).is_empty()
+	return person.food_in_hand > 0.0 or (settlement.stockpile.food_units() > 0 and settlement.serves(person.id)) \
+		or not forage_place(person, null).is_empty()
 
 
 ## Someone to talk to: a person of the same settlement who is up and about,
@@ -283,11 +287,14 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 	if _work_version != _props.version:
 		_work_version = _props.version
 		_work_places.clear()
-	var key := [kind, center]
+	# Short of food, people go further for berries (and have more bushes to choose from).
+	var further := forage_reach if kind == PropData.Kind.BUSH else 1.0
+	var radius := WORK_RADIUS * further
+	var key := [kind, center, further]
 	if not _work_places.has(key):
 		var found: Array[PropData] = []
 		for prop in _props.all_props():
-			if prop.kind == kind and Vector2(prop.tile - center).length() <= WORK_RADIUS \
+			if prop.kind == kind and Vector2(prop.tile - center).length() <= radius \
 					and _world.get_water(prop.tile) <= Pathfinder.WET_DEPTH:
 				found.append(prop)
 		found.sort_custom(func(a: PropData, b: PropData) -> bool:
@@ -295,7 +302,8 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 			var db := (b.tile - center).length_squared()
 			return da < db or (da == db and a.id < b.id))
 		var nearest: Array = []
-		for i in mini(found.size(), WORK_CANDIDATES):
+		# (Going further, every bush within reach is one to go to.)
+		for i in (found.size() if further > 1.0 else mini(found.size(), WORK_CANDIDATES)):
 			nearest.append([found[i].tile, found[i].id])
 		_work_places[key] = nearest
 	var places: Array = _work_places[key]
@@ -319,6 +327,8 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 					begun.append(place)
 				elif kind == PropData.Kind.BUSH and there >= nodes.capacity(prop) * Config.resources.worth_picking_from:
 					laden.append(place)
+					if laden.size() >= WORK_CHOICES:
+						break # (the nearest few are found: no need to look at the rest)
 		if not begun.is_empty():
 			places = begun
 		elif not laden.is_empty():

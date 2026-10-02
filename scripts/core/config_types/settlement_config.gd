@@ -17,6 +17,25 @@ extends ConfigBase
 @export_range(0.0, 30.0, 0.1) var starting_food_days: float = 1.0
 @export_range(0, 1000) var starting_wood: int = 6
 
+@export_group("Shortage")
+## With less than this many days of food in store for this many game
+## minutes, the settlement is short of food: it rations, and forages further.
+@export_range(0.0, 10.0, 0.05) var shortage_below_days: float = 0.4
+@export_range(0, 10000) var shortage_after_minutes: int = 180
+## The shortage is over with this many days of food in store again.
+@export_range(0.1, 30.0, 0.05) var shortage_over_days: float = 1.0
+## With nothing at all in store for this many game minutes it eats what
+## it kept for seed.
+@export_range(0, 10000) var empty_after_minutes: int = 180
+## Rationing: the share of a day's food each person gets from the stores.
+@export_range(0.05, 1.0, 0.01) var ration_share: float = 0.6
+## Short of food, people go this many times as far for berries.
+@export_range(1.0, 4.0, 0.05) var forage_further_factor: float = 1.75
+## The bushes around the settlement are "picked bare" when this share of
+## them has nothing on it, and have recovered at this share.
+@export_range(0.0, 1.0, 0.01) var forage_low_share: float = 0.6
+@export_range(0.0, 1.0, 0.01) var forage_recovered_share: float = 0.3
+
 @export_group("Farming")
 ## A settlement with at least this many grown people who gather for a
 ## living, and nobody farming, has one of them take up farming (in a
@@ -59,4 +78,6 @@ func validate() -> PackedStringArray:
 	_check(p, food_days_wanted > 0.0 and wood_days_wanted > 0.0, "the days wanted in store must be more than nothing")
 	_check(p, work_without_jobs <= work_with_urgent_job, "work_without_jobs must not be more than work_with_urgent_job")
 	_check(p, job_check_minutes >= 1, "job_check_minutes must be at least 1")
+	_check(p, shortage_below_days < shortage_over_days, "shortage_below_days must be less than shortage_over_days")
+	_check(p, forage_recovered_share < forage_low_share, "forage_recovered_share must be less than forage_low_share")
 	return p

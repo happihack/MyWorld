@@ -333,7 +333,7 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 		"age": UIText.age_text(person.age_years(now, year)),
 		"occupation": UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage),
 		"activity": activity_line(person),
-		"mood": UIText.mood_word(person.mood, person.stress),
+		"mood": UIText.WEAK_WITH_HUNGER if Hardship.is_sick(person) else UIText.mood_word(person.mood, person.stress),
 		"needs": Needs.sanitized(person.needs, person.id),
 		"traits": UIText.trait_words(person.traits),
 		"marked": person.has_flag(PersonData.FLAG_MARKED_IMPORTANT),

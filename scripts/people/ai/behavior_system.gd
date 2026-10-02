@@ -26,6 +26,10 @@ signal worked(person_id: int, kind: StringName, target_id: int)
 signal bedtime(child_id: int)
 ## A hunter killed an animal.
 signal hunted(person_id: int, species: StringName)
+## Someone has fallen ill (`condition`: "hunger" — weak with it), or is
+## over it.
+signal fell_ill(person_id: int, condition: StringName)
+signal recovered(person_id: int, condition: StringName)
 ## A person reacted to something they noticed (bible §14.4). `stimulus` is the
 ## kind of thing it was; `direct`: it happened to them.
 signal reacted(person_id: int, reaction: StringName, interpretation: StringName, stimulus: StringName, direct: bool)
@@ -263,6 +267,14 @@ func announce() -> void:
 		ctx.kills.clear()
 		for kill: Array in killed:
 			hunted.emit(kill[0], kill[1])
+	if not ctx.ailments.is_empty():
+		var ailing := ctx.ailments.duplicate()
+		ctx.ailments.clear()
+		for entry: Array in ailing:
+			if entry[2]:
+				fell_ill.emit(entry[0], entry[1])
+			else:
+				recovered.emit(entry[0], entry[1])
 	if not ctx.bedtimes.is_empty():
 		var asleep := ctx.bedtimes.duplicate()
 		ctx.bedtimes.clear()
@@ -375,6 +387,7 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	var handler := _handler(step_now)
 	Needs.decay(person, minutes, Config.needs, ctx.stage_of(person),
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
+	Hardship.live(person, ctx, minutes)
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
 		return

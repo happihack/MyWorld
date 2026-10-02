@@ -57,6 +57,19 @@ extends ConfigBase
 ## holds by itself (wet by the river, dry far from it), this share a day.
 @export_range(0.0, 1.0, 0.01) var seep_share: float = 0.25
 
+@export_group("Seed")
+## Units of grain a plot is sown with. They are kept back from what is
+## eaten (see Stockpile.set_reserve) — unless hunger has the settlement eat
+## its seed.
+@export_range(0, 20) var seed_per_plot: int = 1
+## What a plot sown without seed kept for it (with what could be gleaned)
+## yields, relative to a proper sowing.
+@export_range(0.0, 1.0, 0.01) var thin_yield: float = 0.5
+
+@export_group("Dry spells")
+## This many days without rain in a row are a dry spell.
+@export_range(1, 60) var dry_spell_days: int = 5
+
 @export_group("Work")
 ## Game minutes of work to till and sow a plot, to tend one, to clear a
 ## failed crop.

@@ -38,8 +38,10 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var food: Variant = ctx.places.food_tile(person)
 			if food == null:
 				return []
-			# Nothing in the stores: to a bush that has berries, and eat there.
-			if ctx.settlement != null and person.food_in_hand <= 0.0 and ctx.settlement.stockpile.food_units() <= 0:
+			# Nothing in the stores (or nothing more for them today): to a bush
+			# that has berries, and eat there.
+			if ctx.settlement != null and person.food_in_hand <= 0.0 \
+					and (ctx.settlement.stockpile.food_units() <= 0 or not ctx.settlement.serves(person.id)):
 				var bush := ctx.places.forage_place(person, rng)
 				if bush.is_empty():
 					return []

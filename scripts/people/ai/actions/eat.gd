@@ -38,10 +38,16 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		# settlement's stores (or straight off the bush) — and what is left
 		# of a unit is kept for the next meal.
 		if person.food_in_hand <= 0.0:
+			var from_stores := not step.has("bush") and ctx.settlement != null
+			if from_stores and not ctx.settlement.serves(person.id):
+				step["empty"] = true
+				return Status.DONE # rationing: they have had their share for today
 			person.food_in_hand = serve(ctx, step)
 			if person.food_in_hand <= 0.0:
 				step["empty"] = true
 				return Status.DONE # nothing left to eat
+			if from_stores:
+				ctx.settlement.note_served(person.id, person.food_in_hand)
 		bite = minf(bite, person.food_in_hand)
 		person.food_in_hand -= bite
 		Needs.satisfy(person.needs, Needs.Need.HUNGER, bite)

@@ -71,6 +71,10 @@ func _ready() -> void:
 	banner.stop_pressed.connect(stop_following)
 	banner.locate_pressed.connect(func() -> void: focus_on_person(_selected_id))
 	_restore_follow()
+	# What happens in the world is told as it happens (and shown where).
+	NotificationManager.bind(session.events, session.people)
+	NotificationManager.quiet = follow.is_following()
+	ui_root.locate_requested.connect(look_at_place)
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
@@ -104,6 +108,8 @@ func _ready() -> void:
 		return session.settlement.debug_text() if session.settlement != null else "settlement: none")
 	debug_overlay.register_section(&"animals", func() -> String:
 		return session.fauna.debug_text())
+	debug_overlay.register_section(&"events", func() -> String:
+		return "%s\n%s\n%s" % [session.events.debug_text(3), NotificationManager.debug_text(), session.stats.debug_text()])
 	debug_overlay.register_section(&"farming", func() -> String:
 		return session.farming.debug_text(session.clock.tick))
 	debug_overlay.register_section(&"resources", func() -> String:
@@ -307,6 +313,8 @@ func _advance_follow(delta: float) -> void:
 
 
 func _on_follow_changed() -> void:
+	# While the camera is with someone, only what matters a great deal is told.
+	NotificationManager.quiet = follow.is_following()
 	var person := session.people.get_person(follow.person_id)
 	ui_root.follow_banner().set_following(person.given_name if person != null else "", follow.state == CameraFollow.State.PAUSED)
 	var card := ui_root.person_card()
@@ -607,6 +615,18 @@ func _note_pick(target: Picker.Result, response: InteractionResponse) -> void:
 		return
 	var near := target.kind == Picker.Kind.ENTITY and not target.direct
 	_last_pick = "%s%s -> %s" % [response.description, " (near)" if near else "", response.effect]
+
+
+## Glides the camera to a place (world X/Z), no further away than the
+## settlement is seen from: where a toast says something happened.
+func look_at_place(place: Vector2) -> void:
+	if not place.is_finite():
+		return
+	follow.pause()
+	var rig := world_view.camera_rig()
+	var tile := Vector2i(floori(place.x), floori(place.y))
+	var height := session.world.get_height(tile) * session.world.height_step if session.world.is_in_bounds(tile) else 0.0
+	rig.focus_on(Vector3(place.x, height, place.y), minf(rig.distance(), Config.camera.home_distance))
 
 
 ## Glides the camera to the settlement (or frames the box if there is none).

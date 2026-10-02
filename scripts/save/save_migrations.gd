@@ -20,6 +20,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	9: _v9_to_v10,
 	10: _v10_to_v11,
 	11: _v11_to_v12,
+	12: _v12_to_v13,
 }
 
 
@@ -320,4 +321,24 @@ static func _v11_to_v12(data: Dictionary) -> Dictionary:
 		return data
 	if not (state as Dictionary).has("animals"):
 		(state as Dictionary)["animals"] = {}
+	return data
+
+
+## Version 13 (M7.5) adds the world's event log, what the chronicler keeps
+## between events, and the statistics. An older world has no history
+## written down: it begins now ("adopt": what the settlement already has in
+## store is not discovered a second time).
+static func _v12_to_v13(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("events"):
+		(state as Dictionary)["events"] = {}
+	if not (state as Dictionary).has("chronicle"):
+		(state as Dictionary)["chronicle"] = {"adopt": true}
+	if not (state as Dictionary).has("stats"):
+		(state as Dictionary)["stats"] = {}
 	return data

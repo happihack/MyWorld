@@ -29,6 +29,7 @@ Settings="*res://scripts/core/settings.gd"
 SaveManager="*res://scripts/save/save_manager.gd"
 Haptics="*res://scripts/core/haptics.gd"
 AudioManager="*res://scripts/core/audio_manager.gd"
+NotificationManager="*res://scripts/core/notification_manager.gd"
 
 [display]
 
@@ -96,7 +97,7 @@ pointing/emulate_touch_from_mouse=true
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://data/text/memories.en.translation", "res://data/text/history.en.translation", "res://data/text/time.en.translation", "res://data/text/daylog.en.translation", "res://data/text/resources.en.translation")
+locale/translations=PackedStringArray("res://data/text/memories.en.translation", "res://data/text/history.en.translation", "res://data/text/time.en.translation", "res://data/text/daylog.en.translation", "res://data/text/resources.en.translation", "res://data/text/events.en.translation")
 
 [physics]
 

@@ -85,6 +85,13 @@ var animals: AnimalRegistry
 var fauna: AnimalSystem
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
+## What has happened in this world, and what led to what (data/events).
+var event_defs: EventLibrary
+var events: EventLog
+## Writes it down as it happens.
+var chronicle: Chronicler
+## The world's numbers, hour by hour.
+var stats: StatsRecorder
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
@@ -95,6 +102,9 @@ var _saved_day_log: Dictionary = {}
 var _saved_settlement: Dictionary = {}
 var _saved_farming: Dictionary = {}
 var _saved_animals: Dictionary = {}
+var _saved_events: Dictionary = {}
+var _saved_chronicle: Dictionary = {}
+var _saved_stats: Dictionary = {}
 
 
 func _init() -> void:
@@ -104,6 +114,20 @@ func _init() -> void:
 	piles = PileStore.new()
 	farming = Farming.new()
 	fauna = AnimalSystem.new()
+	events = EventLog.new()
+	chronicle = Chronicler.new()
+	stats = StatsRecorder.new()
+	stats.source = sample_stats
+	# What the fields and the stores report is written down (see Chronicler).
+	farming.first_field.connect(chronicle.on_first_field)
+	farming.failed.connect(chronicle.on_crop_failed)
+	farming.sown_thin.connect(chronicle.on_sown_thin)
+	farming.harvest_thin.connect(chronicle.on_harvest_thin)
+	farming.dry_spell.connect(chronicle.on_dry_spell)
+	piles.stored.connect(chronicle.on_stored)
+	# A field is sown with grain from the stores.
+	farming.seed_source = func(units: int) -> bool:
+		return settlement != null and settlement.stockpile.take(&"grain", units) == units
 	nodes.reaped.connect(func(prop_id: int) -> void:
 		var crop := props.get_prop(prop_id) if props != null else null
 		if crop != null:
@@ -129,6 +153,10 @@ func _init() -> void:
 		if stimulus != null and clock != null:
 			fauna.startle(stimulus.position, maxf(stimulus.radius, STARTLE_RADIUS), clock.tick))
 	perception.noticed.connect(behavior.notice)
+	interactions.intervention_applied.connect(chronicle.on_intervention)
+	behavior.hunted.connect(chronicle.on_hunted)
+	behavior.fell_ill.connect(chronicle.on_fell_ill)
+	behavior.recovered.connect(chronicle.on_recovered)
 	simulation = SimulationManager.new()
 	simulation.name = "SimulationManager"
 	add_child(simulation)
@@ -148,6 +176,9 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_memories = {}
 	_saved_perception = {}
 	_saved_day_log = {}
+	_saved_events = {}
+	_saved_chronicle = {}
+	_saved_stats = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -163,7 +194,11 @@ func create_new(seed_value: int = 0) -> void:
 	_restore_people({})
 	_activate()
 	if settlement != null:
+		# (What it is given to begin with is no event; that it began is the first.)
+		chronicle.listening = false
 		settlement.stock_up(clock.tick)
+		chronicle.listening = true
+		chronicle.founded()
 		settlement.ensure_farmer(clock.tick)
 		settlement.ensure_hunter(clock.tick)
 	Log.info(Log.Category.WORLD, "New world created", {"world_id": world_id, "seed": world_seed})
@@ -198,8 +233,17 @@ func load_from(data: Dictionary) -> bool:
 	_saved_settlement = {}
 	_saved_farming = {}
 	_saved_animals = {}
+	_saved_events = {}
+	_saved_chronicle = {}
+	_saved_stats = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("events")) == TYPE_DICTIONARY:
+			_saved_events = state["events"]
+		if typeof((state as Dictionary).get("chronicle")) == TYPE_DICTIONARY:
+			_saved_chronicle = state["chronicle"]
+		if typeof((state as Dictionary).get("stats")) == TYPE_DICTIONARY:
+			_saved_stats = state["stats"]
 		if typeof((state as Dictionary).get("animals")) == TYPE_DICTIONARY:
 			_saved_animals = state["animals"]
 		if typeof((state as Dictionary).get("farming")) == TYPE_DICTIONARY:
@@ -283,6 +327,9 @@ func to_dict() -> Dictionary:
 			"settlement": settlement.to_dict() if settlement != null else {},
 			"farming": farming.to_dict(),
 			"animals": fauna.to_dict(),
+			"events": events.to_dict(),
+			"chronicle": chronicle.to_dict(),
+			"stats": stats.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -316,6 +363,7 @@ func _process(delta: float) -> void:
 		if settlement != null:
 			settlement.step(clock.tick)
 		fauna.advance_to(clock.tick)
+		stats.advance_to(clock.tick)
 
 
 ## Where the settlement keeps `resource` (the middle of its storage tile),
@@ -331,6 +379,28 @@ func storage_place(resource: StringName) -> Vector2:
 func stored(resource: StringName) -> int:
 	var at := storage_place(resource)
 	return piles.total(resource, at, Config.resources.storage_radius) if at != Vector2.INF else 0
+
+
+## The world's numbers as they are now (what the StatsRecorder writes down
+## every game hour).
+func sample_stats() -> Dictionary:
+	var count := 0
+	var health := 0.0
+	var mood := 0.0
+	for person in people.all_people():
+		count += 1
+		health += person.health
+		mood += Needs.mood(person.needs)
+	var stores := settlement.stockpile if settlement != null else null
+	return {
+		&"population": float(count),
+		&"food": stores.food() if stores != null else 0.0,
+		&"water": water.total_volume(),
+		&"wood": float(stores.amount(&"wood")) if stores != null else 0.0,
+		&"stone": float(stores.amount(&"stone")) if stores != null else 0.0,
+		&"health": health / count if count > 0 else 0.0,
+		&"mood": mood / count if count > 0 else 0.0,
+	}
 
 
 ## Generates terrain, props and the starting settlement for `world_seed`.
@@ -549,9 +619,34 @@ func _activate() -> void:
 		settlement.farming = farming
 		settlement.occupations = occupations
 		settlement.fauna = fauna
+		settlement.nodes = nodes
 		settlement.from_dict(_saved_settlement)
 		settlement.jobs.refresh(settlement, clock.tick)
+		settlement.shortage_changed.connect(chronicle.on_shortage_changed)
+		settlement.seed_released.connect(chronicle.on_seed_released)
+		settlement.forage_changed.connect(chronicle.on_forage_changed)
+		settlement.fire_changed.connect(chronicle.on_fire_changed)
+		settlement.spoiled.connect(chronicle.on_spoiled)
+		settlement.took_up.connect(chronicle.on_took_up)
 	_saved_settlement = {}
+	# The world's history: what the save has of it. (A world from before
+	# there was one begins it now: what it has in store is no discovery.)
+	if event_defs == null:
+		event_defs = EventLibrary.load_from()
+	events.bind(clock, event_defs, Config.events)
+	var lost_events := events.from_dict(_saved_events)
+	if lost_events > 0:
+		Log.warn(Log.Category.LOAD, "Some saved events were unusable and skipped", {"events": lost_events})
+	chronicle.listening = true
+	chronicle.bind(events, people, props, loose, resources, settlement, farming, Config.events)
+	chronicle.from_dict(_saved_chronicle)
+	if bool(_saved_chronicle.get("adopt", false)):
+		chronicle.adopt()
+	if not stats.from_dict(_saved_stats):
+		Log.warn(Log.Category.LOAD, "The saved statistics were unusable; they begin anew")
+	_saved_events = {}
+	_saved_chronicle = {}
+	_saved_stats = {}
 	ai.settlement = settlement
 	ai.rng = rng.stream(&"ai")
 	ai.world_seed = world_seed

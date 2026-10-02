@@ -29,6 +29,9 @@ static func share(ctx: AiContext, teller: PersonData, listener: PersonData) -> M
 	if memory == null:
 		return null
 	memory.told_tick = ctx.now()
+	if memory.kind == Memory.KIND_HARDSHIP:
+		Hardship.hear(ctx, teller, listener, memory)
+		return memory
 	tell(ctx, teller, listener, memory.subject, memory.interpretation, clampf(memory.importance + 0.2, 0.3, 0.85), memory.fidelity)
 	return memory
 

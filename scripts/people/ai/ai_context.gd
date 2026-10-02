@@ -49,6 +49,9 @@ var farming: Farming
 var fauna: AnimalSystem
 ## Kills not announced yet: [person id, species].
 var kills: Array = []
+## People who have fallen ill, or recovered, not announced yet:
+## [person id, condition, ill (bool)].
+var ailments: Array = []
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

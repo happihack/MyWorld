@@ -217,6 +217,9 @@ static func age_text(years: int) -> String:
 	return "1 year" if years == 1 else "%d years" % years
 
 
+## In place of the mood, for someone who has gone hungry too long (see Hardship).
+const WEAK_WITH_HUNGER := "Weak with hunger"
+
 ## How someone feels, in a word (mood and stress: 0 … 1, see Needs).
 static func mood_word(mood: float, stress: float = 0.0) -> String:
 	if stress >= 0.75:

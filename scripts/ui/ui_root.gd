@@ -18,6 +18,8 @@ signal person_action(action: StringName, person_id: int)
 signal person_chosen(person_id: int)
 ## The card of this person was closed.
 signal person_card_closed(person_id: int)
+## "Show" was pressed on a toast: look at this place (world X/Z).
+signal locate_requested(position: Vector2)
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
@@ -49,6 +51,7 @@ var _pins: PinList
 var _follow_banner: FollowBanner
 var _journal_button: JournalButton
 var _speed_control: SpeedControl
+var _toasts: ToastStack
 
 
 func _ready() -> void:
@@ -109,6 +112,15 @@ func _ready() -> void:
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
 	for pressed: Signal in [_follow_banner.follow_pressed, _follow_banner.stop_pressed, _follow_banner.locate_pressed]:
 		pressed.connect(_tick)
+	# What the player is told as it happens: between the marked people and
+	# the clock, below the banner.
+	_toasts = ToastStack.new()
+	add_child(_toasts)
+	move_child(_toasts, _panel_layer.get_index()) # panels draw over them
+	_toasts.keep_clear_of(_pins, _speed_control, _follow_banner)
+	_toasts.locate_requested.connect(func(position: Vector2) -> void:
+		_tick()
+		locate_requested.emit(position))
 	_hints = HintDirector.new(_hint_label)
 	_hints.name = "HintDirector"
 	add_child(_hints)
@@ -197,6 +209,11 @@ func follow_banner() -> FollowBanner:
 ## The names of the people marked as important.
 func pins() -> PinList:
 	return _pins
+
+
+## The toasts: what the player is told as it happens.
+func toasts() -> ToastStack:
+	return _toasts
 
 
 ## The card of a person; replaces any card that is already open. If it is
