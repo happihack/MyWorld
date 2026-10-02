@@ -79,6 +79,8 @@ var settlement: Settlement
 var farming: Farming
 ## What the player does frightens the animals at least this near to it (tiles).
 const STARTLE_RADIUS := 3.0
+## The weather: what the sky does, how warm it is, what has fallen.
+var weather: WeatherSystem
 ## What kinds of animals there are, the animals themselves, and their lives.
 var species: SpeciesLibrary
 var animals: AnimalRegistry
@@ -103,6 +105,7 @@ var _saved_settlement: Dictionary = {}
 var _saved_farming: Dictionary = {}
 var _saved_animals: Dictionary = {}
 var _saved_events: Dictionary = {}
+var _saved_weather: Dictionary = {}
 var _saved_chronicle: Dictionary = {}
 var _saved_stats: Dictionary = {}
 
@@ -114,6 +117,7 @@ func _init() -> void:
 	piles = PileStore.new()
 	farming = Farming.new()
 	fauna = AnimalSystem.new()
+	weather = WeatherSystem.new()
 	events = EventLog.new()
 	chronicle = Chronicler.new()
 	stats = StatsRecorder.new()
@@ -125,6 +129,10 @@ func _init() -> void:
 	farming.harvest_thin.connect(chronicle.on_harvest_thin)
 	farming.dry_spell.connect(chronicle.on_dry_spell)
 	piles.stored.connect(chronicle.on_stored)
+	weather.changed.connect(chronicle.on_weather_changed)
+	weather.condition_changed.connect(chronicle.on_condition_changed)
+	# The fields' rain is the weather's.
+	farming.rain_source = weather.rain_on
 	# A field is sown with grain from the stores.
 	farming.seed_source = func(units: int) -> bool:
 		return settlement != null and settlement.stockpile.take(&"grain", units) == units
@@ -179,6 +187,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_events = {}
 	_saved_chronicle = {}
 	_saved_stats = {}
+	_saved_weather = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -236,8 +245,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_events = {}
 	_saved_chronicle = {}
 	_saved_stats = {}
+	_saved_weather = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("weather")) == TYPE_DICTIONARY:
+			_saved_weather = state["weather"]
 		if typeof((state as Dictionary).get("events")) == TYPE_DICTIONARY:
 			_saved_events = state["events"]
 		if typeof((state as Dictionary).get("chronicle")) == TYPE_DICTIONARY:
@@ -330,6 +342,7 @@ func to_dict() -> Dictionary:
 			"events": events.to_dict(),
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
+			"weather": weather.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
 			"start": start.to_dict(),
 		},
@@ -358,6 +371,7 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if is_active:
 		simulation.advance(delta)
+		weather.advance_to(clock.tick)
 		if nodes.due(clock.tick):
 			nodes.settle(clock.tick)
 		if settlement != null:
@@ -399,6 +413,7 @@ func sample_stats() -> Dictionary:
 		&"wood": float(stores.amount(&"wood")) if stores != null else 0.0,
 		&"stone": float(stores.amount(&"stone")) if stores != null else 0.0,
 		&"health": health / count if count > 0 else 0.0,
+		&"temperature": weather.temperature(clock.tick),
 		&"mood": mood / count if count > 0 else 0.0,
 	}
 
@@ -593,6 +608,14 @@ func _activate() -> void:
 	ai.resources = resources
 	ai.places.resources = resources
 	ai.places.nodes = nodes
+	# The weather: where the save left it (a world from before there was any
+	# begins under a clear sky, now).
+	var level := world.get_height(start.settlement_tile) if start != null and start.campfire_id != 0 else 0
+	weather.bind(clock, Config.climate, world_seed, world, level)
+	weather.from_dict(_saved_weather)
+	_saved_weather = {}
+	weather.advance_to(clock.tick)
+	ai.weather = weather
 	farming.bind(world, props, ids, pathfinder, start, people, occupations, generator, world_seed, Config.farming)
 	farming.from_dict(_saved_farming)
 	_saved_farming = {}

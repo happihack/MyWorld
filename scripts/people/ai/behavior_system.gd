@@ -192,6 +192,8 @@ func counts() -> Dictionary:
 func step(minutes: float) -> void:
 	if ctx == null or not enabled or minutes < 0.0:
 		return
+	if ctx.weather != null:
+		ctx.weather.advance_to(ctx.now())
 	if ctx.settlement != null:
 		ctx.settlement.step(ctx.now())
 	if ctx.fauna != null:

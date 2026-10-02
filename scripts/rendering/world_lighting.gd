@@ -121,6 +121,27 @@ func apply_quality(level: GraphicsQuality.Level) -> void:
 	Log.info(Log.Category.PERFORMANCE, "Graphics quality", {"level": GraphicsQuality.level_name(level), "shadows": _sun.shadow_enabled})
 
 
+## Fog (driven by the weather): `haze` is the share of what the camera
+## looks at that it hides (0 = none), whatever the distance it is seen
+## from; at night it is as dark as the night.
+func set_fog(haze: float, color: Color, camera_distance: float, night: float = 0.0) -> void:
+	haze = clampf(haze, 0.0, 0.95)
+	if haze <= 0.005:
+		if _environment.fog_enabled:
+			_environment.fog_enabled = false
+		return
+	_environment.fog_enabled = true
+	_environment.fog_light_color = color.darkened(clampf(night, 0.0, 1.0) * 0.8)
+	_environment.fog_light_energy = 1.0
+	_environment.fog_sun_scatter = 0.0
+	# (Exponential: so much of the light is lost over the distance to what is looked at.)
+	_environment.fog_density = -log(1.0 - haze) / maxf(camera_distance, 1.0)
+
+
+func fog_haze_at(distance: float) -> float:
+	return 1.0 - exp(-_environment.fog_density * distance) if _environment.fog_enabled else 0.0
+
+
 ## Sun direction/colour/strength (driven by the day/night cycle later).
 func set_sun(rotation_deg: Vector3, color: Color, energy: float) -> void:
 	_sun.rotation_degrees = rotation_deg

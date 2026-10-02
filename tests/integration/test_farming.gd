@@ -30,6 +30,9 @@ func before_each() -> void:
 	behavior = session.behavior
 	ctx = behavior.ctx
 	farming = session.farming
+	# (These are the rules of the fields: with the rain FarmingConfig makes up,
+	# which a test can set. That the weather's rain reaches them is test_weather's.)
+	farming.rain_source = Callable()
 	config = Config.farming
 	_knobs.clear()
 

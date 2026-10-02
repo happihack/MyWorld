@@ -449,7 +449,7 @@ func _apply_ui_scale() -> void:
 
 func bind_session(session: WorldSession) -> void:
 	_session = session
-	_speed_control.bind(session.clock if session != null else null)
+	_speed_control.bind(session.clock if session != null else null, session.weather if session != null else null)
 
 
 func register_unlock_tap(time_ms: int) -> void:

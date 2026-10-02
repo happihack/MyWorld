@@ -319,6 +319,24 @@ static func crop_state(stage: int, growth: int, vigor: int, dry: bool) -> String
 	return "Resting"
 
 
+## The weather in a word: "Rain", "Heavy rain".
+static func weather_name(state: StringName) -> String:
+	var key := "WEATHER_" + String(state).to_upper()
+	var word := String(TranslationServer.translate(key))
+	return word if word != key else String(TranslationServer.translate("WEATHER_UNKNOWN"))
+
+
+## "9°", "-3°".
+static func temperature_text(celsius: float) -> String:
+	return String(TranslationServer.translate("WEATHER_DEGREES")).format({"degrees": roundi(celsius)})
+
+
+## The weather as the HUD says it: "Rain · 9°".
+static func weather_line(state: StringName, celsius: float) -> String:
+	return String(TranslationServer.translate("WEATHER_LINE")).format({"weather": weather_name(state),
+		"temperature": temperature_text(celsius)})
+
+
 ## The name of a resource: "wood", "berries".
 static func resource_name(resource: StringName) -> String:
 	var key := "RES_" + String(resource).to_upper()

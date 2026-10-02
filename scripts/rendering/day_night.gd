@@ -59,6 +59,10 @@ var _shown_hour := -100.0
 var _flicker := 0.0
 ## Tests set this to hold the light at an hour whatever the clock says (< 0: follow the clock).
 var forced_hour := -1.0
+## The weather over it all (see WeatherFx): how much of the sky is covered,
+## and how bright the lightning is right now.
+var _cover := 0.0
+var _flash := 0.0
 
 
 func _ready() -> void:
@@ -115,6 +119,22 @@ func state() -> State:
 	return _state
 
 
+## The weather's share in the light: clouds (0 … 1) grey and dim it, a
+## flash of lightning (0 … 1) makes it white for a moment.
+func set_weather(cover: float, flash: float = 0.0) -> void:
+	cover = clampf(cover, 0.0, 1.0)
+	flash = clampf(flash, 0.0, 1.0)
+	if absf(cover - _cover) < 0.004 and is_equal_approx(flash, _flash):
+		return
+	_cover = cover
+	_flash = flash
+	_shown_hour = -100.0
+
+
+func cover() -> float:
+	return _cover
+
+
 ## 0 in full day … 1 in full night, as shown now.
 func night() -> float:
 	return _state.night
@@ -146,7 +166,7 @@ func refresh() -> void:
 	if absf(now - _shown_hour) < UPDATE_HOURS:
 		return
 	_shown_hour = now
-	_state = state_at(now, Config.day_night)
+	_state = under_weather(state_at(now, Config.day_night), _cover, _flash, Config.weather_fx)
 	if _lighting != null:
 		_lighting.set_sun(_state.light_rotation, _state.light_color, _state.light_energy)
 		_lighting.set_atmosphere(_state.ambient_color, _state.ambient_energy, _state.background, _state.table_light, _state.shadow_opacity)
@@ -203,6 +223,31 @@ static func state_at(hour: float, config: DayNightConfig) -> State:
 	# the houses' business: see set_dark_houses).
 	s.window_light = s.night
 	return s
+
+
+## The light `state` under a sky covered by `cover` (0 … 1), lit by a
+## flash of lightning (0 … 1): dimmer and greyer, with paler shadows.
+static func under_weather(state: State, cover: float, flash: float, config: WeatherFxConfig) -> State:
+	if cover <= 0.0 and flash <= 0.0:
+		return state
+	var grey := config.overcast_color
+	state.light_energy *= lerpf(1.0, config.overcast_light, cover)
+	state.light_color = state.light_color.lerp(Color(grey.r, grey.g, grey.b) * state.light_color.get_luminance() * 1.25, cover * 0.8)
+	state.shadow_opacity *= lerpf(1.0, config.overcast_shadows, cover)
+	var dim := lerpf(1.0, 0.86, cover)
+	var ambient_grey := Color(grey.r, grey.g, grey.b) * (state.ambient_color.get_luminance() / maxf(grey.get_luminance(), 0.01))
+	state.ambient_color = state.ambient_color.lerp(ambient_grey, cover * config.overcast_ambient)
+	state.ambient_energy *= dim
+	var back_grey := Color(grey.r, grey.g, grey.b) * (state.background.get_luminance() / maxf(grey.get_luminance(), 0.01))
+	state.background = state.background.lerp(back_grey, cover * config.overcast_ambient)
+	state.table_light *= dim
+	# Broken cloud throws more patches of shade; a closed sky throws none.
+	state.cloud_shadows *= lerpf(1.0, 1.9, smoothstep(0.0, 0.7, cover)) * lerpf(1.0, 0.25, smoothstep(0.75, 1.0, cover))
+	if flash > 0.0:
+		state.light_color = state.light_color.lerp(Color(0.92, 0.95, 1.0), flash)
+		state.light_energy += config.flash_light * flash
+		state.ambient_energy += config.flash_light * 0.4 * flash
+	return state
 
 
 ## How much it is night at `hour`: 0 in full day, 1 in full night, turning

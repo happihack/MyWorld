@@ -1,0 +1,12 @@
+keys,en
+WEATHER_CLEAR,"Clear"
+WEATHER_CLOUDY,"Cloudy"
+WEATHER_RAIN,"Rain"
+WEATHER_HEAVY_RAIN,"Heavy rain"
+WEATHER_STORM,"Storm"
+WEATHER_WIND,"Windy"
+WEATHER_SNOW,"Snow"
+WEATHER_FOG,"Fog"
+WEATHER_UNKNOWN,"Weather"
+WEATHER_LINE,"{weather} · {temperature}"
+WEATHER_DEGREES,"{degrees}°"

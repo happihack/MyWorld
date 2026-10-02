@@ -13,11 +13,13 @@ const RATE := 22050
 ## The wind is all low frequencies, so a low rate is enough (and quick to make).
 const WIND_RATE := 11025
 const WIND_SECONDS := 3.0
+const RAIN_SECONDS := 2.5
 
 ## Every sound this class can make.
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
 	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice", &"crickets",
+	&"rain", &"thunder",
 ]
 
 
@@ -36,7 +38,7 @@ static func make(id: StringName) -> AudioStreamWAV:
 		return null
 	var rate := WIND_RATE if id == &"wind" else RATE
 	var stream := to_stream(samples, rate)
-	if id == &"wind" or id == &"crickets":
+	if id == &"wind" or id == &"crickets" or id == &"rain":
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		stream.loop_begin = 0
 		stream.loop_end = samples.size()
@@ -84,6 +86,10 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _wind(rng)
 		&"crickets":
 			return _crickets(rng)
+		&"rain":
+			return _rain(rng)
+		&"thunder":
+			return _finish(_thunder(rng), 0.9)
 		&"voice":
 			# A small "oh!": up, and down again. (Pitched per person when played.)
 			return _finish(_whistles(0.24, [[0.0, 0.09, 430.0, 600.0], [0.11, 0.12, 600.0, 390.0]]), 0.55)
@@ -329,6 +335,60 @@ static func _wind(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	if top > 0.0:
 		for i in n:
 			out[i] *= 0.5 / top
+	return out
+
+
+## A loop of steady rain: a soft hiss with drops in it. The end is blended
+## into the start so the loop has no seam.
+static func _rain(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(RAIN_SECONDS * RATE)
+	var blend := int(0.25 * RATE)
+	var raw := PackedFloat32Array()
+	raw.resize(n + blend)
+	var low := 0.0
+	var band := 0.0
+	var drop := 0.0
+	for i in n + blend:
+		var white := rng.randf_range(-1.0, 1.0)
+		# The hiss: what is left of noise without its lowest and its sharpest.
+		low += (white - low) * 0.25
+		band += ((white - low) - band) * 0.55
+		# Drops: now and then a tick that dies away at once.
+		if rng.randf() < 0.012:
+			drop = rng.randf_range(0.4, 1.0) * (1.0 if rng.randf() < 0.5 else -1.0)
+		drop *= 0.86
+		raw[i] = band * 0.6 + drop * 0.5
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for i in n:
+		var v := raw[i]
+		if i < blend:
+			var f := i / float(blend)
+			v = raw[i] * f + raw[n + i] * (1.0 - f)
+		out[i] = v
+	var top := peak(out)
+	if top > 0.0:
+		for i in n:
+			out[i] *= 0.5 / top
+	return out
+
+
+## Thunder: a crack, and a rumble that rolls away.
+static func _thunder(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(2.8 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var low := 0.0
+	var lower := 0.0
+	for i in n:
+		var t := i / float(RATE)
+		var white := rng.randf_range(-1.0, 1.0)
+		low += (white - low) * 0.06
+		lower += (low - lower) * 0.12
+		# The crack at the start (brighter), then the rumble, swelling twice as it rolls.
+		var crack := exp(-t * 14.0)
+		var roll := exp(-t * 1.3) * (0.6 + 0.4 * sin(t * 9.0 + 0.7) * sin(t * 2.3))
+		out[i] = low * 3.0 * crack + lower * 9.0 * roll
 	return out
 
 

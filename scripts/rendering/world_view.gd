@@ -22,6 +22,7 @@ var _terrain_material: ShaderMaterial
 var _frame: BoxFrame
 var _lighting: WorldLighting
 var _day_night: DayNight
+var _weather_fx: WeatherFx
 var _people: PersonRegistry
 ## The settlement's huts (prop ids), for whose lights are out.
 var _hut_ids: Array[int] = []
@@ -45,6 +46,7 @@ const WATER_REBUILD_EVERY_FRAMES := 3
 const WATER_SHADER := preload("res://assets/shaders/water.gdshader")
 const PROP_SHADER := preload("res://assets/shaders/prop.gdshader")
 const TERRAIN_SHADER := preload("res://assets/shaders/terrain.gdshader")
+const WEATHER_FX := preload("res://scenes/world/weather_fx.tscn")
 
 
 func _ready() -> void:
@@ -93,6 +95,9 @@ func _ready() -> void:
 	_effects.name = "Effects"
 	add_child(_effects)
 	_effects.setup(_prop_material)
+	_weather_fx = WEATHER_FX.instantiate()
+	add_child(_weather_fx)
+	_weather_fx.setup(_rig, _day_night, _lighting, _prop_material, _terrain_material)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -131,6 +136,7 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 		fire_at = Vector3(tile.x + 0.5, world.get_height(tile) * world.height_step, tile.y + 0.5)
 	_day_night.set_fire(fire_at, has_fire)
 	_hut_ids = start.hut_ids.duplicate() if start != null else ([] as Array[int])
+	_weather_fx.fit_to_box(Rect2(world.bounds), 0.0, box_height)
 	_rig.ground_height = _ground_height_at
 	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
@@ -163,6 +169,25 @@ func refresh_house_lights() -> void:
 				var at := hut.position2d()
 				dark.append(Vector3(at.x, _world.get_height(hut.tile) * _world.height_step, at.y))
 	_day_night.set_dark_houses(dark)
+
+
+## Shows the world's weather (call after show_world).
+func show_weather(weather: WeatherSystem, clock: GameClock) -> void:
+	_weather_fx.bind(weather, clock)
+
+
+## The sky: rain and snow, clouds, fog, lightning.
+func weather_fx() -> WeatherFx:
+	return _weather_fx
+
+
+## The material of the ground, and of everything that stands on it.
+func terrain_material() -> ShaderMaterial:
+	return _terrain_material
+
+
+func prop_material() -> ShaderMaterial:
+	return _prop_material
 
 
 ## The light of the day (sun, moon, windows, fire).
@@ -418,6 +443,8 @@ func _apply_camera_settings() -> void:
 	_rig.reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
 	_effects.reduced_motion = _rig.reduced_motion
 	_people_view.reduced_motion = _rig.reduced_motion
+	if _weather_fx != null:
+		_weather_fx.reduced_motion = _rig.reduced_motion
 
 
 func _on_setting_changed(key: StringName, _value: Variant) -> void:

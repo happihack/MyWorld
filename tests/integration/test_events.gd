@@ -89,6 +89,7 @@ func _soil(tile: Vector2i, moisture: int, fertility: int = 200) -> void:
 ## No rain, and soil that dries out in three days: a dry spell after three
 ## days, and whatever grows withers soon after.
 func _dry_weather() -> void:
+	farming.rain_source = Callable() # (the fields' own made-up rain, which the test can switch off)
 	_knob(Config.farming, &"rain_chance", PackedFloat32Array([0.0, 0.0, 0.0, 0.0]))
 	_knob(Config.farming, &"dry_spell_days", 3)
 	_knob(Config.farming, &"evaporation_per_day", 60)

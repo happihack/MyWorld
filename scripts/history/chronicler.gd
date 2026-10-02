@@ -35,6 +35,10 @@ const TYPE_RECOVERED := &"person_recovered"
 const TYPE_FIRE_OUT := &"fire_out"
 const TYPE_FIRE_RELIT := &"fire_relit"
 const TYPE_PLAYER := &"player_intervention"
+const TYPE_STORM := &"storm"
+const TYPE_DROUGHT := &"drought"
+const TYPE_HEAT_WAVE := &"heat_wave"
+const TYPE_COLD_SNAP := &"cold_snap"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -68,6 +72,8 @@ var _seed_eaten_id := 0
 var _forage_id := 0
 ## The fire being out, while it is.
 var _fire_out_id := 0
+## The weather's conditions going on: condition -> the event of its beginning.
+var _condition_ids: Dictionary = {}
 ## Has anything ever been put in store by someone?
 var _stored_once := false
 ## The resources the settlement has had in store: id (String) -> true.
@@ -102,6 +108,7 @@ func reset() -> void:
 	_seed_eaten_id = 0
 	_forage_id = 0
 	_fire_out_id = 0
+	_condition_ids.clear()
 	_stored_once = false
 	_known.clear()
 
@@ -207,6 +214,35 @@ func on_harvest_thin(crop_id: int) -> void:
 	_log.record(TYPE_POOR_HARVEST, params, [_log.recent_id(TYPE_THIN_SOWING, 60 * TimeConfig.MINUTES_PER_DAY, _now())])
 	# The harvest that follows will have seed again.
 	_seed_eaten_id = 0
+
+
+# --- the weather ----------------------------------------------------------------------------------
+
+## The weather has changed: a storm is worth a line.
+func on_weather_changed(_old: StringName, now: StringName) -> void:
+	if not _writing() or now != WeatherSystem.STORM:
+		return
+	_log.record(TYPE_STORM, {})
+
+
+## A drought, a heat wave or a cold snap has begun (or is over).
+func on_condition_changed(condition: StringName, active: bool) -> void:
+	if not _writing():
+		return
+	var key := String(condition)
+	if active:
+		var event := _log.record(StringName(key), {})
+		_condition_ids[key] = event.id if event != null else 0
+	else:
+		var began := int(_condition_ids.get(key, 0))
+		if began != 0:
+			_log.note_effect(began, "ended", _now())
+		_condition_ids.erase(key)
+
+
+## The event of a weather condition that is going on (0 = it is not).
+func condition_id(condition: StringName) -> int:
+	return int(_condition_ids.get(String(condition), 0))
 
 
 # --- the stores -----------------------------------------------------------------------------------
@@ -385,7 +421,8 @@ func to_dict() -> Dictionary:
 	var known: Array = _known.keys()
 	known.sort()
 	return {"dry_spell": _dry_spell_id, "shortage": _shortage_id, "empty": _empty_id, "seed_eaten": _seed_eaten_id,
-		"forage": _forage_id, "fire_out": _fire_out_id, "stored_once": _stored_once, "known": known}
+		"forage": _forage_id, "fire_out": _fire_out_id, "stored_once": _stored_once, "known": known,
+		"conditions": _condition_ids.duplicate()}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -397,6 +434,11 @@ func from_dict(data: Dictionary) -> void:
 	_forage_id = _id(data.get("forage"))
 	_fire_out_id = _id(data.get("fire_out"))
 	_stored_once = bool(data["stored_once"]) if typeof(data.get("stored_once")) == TYPE_BOOL else false
+	var going: Variant = data.get("conditions")
+	if typeof(going) == TYPE_DICTIONARY:
+		for condition: Variant in going:
+			if _id((going as Dictionary)[condition]) != 0:
+				_condition_ids[str(condition)] = _id(going[condition])
 	var known: Variant = data.get("known")
 	if typeof(known) == TYPE_ARRAY:
 		for resource: Variant in known:

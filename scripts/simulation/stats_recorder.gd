@@ -5,7 +5,7 @@ extends RefCounted
 ## they are. A ring of samples: when it is full the oldest go. Saved with
 ## the world.
 
-const SERIES: Array[StringName] = [&"population", &"food", &"water", &"wood", &"stone", &"health", &"mood"]
+const SERIES: Array[StringName] = [&"population", &"food", &"water", &"wood", &"stone", &"health", &"mood", &"temperature"]
 
 ## Asked for a sample: returns {series name -> float} (see WorldSession.sample_stats).
 var source := Callable()
@@ -102,9 +102,9 @@ func debug_text() -> String:
 	var now := latest()
 	if now.is_empty():
 		return "stats: no samples yet"
-	return "stats (%d samples): people %d  food %.1f  wood %d  stone %d  water %.0f  health %.2f  mood %.2f" % [
+	return "stats (%d samples): people %d  food %.1f  wood %d  stone %d  water %.0f  health %.2f  mood %.2f  %.0f°C" % [
 		_ticks.size(), int(now[&"population"]), now[&"food"], int(now[&"wood"]), int(now[&"stone"]), now[&"water"],
-		now[&"health"], now[&"mood"]]
+		now[&"health"], now[&"mood"], now[&"temperature"]]
 
 
 func to_dict() -> Dictionary:

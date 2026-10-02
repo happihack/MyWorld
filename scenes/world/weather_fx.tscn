@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/rendering/weather_fx.gd" id="1_fx"]
+
+[node name="WeatherFx" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Rain" type="MultiMeshInstance3D" parent="."]
+unique_name_in_owner = true
+visible = false
+cast_shadow = 0

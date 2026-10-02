@@ -21,6 +21,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	10: _v10_to_v11,
 	11: _v11_to_v12,
 	12: _v12_to_v13,
+	13: _v13_to_v14,
 }
 
 
@@ -341,4 +342,19 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 14 (M9.1) adds the weather: its state, the wind, and its record
+## of rain and temperature. An older world has no weather in its save: it
+## begins under a clear sky when it is opened.
+static func _v13_to_v14(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("weather"):
+		(state as Dictionary)["weather"] = {}
 	return data

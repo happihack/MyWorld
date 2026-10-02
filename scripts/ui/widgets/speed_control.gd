@@ -24,6 +24,8 @@ var _clock: GameClock
 var _button: Button
 var _time: Label
 var _date: Label
+var _sky: Label
+var _weather: WeatherSystem
 ## The speed to go back to from pause.
 var _resume_speed := GameClock.SPEED_NORMAL
 var _held_msec := -1
@@ -59,12 +61,15 @@ func _init() -> void:
 	_time.name = "Time"
 	_date = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
 	_date.name = "Date"
+	_sky = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
+	_sky.name = "Weather"
 
 
-func bind(clock: GameClock) -> void:
+func bind(clock: GameClock, weather: WeatherSystem = null) -> void:
 	if _clock != null and _clock.speed_changed.is_connected(_on_speed_changed):
 		_clock.speed_changed.disconnect(_on_speed_changed)
 	_clock = clock
+	_weather = weather
 	if clock != null:
 		clock.speed_changed.connect(_on_speed_changed)
 		if not clock.is_paused():
@@ -99,6 +104,11 @@ func refresh() -> void:
 	var date := _clock.format_date(false)
 	if _date.text != date:
 		_date.text = date
+	# The weather, and how warm it is: "Rain · 9°".
+	var sky := UIText.weather_line(_weather.state, _weather.temperature()) if _weather != null else ""
+	if _sky.text != sky:
+		_sky.text = sky
+		_sky.visible = sky != ""
 	_button.queue_redraw()
 
 
@@ -127,6 +137,10 @@ func time_text() -> String:
 
 func date_text() -> String:
 	return _date.text
+
+
+func weather_text() -> String:
+	return _sky.text
 
 
 ## The speed a tap on the paused button goes back to.

@@ -47,6 +47,8 @@ var settlement: Settlement
 var farming: Farming
 ## The animals (may be null: there are none to hunt).
 var fauna: AnimalSystem
+## The weather (may be null: there is none).
+var weather: WeatherSystem
 ## Kills not announced yet: [person id, species].
 var kills: Array = []
 ## People who have fallen ill, or recovered, not announced yet:

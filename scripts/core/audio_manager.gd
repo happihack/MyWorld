@@ -20,6 +20,7 @@ const SFX_DIR := "res://assets/audio/sfx/"
 const SFX_EXTENSIONS: PackedStringArray = ["wav", "ogg"]
 const WIND := &"wind"
 const CRICKETS := &"crickets"
+const RAIN := &"rain"
 ## Below this share of night the crickets are silent.
 const NIGHT_SILENT_BELOW := 0.02
 
@@ -41,6 +42,9 @@ var _busy_until: Dictionary = {} # voice -> ticks msec when its sound ends
 var _started_at: Dictionary = {} # voice -> ticks msec when its sound started
 var _ambience: AudioStreamPlayer
 var _night_ambience: AudioStreamPlayer
+var _rain_ambience: AudioStreamPlayer
+var _rain := 0.0
+var _wind := 0.0
 var _night := 0.0
 var _ambience_wanted := false
 var _rng := RandomNumberGenerator.new() # pitch variation only; never the simulation's
@@ -99,7 +103,7 @@ func start_ambience() -> void:
 	if stream == null:
 		return
 	_ambience.stream = stream
-	_ambience.volume_db = Config.feedback.wind_volume_db
+	_ambience.volume_db = Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * _wind
 	_ambience.play()
 
 
@@ -107,6 +111,10 @@ func stop_ambience() -> void:
 	_ambience_wanted = false
 	_ambience.stop()
 	_night_ambience.stop()
+	_rain_ambience.stop()
+	# (The next world begins under whatever sky it has.)
+	_rain = 0.0
+	_wind = 0.0
 
 
 ## How much it is night (0 day … 1 night): the crickets come in with the dark
@@ -124,6 +132,30 @@ func set_night(amount: float) -> void:
 		_night_ambience.stream = stream
 		_night_ambience.play()
 	_night_ambience.volume_db = Config.feedback.crickets_volume_db + linear_to_db(maxf(_night, 0.001))
+
+
+## The weather to be heard: how hard it rains (0 … 1) and how hard the wind
+## blows (0 … 1). Rain is a loop of its own; the wind is the ambience, louder.
+func set_weather(rain: float, wind: float) -> void:
+	_rain = clampf(rain, 0.0, 1.0)
+	_wind = clampf(wind, 0.0, 1.0)
+	if _ambience.playing:
+		_ambience.volume_db = Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * _wind
+	if not _ready_to_play or not _ambience_wanted or _rain < 0.02:
+		if _rain_ambience.playing:
+			_rain_ambience.stop()
+		return
+	if not _rain_ambience.playing:
+		var stream: AudioStream = _sounds.get(RAIN)
+		if stream == null:
+			return
+		_rain_ambience.stream = stream
+		_rain_ambience.play()
+	_rain_ambience.volume_db = Config.weather_fx.rain_volume_db + linear_to_db(maxf(sqrt(_rain), 0.001))
+
+
+func rain_ambience_player() -> AudioStreamPlayer:
+	return _rain_ambience
 
 
 func night_ambience_player() -> AudioStreamPlayer:
@@ -318,6 +350,10 @@ func _build_voices() -> void:
 	_night_ambience.name = "NightAmbience"
 	_night_ambience.bus = BUS_AMBIENCE
 	add_child(_night_ambience)
+	_rain_ambience = AudioStreamPlayer.new()
+	_rain_ambience.name = "RainAmbience"
+	_rain_ambience.bus = BUS_AMBIENCE
+	add_child(_rain_ambience)
 
 
 func _ensure_bus(bus: StringName) -> void:

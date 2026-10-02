@@ -49,6 +49,9 @@ const MAX_DAYS_AT_ONCE := 30
 const _RAIN_SALT := 0x7A11
 
 var last_settle_tick := -1_000_000
+## The weather: called with a game day, returns whether it rained on it.
+## Not set: the placeholder below (FarmingConfig.rain_chance) says.
+var rain_source := Callable()
 ## Where seed comes from: called with the units wanted, returns true if
 ## they were there (and are taken). Not set: sowing needs no seed.
 var seed_source := Callable()
@@ -236,10 +239,11 @@ func fertility(tile: Vector2i) -> int:
 	return chunk.fertility[_world.index_at_tile(tile)] if chunk != null else 0
 
 
-## Placeholder for the weather to come: does it rain on this game day?
-## (Decided by the world's seed and the day, so it is the same on every
-## device and needs no saving.)
+## Did it rain on this game day? The weather says (see WeatherSystem);
+## without weather, a placeholder: decided by the world's seed and the day.
 func rain_on(day: int) -> bool:
+	if rain_source.is_valid():
+		return bool(rain_source.call(day))
 	var season := posmod(floori(float(day) / float(Config.time.days_per_season)), Config.time.seasons_per_year)
 	var chance := _config.rain_chance[season] if season < _config.rain_chance.size() else 0.0
 	return float(HashNoise.hash2(day, _seed & 0xFFFF, _RAIN_SALT) % 1000) < chance * 1000.0

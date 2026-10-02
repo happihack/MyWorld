@@ -1,0 +1,47 @@
+[gd_resource type="Resource" script_class="ClimateConfig" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/config_types/climate_config.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"temperate"
+spring = {
+&"clear": {&"clear": 0.7, &"cloudy": 0.19, &"wind": 0.06, &"fog": 0.03, &"rain": 0.02},
+&"cloudy": {&"cloudy": 0.44, &"clear": 0.32, &"rain": 0.14, &"wind": 0.05, &"fog": 0.03, &"heavy_rain": 0.02},
+&"rain": {&"rain": 0.46, &"cloudy": 0.27, &"heavy_rain": 0.1, &"clear": 0.13, &"storm": 0.04},
+&"heavy_rain": {&"heavy_rain": 0.3, &"rain": 0.42, &"storm": 0.1, &"cloudy": 0.18},
+&"storm": {&"storm": 0.25, &"heavy_rain": 0.3, &"rain": 0.27, &"cloudy": 0.18},
+&"wind": {&"wind": 0.4, &"clear": 0.32, &"cloudy": 0.24, &"rain": 0.04},
+&"fog": {&"fog": 0.35, &"clear": 0.4, &"cloudy": 0.25},
+&"snow": {&"snow": 0.4, &"cloudy": 0.35, &"rain": 0.15, &"clear": 0.1}
+}
+summer = {
+&"clear": {&"clear": 0.8, &"cloudy": 0.13, &"wind": 0.05, &"fog": 0.01, &"rain": 0.01},
+&"cloudy": {&"cloudy": 0.4, &"clear": 0.38, &"rain": 0.1, &"storm": 0.05, &"wind": 0.07},
+&"rain": {&"rain": 0.34, &"cloudy": 0.3, &"clear": 0.22, &"heavy_rain": 0.07, &"storm": 0.07},
+&"heavy_rain": {&"heavy_rain": 0.22, &"rain": 0.38, &"storm": 0.15, &"cloudy": 0.25},
+&"storm": {&"storm": 0.25, &"heavy_rain": 0.25, &"rain": 0.22, &"cloudy": 0.18, &"clear": 0.1},
+&"wind": {&"wind": 0.35, &"clear": 0.42, &"cloudy": 0.2, &"storm": 0.03},
+&"fog": {&"fog": 0.25, &"clear": 0.55, &"cloudy": 0.2},
+&"snow": {&"rain": 0.5, &"cloudy": 0.5}
+}
+autumn = {
+&"clear": {&"clear": 0.64, &"cloudy": 0.2, &"wind": 0.09, &"fog": 0.05, &"rain": 0.02},
+&"cloudy": {&"cloudy": 0.42, &"clear": 0.29, &"rain": 0.15, &"wind": 0.08, &"fog": 0.04, &"heavy_rain": 0.02},
+&"rain": {&"rain": 0.46, &"cloudy": 0.24, &"heavy_rain": 0.12, &"clear": 0.1, &"storm": 0.08},
+&"heavy_rain": {&"heavy_rain": 0.3, &"rain": 0.38, &"storm": 0.15, &"cloudy": 0.17},
+&"storm": {&"storm": 0.32, &"heavy_rain": 0.28, &"rain": 0.22, &"cloudy": 0.1, &"wind": 0.08},
+&"wind": {&"wind": 0.44, &"clear": 0.24, &"cloudy": 0.24, &"rain": 0.05, &"storm": 0.03},
+&"fog": {&"fog": 0.45, &"clear": 0.28, &"cloudy": 0.27},
+&"snow": {&"snow": 0.4, &"cloudy": 0.35, &"rain": 0.15, &"clear": 0.1}
+}
+winter = {
+&"clear": {&"clear": 0.7, &"cloudy": 0.19, &"wind": 0.06, &"fog": 0.04, &"snow": 0.01},
+&"cloudy": {&"cloudy": 0.46, &"clear": 0.31, &"snow": 0.13, &"wind": 0.06, &"fog": 0.04},
+&"rain": {&"rain": 0.4, &"cloudy": 0.3, &"snow": 0.2, &"clear": 0.1},
+&"heavy_rain": {&"rain": 0.45, &"heavy_rain": 0.25, &"cloudy": 0.3},
+&"storm": {&"storm": 0.25, &"snow": 0.35, &"wind": 0.2, &"cloudy": 0.2},
+&"wind": {&"wind": 0.42, &"clear": 0.28, &"cloudy": 0.24, &"snow": 0.04, &"storm": 0.02},
+&"fog": {&"fog": 0.45, &"clear": 0.3, &"cloudy": 0.25},
+&"snow": {&"snow": 0.5, &"cloudy": 0.3, &"clear": 0.14, &"wind": 0.04, &"storm": 0.02}
+}

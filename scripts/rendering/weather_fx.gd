@@ -1,0 +1,269 @@
+class_name WeatherFx
+extends Node3D
+## What the weather looks and sounds like (bible §10.1, §28.2): rain and
+## snow falling inside the box, the light going grey under clouds, fog,
+## lightning and thunder in a storm, the wind in the trees, the ground
+## darkening in the rain — and the sound of it.
+##
+## It only reads the weather (WeatherSystem) and shows it: what it shows
+## eases towards what the weather is, so that the sky changes and does not
+## switch. Everything it drives is handed to it by the WorldView.
+
+const RAIN_SHADER := preload("res://assets/shaders/rain.gdshader")
+## Below this nothing is drawn (and nothing heard).
+const NOTHING := 0.01
+
+@onready var _rain: MultiMeshInstance3D = %Rain
+
+## What is shown right now (it eases towards what the weather is).
+var cover := 0.0
+var fog := 0.0
+## How much falls, 0 … 1, and whether it is snow.
+var falling := 0.0
+var snowing := false
+var wind := Vector2.ZERO
+## How wet the ground is, 0 … 1.
+var wetness := 0.0
+## How bright the lightning is right now, 0 … 1.
+var flash := 0.0
+## For tests and the overlay.
+var flashes := 0
+var thunders := 0
+## No flashes (accessibility: reduced motion); the thunder is still heard.
+var reduced_motion := false
+
+var _weather: WeatherSystem
+var _clock: GameClock
+var _rig: CameraRig
+var _day_night: DayNight
+var _lighting: WorldLighting
+var _prop_material: ShaderMaterial
+var _terrain_material: ShaderMaterial
+var _rain_material: ShaderMaterial
+var _config: WeatherFxConfig
+var _box := Rect2(-1000.0, -1000.0, 2000.0, 2000.0)
+var _top := 12.0
+var _bottom := 0.0
+var _drop_count := 0
+var _base_sway := 0.055
+var _strike_in := 0.0
+var _flash_left := 0.0
+var _thunder_in: Array[float] = []
+var _rng := RandomNumberGenerator.new() # looks only; never the simulation's
+
+
+func _ready() -> void:
+	_config = Config.weather_fx
+	_rain_material = ShaderMaterial.new()
+	_rain_material.shader = RAIN_SHADER
+	_rain.material_override = _rain_material
+	_rain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_rain.visible = false
+	_build_drops(GraphicsQuality.current())
+	_strike_in = _next_strike()
+	reduced_motion = bool(Settings.get_value(&"accessibility/reduced_motion"))
+	Settings.setting_changed.connect(_on_setting_changed)
+
+
+## What it drives: the camera (where the rain falls), the light of the day,
+## the atmosphere, and the materials of the props (sway) and the ground (wet).
+func setup(rig: CameraRig, day_night: DayNight, lighting: WorldLighting, prop_material: ShaderMaterial,
+		terrain_material: ShaderMaterial) -> void:
+	_rig = rig
+	_day_night = day_night
+	_lighting = lighting
+	_prop_material = prop_material
+	_terrain_material = terrain_material
+	if prop_material != null:
+		var amplitude: Variant = prop_material.get_shader_parameter(&"sway_amplitude")
+		_base_sway = float(amplitude) if typeof(amplitude) == TYPE_FLOAT else 0.055
+
+
+## The box the weather stays in: its ground rectangle (world X/Z) and from
+## where to where things fall.
+func fit_to_box(box: Rect2, bottom_y: float, top_y: float) -> void:
+	_box = box
+	_bottom = bottom_y
+	_top = top_y
+
+
+## The weather to show (null: none — a clear, still sky).
+func bind(weather: WeatherSystem, clock: GameClock) -> void:
+	_weather = weather
+	_clock = clock
+	snap()
+
+
+## Shows the weather as it is, at once (a world just opened).
+func snap() -> void:
+	var target := _targets()
+	cover = target["cover"]
+	fog = target["fog"]
+	falling = target["falling"]
+	snowing = target["snow"]
+	wind = target["wind"]
+	wetness = 1.0 if falling > NOTHING and not snowing else 0.0
+	_apply()
+
+
+func drop_count() -> int:
+	return _drop_count
+
+
+func rain_node() -> MultiMeshInstance3D:
+	return _rain
+
+
+func rain_material() -> ShaderMaterial:
+	return _rain_material
+
+
+func is_storming() -> bool:
+	return _weather != null and _weather.state == WeatherSystem.STORM
+
+
+func _process(delta: float) -> void:
+	advance(delta)
+
+
+## Lets `delta` real seconds pass for what is shown. (Called every frame;
+## tests call it themselves.)
+func advance(delta: float) -> void:
+	var target := _targets()
+	# The sky changes over seconds — fewer when the world runs faster.
+	var speed := maxf(_clock.speed_multiplier(), 1.0) if _clock != null and not _clock.is_paused() else 1.0
+	var share := clampf(delta * speed / _config.transition_seconds, 0.0, 1.0) if _config.transition_seconds > 0.0 else 1.0
+	cover = move_toward(cover, target["cover"], share)
+	fog = move_toward(fog, target["fog"], share)
+	wind = wind.move_toward(target["wind"], share * 1.5)
+	# What falls changes kind only when little is falling (rain does not turn white in mid-air).
+	if bool(target["snow"]) != snowing:
+		falling = move_toward(falling, 0.0, share * 2.0)
+		if falling <= NOTHING:
+			snowing = target["snow"]
+	else:
+		falling = move_toward(falling, target["falling"], share)
+	# The ground: wet soon in the rain, dry slowly after it.
+	if falling > NOTHING and not snowing:
+		wetness = move_toward(wetness, 1.0, delta * speed / _config.wetting_seconds)
+	else:
+		wetness = move_toward(wetness, 0.0, delta * speed / _config.drying_seconds)
+	_advance_lightning(delta)
+	_apply()
+
+
+## A flash of lightning now, and its thunder a moment later. (In a storm
+## they come by themselves.)
+func strike() -> void:
+	flashes += 1
+	_thunder_in.append(_rng.randf_range(_config.thunder_min_seconds, _config.thunder_max_seconds))
+	if not reduced_motion:
+		_flash_left = 0.32
+
+
+func debug_text() -> String:
+	return "sky: cover %.2f  fog %.2f  %s %.2f (%d drops)  wind (%.2f, %.2f)  wet %.2f  flashes %d" % [cover, fog,
+		"snow" if snowing else "rain", falling, _drop_count if _rain.visible else 0, wind.x, wind.y, wetness, flashes]
+
+
+# --- internals --------------------------------------------------------------------------------------
+
+## What the weather is now, as what there is to show.
+func _targets() -> Dictionary:
+	if _weather == null:
+		return {"cover": 0.0, "fog": 0.0, "falling": 0.0, "snow": false, "wind": Vector2.ZERO}
+	# (Snow is light: a snowfall is a sky full of flakes all the same.)
+	var share := _weather.precipitation() / _config.full_precipitation * (3.0 if _weather.is_snowing() else 1.0)
+	return {"cover": _weather.cloud_cover(), "fog": _weather.fog(), "falling": clampf(share, 0.0, 1.0),
+		"snow": _weather.is_snowing(), "wind": _weather.wind()}
+
+
+func _advance_lightning(delta: float) -> void:
+	if is_storming():
+		_strike_in -= delta
+		if _strike_in <= 0.0:
+			_strike_in = _next_strike()
+			strike()
+	# Two quick flickers.
+	if _flash_left > 0.0:
+		_flash_left = maxf(_flash_left - delta, 0.0)
+		flash = 1.0 if _flash_left > 0.24 or (_flash_left > 0.06 and _flash_left < 0.16) else 0.15
+		if _flash_left <= 0.0:
+			flash = 0.0
+	for i in range(_thunder_in.size() - 1, -1, -1):
+		_thunder_in[i] -= delta
+		if _thunder_in[i] <= 0.0:
+			_thunder_in.remove_at(i)
+			thunders += 1
+			var at := _rig.camera().global_position if _rig != null else Vector3.ZERO
+			AudioManager.play_at(&"thunder", at, _config.thunder_volume_db, _rng.randf_range(0.85, 1.1), false)
+
+
+func _next_strike() -> float:
+	return _rng.randf_range(_config.lightning_min_seconds, _config.lightning_max_seconds)
+
+
+## Pushes what is shown to everything that shows it.
+func _apply() -> void:
+	# Rain and snow, in a square around what the camera looks at.
+	var visible_now := falling > NOTHING and _drop_count > 0
+	if _rain.visible != visible_now:
+		_rain.visible = visible_now
+	if visible_now:
+		var center := Vector2(_rig.pivot().x, _rig.pivot().z) if _rig != null else _box.get_center()
+		var distance := _rig.distance() if _rig != null else 30.0
+		var side := clampf(distance * _config.area_per_distance, _config.area_min, _config.area_max)
+		var white := 1.0 if snowing else 0.0
+		_rain_material.set_shader_parameter(&"area_center", center)
+		_rain_material.set_shader_parameter(&"area_size", side)
+		_rain_material.set_shader_parameter(&"top", _top)
+		_rain_material.set_shader_parameter(&"bottom", _bottom)
+		_rain_material.set_shader_parameter(&"fall_speed", _config.snow_speed if snowing else _config.rain_speed)
+		_rain_material.set_shader_parameter(&"wind", wind * _config.wind_carry * (0.45 if snowing else 1.0))
+		_rain_material.set_shader_parameter(&"amount", falling)
+		_rain_material.set_shader_parameter(&"snow", white)
+		_rain_material.set_shader_parameter(&"tint", _config.snow_color if snowing else _config.rain_color)
+		_rain_material.set_shader_parameter(&"daylight", 1.0 - 0.75 * _day_night.night() if _day_night != null else 1.0)
+		_rain_material.set_shader_parameter(&"box_min", _box.position)
+		_rain_material.set_shader_parameter(&"box_max", _box.end)
+		# (Drawn wherever the camera is: its place is worked out in the shader.)
+		_rain.custom_aabb = AABB(Vector3(_box.position.x, _bottom, _box.position.y), Vector3(_box.size.x, _top - _bottom, _box.size.y))
+	# The light.
+	if _day_night != null:
+		_day_night.set_weather(cover, flash)
+	if _lighting != null:
+		_lighting.set_fog(fog * _config.fog_haze, _config.fog_color, _rig.distance() if _rig != null else 30.0,
+			_day_night.night() if _day_night != null else 0.0)
+	# The wind in the trees; the ground in the rain.
+	if _prop_material != null:
+		_prop_material.set_shader_parameter(&"sway_amplitude", _base_sway * lerpf(_config.sway_calm, _config.sway_storm, wind.length()))
+		if wind.length() > 0.02:
+			_prop_material.set_shader_parameter(&"wind_direction", wind.normalized())
+	if _terrain_material != null:
+		_terrain_material.set_shader_parameter(&"wetness", wetness * _config.wet_ground)
+	AudioManager.set_weather(falling if not snowing else 0.0, wind.length())
+
+
+## The drops: one quad, drawn as many times as the quality allows; where
+## each is, is the shader's business.
+func _build_drops(level: GraphicsQuality.Level) -> void:
+	_drop_count = _config.drops_for(level)
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
+	quad.center_offset = Vector3(0.0, 0.5, 0.0)
+	var mesh := MultiMesh.new()
+	mesh.transform_format = MultiMesh.TRANSFORM_3D
+	mesh.use_custom_data = true
+	mesh.mesh = quad
+	mesh.instance_count = _drop_count
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261001
+	for i in _drop_count:
+		mesh.set_instance_transform(i, Transform3D.IDENTITY)
+		mesh.set_instance_custom_data(i, Color(rng.randf(), rng.randf(), rng.randf(), float(i) / maxf(_drop_count, 1.0)))
+	_rain.multimesh = mesh
+
+
+func _on_setting_changed(key: StringName, _value: Variant) -> void:
+	if key == GraphicsQuality.SETTING:
+		_build_drops(GraphicsQuality.current())
