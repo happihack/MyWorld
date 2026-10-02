@@ -116,6 +116,7 @@ func _ready() -> void:
 		pressed.connect(_tick)
 	# The menu (for now: the motion settings), top left.
 	_menu_button = MenuButtonRound.new()
+	_menu_button.visible = SensorManager.feature_enabled() # (motion controls are on hold: nothing to open)
 	add_child(_menu_button)
 	move_child(_menu_button, _panel_layer.get_index())
 	_menu_button.pressed.connect(func() -> void:
@@ -228,7 +229,7 @@ func menu_button() -> MenuButtonRound:
 ## The motion settings, in place of any other card.
 func open_motion_settings() -> MotionSettingsPanel:
 	var open := motion_settings()
-	if open != null:
+	if open != null or not SensorManager.feature_enabled():
 		return open
 	close_all_panels()
 	var panel := MotionSettingsPanel.new()
@@ -259,7 +260,7 @@ func motion_settings() -> MotionSettingsPanel:
 ## back to that).
 func open_calibration() -> CalibrationPanel:
 	var open := calibration_panel()
-	if open != null:
+	if open != null or not SensorManager.feature_enabled():
 		return open
 	var panel: CalibrationPanel = CALIBRATION.instantiate()
 	open_panel(panel)

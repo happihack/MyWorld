@@ -17,6 +17,7 @@ var _real_vibrate: Callable
 
 func before_each() -> void:
 	manager = SensorManager
+	Config.motion.feature_enabled = true # (on hold in the game; these are the tests of it)
 	AudioManager.ensure_sounds()
 	_real_vibrate = Haptics.vibrate_action
 	Haptics.vibrate_action = func(_ms: int, _amplitude: float) -> void: pass
@@ -66,6 +67,7 @@ func after_each() -> void:
 	Settings.reset_to_defaults()
 	_fresh()
 	manager.set_process(true)
+	Config.motion.feature_enabled = MotionConfig.new().feature_enabled
 
 
 func _fresh() -> void:

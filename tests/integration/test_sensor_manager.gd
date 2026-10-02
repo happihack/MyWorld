@@ -24,6 +24,7 @@ var main: Node
 
 func before_each() -> void:
 	manager = SensorManager
+	Config.motion.feature_enabled = true # (on hold in the game; these are the tests of it)
 	Settings.reset_to_defaults()
 	_real = {"gravity": manager.read_gravity, "accelerometer": manager.read_accelerometer, "gyroscope": manager.read_gyroscope,
 		"now": manager.now_msec, "virtual": manager.virtual_allowed}
@@ -73,6 +74,7 @@ func after_each() -> void:
 	Settings.reset_to_defaults()
 	_fresh()
 	manager.set_process(true)
+	Config.motion.feature_enabled = MotionConfig.new().feature_enabled
 
 
 ## The manager as it is when the game starts: nothing known about the sensors.

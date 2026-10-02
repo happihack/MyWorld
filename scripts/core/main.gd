@@ -80,8 +80,9 @@ func _ready() -> void:
 	SensorManager.set_world_visible(true)
 	tilt_stick = TiltStick.new()
 	debug_overlay.add_child(tilt_stick)
-	tilt_stick.visible = debug_overlay.is_shown()
-	debug_overlay.register_section(&"motion", func() -> String: return SensorManager.debug_text())
+	tilt_stick.visible = debug_overlay.is_shown() and SensorManager.feature_enabled()
+	if SensorManager.feature_enabled():
+		debug_overlay.register_section(&"motion", func() -> String: return SensorManager.debug_text())
 	# What happens in the world is told as it happens (and shown where).
 	NotificationManager.bind(session.events, session.people)
 	NotificationManager.quiet = follow.is_following()
@@ -157,7 +158,7 @@ func _process(delta: float) -> void:
 	# The inspector is part of the debug overlay; it shows whoever is selected.
 	var debugging := debug_overlay.is_shown()
 	inspector.visible = debugging
-	tilt_stick.visible = debugging and SensorManager.virtual_allowed
+	tilt_stick.visible = debugging and SensorManager.virtual_allowed and SensorManager.feature_enabled()
 	if debugging:
 		if inspector.inspected_id() != _selected_id:
 			if _selected_id == 0:

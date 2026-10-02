@@ -3,6 +3,12 @@ extends ConfigBase
 ## The device's motion sensors: how tilt is read and how a shake is told
 ## from a bump (bible §23.5, §23.6, §31.11).
 
+## Motion controls as a whole (M8). **Off: on hold** — the sensors are not
+## read, nothing tilts or shakes, and nothing of it is on screen (no menu
+## button, no settings, no calibration, no two-finger tilt, no debug
+## stick). The code stays; this switches it back on.
+@export var feature_enabled: bool = false
+
 @export_group("Sampling")
 ## The sensors are read this many times a second (while they are read at all).
 @export_range(5, 120) var sample_hz: int = 30

@@ -105,7 +105,13 @@ func _ready() -> void:
 ## switched that on — and on a device that has no motion sensors (unless
 ## motion controls are switched off altogether).
 func touch_tilt_enabled() -> bool:
-	return _touch_tilt or (_enabled and availability == Availability.UNAVAILABLE)
+	return feature_enabled() and (_touch_tilt or (_enabled and availability == Availability.UNAVAILABLE))
+
+
+## Are motion controls part of the game at all (see MotionConfig.feature_enabled)?
+## While they are on hold nothing is read and nothing is published.
+func feature_enabled() -> bool:
+	return _config != null and _config.feature_enabled
 
 
 ## Two fingers have dragged the box to `where` (-1 … 1; 1 = as far as it
@@ -132,6 +138,8 @@ func is_available() -> bool:
 
 ## Why nothing is read ("" if it is).
 func idle_reason() -> String:
+	if not feature_enabled():
+		return "on hold"
 	if not _enabled and not _touch_tilt:
 		return "motion controls off"
 	if not _in_front:
@@ -266,7 +274,7 @@ func is_calibrated() -> bool:
 ## Makes up a shake of a class (ShakeDetector.ShakeClass), as a key press
 ## or the debug stick's buttons do. False if virtual sensors are not allowed.
 func virtual_shake(shake_class: int) -> bool:
-	if not virtual_allowed or not _sampling:
+	if not virtual_allowed or not _sampling or not feature_enabled():
 		return false
 	virtual.start_shake(shake_class, now_msec.call())
 	return true
@@ -366,7 +374,7 @@ func _set_in_front(in_front: bool) -> void:
 
 
 func _update_sampling() -> void:
-	var wanted := (_enabled or _touch_tilt) and _in_front and _world_visible
+	var wanted := feature_enabled() and (_enabled or _touch_tilt) and _in_front and _world_visible
 	if wanted == _sampling:
 		return
 	_sampling = wanted
