@@ -30,6 +30,7 @@ SaveManager="*res://scripts/save/save_manager.gd"
 Haptics="*res://scripts/core/haptics.gd"
 AudioManager="*res://scripts/core/audio_manager.gd"
 NotificationManager="*res://scripts/core/notification_manager.gd"
+SensorManager="*res://scripts/sensors/sensor_manager.gd"
 
 [display]
 

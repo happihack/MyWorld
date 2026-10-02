@@ -13,6 +13,8 @@ extends Node
 var tools: ToolManager
 ## Debug: what one person is doing and why (shown with the debug overlay).
 var inspector: AiInspector
+## Debug: stands in for tilting and shaking the device (part of the overlay).
+var tilt_stick: TiltStick
 
 ## The game opens on the whole box, then the camera descends to the settlement
 ## after this many seconds (bible §26.1) — unless the player moves first.
@@ -71,6 +73,12 @@ func _ready() -> void:
 	banner.stop_pressed.connect(stop_following)
 	banner.locate_pressed.connect(func() -> void: focus_on_person(_selected_id))
 	_restore_follow()
+	# The world is on screen: the motion sensors have something to move.
+	SensorManager.set_world_visible(true)
+	tilt_stick = TiltStick.new()
+	debug_overlay.add_child(tilt_stick)
+	tilt_stick.visible = debug_overlay.is_shown()
+	debug_overlay.register_section(&"motion", func() -> String: return SensorManager.debug_text())
 	# What happens in the world is told as it happens (and shown where).
 	NotificationManager.bind(session.events, session.people)
 	NotificationManager.quiet = follow.is_following()
@@ -95,7 +103,7 @@ func _ready() -> void:
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
-	debug_overlay.register_section(&"motion", func() -> String:
+	debug_overlay.register_section(&"moving", func() -> String:
 		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms" % [
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
 			session.water.active_count(), session.water.last_step_usec / 1000.0])
@@ -146,6 +154,7 @@ func _process(delta: float) -> void:
 	# The inspector is part of the debug overlay; it shows whoever is selected.
 	var debugging := debug_overlay.is_shown()
 	inspector.visible = debugging
+	tilt_stick.visible = debugging and SensorManager.virtual_allowed
 	if debugging:
 		if inspector.inspected_id() != _selected_id:
 			if _selected_id == 0:
@@ -157,6 +166,7 @@ func _process(delta: float) -> void:
 
 
 func _exit_tree() -> void:
+	SensorManager.set_world_visible(false)
 	SaveManager.attach(null)
 	AudioManager.stop_ambience()
 
