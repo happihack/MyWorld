@@ -3,27 +3,50 @@ extends Node
 ## Keeps the player's tools and which one is active (bible §23.2). Gestures are
 ## offered to the active tool first; what it does not keep goes on to the
 ## camera and the default touch handling.
+##
+## Which tools there are grows with the world (`ToolReveals`): the hand and
+## the eye from the first moment; rain, wind and water when they have shown
+## themselves. (Debug builds have them all at once, and the prototypes.)
 
 signal tool_changed(id: StringName)
+## The set of tools has changed (one has shown itself).
+signal tools_changed
+
+## Every tool there is, whatever has shown itself: debug builds (or debug
+## tools unlocked). Tests of the reveal switch it off.
+var show_all := false
 
 var _tools: Dictionary = {} # id -> ToolBase
 var _order: Array[StringName] = []
 var _current: ToolBase
 var _context: ToolBase.Context
+var _reveals: ToolReveals
 
 
-## Creates the tools that exist so far and selects the hand.
-func setup(context: ToolBase.Context) -> void:
+## Creates the tools there are so far and selects the hand. `reveals` says
+## which powers have shown themselves (none without it).
+func setup(context: ToolBase.Context, reveals: ToolReveals = null) -> void:
 	_context = context
-	_tools.clear()
-	_order.clear()
+	_reveals = reveals
+	show_all = DebugOverlay.is_available()
+	if _current != null:
+		_current.deactivate()
 	_current = null
-	register(HandTool.new())
-	register(ObserveTool.new())
-	if DebugOverlay.is_available():
-		register(WaterTool.new()) # prototype: debug builds, or debug tools unlocked
-		register(CallTool.new()) # prototype
+	_build()
 	select(HandTool.ID)
+
+
+## Looks again at which tools there are (one has shown itself). The active
+## tool stays the active one.
+func refresh() -> void:
+	var was := current_id()
+	if _current != null:
+		_current.deactivate()
+	_current = null
+	_build()
+	if not select(was):
+		select(HandTool.ID)
+	tools_changed.emit()
 
 
 func register(tool: ToolBase) -> void:
@@ -35,6 +58,10 @@ func register(tool: ToolBase) -> void:
 ## Tool ids in tool-bar order.
 func tool_ids() -> Array[StringName]:
 	return _order.duplicate()
+
+
+func has_tool(id: StringName) -> bool:
+	return _tools.has(id)
 
 
 func current() -> ToolBase:
@@ -100,3 +127,22 @@ func _process(delta: float) -> void:
 func _exit_tree() -> void:
 	if _current != null:
 		_current.deactivate()
+
+
+func _build() -> void:
+	_tools.clear()
+	_order.clear()
+	register(HandTool.new())
+	register(ObserveTool.new())
+	if _shown(ToolReveals.RAIN):
+		register(RainTool.new())
+	if _shown(ToolReveals.WIND):
+		register(WindTool.new())
+	if _shown(ToolReveals.WATER):
+		register(WaterTool.new())
+	if DebugOverlay.is_available():
+		register(CallTool.new()) # prototype: debug builds, or debug tools unlocked
+
+
+func _shown(id: StringName) -> bool:
+	return show_all or (_reveals != null and _reveals.is_known(id))

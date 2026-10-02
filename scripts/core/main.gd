@@ -156,6 +156,10 @@ func _process(delta: float) -> void:
 	session.simulation.tiers.look_at(Vector2(pivot.x, pivot.z))
 	if _observing:
 		world_view.people_view().show_trail(_way_of(_selected_id))
+	# The water tool's button shows how full the bucket is.
+	var water_button := ui_root.tool_bar().button(WaterTool.ID)
+	if water_button != null:
+		water_button.fill = session.water.carried / WaterTool.BUCKET
 	_advance_follow(delta)
 	session.watch_followed(follow.person_id if follow.is_following() else 0)
 	_update_locate()
@@ -465,13 +469,31 @@ func _setup_tools() -> void:
 	tools = ToolManager.new()
 	tools.name = "Tools"
 	add_child(tools)
-	tools.setup(context)
+	tools.setup(context, session.powers)
 	var bar := ui_root.tool_bar()
 	bar.set_tools(tools.tool_ids())
 	bar.set_current(tools.current_id())
 	bar.tool_selected.connect(tools.select)
 	tools.tool_changed.connect(bar.set_current)
+	tools.tools_changed.connect(func() -> void:
+		bar.set_tools(tools.tool_ids())
+		bar.set_current(tools.current_id()))
+	session.powers.revealed.connect(_on_power_revealed)
 	EventBus.app_paused.connect(tools.cancel)
+
+
+## One of the player's powers has shown itself: its tool is in the bar (it
+## glows for a while), and the player is told.
+func _on_power_revealed(id: StringName) -> void:
+	tools.refresh()
+	ui_root.tool_bar().glow(id, Config.tools.glow_seconds)
+	var notice := Notice.new()
+	notice.kind = &"tool_revealed"
+	notice.text = UIText.tool_revealed(id)
+	notice.priority = 0.8
+	NotificationManager.offer_notice(notice)
+	AudioManager.play_ui(&"ui_open")
+	Haptics.light()
 
 
 ## Touches of the world. The active tool sees a gesture first and may keep it

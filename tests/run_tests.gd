@@ -100,7 +100,7 @@ func _initialize() -> void:
 
 
 func _parse_args() -> void:
-	var watchdog_s := 300.0
+	var watchdog_s := 600.0 # (in the scene's time, which runs behind the clock on the wall while tests work)
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--filter="):
 			_filter = arg.get_slice("=", 1)

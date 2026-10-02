@@ -23,6 +23,11 @@ var fog := 0.0
 var falling := 0.0
 var snowing := false
 var wind := Vector2.ZERO
+## A gust on top of it (the player's): which way and how hard, and how much
+## of it is left (seconds, of how many).
+var _gust := Vector2.ZERO
+var _gust_left := 0.0
+var _gust_seconds := 1.0
 ## How wet the ground is, 0 … 1.
 var wetness := 0.0
 ## How much snow lies and how frozen the water is, 0 … 1 (as shown).
@@ -172,8 +177,27 @@ func advance(delta: float) -> void:
 	# Snow comes and goes with what lies; water freezes over and thaws.
 	snow = move_toward(snow, _weather.snow_cover if _weather != null else 0.0, share * 0.5)
 	ice = move_toward(ice, 1.0 if _weather != null and _weather.is_frozen() else 0.0, share * 0.5)
+	_gust_left = maxf(_gust_left - delta, 0.0)
 	_advance_lightning(delta)
 	_apply()
+
+
+## A gust: the trees bend `blow`'s way (its length is how hard, as the
+## weather's wind: 0 … 1) for `seconds`, and what falls is carried along.
+func gust(blow: Vector2, seconds: float) -> void:
+	_gust = blow
+	_gust_seconds = maxf(seconds, 0.05)
+	_gust_left = _gust_seconds
+	_apply()
+
+
+## The wind as it shows: the weather's, and what is left of a gust (which
+## swells quickly and dies away).
+func blowing() -> Vector2:
+	if _gust_left <= 0.0:
+		return wind
+	var t := 1.0 - _gust_left / _gust_seconds
+	return wind + _gust * sin(PI * sqrt(t))
 
 
 ## A flash of lightning now, and its thunder a moment later. (In a storm
@@ -244,7 +268,7 @@ func _apply() -> void:
 		_rain_material.set_shader_parameter(&"top", _top)
 		_rain_material.set_shader_parameter(&"bottom", _bottom)
 		_rain_material.set_shader_parameter(&"fall_speed", _config.snow_speed if snowing else _config.rain_speed)
-		_rain_material.set_shader_parameter(&"wind", wind * _config.wind_carry * (0.45 if snowing else 1.0))
+		_rain_material.set_shader_parameter(&"wind", blowing() * _config.wind_carry * (0.45 if snowing else 1.0))
 		_rain_material.set_shader_parameter(&"amount", falling)
 		_rain_material.set_shader_parameter(&"snow", white)
 		_rain_material.set_shader_parameter(&"tint", _config.snow_color if snowing else _config.rain_color)
@@ -261,9 +285,10 @@ func _apply() -> void:
 			_day_night.night() if _day_night != null else 0.0)
 	# The wind in the trees; the ground in the rain.
 	if _prop_material != null:
-		_prop_material.set_shader_parameter(&"sway_amplitude", _base_sway * lerpf(_config.sway_calm, _config.sway_storm, wind.length()))
-		if wind.length() > 0.02:
-			_prop_material.set_shader_parameter(&"wind_direction", wind.normalized())
+		var blow := blowing()
+		_prop_material.set_shader_parameter(&"sway_amplitude", _base_sway * lerpf(_config.sway_calm, _config.sway_storm, minf(blow.length(), 1.0)))
+		if blow.length() > 0.02:
+			_prop_material.set_shader_parameter(&"wind_direction", blow.normalized())
 	if _terrain_material != null:
 		_terrain_material.set_shader_parameter(&"wetness", wetness * _config.wet_ground)
 	_apply_seasons()
@@ -311,7 +336,7 @@ func _apply_seasons() -> void:
 		_leaf_material.set_shader_parameter(&"top", _top * 0.45)
 		_leaf_material.set_shader_parameter(&"bottom", _bottom)
 		_leaf_material.set_shader_parameter(&"fall_speed", 1.1)
-		_leaf_material.set_shader_parameter(&"wind", wind * _config.wind_carry * 0.6)
+		_leaf_material.set_shader_parameter(&"wind", blowing() * _config.wind_carry * 0.6)
 		_leaf_material.set_shader_parameter(&"amount", leaf_fall * 0.35)
 		_leaf_material.set_shader_parameter(&"snow", 1.0)
 		_leaf_material.set_shader_parameter(&"flake_size", 0.09)

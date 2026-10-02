@@ -32,6 +32,7 @@ var weather_fx: WeatherFxConfig
 var seasons: SeasonsConfig
 var hydrology: HydrologyConfig
 var vegetation: VegetationConfig
+var tools: ToolsConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -67,6 +68,7 @@ func reload() -> void:
 	seasons = _load("seasons_config.tres", SeasonsConfig) as SeasonsConfig
 	hydrology = _load("hydrology_config.tres", HydrologyConfig) as HydrologyConfig
 	vegetation = _load("vegetation_config.tres", VegetationConfig) as VegetationConfig
+	tools = _load("tools_config.tres", ToolsConfig) as ToolsConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

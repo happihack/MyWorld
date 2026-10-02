@@ -174,6 +174,13 @@ func flow() -> float:
 	return clampf(1.0 + level * _config.flow_per_level, _config.flow_least, _config.flow_most)
 
 
+## Raises (or lowers) the river by `delta` at once, within its bounds —
+## rain the player made, falling on it. The tiles follow at the next look.
+func add(delta: float) -> void:
+	if _config != null and is_finite(delta):
+		level = clampf(level + delta, _config.lowest, _config.highest)
+
+
 ## Where the river's water is now.
 func is_river(tile: Vector2i) -> bool:
 	return _body.has(tile)

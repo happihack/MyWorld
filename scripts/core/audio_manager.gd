@@ -45,6 +45,9 @@ var _night_ambience: AudioStreamPlayer
 var _rain_ambience: AudioStreamPlayer
 var _rain := 0.0
 var _wind := 0.0
+## How hard the weather's rain falls, and the rain the player is making.
+var _weather_rain := 0.0
+var _made_rain := 0.0
 var _night := 0.0
 var _ambience_wanted := false
 var _rng := RandomNumberGenerator.new() # pitch variation only; never the simulation's
@@ -115,6 +118,8 @@ func stop_ambience() -> void:
 	# (The next world begins under whatever sky it has.)
 	_rain = 0.0
 	_wind = 0.0
+	_weather_rain = 0.0
+	_made_rain = 0.0
 
 
 ## How much it is night (0 day … 1 night): the crickets come in with the dark
@@ -137,7 +142,8 @@ func set_night(amount: float) -> void:
 ## The weather to be heard: how hard it rains (0 … 1) and how hard the wind
 ## blows (0 … 1). Rain is a loop of its own; the wind is the ambience, louder.
 func set_weather(rain: float, wind: float) -> void:
-	_rain = clampf(rain, 0.0, 1.0)
+	_weather_rain = clampf(rain, 0.0, 1.0)
+	_rain = maxf(_weather_rain, _made_rain)
 	_wind = clampf(wind, 0.0, 1.0)
 	if _ambience.playing:
 		_ambience.volume_db = Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * _wind
@@ -152,6 +158,13 @@ func set_weather(rain: float, wind: float) -> void:
 		_rain_ambience.stream = stream
 		_rain_ambience.play()
 	_rain_ambience.volume_db = Config.weather_fx.rain_volume_db + linear_to_db(maxf(sqrt(_rain), 0.001))
+
+
+## The rain the player is making under a cloud (0 = none): heard like the
+## weather's, whichever is the louder.
+func set_made_rain(amount: float) -> void:
+	_made_rain = clampf(amount, 0.0, 1.0)
+	set_weather(_weather_rain, _wind)
 
 
 func rain_ambience_player() -> AudioStreamPlayer:

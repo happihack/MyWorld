@@ -47,6 +47,8 @@ var loose_system: LooseObjectSystem
 var water: WaterSim
 ## How the river stands: rain, dry weeks, floods (the coarse side of the water).
 var hydrology: Hydrology
+## Which of the player's powers have shown themselves (rain, wind, water).
+var powers: ToolReveals
 ## The soil of all the land, and what grows on it.
 var soil: SoilSystem
 var vegetation: VegetationSystem
@@ -105,6 +107,8 @@ var _saved_water: Dictionary = {} # the water's books from a save, until the wat
 var _saved_hydrology: Dictionary = {}
 var _saved_soil: Dictionary = {}
 var _saved_vegetation: Dictionary = {}
+var _saved_powers: Dictionary = {}
+var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
@@ -160,6 +164,11 @@ func _init() -> void:
 	nodes.depleted.connect(vegetation.on_depleted)
 	nodes.regrown.connect(vegetation.on_regrown)
 	vegetation.tree_died.connect(chronicle.on_tree_died)
+	# The player's powers show themselves when the world gives the idea of them.
+	powers = ToolReveals.new()
+	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
+		if is_active:
+			powers.on_weather(now, clock.tick))
 	fauna.migrated.connect(chronicle.on_migrated)
 	# Shallow water that is frozen carries.
 	weather.frozen_changed.connect(func(frozen: bool) -> void:
@@ -193,6 +202,9 @@ func _init() -> void:
 			fauna.startle(stimulus.position, maxf(stimulus.radius, STARTLE_RADIUS), clock.tick))
 	perception.noticed.connect(behavior.notice)
 	interactions.intervention_applied.connect(chronicle.on_intervention)
+	interactions.intervention_applied.connect(func(iv: Intervention) -> void:
+		if iv != null and iv.applied and iv.type == Intervention.TOUCH and iv.subject == &"water":
+			powers.on_water_touched(history.count(Intervention.TOUCH, &"water"), clock.tick))
 	behavior.hunted.connect(chronicle.on_hunted)
 	behavior.fell_ill.connect(chronicle.on_fell_ill)
 	behavior.recovered.connect(chronicle.on_recovered)
@@ -222,6 +234,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_hydrology = {}
 	_saved_soil = {}
 	_saved_vegetation = {}
+	_saved_powers = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -283,8 +296,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_hydrology = {}
 	_saved_soil = {}
 	_saved_vegetation = {}
+	_saved_powers = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("powers")) == TYPE_DICTIONARY:
+			_saved_powers = state["powers"]
 		if typeof((state as Dictionary).get("soil")) == TYPE_DICTIONARY:
 			_saved_soil = state["soil"]
 		if typeof((state as Dictionary).get("vegetation")) == TYPE_DICTIONARY:
@@ -387,6 +403,7 @@ func to_dict() -> Dictionary:
 			"stats": stats.to_dict(),
 			"weather": weather.to_dict(),
 			"hydrology": hydrology.to_dict(),
+			"powers": powers.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -419,12 +436,26 @@ func _process(delta: float) -> void:
 		simulation.advance(delta)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
+		_look_for_powers()
 		if nodes.due(clock.tick):
 			nodes.settle(clock.tick)
 		if settlement != null:
 			settlement.step(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
+
+
+## Once a game hour: does a crop stand dry in the field (the idea of rain)?
+func _look_for_powers() -> void:
+	@warning_ignore("integer_division")
+	var hour := clock.tick / 60
+	if hour == _powers_looked or powers.is_known(ToolReveals.RAIN):
+		return
+	_powers_looked = hour
+	for crop in farming.crops():
+		if Farming.looks_dry(crop):
+			powers.on_dry_crop(clock.tick)
+			return
 
 
 ## The tiles where people live and work: their huts, the fire, the fields.
@@ -644,6 +675,8 @@ func _activate() -> void:
 	interactions.bind_session(water, clock, history, fire_at)
 	interactions.bind_people(people)
 	interactions.bind_animals(fauna)
+	interactions.bind_environment(weather, hydrology, func(tile: Vector2i) -> int:
+		return int(generator.sample_tile(tile)["height"]) if generator != null else world.get_height(tile))
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
 	if activities == null:
@@ -693,6 +726,15 @@ func _activate() -> void:
 	vegetation.bind(world, props, nodes, soil, weather, ids, rng.stream(&"vegetation"), clock, Config.vegetation, fire_at)
 	vegetation.from_dict(_saved_vegetation)
 	_saved_vegetation = {}
+	# The powers that have shown themselves — and, for a world from before
+	# they were kept, those it has already earned.
+	powers.from_dict(_saved_powers)
+	_saved_powers = {}
+	_powers_looked = -1_000_000
+	powers.on_water_touched(history.count(Intervention.TOUCH, &"water"), clock.tick, true)
+	powers.on_weather(weather.state, clock.tick, true)
+	if events != null and events.count_of(Chronicler.TYPE_STORM) > 0:
+		powers.on_weather(WeatherSystem.STORM, clock.tick, true)
 	# The animals: those the save has — or, for a world that never had any, its first.
 	if species == null:
 		species = SpeciesLibrary.load_from()

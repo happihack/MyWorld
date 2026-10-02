@@ -15,6 +15,17 @@ const MOVE_OBJECT := &"move_object"
 const UPROOT := &"uproot"
 const SCOOP_WATER := &"scoop_water"
 const POUR_WATER := &"pour_water"
+## The powers over weather and water (M9.5).
+const MAKE_RAIN := &"make_rain"
+const MAKE_WIND := &"make_wind"
+const CARVE := &"carve"
+
+## Acts that go on for a while (rain while a finger is held, a channel
+## carved tile by tile) come in phases: they take effect as they go, and
+## are one entry in the history when they end.
+const PHASE_BEGIN := &"begin"
+const PHASE_MORE := &"more"
+const PHASE_END := &"end"
 
 # --- what is asked for (filled in by whoever creates it) ---
 var type: StringName = TOUCH

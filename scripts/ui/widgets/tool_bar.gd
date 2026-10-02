@@ -10,6 +10,11 @@ signal tool_selected(id: StringName)
 ## row as the Home button).
 const BOTTOM_MARGIN := 144.0
 const GAP := 24
+## Room kept free at either side of the screen (the Home button stands in
+## the same row): with many tools the buttons get smaller rather than run
+## under it — but never smaller than a finger.
+const SIDE_RESERVE := 150.0
+const SMALLEST := 96.0
 
 var _buttons: Dictionary = {} # id -> ToolButton
 var _current: StringName = &""
@@ -28,6 +33,7 @@ func _ready() -> void:
 ## Shows one button per tool id, in order.
 func set_tools(ids: Array[StringName]) -> void:
 	for button: ToolButton in _buttons.values():
+		remove_child(button) # (at once: a button on its way out must not take room in the row)
 		button.queue_free()
 	_buttons.clear()
 	for id in ids:
@@ -50,6 +56,13 @@ func current() -> StringName:
 	return _current
 
 
+## A tool has just shown itself: its button glows for a while.
+func glow(id: StringName, seconds: float) -> void:
+	var shown: ToolButton = _buttons.get(id)
+	if shown != null:
+		shown.glow(seconds)
+
+
 func button(id: StringName) -> ToolButton:
 	return _buttons.get(id)
 
@@ -62,8 +75,15 @@ func tool_ids() -> Array:
 func place() -> void:
 	if not is_inside_tree():
 		return
-	reset_size()
 	var view := get_viewport_rect().size
+	var count := _buttons.size()
+	if count > 0:
+		var room := view.x - 2.0 * SIDE_RESERVE - (count - 1) * GAP
+		var side := clampf(floorf(room / count), SMALLEST, ToolButton.SIZE)
+		for button: ToolButton in _buttons.values():
+			button.custom_minimum_size = Vector2(side, side)
+			button.size = Vector2(side, side)
+	reset_size()
 	position = Vector2((view.x - size.x) * 0.5, view.y - BOTTOM_MARGIN - size.y)
 
 

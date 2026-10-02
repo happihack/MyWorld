@@ -19,7 +19,7 @@ const RAIN_SECONDS := 2.5
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
 	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice", &"crickets",
-	&"rain", &"thunder",
+	&"rain", &"thunder", &"gust",
 ]
 
 
@@ -88,6 +88,8 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _crickets(rng)
 		&"rain":
 			return _rain(rng)
+		&"gust":
+			return _finish(_gust(rng), 0.6)
 		&"thunder":
 			return _finish(_thunder(rng), 0.9)
 		&"voice":
@@ -389,6 +391,23 @@ static func _thunder(rng: RandomNumberGenerator) -> PackedFloat32Array:
 		var crack := exp(-t * 14.0)
 		var roll := exp(-t * 1.3) * (0.6 + 0.4 * sin(t * 9.0 + 0.7) * sin(t * 2.3))
 		out[i] = low * 3.0 * crack + lower * 9.0 * roll
+	return out
+
+
+## A gust of wind: a soft rush that swells and dies away.
+static func _gust(rng: RandomNumberGenerator) -> PackedFloat32Array:
+	var n := int(1.1 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	var fast := 0.0
+	var slow := 0.0
+	for i in n:
+		var t := i / float(n)
+		var white := rng.randf_range(-1.0, 1.0)
+		# (The band between two smoothings — brighter in the middle of the gust.)
+		fast += (white - fast) * lerpf(0.18, 0.45, sin(PI * t))
+		slow += (white - slow) * 0.05
+		out[i] = (fast - slow) * pow(sin(PI * t), 1.5)
 	return out
 
 

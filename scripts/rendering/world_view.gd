@@ -23,6 +23,10 @@ var _frame: BoxFrame
 var _lighting: WorldLighting
 var _day_night: DayNight
 var _weather_fx: WeatherFx
+var _tool_fx: ToolFx
+## The ground has changed somewhere (a channel carved, a bank taken): the
+## chunks it touches are drawn anew in the next frame.
+var _ground_dirty := false
 var _people: PersonRegistry
 ## The settlement's huts (prop ids), for whose lights are out.
 var _hut_ids: Array[int] = []
@@ -98,6 +102,9 @@ func _ready() -> void:
 	_weather_fx = WEATHER_FX.instantiate()
 	add_child(_weather_fx)
 	_weather_fx.setup(_rig, _day_night, _lighting, _prop_material, _terrain_material, _water_material, _ambient)
+	_tool_fx = ToolFx.new()
+	add_child(_tool_fx)
+	_tool_fx.setup(_effects, _day_night)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -124,6 +131,8 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 		_chunk_order.append(coord)
 	if props != null:
 		props.chunk_changed.connect(_on_props_changed)
+	world.ground_changed.connect(_on_ground_changed)
+	_tool_fx.bind(world)
 	var box_height := Config.world.height_levels * world.height_step + BOX_HEADROOM
 	_frame.build(world.bounds, box_height)
 	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
@@ -203,6 +212,9 @@ func clear() -> void:
 	_people_view.clear()
 	if _props != null and _props.chunk_changed.is_connected(_on_props_changed):
 		_props.chunk_changed.disconnect(_on_props_changed)
+	if _world != null and _world.ground_changed.is_connected(_on_ground_changed):
+		_world.ground_changed.disconnect(_on_ground_changed)
+	_ground_dirty = false
 	for view: ChunkView in _chunk_views.values():
 		view.queue_free()
 	_chunk_views.clear()
@@ -266,6 +278,11 @@ func loose_view() -> LooseObjectsView:
 
 func people_view() -> PeopleView:
 	return _people_view
+
+
+## What the player's powers look like (the rain cloud, a gust's dust).
+func tool_fx() -> ToolFx:
+	return _tool_fx
 
 
 ## Visual answers to touches (connect InteractionManager.responded to effects().play).
@@ -348,6 +365,10 @@ func refresh_dirty_props() -> int:
 
 
 func _process(_delta: float) -> void:
+	# Ground that has changed is drawn anew (several tiles in one frame: once).
+	if _ground_dirty:
+		_ground_dirty = false
+		refresh_dirty_chunks()
 	# Several prop changes in one frame (e.g. clearing a glade) rebuild once.
 	refresh_dirty_props()
 	# Flowing water changes its chunks ten times a second; rebuilding a water
@@ -366,6 +387,10 @@ func _process(_delta: float) -> void:
 
 func _on_props_changed(coord: Vector2i) -> void:
 	_props_dirty[coord] = true
+
+
+func _on_ground_changed(_tile: Vector2i) -> void:
+	_ground_dirty = true
 
 
 func chunk_view_count() -> int:

@@ -100,7 +100,8 @@ func _move(from: Vector2, to: Vector2, steps: int = 8) -> void:
 
 func test_tool_bar_shows_the_tools_that_exist() -> void:
 	var bar := ui.tool_bar()
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, WaterTool.ID, CallTool.ID], "hand, observe, and the debug-only prototypes")
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID, CallTool.ID],
+		"in a debug build: every tool, and the prototype (what a player has: test_powers_in_game)")
 	assert_eq(bar.current(), HandTool.ID)
 	assert_true(bar.button(HandTool.ID).selected)
 	assert_false(bar.button(ObserveTool.ID).selected)

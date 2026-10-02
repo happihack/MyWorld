@@ -55,6 +55,10 @@ func record(iv: Intervention) -> bool:
 				_add(&"objects_thrown", 1.0)
 		Intervention.SCOOP_WATER, Intervention.POUR_WATER:
 			_add(&"water_moved", iv.magnitude)
+		Intervention.MAKE_RAIN:
+			_add(&"rain_made", iv.magnitude)
+		Intervention.CARVE:
+			_add(&"tiles_carved", iv.magnitude)
 		Intervention.TOUCH:
 			if iv.response != null and not iv.response.dropped.is_empty():
 				_add(&"fruit_shaken", iv.response.dropped.size())

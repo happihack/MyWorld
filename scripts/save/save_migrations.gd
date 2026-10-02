@@ -25,6 +25,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	14: _v14_to_v15,
 	15: _v15_to_v16,
 	16: _v16_to_v17,
+	17: _v17_to_v18,
 }
 
 
@@ -345,6 +346,21 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 18 (M9.5) adds which of the player's powers have shown
+## themselves. An older world has none on record: when it is opened, those
+## it has already earned (water touched, a storm seen) are found again.
+static func _v17_to_v18(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("powers"):
+		(state as Dictionary)["powers"] = {}
 	return data
 
 

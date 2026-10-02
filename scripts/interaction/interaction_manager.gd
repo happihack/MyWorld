@@ -75,6 +75,12 @@ var _clock: GameClock
 var _settlement := Vector2.INF
 var _people: PersonRegistry
 var _fauna: AnimalSystem
+var _weather: WeatherSystem
+var _hydrology: Hydrology
+## The height the ground was made with (Callable(tile) -> int); not set: as it is now.
+var _made_height := Callable()
+var _rain_carry := 0.0 # moisture not yet given to the soil (less than one)
+var _rain_clear := true # the sky was clear when the rain going on began
 ## How tall a person is taken to be where the manager has no view to ask.
 const PERSON_HEIGHT := 0.5
 var _shakes: Dictionary = {} # tree id -> shakes since the world was opened
@@ -126,6 +132,14 @@ func bind_animals(fauna: AnimalSystem) -> void:
 	_fauna = fauna
 
 
+## The weather and the river (for the powers over them), and the height the
+## ground was made with (a channel goes only so far below it).
+func bind_environment(weather: WeatherSystem, hydrology: Hydrology, made_height: Callable = Callable()) -> void:
+	_weather = weather
+	_hydrology = hydrology
+	_made_height = made_height
+
+
 # --- the choke point ----------------------------------------------------------------------
 
 ## Carries out an intervention. Returns it with `applied` (and `rejected`,
@@ -151,6 +165,12 @@ func apply_intervention(iv: Intervention) -> Intervention:
 			done = _do_move_object(iv)
 		Intervention.SCOOP_WATER, Intervention.POUR_WATER:
 			done = _do_water(iv)
+		Intervention.MAKE_RAIN:
+			done = _do_rain(iv)
+		Intervention.MAKE_WIND:
+			done = _do_gust(iv)
+		Intervention.CARVE:
+			done = _do_carve(iv)
 		_:
 			iv.rejected = &"unknown_type"
 	if not done:
@@ -262,6 +282,59 @@ func pour(tile: Vector2i, amount: float, tool: StringName = &"water") -> float:
 	iv.magnitude = amount
 	apply_intervention(iv)
 	return iv.magnitude if iv.applied else 0.0
+
+
+## Rain on the land around `at` (world X/Z). It comes in phases: BEGIN when
+## the cloud forms, MORE with `units` of rain each time some reaches the
+## ground, END with all that fell (which is what the history keeps).
+func rain(at: Vector2, units: float, phase: StringName = Intervention.PHASE_END, tool: StringName = &"rain") -> Intervention:
+	var iv := Intervention.create(Intervention.MAKE_RAIN, tool)
+	iv.tile = WorldCoords.world2d_to_tile(at)
+	iv.position = Vector3(at.x, 0.0, at.y)
+	iv.magnitude = units
+	iv.params = {"phase": phase}
+	return apply_intervention(iv)
+
+
+## A gust from `from` towards `to` (world X/Z), `strength` 0 … 1.
+func gust(from: Vector2, to: Vector2, strength: float, tool: StringName = &"wind") -> Intervention:
+	var iv := Intervention.create(Intervention.MAKE_WIND, tool)
+	iv.tile = WorldCoords.world2d_to_tile(from)
+	iv.position = Vector3(from.x, 0.0, from.y)
+	iv.magnitude = strength
+	iv.params = {"from": from, "to": to}
+	return apply_intervention(iv)
+
+
+## Carves a tile of a channel (BEGIN for a stroke's first, MORE for the
+## rest); END, with how many tiles were carved, ends the stroke.
+func carve(tile: Vector2i, phase: StringName = Intervention.PHASE_BEGIN, tool: StringName = &"water", tiles: int = 1) -> Intervention:
+	var iv := Intervention.create(Intervention.CARVE, tool)
+	iv.tile = tile
+	iv.magnitude = float(tiles)
+	iv.params = {"phase": phase}
+	return apply_intervention(iv)
+
+
+## Can a channel be carved through a tile: open ground with nothing standing
+## on it, not yet as deep as a channel goes?
+func can_carve(tile: Vector2i) -> bool:
+	if _world == null or not _world.is_in_bounds(tile) or _world.get_water(tile) > WaterMesher.MIN_DEPTH:
+		return false
+	var terrain := _world.get_terrain(tile)
+	if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT and terrain != ChunkData.Terrain.SAND \
+			and terrain != ChunkData.Terrain.FARMLAND and terrain != ChunkData.Terrain.MUD and terrain != ChunkData.Terrain.ASH:
+		return false
+	if _props != null and _props.has_prop_at(tile):
+		return false
+	var height := _world.get_height(tile)
+	var made: int = int(_made_height.call(tile)) if _made_height.is_valid() else height
+	return height > 1 and height > made - Config.tools.carve_depth_levels
+
+
+## Is the sky clear (rain out of it is uncanny)?
+func sky_is_clear() -> bool:
+	return _weather == null or _weather.cloud_cover() < Config.tools.clear_sky_below
 
 
 # --- carrying out ---------------------------------------------------------------------------
@@ -382,6 +455,127 @@ func _do_water(iv: Intervention) -> bool:
 		return false
 	iv.magnitude = moved
 	iv.position = Vector3(iv.tile.x + 0.5, _world.get_height(iv.tile) * _world.height_step + _world.get_water(iv.tile), iv.tile.y + 0.5)
+	return true
+
+
+func _do_rain(iv: Intervention) -> bool:
+	if not _world.is_in_bounds(iv.tile) or not is_finite(iv.magnitude) or iv.magnitude < 0.0:
+		iv.rejected = &"no_ground"
+		return false
+	var config := Config.tools
+	var phase: StringName = iv.params.get("phase", Intervention.PHASE_END)
+	var much := phase == Intervention.PHASE_END and iv.magnitude >= config.rain_moderate_units
+	if not _admit(iv, &"rain", Intervention.Severity.MODERATE if much else Intervention.Severity.GENTLE):
+		return false
+	var at := Vector2(iv.position.x, iv.position.z)
+	iv.position.y = _world.get_height(iv.tile) * _world.height_step + _world.get_water(iv.tile)
+	if phase == Intervention.PHASE_BEGIN:
+		_rain_clear = sky_is_clear()
+		_rain_carry = 0.0
+	iv.params["clear_sky"] = _rain_clear
+	if phase == Intervention.PHASE_END:
+		if iv.magnitude <= 0.0:
+			iv.rejected = &"nothing_fell"
+			return false
+		# What it added to the river shows on the tiles now.
+		if _hydrology != null and _clock != null:
+			_hydrology.settle(_clock.tick)
+		return true
+	iv.recorded = false # (the whole of it is recorded when it ends)
+	if iv.magnitude > 0.0:
+		_wet(at, iv.magnitude)
+	return true
+
+
+## `units` of rain on the ground within the cloud's radius of `at`: the soil
+## takes it, and the river rises with what falls on it and what runs off.
+func _wet(at: Vector2, units: float) -> void:
+	var config := Config.tools
+	var radius := config.rain_radius
+	var soaked := units * config.rain_moisture_per_unit + _rain_carry
+	var whole := floori(soaked)
+	_rain_carry = soaked - whole
+	var tiles := 0
+	var on_water := 0
+	for y in range(floori(at.y - radius), ceili(at.y + radius) + 1):
+		for x in range(floori(at.x - radius), ceili(at.x + radius) + 1):
+			var tile := Vector2i(x, y)
+			if not _world.is_in_bounds(tile) or (Vector2(tile) + Vector2(0.5, 0.5)).distance_to(at) > radius:
+				continue
+			tiles += 1
+			var chunk := _world.chunk_at_tile(tile)
+			var i := _world.index_at_tile(tile)
+			if chunk.water[i] > 0.0:
+				on_water += 1
+			elif whole > 0 and chunk.moisture[i] < 255:
+				chunk.moisture[i] = mini(int(chunk.moisture[i]) + whole, 255)
+				chunk.mark_changed()
+	if _hydrology != null and tiles > 0:
+		_hydrology.add(units * config.rain_river_rise * lerpf(config.rain_runoff_share, 1.0, float(on_water) / tiles))
+
+
+func _do_gust(iv: Intervention) -> bool:
+	var from: Variant = iv.params.get("from")
+	var to: Variant = iv.params.get("to")
+	if typeof(from) != TYPE_VECTOR2 or typeof(to) != TYPE_VECTOR2 or not (from as Vector2).is_finite() or not (to as Vector2).is_finite() \
+			or (from as Vector2).distance_to(to) < 0.01 or not is_finite(iv.magnitude):
+		iv.rejected = &"no_direction"
+		return false
+	if not _admit(iv, &"wind", Intervention.Severity.MODERATE):
+		return false
+	var config := Config.tools
+	var strength := clampf(iv.magnitude, 0.0, 1.0)
+	var direction := ((to as Vector2) - (from as Vector2)).normalized()
+	var middle := (from as Vector2) + direction * config.wind_reach * 0.5
+	var middle_tile := WorldCoords.world2d_to_tile(middle)
+	iv.magnitude = strength
+	iv.position = Vector3(middle.x, _world.get_height(middle_tile) * _world.height_step + _world.get_water(middle_tile), middle.y)
+	iv.params["direction"] = direction
+	iv.params["ordinary"] = _weather != null and _weather.wind_speed >= config.wind_ordinary_from
+	# Light things lying in its way are blown along.
+	var pushed := 0
+	if _loose != null and _motion != null and _loose.spatial_index != null:
+		for id in _loose.spatial_index.query_radius(middle, config.wind_reach * 0.5 + config.wind_width, SpatialIndex.KIND_LOOSE_OBJECT):
+			var object := _loose.get_object(id)
+			if object == null or object.state == LooseObject.State.HELD or object.mass() >= config.wind_light_kg:
+				continue
+			var offset := object.position - (from as Vector2)
+			var along := offset.dot(direction)
+			if along < -0.5 or along > config.wind_reach or absf(offset.cross(direction)) > config.wind_width:
+				continue
+			var speed := config.wind_push * strength * (1.0 - object.mass() / config.wind_light_kg)
+			if _motion.push(id, Vector3(direction.x, 0.0, direction.y) * speed):
+				pushed += 1
+	iv.params["pushed"] = pushed
+	return true
+
+
+func _do_carve(iv: Intervention) -> bool:
+	var phase: StringName = iv.params.get("phase", Intervention.PHASE_END)
+	if phase == Intervention.PHASE_END:
+		if not _world.is_in_bounds(iv.tile) or iv.magnitude < 1.0:
+			iv.rejected = &"nothing_carved"
+			return false
+		if not _admit(iv, &"ground", Intervention.Severity.MODERATE):
+			return false
+		iv.position = Vector3(iv.tile.x + 0.5, _world.get_height(iv.tile) * _world.height_step, iv.tile.y + 0.5)
+		# The river finds what now lies open to it.
+		if _hydrology != null:
+			_hydrology.apply(true)
+		return true
+	if not can_carve(iv.tile):
+		iv.rejected = &"cannot_carve"
+		return false
+	if not _admit(iv, &"ground", Intervention.Severity.MODERATE):
+		return false
+	iv.recorded = false # (the stroke is recorded when it ends)
+	iv.magnitude = 1.0
+	if _world.get_terrain(iv.tile) == ChunkData.Terrain.GRASS:
+		_world.set_terrain(iv.tile, ChunkData.Terrain.DIRT)
+	_world.set_height(iv.tile, _world.get_height(iv.tile) - 1)
+	if _water != null:
+		_water.wake(iv.tile) # (water beside it runs in)
+	iv.position = Vector3(iv.tile.x + 0.5, _world.get_height(iv.tile) * _world.height_step, iv.tile.y + 0.5)
 	return true
 
 

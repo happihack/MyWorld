@@ -22,13 +22,21 @@ const OBJECT_MOVED := &"object_moved"
 ## Water vanished from where it lay / fell from a clear sky.
 const WATER_TAKEN := &"water_taken"
 const WATER_POURED := &"water_poured"
+## Rain out of a clear sky (uncanny) / rain where clouds already hung (rain).
+const RAIN_FROM_CLEAR_SKY := &"rain_from_clear_sky"
+const RAIN_FELL := &"rain_fell"
+## A gust that came from nowhere.
+const SOURCELESS_WIND := &"sourceless_wind"
+## The ground opened in a line, by itself.
+const GROUND_CARVED := &"ground_carved"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
 const TOLD := &"told"
 
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
-	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, OBJECT_FOUND, TOLD]
+	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
+	OBJECT_FOUND, TOLD]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -82,6 +90,9 @@ static func from_intervention(iv: Intervention, table: ReactionTable) -> Stimulu
 	stimulus.object_id = iv.target_id if kind == OBJECT_LIFTED or kind == OBJECT_MOVED else 0
 	stimulus.building_id = iv.target_id if kind == KNOCK else 0
 	table.describe(stimulus, strength_of(iv))
+	# (A gust while the wind is blowing anyway is nothing strange.)
+	if kind == SOURCELESS_WIND and bool(iv.params.get("ordinary", false)):
+		stimulus.anomalous = false
 	return stimulus
 
 
@@ -109,6 +120,16 @@ static func type_for(iv: Intervention) -> StringName:
 			return WATER_TAKEN
 		Intervention.POUR_WATER:
 			return WATER_POURED
+		Intervention.MAKE_RAIN:
+			# Noticed when it begins — and once more when it ends, if it was a great deal.
+			var phase: StringName = iv.params.get("phase", Intervention.PHASE_END)
+			if phase == Intervention.PHASE_MORE or (phase == Intervention.PHASE_END and iv.severity == Intervention.Severity.GENTLE):
+				return &""
+			return RAIN_FROM_CLEAR_SKY if bool(iv.params.get("clear_sky", true)) else RAIN_FELL
+		Intervention.MAKE_WIND:
+			return SOURCELESS_WIND
+		Intervention.CARVE:
+			return GROUND_CARVED if iv.params.get("phase", Intervention.PHASE_END) == Intervention.PHASE_BEGIN else &""
 	return &""
 
 
@@ -125,6 +146,10 @@ static func strength_of(iv: Intervention) -> float:
 			return 0.2
 		Intervention.SCOOP_WATER, Intervention.POUR_WATER:
 			return clampf(iv.magnitude / 1.5, 0.0, 1.0)
+		Intervention.MAKE_RAIN:
+			return clampf(iv.magnitude / (Config.tools.rain_moderate_units * 2.0), 0.0, 1.0)
+		Intervention.MAKE_WIND:
+			return clampf(iv.magnitude, 0.0, 1.0)
 	return 0.0
 
 

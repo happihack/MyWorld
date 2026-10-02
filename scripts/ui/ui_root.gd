@@ -396,6 +396,20 @@ func open_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCar
 	return card
 
 
+## Shows the facts about something on the card that is open, if one is (a
+## trail of tiles under a moving finger: the card stays, what it says
+## changes); opens one otherwise.
+func show_inspect(report: InspectReport, height_step: float = 0.4) -> InspectCard:
+	if report == null:
+		return null
+	for panel: UIPanel in _panels:
+		if panel is InspectCard:
+			(panel as InspectCard).setup(report, height_step)
+			(panel as InspectCard).layout()
+			return panel
+	return open_inspect(report, height_step)
+
+
 func _on_panel_closed(panel: UIPanel) -> void:
 	_panels.erase(panel)
 	_update_hints()

@@ -71,3 +71,28 @@ func update(_delta: float) -> void:
 ## True while the tool is in the middle of something (carrying an object).
 func is_busy() -> bool:
 	return false
+
+
+# --- where the finger is in the world (for tools that work on the ground) ------------------------
+
+## The point of the ground (world X/Z) under a screen position: where the
+## finger's ray meets the terrain — or, off the terrain, the plane at height
+## `plane_y`. Null if there is none.
+func ground_under(screen: Vector2, plane_y: float = 0.0) -> Variant:
+	if ctx == null or ctx.view == null:
+		return null
+	var rig := ctx.view.camera_rig()
+	var ray := rig.screen_ray(screen)
+	var hit := Picker.raycast_terrain(ctx.session.world, ray[0], ray[1])
+	if hit != null:
+		return Vector2(hit.position.x, hit.position.z)
+	var plane: Variant = rig.screen_to_ground(screen, plane_y)
+	return Vector2((plane as Vector3).x, (plane as Vector3).z) if plane != null else null
+
+
+## The point on the surface (the ground, or the water lying on it) at a
+## place of the world.
+func surface_at(xz: Vector2) -> Vector3:
+	var world := ctx.session.world
+	var tile := WorldCoords.world2d_to_tile(xz)
+	return Vector3(xz.x, world.get_height(tile) * world.height_step + maxf(world.get_water(tile), 0.0), xz.y)

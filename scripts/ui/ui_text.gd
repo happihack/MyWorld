@@ -68,8 +68,17 @@ const LOOSE_NAMES := {
 const TOOL_NAMES := {
 	&"hand": "Hand",
 	&"observe": "Observe",
-	&"water": "Water (prototype)",
+	&"rain": "Rain",
+	&"wind": "Wind",
+	&"water": "Water",
 	&"call": "Call (prototype)",
+}
+
+## What the player is told when a tool shows itself.
+const TOOL_REVEALED := {
+	&"rain": "A new power: Rain — hold a finger on the land",
+	&"wind": "A new power: Wind — swipe across the land",
+	&"water": "A new power: Water — tap to scoop and pour, hold and drag to carve",
 }
 
 const WATER_NAME := "Water"
@@ -267,6 +276,10 @@ static func prop_name(kind: int, variant: int = 0) -> String:
 
 static func tool_name(id: StringName) -> String:
 	return TOOL_NAMES.get(id, String(id).capitalize())
+
+
+static func tool_revealed(id: StringName) -> String:
+	return TOOL_REVEALED.get(id, "A new power: %s" % tool_name(id))
 
 
 static func loose_name(kind: int) -> String:
