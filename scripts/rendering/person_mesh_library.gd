@@ -96,6 +96,8 @@ static func height_factor(age_years: int, config: PeopleConfig) -> float:
 		return 0.94
 	if age_years >= config.adult_from_years:
 		return 1.0
+	if age_years <= 0:
+		return 0.32 # (a baby, in its first year)
 	return lerpf(0.42, 1.0, clampf(float(age_years) / float(config.adult_from_years), 0.0, 1.0))
 
 

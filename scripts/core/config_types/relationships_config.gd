@@ -23,6 +23,8 @@ extends ConfigBase
 ## Feelings go this share of the way back to where they began in a day
 ## (nothing for strangers, `family_affinity` for family).
 @export_range(0.0, 1.0, 0.005) var affinity_fade_per_day: float = 0.03
+## Romance fades more slowly.
+@export_range(0.0, 1.0, 0.005) var romance_fade_per_day: float = 0.015
 ## Who has not met for this many days knows the other this much less each day.
 @export_range(0.0, 60.0, 0.5) var strange_after_days: float = 6.0
 @export_range(0.0, 0.2, 0.001) var familiarity_fade_per_day: float = 0.01
@@ -47,12 +49,15 @@ extends ConfigBase
 @export_range(0.0, 0.5, 0.005) var help_affinity: float = 0.05
 @export_range(0.0, 0.5, 0.005) var gift_affinity: float = 0.08
 @export_range(0.0, 0.5, 0.005) var teach_respect: float = 0.06
+## Romance a flirt brings (× 0.5 … 1.5 by how drawn they are to each other:
+## SocialActs.chemistry); people flirt who like each other, or who are drawn
+## to each other at least this much.
 @export_range(0.0, 0.5, 0.005) var flirt_romance: float = 0.1
-## A quarrel, a fight: affinity lost (more between those unlike each other),
-## and the health a fight costs each of them.
+@export_range(0.0, 1.0, 0.01) var chemistry_from: float = 0.6
+## A quarrel, a fight: affinity lost (more between those unlike each other).
+## (What a fight does to them is an injury: LifeConfig.fight_injury.)
 @export_range(0.0, 1.0, 0.005) var argue_affinity: float = 0.16
 @export_range(0.0, 1.0, 0.005) var fight_affinity: float = 0.22
-@export_range(0.0, 0.5, 0.005) var fight_health: float = 0.04
 ## How much a lesson teaches (skill, 0 … 1).
 @export_range(0.0, 0.2, 0.001) var teach_skill: float = 0.02
 ## A quarrel turns into a fight only between those who dislike each other

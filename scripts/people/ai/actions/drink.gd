@@ -28,4 +28,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	Needs.satisfy(person.needs, Needs.Need.THIRST, minutes / Config.needs.drink_minutes)
 	var time_up := tick(step, minutes)
 	var full := Needs.value(person.needs, Needs.Need.THIRST) >= 0.999 and may_end_early(step)
-	return Status.DONE if time_up or full else Status.RUNNING
+	if time_up or full:
+		Health.drank(person, ctx, water)
+		return Status.DONE
+	return Status.RUNNING

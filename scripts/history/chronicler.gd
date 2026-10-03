@@ -54,6 +54,14 @@ const TYPE_FELL_OUT := &"fell_out"
 const TYPE_ENEMIES := &"became_enemies"
 const TYPE_RECONCILED := &"reconciled"
 const TYPE_FIGHT := &"fight"
+const TYPE_BORN := &"person_born"
+const TYPE_DIED := &"person_died"
+const TYPE_PARTNERS := &"became_partners"
+const TYPE_CAME_OF_AGE := &"came_of_age"
+const TYPE_INJURED := &"person_injured"
+const TYPE_ILL := &"person_ill"
+const TYPE_TAKEN_IN := &"taken_in"
+const TYPE_ARRIVED := &"newcomer_arrived"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -409,6 +417,100 @@ func on_social(act: StringName, a: int, b: int) -> WorldEvent:
 		_between(a, b, TYPE_FELL_OUT))
 
 
+# --- lives -----------------------------------------------------------------------------------------
+
+## A child is born (to its mother and father; the father may be dead).
+func on_born(child_id: int, mother_id: int, father_id: int) -> void:
+	if not _writing():
+		return
+	var who: Array = [child_id, mother_id]
+	if father_id > 0:
+		who.append(father_id)
+	_log.record(TYPE_BORN, {"participants": who, "position": _place_of(child_id), "settlement": _settlement_id()},
+		_between(mother_id, father_id, TYPE_PARTNERS) if father_id > 0 else [])
+
+
+## Someone has died (they are still in the registry): of what, and because of what.
+func on_died(person_id: int, cause: StringName, causes: Array) -> void:
+	if not _writing():
+		return
+	var why: Array = causes.duplicate()
+	match cause:
+		Lifecycle.CAUSE_STARVATION:
+			why.append(_empty_id if _empty_id != 0 else _shortage_id)
+		Lifecycle.CAUSE_ILLNESS:
+			why.append_array(_latest_of(person_id, [TYPE_ILL, TYPE_COLD_SICK]))
+		Lifecycle.CAUSE_INJURY:
+			why.append_array(_latest_of(person_id, [TYPE_FIGHT]))
+		Lifecycle.CAUSE_ACCIDENT:
+			why.append_array(_latest_of(person_id, [TYPE_INJURED]))
+	_log.record(TYPE_DIED, {"participants": [person_id], "cause": String(cause), "position": _place_of(person_id),
+		"settlement": _settlement_id()}, why)
+
+
+func on_partnered(a: int, b: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_PARTNERS, {"participants": [a, b], "position": _place_of(a), "settlement": _settlement_id()},
+		_between(a, b, TYPE_FRIENDS))
+
+
+func on_came_of_age(person_id: int, stage: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_CAME_OF_AGE, {"participants": [person_id], "kind": "elder" if stage == PersonData.LifeStage.ELDER else "adult",
+		"position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+## Hurt in an accident at work (`kind` "fall", "cut") — or ill of a crowded roof ("crowding").
+func on_injured(person_id: int, kind: StringName) -> void:
+	if not _writing():
+		return
+	if kind == Health.CROWDING:
+		_log.record(TYPE_ILL, {"participants": [person_id], "kind": String(kind), "position": _place_of(person_id),
+			"settlement": _settlement_id()})
+		return
+	_log.record(TYPE_INJURED, {"participants": [person_id], "kind": String(kind), "position": _place_of(person_id),
+		"settlement": _settlement_id()})
+
+
+## Children left without a grown-up (or an elder left alone) taken in by
+## family: by whoever is the eldest grown-up of the household.
+func on_taken_in(person_id: int, household_id: int) -> void:
+	if not _writing():
+		return
+	var eldest: PersonData = null
+	for member in _people.in_household(household_id):
+		if member.id != person_id and (eldest == null or member.birth_tick < eldest.birth_tick):
+			eldest = member
+	var who: Array = [person_id]
+	if eldest != null:
+		who.append(eldest.id)
+	var deaths := _log.of_type(TYPE_DIED)
+	_log.record(TYPE_TAKEN_IN, {"participants": who, "position": _place_of(person_id), "settlement": _settlement_id()},
+		[deaths[-1].id] if not deaths.is_empty() else [])
+
+
+## Someone from far away has come to live here.
+func on_arrived(person_id: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_ARRIVED, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+## The latest event of any of `types` that involves the person (as a list of causes).
+func _latest_of(person_id: int, types: Array) -> Array:
+	var best: WorldEvent = null
+	for type: StringName in types:
+		var found := _log.of_type(type)
+		for n in range(found.size() - 1, -1, -1):
+			if found[n].involves(person_id):
+				if best == null or found[n].id > best.id:
+					best = found[n]
+				break
+	return [best.id] if best != null else []
+
+
 ## The latest event of a type between two people (as a list of causes: [] if none).
 func _between(a: int, b: int, type: StringName) -> Array:
 	var found := _log.of_type(type)
@@ -576,6 +678,11 @@ func on_fell_ill(person_id: int, condition: StringName) -> void:
 		_log.record(TYPE_COLD_SICK, {"participants": [person_id], "position": _place_of(person_id),
 			"settlement": _settlement_id()}, causes)
 		return
+	if condition == Health.ILLNESS:
+		var illness := Health.illness_of(_people.get_person(person_id)) if _people.get_person(person_id) != null else {}
+		_log.record(TYPE_ILL, {"participants": [person_id], "kind": str(illness.get("kind", "")),
+			"position": _place_of(person_id), "settlement": _settlement_id()})
+		return
 	if condition != Hardship.HUNGER:
 		return
 	_log.record(TYPE_SICK, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()},
@@ -583,10 +690,15 @@ func on_fell_ill(person_id: int, condition: StringName) -> void:
 
 
 func on_recovered(person_id: int, condition: StringName) -> void:
-	if not _writing() or (condition != Hardship.HUNGER and condition != Exposure.COLD):
+	if not _writing() or (condition != Hardship.HUNGER and condition != Exposure.COLD and condition != Health.ILLNESS):
 		return
 	var sick := 0
-	for event in _log.of_type(TYPE_COLD_SICK if condition == Exposure.COLD else TYPE_SICK):
+	var kind := TYPE_SICK
+	if condition == Exposure.COLD:
+		kind = TYPE_COLD_SICK
+	elif condition == Health.ILLNESS:
+		kind = TYPE_ILL
+	for event in _log.of_type(kind):
 		if event.involves(person_id):
 			sick = event.id
 	_log.record(TYPE_RECOVERED, {"participants": [person_id], "position": _place_of(person_id),

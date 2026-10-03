@@ -205,6 +205,19 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 			close.append("%s %+.2f%s" % [other.given_name if other != null else "#%d" % other_id, record.affinity,
 				" friend" if record.has_kind(Relationship.Kind.FRIEND) else (" RIVAL" if record.has_kind(Relationship.Kind.RIVAL) else "")])
 		lines.append("knows %d: %s" % [known.size(), ", ".join(close)])
+	# Their family and health.
+	var partner := session.people.name_of(person.partner_id) if person.partner_id != 0 else "-"
+	var carrying := Hardship.condition_of(person, Lifecycle.PREGNANT)
+	var injuries := PackedStringArray()
+	for injury: Variant in person.injuries:
+		if typeof(injury) == TYPE_DICTIONARY:
+			injuries.append("%s %.2f" % [str(injury.get("kind", "")), float(injury.get("severity", 0.0))])
+	lines.append("life: partner %s, %d children, household %d%s%s%s  (dies today: %.4f)" % [partner, person.children.size(),
+		person.household_id,
+		"  WITH CHILD (%d days)" % ((now - int(carrying.get("since", now))) / TimeConfig.MINUTES_PER_DAY) if not carrying.is_empty() else "",
+		"  hurt: " + ", ".join(injuries) if not injuries.is_empty() else "",
+		"  ILL (%s)" % str(Health.illness_of(person).get("kind", "")) if Health.is_ill(person) else "",
+		float(session.lifecycle.death_chance(person, now)[0]) if session.lifecycle != null else 0.0])
 	# What they remember.
 	if session.memories != null and not person.memory_ids.is_empty():
 		var latest := session.memories.recent(person, 1)[0]

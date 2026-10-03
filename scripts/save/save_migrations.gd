@@ -28,6 +28,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	17: _v17_to_v18,
 	18: _v18_to_v19,
 	19: _v19_to_v20,
+	20: _v20_to_v21,
 }
 
 
@@ -348,6 +349,22 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 21 (M10.2) adds lives: who lives with whom (households), the
+## lifecycle's day, and the archive of the dead. An older world has nobody
+## dead, and its households are as its people have them.
+static func _v20_to_v21(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	for key: String in ["households", "lifecycle", "archive"]:
+		if not (state as Dictionary).has(key):
+			(state as Dictionary)[key] = {}
 	return data
 
 

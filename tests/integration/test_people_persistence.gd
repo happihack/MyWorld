@@ -340,7 +340,8 @@ func test_someone_can_be_taken_out_of_the_world() -> void:
 	assert_false(s.spatial.has(victim.id))
 	assert_false(s.simulation.tiers.is_focused(victim.id))
 	assert_false(s.movement.is_walking(victim.id))
-	assert_eq(partner.partner_id, victim.id, "who they were to each other is not forgotten")
+	assert_eq(partner.partner_id, 0, "widowed (M10.2)")
+	assert_eq(s.archive.get_record(victim.id).partner_id, partner.id, "who they were to each other is not forgotten")
 	assert_false(s.kill_person(victim.id), "only once")
 	assert_false(s.kill_person(999_999))
 	# Life goes on for the others (the partner's conversation is simply over).

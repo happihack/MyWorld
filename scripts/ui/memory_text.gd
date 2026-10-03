@@ -46,8 +46,8 @@ static func translate(key: String) -> String:
 ## `people`: to name whoever told it (may be null).
 static func text(memory: Memory, people: PersonRegistry = null) -> String:
 	var key := memory.text_key if memory.text_key != "" else key_for(memory.subject, memory.interpretation, memory.source, false)
-	var teller := people.get_person(memory.told_by) if people != null and memory.told_by != 0 else null
-	if key == "MEM_TOLD" and teller == null:
+	var teller := people.name_of(memory.told_by) if people != null and memory.told_by != 0 else ""
+	if key == "MEM_TOLD" and teller == "":
 		key = "MEM_TOLD_NOBODY"
 	if not has(key):
 		key = "MEM_SAW"
@@ -56,8 +56,11 @@ static func text(memory: Memory, people: PersonRegistry = null) -> String:
 	var out := translate(key).format({
 		"what": translate(what_key if has(what_key) else "MEMWHAT_UNKNOWN"),
 		"belief": translate(belief_key if has(belief_key) else "MEMBELIEF_NATURAL"),
-		"teller": teller.given_name if teller != null else translate("MEM_SOMEONE"),
+		"teller": teller if teller != "" else translate("MEM_SOMEONE"),
 	})
+	# What was handed down from someone who has died: their memory, as theirs.
+	if memory.source == Memory.Source.INHERITED:
+		out = translate("MEM_INHERITED").format({"teller": teller if teller != "" else translate("MEM_SOMEONE"), "text": out})
 	if memory.count > 1:
 		out = translate("MEM_TIMES").format({"text": out, "count": memory.count})
 	return out

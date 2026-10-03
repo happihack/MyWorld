@@ -64,7 +64,8 @@ func emotion(which: int) -> float:
 func same_as(other: Memory) -> bool:
 	return owner_kind == other.owner_kind and owner_id == other.owner_id and kind == other.kind \
 		and subject == other.subject and interpretation == other.interpretation \
-		and (source == Source.TOLD) == (other.source == Source.TOLD)
+		and (source == Source.TOLD) == (other.source == Source.TOLD) \
+		and (source == Source.INHERITED) == (other.source == Source.INHERITED)
 
 
 ## What is at its default is left out (a memory is saved thousands of times

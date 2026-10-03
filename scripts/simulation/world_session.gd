@@ -49,6 +49,12 @@ var water: WaterSim
 var hydrology: Hydrology
 ## What people are to each other.
 var relationships: RelationshipStore
+## Who lives with whom, under which roof (M10.2).
+var households: Households
+## Births, partners, ageing, death (M10.2).
+var lifecycle: Lifecycle
+## Everyone who has died.
+var archive: HistoryArchive
 ## Which of the player's powers have shown themselves (rain, wind, water).
 var powers: ToolReveals
 ## The soil of all the land, and what grows on it.
@@ -111,6 +117,9 @@ var _saved_soil: Dictionary = {}
 var _saved_vegetation: Dictionary = {}
 var _saved_powers: Dictionary = {}
 var _saved_relationships: Dictionary = {}
+var _saved_households: Dictionary = {}
+var _saved_lifecycle: Dictionary = {}
+var _saved_archive: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -186,6 +195,17 @@ func _init() -> void:
 		var record := relationships.between(a, b)
 		if event != null and record != null:
 			record.note_event(event.id))
+	# Lives begin and end; what is worth telling of it is told.
+	archive = HistoryArchive.new()
+	households = Households.new()
+	lifecycle = Lifecycle.new()
+	lifecycle.born.connect(chronicle.on_born)
+	lifecycle.died.connect(chronicle.on_died)
+	lifecycle.partnered.connect(chronicle.on_partnered)
+	lifecycle.came_of_age.connect(chronicle.on_came_of_age)
+	lifecycle.injured.connect(chronicle.on_injured)
+	lifecycle.taken_in.connect(chronicle.on_taken_in)
+	lifecycle.arrived.connect(chronicle.on_arrived)
 	# The player's powers show themselves when the world gives the idea of them.
 	powers = ToolReveals.new()
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
@@ -263,6 +283,9 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_vegetation = {}
 	_saved_powers = {}
 	_saved_relationships = {}
+	_saved_households = {}
+	_saved_lifecycle = {}
+	_saved_archive = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -326,10 +349,19 @@ func load_from(data: Dictionary) -> bool:
 	_saved_vegetation = {}
 	_saved_powers = {}
 	_saved_relationships = {}
+	_saved_households = {}
+	_saved_lifecycle = {}
+	_saved_archive = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
 		if typeof((state as Dictionary).get("relationships")) == TYPE_DICTIONARY:
 			_saved_relationships = state["relationships"]
+		if typeof((state as Dictionary).get("households")) == TYPE_DICTIONARY:
+			_saved_households = state["households"]
+		if typeof((state as Dictionary).get("lifecycle")) == TYPE_DICTIONARY:
+			_saved_lifecycle = state["lifecycle"]
+		if typeof((state as Dictionary).get("archive")) == TYPE_DICTIONARY:
+			_saved_archive = state["archive"]
 		if typeof((state as Dictionary).get("powers")) == TYPE_DICTIONARY:
 			_saved_powers = state["powers"]
 		if typeof((state as Dictionary).get("soil")) == TYPE_DICTIONARY:
@@ -436,6 +468,9 @@ func to_dict() -> Dictionary:
 			"hydrology": hydrology.to_dict(),
 			"powers": powers.to_dict(),
 			"relationships": relationships.to_dict(),
+			"households": households.to_dict(),
+			"lifecycle": lifecycle.to_dict(),
+			"archive": archive.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -473,6 +508,8 @@ func _process(delta: float) -> void:
 			nodes.settle(clock.tick)
 		if settlement != null:
 			settlement.step(clock.tick)
+		relationships.settle(clock.tick)
+		lifecycle.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -614,21 +651,21 @@ func spawn_person(near: Vector2i, stage: PersonData.LifeStage = PersonData.LifeS
 	var person := PersonFactory.newcomer(ids, rng.stream(&"people"), names, occupations, people, start, pathfinder,
 		clock.tick, near, stage)
 	people.add(person)
+	households.ensure_records(clock.tick)
 	Log.info(Log.Category.SIM, "Someone arrives", {"person": person.full_name(), "id": person.id, "at": person.position,
 		"occupation": person.occupation_id})
 	EventBus.person_born.emit(person.id)
 	return person
 
 
-## Debug: takes someone out of the world. Those who knew them keep their ids
-## (lineage outlives people).
+## Debug: someone dies, of `cause`, as anyone dies (see Lifecycle.die). Those
+## who knew them keep their ids (lineage outlives people).
 func kill_person(person_id: int, cause: StringName = &"debug") -> bool:
 	var person := people.get_person(person_id) if is_active else null
 	if person == null:
 		return false
 	Log.info(Log.Category.SIM, "Someone is gone", {"person": person.full_name(), "id": person_id, "cause": cause})
-	people.remove(person_id)
-	EventBus.person_died.emit(person_id, cause)
+	lifecycle.die(person, cause, clock.tick)
 	return true
 
 
@@ -771,6 +808,20 @@ func _activate() -> void:
 		relationships.seed_from(people, clock.tick)
 	ai.relationships = relationships
 	ai.places.relationships = relationships
+	# Who has died, and who lives with whom: as saved (a world from before
+	# they were kept: nobody has died, and households are as people have them).
+	var unusable_dead := archive.from_dict(_saved_archive)
+	if unusable_dead > 0:
+		Log.warn(Log.Category.LOAD, "Some saved records of the dead were unusable and dropped", {"records": unusable_dead})
+	_saved_archive = {}
+	people.archive = archive
+	households.bind(people, start, Config.life)
+	households.from_dict(_saved_households)
+	households.ensure_records(clock.tick)
+	_saved_households = {}
+	# Bad water: a puddle, floodwater — not the river's, nor there of old.
+	ai.bad_water = func(tile: Vector2i) -> bool:
+		return not hydrology.is_river(tile) and float(generator.sample_tile(tile)["water"]) <= 0.0
 	farming.bind(world, props, ids, pathfinder, start, people, occupations, generator, world_seed, Config.farming)
 	farming.from_dict(_saved_farming)
 	_saved_farming = {}
@@ -863,6 +914,22 @@ func _activate() -> void:
 		Log.warn(Log.Category.LOAD, "Some saved day-log entries were unusable and skipped", {"entries": unreadable})
 	_saved_day_log = {}
 	ai.day_log = day_log
+	# Lives go on from where the save left them.
+	lifecycle.bind(people, archive, households, clock.tick, Config.life)
+	lifecycle.from_dict(_saved_lifecycle)
+	_saved_lifecycle = {}
+	lifecycle.relationships = relationships
+	lifecycle.memories = memories
+	lifecycle.day_log = day_log
+	lifecycle.settlement = settlement
+	lifecycle.occupations = occupations
+	lifecycle.names = names
+	lifecycle.ids = ids
+	lifecycle.rng = rng.stream(&"life")
+	lifecycle.clock = clock
+	lifecycle.pathfinder = pathfinder
+	lifecycle.start = start
+	ai.lifecycle = lifecycle
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)

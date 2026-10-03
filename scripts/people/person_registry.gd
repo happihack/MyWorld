@@ -14,6 +14,9 @@ signal person_moved(id: int)
 
 ## Optional: kept in sync so people can be found by position.
 var spatial_index: SpatialIndex
+## Optional: those who have died (see HistoryArchive), so that a name is
+## still known once its bearer is gone.
+var archive: HistoryArchive
 
 var _people: Dictionary = {} # id -> PersonData
 
@@ -32,6 +35,16 @@ func get_person(id: int) -> PersonData:
 
 func has_person(id: int) -> bool:
 	return _people.has(id)
+
+
+## The given name of someone living — or, failing that, of someone who has
+## died ("" if nobody is known by this id).
+func name_of(id: int) -> String:
+	var person: PersonData = _people.get(id)
+	if person != null:
+		return person.given_name
+	var record := archive.get_record(id) if archive != null else null
+	return record.given_name if record != null else ""
 
 
 ## Adds a person. False if the id is invalid or taken.

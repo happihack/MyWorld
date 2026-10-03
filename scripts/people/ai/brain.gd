@@ -30,8 +30,15 @@ const ROUTINE_PULL := 0.25
 const DUE_HYSTERESIS := 0.5
 ## What is done out of doors (bad weather takes from its worth; from work less).
 const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along"]
+## What a baby (younger than LifeConfig.infant_years) does: stay with its
+## parent, eat, drink, sleep — and nothing else.
+const INFANT_DOES: Array[StringName] = [&"tag_along", &"eat", &"drink", &"sleep", &"go_home"]
+## ... and how much more it is drawn to its parent than an older child.
+const INFANT_FOLLOW := 0.6
 ## Why someone goes home who goes in out of the weather.
 const REASON_WEATHER := &"weather"
+## ... who goes home to rest, hurt or ill.
+const REASON_UNWELL := &"unwell"
 ## ...but only if it was begun for no pressing reason (with less than this
 ## speaking for it): nobody leaves a meal they were starving for because the
 ## hour says work.
@@ -88,6 +95,10 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 		plain: Dictionary = {}) -> float:
 	if not def.allows(stage):
 		return -1.0
+	var infant := stage == PersonData.LifeStage.CHILD \
+		and person.age_years(ctx.now(), Config.time.ticks_per_year()) < Config.life.infant_years
+	if infant and not INFANT_DOES.has(def.id):
+		return -1.0
 	for requirement in def.requires:
 		var there: Variant = met.get(requirement)
 		if there == null:
@@ -120,6 +131,16 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 			total *= 1.0 - Config.exposure.work_cut * pull
 		elif OUTDOORS.has(def.id):
 			total *= 1.0 - Config.exposure.outdoor_cut * pull
+	# Someone hurt or ill goes home to rest, and does less.
+	var unwell := Health.unwell(person)
+	if unwell > 0.0:
+		if def.id == &"go_home":
+			total += Config.life.unwell_rest_weight * unwell
+		elif def.id == &"work" or OUTDOORS.has(def.id):
+			total *= 1.0 - Config.life.unwell_work_cut * unwell
+	# A baby keeps to its parent, wherever they are.
+	if infant and def.id == &"tag_along":
+		total += INFANT_FOLLOW
 	if def.repeat_after_minutes > 0.0 and person.activity_log.has(def.id_text()):
 		var since := float(ctx.now() - int(person.activity_log[def.id_text()]))
 		total -= REPEAT_PENALTY * clampf(1.0 - since / def.repeat_after_minutes, 0.0, 1.0)
@@ -200,6 +221,8 @@ static func _reason(def: ActivityDef, person: PersonData, ctx: AiContext) -> Str
 	if def != null and def.id == &"go_home" and ctx.shelter_reason() != &"" \
 			and Needs.urgency(person.needs, Needs.Need.SAFETY) < 0.5:
 		return REASON_WEATHER
+	if def != null and def.id == &"go_home" and Health.unwell(person) >= 0.3:
+		return REASON_UNWELL
 	return reason_for(def, person)
 
 

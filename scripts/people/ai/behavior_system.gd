@@ -205,6 +205,8 @@ func step(minutes: float) -> void:
 		ctx.fauna.advance_to(ctx.now())
 	if ctx.relationships != null:
 		ctx.relationships.settle(ctx.now())
+	if ctx.lifecycle != null:
+		ctx.lifecycle.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()
@@ -323,7 +325,7 @@ func think(person: PersonData) -> Brain.Decision:
 ## `score` is how much spoke for it (what something else has to beat for the
 ## person to drop it).
 func set_plan(person: PersonData, activity: StringName, reason: StringName, steps: Array, score: float = 0.0) -> void:
-	_note_change(person, activity, steps)
+	_note_change(person, activity, steps, reason)
 	_drop(person)
 	person.current_action = {"activity": String(activity), "reason": String(reason), "since": ctx.now(),
 		"score": score, "steps": steps, "index": 0}
@@ -334,7 +336,7 @@ func set_plan(person: PersonData, activity: StringName, reason: StringName, step
 
 ## Writes what a person turns to into their day (see DayLog). Reactions are
 ## written by whoever knows what they are reacting to.
-func _note_change(person: PersonData, activity: StringName, steps: Array) -> void:
+func _note_change(person: PersonData, activity: StringName, steps: Array, reason: StringName = &"") -> void:
 	if ctx.day_log == null:
 		return
 	var now := ctx.now()
@@ -377,6 +379,8 @@ func _note_change(person: PersonData, activity: StringName, steps: Array) -> voi
 		var hour := ctx.clock.hour() if ctx.clock != null else 12.0
 		ctx.day_log.note(person.id, now, "sleep", "" if SleepStep.is_bedtime_for(person, hour) else "nap")
 		return
+	if activity == &"go_home" and reason == Brain.REASON_UNWELL:
+		detail = "unwell" # (home to rest, hurt or ill)
 	ctx.day_log.note(person.id, now, String(activity), detail, other)
 
 
@@ -406,6 +410,11 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
 	Hardship.live(person, ctx, minutes)
 	Exposure.live(person, ctx, minutes)
+	Health.live(person, ctx, minutes)
+	# The water rose around them while they stood (drinking at the shore): they step out of it.
+	if ctx.world != null and not person.has_flag(PersonData.FLAG_INDOORS) \
+			and ctx.world.get_water(person.position) > Pathfinder.WADE_DEPTH * ctx.world.height_step:
+		_rescue_if_stranded(person.id)
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
 		return

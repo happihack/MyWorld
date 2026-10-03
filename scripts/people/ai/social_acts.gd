@@ -38,6 +38,12 @@ static func compatibility(a: PersonData, b: PersonData) -> float:
 	return clampf(alike + easy, 0.0, 1.0)
 
 
+## What draws two people to each other beyond how alike they are: the same
+## for the pair always (from their ids), 0 … 1.
+static func chemistry(a: PersonData, b: PersonData) -> float:
+	return float(HashNoise.hash2(mini(a.id, b.id), maxi(a.id, b.id), 0x6C6F7665) & 0xFFFF) / 65535.0
+
+
 ## How much speaks for each act of `a` towards `b` now (act -> weight; acts
 ## that cannot be are left out).
 static func weights(a: PersonData, b: PersonData, ctx: AiContext) -> Dictionary:
@@ -61,9 +67,12 @@ static func weights(a: PersonData, b: PersonData, ctx: AiContext) -> Dictionary:
 	var knows := float(a.skills.get(trade, 0.0)) if trade != "" else 0.0
 	if teacher and trade != "" and (ctx.stage_of(b) == PersonData.LifeStage.CHILD or knows > float(b.skills.get(trade, 0.0)) + 0.2):
 		out[TEACH] = 0.2 + 0.4 * Traits.value(a.traits, Traits.Axis.INTELLIGENCE) + (0.3 if kin else 0.0)
-	# Two grown-ups, both free, drawn to each other.
-	if may_flirt(a, b, ctx) and feeling > 0.15:
-		out[FLIRT] = 0.15 + 0.3 * maxf(Traits.value(a.traits, Traits.Axis.SOCIABILITY), 0.0) + 0.5 * (record.romance if record != null else 0.0)
+	# Two grown-ups, both free, drawn to each other (who like each other, or
+	# simply are drawn: chemistry).
+	var drawn := chemistry(a, b)
+	if may_flirt(a, b, ctx) and (feeling > 0.15 or drawn >= Config.relationships.chemistry_from) and feeling > -0.2:
+		out[FLIRT] = 0.15 + 0.3 * maxf(Traits.value(a.traits, Traits.Axis.SOCIABILITY), 0.0) + 0.4 * drawn \
+			+ 0.5 * (record.romance if record != null else 0.0)
 	# A quarrel: between those unlike each other, under strain, who do not much like each other.
 	var strain := (1.0 - fit) * 1.0 + a.stress * 0.5 + maxf(aggressive, 0.0) * 0.3 - feeling * 0.6 - (0.3 if kin else 0.0)
 	if strain > 0.2:
@@ -78,7 +87,7 @@ static func may_flirt(a: PersonData, b: PersonData, ctx: AiContext) -> bool:
 		return false
 	if a.partner_id != 0 or b.partner_id != 0 or a.sex == b.sex:
 		return false
-	return ctx.relationships == null or not ctx.relationships.is_family(a.id, b.id)
+	return ctx.relationships == null or not (ctx.relationships.is_family(a.id, b.id) or ctx.relationships.close_kin(a.id, b.id))
 
 
 ## `a` (who came to `b`) and `b` are together: something comes of it.
@@ -120,7 +129,7 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 			deltas["respect"] = config.teach_respect * good
 			deltas["affinity"] = config.talk_affinity * good
 		FLIRT:
-			deltas["romance"] = config.flirt_romance * good
+			deltas["romance"] = config.flirt_romance * (0.5 + chemistry(a, b))
 			deltas["affinity"] = config.talk_affinity * good
 		ARGUE:
 			var record := store.between(a.id, b.id) if store != null else null
@@ -132,7 +141,7 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 				deltas["affinity"] = -config.fight_affinity * bad
 				deltas["trust"] = -config.fight_affinity * 0.6 * bad
 				for person: PersonData in [a, b]:
-					person.health = maxf(person.health - config.fight_health, Config.needs.sick_health_floor)
+					Health.injure(person, Health.FIGHT, Config.life.fight_injury * bad, now)
 					person.stress = minf(person.stress + 0.25, 1.0)
 			else:
 				deltas["affinity"] = -config.argue_affinity * bad

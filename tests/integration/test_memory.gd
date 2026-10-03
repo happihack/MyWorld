@@ -871,10 +871,17 @@ func test_broken_memories_do_not_break_the_world() -> void:
 	assert_eq(store.size(), 0)
 	assert_eq(person.memory_ids.size(), 0)
 	assert_null(Memory.from_dict({}))
-	# Someone who leaves the world takes their memories with them.
+	# Someone who leaves the world takes their memories with them — but for
+	# what they remembered most, which their family keeps (M10.2).
 	store.remember(person, _memory(Stimulus.TOUCH, ReactionTable.SPIRIT, 0.5, 10))
 	session.kill_person(person.id)
-	assert_eq(store.size(), 0)
+	var heirs := 0
+	for other in session.people.all_people():
+		for kept in store.of(other):
+			assert_eq(kept.source, Memory.Source.INHERITED)
+			assert_eq(kept.told_by, person.id)
+			heirs += 1
+	assert_eq(store.size(), heirs, "nothing is left that was theirs")
 
 
 func test_version_5_save_migrates_and_its_people_remember() -> void:

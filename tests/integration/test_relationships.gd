@@ -327,7 +327,9 @@ func test_what_comes_of_being_together() -> void:
 	store.between(a.id, b.id).affinity = -0.6
 	var health := a.health
 	assert_eq(SocialActs.carry_out(ctx, a, b, SocialActs.ARGUE), SocialActs.FIGHT)
-	assert_near(a.health, maxf(health - config.fight_health, Config.needs.sick_health_floor), 0.0001)
+	assert_true(a.health < health, "a fight hurts")
+	assert_eq(str(a.injuries[-1]["kind"]), "fight")
+	assert_near(float(a.injuries[-1]["severity"]), Config.life.fight_injury * (1.5 - SocialActs.compatibility(a, b)), 0.0001)
 	assert_eq(ctx.social_events[-1], [SocialActs.FIGHT, a.id, b.id])
 	session.behavior.announce()
 	var fight := events.latest(Chronicler.TYPE_FIGHT)

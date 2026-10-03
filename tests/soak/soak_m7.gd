@@ -3,7 +3,11 @@ extends SceneTree
 ## an untouched default world, headless, as fast as it goes — the people
 ## stay alive, nobody gets stuck, and the world's books stay in order.
 ##
-##   godot --headless --path . -s res://tests/soak/soak_m7.gd -- [--years=10] [--seed=12345] [--quiet]
+##   godot --headless --path . -s res://tests/soak/soak_m7.gd -- [--years=10] [--seed=12345] [--quiet] [--watchdog=seconds]
+##
+## Since M10.2 people are born and die: the soak checks that the band neither
+## dies out nor outgrows its roofs, and reports births, deaths, partners and
+## generations (the M10 soak is 100 years: --years=100).
 ##
 ## Prints a line a season and a summary; exits 0 if every check held, 1 if
 ## not (2: it did not finish). Saves go to user://soak_tmp (removed after).
@@ -12,7 +16,9 @@ extends SceneTree
 ## game is loaded and reached at run time.)
 
 const WATCHDOG_SECONDS := 1500.0
-const ROOT := "user://soak_tmp"
+const ROOT_BASE := "user://soak_tmp"
+## (--tag=name: a folder of its own, for two soaks at once.)
+var ROOT := ROOT_BASE
 ## Someone who has not turned to anything new for this many game days is stuck.
 const STUCK_DAYS := 2
 
@@ -20,8 +26,14 @@ var _problems: PackedStringArray = []
 
 
 func _initialize() -> void:
-	create_timer(WATCHDOG_SECONDS).timeout.connect(func() -> void:
-		print("SOAK did not finish in %d s" % int(WATCHDOG_SECONDS))
+	var watchdog := WATCHDOG_SECONDS
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--watchdog="):
+			watchdog = maxf(float(argument.get_slice("=", 1)), 60.0)
+		elif argument.begins_with("--years="):
+			watchdog = maxf(watchdog, float(argument.get_slice("=", 1)) * 40.0)
+	create_timer(watchdog).timeout.connect(func() -> void:
+		print("SOAK did not finish in %d s" % int(watchdog))
 		quit(2))
 	_run()
 
@@ -39,6 +51,8 @@ func _run() -> void:
 			seed_value = int(argument.get_slice("=", 1))
 		elif argument == "--quiet":
 			quiet = true
+		elif argument.begins_with("--tag="):
+			ROOT = ROOT_BASE + "_" + argument.get_slice("=", 1).validate_filename()
 	var config: Node = root.get_node("Config")
 	var saves: Node = root.get_node("SaveManager")
 	root.get_node("Settings").call("use_path", ROOT + "/settings.cfg")
@@ -63,6 +77,9 @@ func _run() -> void:
 	s.behavior.activity_changed.connect(func(person_id: int, _activity: StringName) -> void:
 		changed[person_id] = s.clock.tick)
 	var hungriest := 1.0
+	var fewest: int = people_at_start
+	var most: int = people_at_start
+	var room_for: int = s.households.homes().size() * config.life.home_room
 	var least_food_days := INF
 	var worst_health := 1.0
 	# How long the stores have been low at a stretch (game minutes), and the longest that ever was.
@@ -103,9 +120,17 @@ func _run() -> void:
 		var now: int = s.clock.tick
 		if day == 0 and absi(now - start_tick - 1440) > 2:
 			_problem("a day of the soak was %d game minutes" % (now - start_tick))
-		if s.people.all_people().size() != people_at_start:
-			_problem("day %d: %d people (there were %d)" % [day, s.people.all_people().size(), people_at_start])
+		var alive: int = s.people.all_people().size()
+		fewest = mini(fewest, alive)
+		most = maxi(most, alive)
+		if alive == 0:
+			_problem("day %d: everyone has died" % day)
+			break
+		if alive > room_for * 2:
+			_problem("day %d: %d people (roofs for %d)" % [day, alive, room_for])
 		for person in s.people.all_people():
+			if not changed.has(person.id):
+				changed[person.id] = now # (born since)
 			for need: float in person.needs:
 				if not is_finite(need) or need < -0.0001 or need > 1.0001:
 					_problem("day %d: %s has a need of %s" % [day, person.given_name, need])
@@ -118,7 +143,11 @@ func _run() -> void:
 					person.current_action.get("activity", ""), (now - int(changed[person.id])) / 1440])
 				changed[person.id] = now # (said once)
 			if not s.pathfinder.can_stand(person.position) and not person.has_flag(1 << 4):
-				_problem("day %d: %s stands where nobody can stand (%s)" % [day, person.given_name, person.position])
+				var there: Variant = s.props.prop_at(person.position)
+				_problem("day %d: %s (#%d, age %d) stands where nobody can stand (%s: %s, water %.2f) at '%s'" % [day,
+					person.given_name, person.id, person.age_years(now, config.time.ticks_per_year()), person.position,
+					"prop kind %d #%d" % [there.kind, there.id] if there != null else "no prop", s.world.get_water(person.position),
+					person.current_action.get("activity", "")])
 		for resource: StringName in s.settlement.stockpile.amounts():
 			if int(s.settlement.stockpile.amounts()[resource]) < 0:
 				_problem("day %d: %d %s in store" % [day, s.settlement.stockpile.amounts()[resource], resource])
@@ -128,8 +157,8 @@ func _run() -> void:
 		if s.events.size() > config.events.max_events:
 			_problem("day %d: the event log holds %d events (%d at most)" % [day, s.events.size(), config.events.max_events])
 		if (day + 1) % days_per_season == 0 and not quiet:
-			print("SOAK year %d season %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f" % [
-				day / days_per_year + 1, (day % days_per_year) / days_per_season, s.settlement.days_of_food(),
+			print("SOAK year %d season %d  people %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f" % [
+				day / days_per_year + 1, (day % days_per_year) / days_per_season, alive, s.settlement.days_of_food(),
 				s.settlement.stockpile.debug_text(), "lit" if s.settlement.fire_lit() else "OUT", s.events.size(),
 				s.events.count_of(&"food_shortage"), s.events.count_of(&"person_hungry_sick"), hungriest])
 	var elapsed := Time.get_ticks_msec() - started
@@ -153,7 +182,8 @@ func _run() -> void:
 		root.add_child(again)
 		if not loaded.ok or not again.load_from(loaded.world):
 			_problem("the saved world could not be opened")
-		elif again.people.all_people().size() != people_at_start or again.events.size() != s.events.size():
+		elif again.people.all_people().size() != s.people.all_people().size() or again.events.size() != s.events.size() \
+				or again.archive.size() != s.archive.size():
 			_problem("the saved world came back different (%d people, %d events)" % [again.people.all_people().size(), again.events.size()])
 		again.queue_free()
 	var minutes := years * days_per_year * 1440
@@ -173,6 +203,30 @@ func _run() -> void:
 	print("SOAK looked up %d  decisions %d" % [s.behavior.skipped + s.behavior.decisions, s.behavior.decisions])
 	print("SOAK %s  |  %s" % [s.soil.debug_text(), s.vegetation.debug_text()])
 	print("SOAK %s" % s.relationships.debug_text())
+	# Lives: how many, how many generations, how old people got.
+	var generation := {}
+	var deepest := 0
+	var everyone: Array = []
+	for record in s.archive.all_records():
+		everyone.append([record.id, record.parents])
+	for person in s.people.all_people():
+		everyone.append([person.id, person.parents])
+	everyone.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for entry: Array in everyone:
+		var depth := 1
+		for parent: int in entry[1]:
+			depth = maxi(depth, int(generation.get(parent, 1)) + 1)
+		generation[entry[0]] = depth
+		deepest = maxi(deepest, depth)
+	var ages := PackedStringArray()
+	var year_ticks: int = config.time.ticks_per_year()
+	for record in s.archive.all_records():
+		ages.append("%d%s" % [record.age_years(year_ticks), String(record.cause).substr(0, 1)])
+	print("SOAK lives: %d people now (%d at the start, %d … %d), %d have died, %d generations  %s" % [
+		s.people.all_people().size(), people_at_start, fewest, most, s.archive.size(), deepest, s.lifecycle.counts])
+	print("SOAK ages at death: %s" % " ".join(ages))
+	if years >= 100 and deepest < 4:
+		_problem("only %d generations in %d years" % [deepest, years])
 	var pairs := PackedStringArray()
 	for person in s.people.all_people():
 		var known: Dictionary = s.relationships.of(person.id)

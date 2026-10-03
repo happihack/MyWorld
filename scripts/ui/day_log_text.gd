@@ -33,8 +33,8 @@ static func text(entry: Array, people: PersonRegistry = null, config: TimeConfig
 		config = Config.time
 	var kind := str(entry[DayLog.KIND])
 	var detail := str(entry[DayLog.DETAIL])
-	var other := people.get_person(int(entry[DayLog.OTHER])) if people != null and int(entry[DayLog.OTHER]) != 0 else null
-	var who := other.given_name if other != null else translate("DAY_SOMEONE")
+	var other := people.name_of(int(entry[DayLog.OTHER])) if people != null and int(entry[DayLog.OTHER]) != 0 else ""
+	var who := other if other != "" else translate("DAY_SOMEONE")
 	if kind == DayLog.REACT:
 		return _reaction(detail, who)
 	var key := "DAY_" + kind.to_upper()
@@ -60,8 +60,13 @@ static func text(entry: Array, people: PersonRegistry = null, config: TimeConfig
 			var act := "DAY_SOCIAL_" + detail.to_upper()
 			if has(act):
 				key = act
+		"life":
+			# (What life brings: "has a child, Ama", "is hurt in a fall".)
+			var event := "DAY_LIFE_" + detail.to_upper()
+			if has(event):
+				key = event
 		"go_home":
-			# (In out of the weather: "takes shelter from the rain".)
+			# (In out of the weather: "takes shelter from the rain"; hurt or ill: "goes home to rest".)
 			var sheltering := "DAY_" + detail.to_upper()
 			if detail != "" and has(sheltering):
 				key = sheltering

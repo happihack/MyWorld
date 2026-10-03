@@ -111,6 +111,42 @@ func is_family(a: int, b: int) -> bool:
 	return family(a, b) != 0
 
 
+## Too close in blood to become partners: one is the other's parent or
+## grandparent, or they share a parent or a grandparent (brothers and
+## sisters, uncles, aunts, nieces, nephews, first cousins). The dead count
+## too (through the archive).
+func close_kin(a: int, b: int) -> bool:
+	if a == b:
+		return true
+	var mine := _forebears(a)
+	var theirs := _forebears(b)
+	if mine.has(b) or theirs.has(a):
+		return true
+	for id: int in mine:
+		if theirs.has(id):
+			return true
+	return false
+
+
+## Parents and grandparents (ids), living or dead.
+func _forebears(id: int) -> Dictionary:
+	var out := {}
+	var ring: PackedInt64Array = _parents_of(id)
+	for parent in ring:
+		out[parent] = true
+		for grand in _parents_of(parent):
+			out[grand] = true
+	return out
+
+
+func _parents_of(id: int) -> PackedInt64Array:
+	var person := _people.get_person(id) if _people != null else null
+	if person != null:
+		return person.parents
+	var record := _people.archive.get_record(id) if _people != null and _people.archive != null else null
+	return record.parents if record != null else PackedInt64Array()
+
+
 ## Everyone `person` has a record with: id -> Relationship.
 func of(person: int) -> Dictionary:
 	var out := {}
@@ -188,6 +224,7 @@ func settle(now: int) -> void:
 	var days := mini(today - _day, 30)
 	_day = today
 	var cool := 1.0 - pow(1.0 - _config.affinity_fade_per_day, days)
+	var cool_romance := 1.0 - pow(1.0 - _config.romance_fade_per_day, days)
 	for key: int in _pairs.keys():
 		var record: Relationship = _pairs[key]
 		var a := key >> 32
@@ -196,7 +233,7 @@ func settle(now: int) -> void:
 		var rest := _config.family_affinity if kin else 0.0
 		record.affinity += (rest - record.affinity) * cool
 		record.trust *= 1.0 - cool
-		record.romance *= 1.0 - cool
+		record.romance *= 1.0 - cool_romance
 		if now - record.last_tick > _config.strange_after_days * DAY and not kin:
 			record.familiarity = maxf(record.familiarity - _config.familiarity_fade_per_day * days, 0.0)
 		_judge(a, b, record)
@@ -213,6 +250,13 @@ func drop_missing(people: PersonRegistry) -> int:
 			_forget(key)
 			dropped += 1
 	return dropped
+
+
+## Someone has died: what others were to them goes with them (how they are
+## remembered is the archive's, and memory's).
+func forget_person(person: int) -> void:
+	for key: int in (_by_person.get(person, PackedInt64Array()) as PackedInt64Array).duplicate():
+		_forget(key)
 
 
 ## A new world (or one from before relationships were kept): family knows
