@@ -13,6 +13,8 @@ signal person_chosen(person_id: int)
 signal motion_requested
 ## The timeline was asked for (M11.3).
 signal timeline_requested
+## The player's own history was asked for (M11.4).
+signal history_requested
 
 const PAGE_ROOT := &"root"
 const PAGE_INDIVIDUALS := &"individuals"
@@ -148,6 +150,8 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_TIMELINE"), func() -> void: timeline_requested.emit())
 			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
 			_entry(MemoryText.translate("MENU_FIRSTS"), func() -> void: open_page(PAGE_FIRSTS))
+			_heading(MemoryText.translate("MENU_PLAYER"))
+			_entry(MemoryText.translate("MENU_INTERACTIONS"), func() -> void: history_requested.emit())
 			if SensorManager.feature_enabled():
 				_heading(MemoryText.translate("MENU_SETTINGS"))
 				_entry(MemoryText.translate("MENU_MOTION"), func() -> void: motion_requested.emit())

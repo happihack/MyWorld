@@ -127,7 +127,7 @@ func test_the_menu() -> void:
 	assert_true(menu.texts().has("PEOPLE"))
 	assert_true(menu.texts().has("Individuals"))
 	assert_false(menu.texts().has("SETTINGS"), "motion is on hold: nothing to set")
-	assert_false(menu.texts().has("WORLD") or menu.texts().has("PLAYER"), "what is not there yet is hidden")
+	assert_false(menu.texts().has("WORLD") or menu.texts().has("CIVILIZATION"), "what is not there yet is hidden")
 	assert_true(menu.texts().has("HISTORY"), "since M11.2: Important People, Firsts")
 	# Individuals: everyone living; a tap goes to them (and the menu closes).
 	menu.entries()[0].pressed.emit()

@@ -46,6 +46,9 @@ var importance := 0.0
 var source: Source = Source.DIRECT
 ## Who told them (for Source.TOLD), 0 otherwise.
 var told_by := 0
+## The player's act it goes back to (PlayerHistory's id; 0: none) — kept when
+## it is told on, at bedtime, or handed down (M11.4: "who remembers what I did").
+var intervention_id := 0
 ## How true to what happened: 1 for what one lived, less with every retelling.
 var fidelity := 1.0
 ## How many times it has happened (the same thing, taken the same way).
@@ -92,6 +95,8 @@ func to_dict() -> Dictionary:
 		out["first_tick"] = first_tick
 	if told_by != 0:
 		out["told_by"] = told_by
+	if intervention_id != 0:
+		out["intervention_id"] = intervention_id
 	if count != 1:
 		out["count"] = count
 	if told_tick != -1:
@@ -129,6 +134,7 @@ static func from_dict(data: Dictionary) -> Memory:
 	memory.importance = _unit(data.get("importance", 0.0))
 	memory.source = clampi(int(data.get("source", 0)), 0, Source.size() - 1) as Source
 	memory.told_by = int(data.get("told_by", 0))
+	memory.intervention_id = maxi(int(data.get("intervention_id", 0)), 0)
 	memory.fidelity = _unit(data.get("fidelity", 1.0))
 	memory.count = maxi(int(data.get("count", 1)), 1)
 	memory.stage = clampi(int(data.get("stage", PersonData.LifeStage.ADULT)), 0, PersonData.LifeStage.size() - 1) as PersonData.LifeStage

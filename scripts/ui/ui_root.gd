@@ -251,6 +251,10 @@ func open_menu() -> MainMenu:
 	menu.timeline_requested.connect(func() -> void:
 		_tick()
 		open_timeline())
+	menu.history_requested.connect(func() -> void:
+		_tick()
+		close_all_panels()
+		open_history(_session))
 	return menu
 
 

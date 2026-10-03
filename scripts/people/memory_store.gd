@@ -127,6 +127,7 @@ static func from_outcome(person: PersonData, outcome: Reactions.Outcome, stage: 
 	memory.owner_id = person.id
 	memory.subject = stimulus.about if told and stimulus.about != &"" else stimulus.type
 	memory.stimulus_id = stimulus.id
+	memory.intervention_id = stimulus.intervention_id
 	memory.tick = now_tick
 	memory.first_tick = now_tick
 	memory.location = stimulus.position

@@ -230,7 +230,8 @@ static func _telling(person: PersonData, outcome: Outcome, ctx: AiContext, table
 	var walk := WalkToStep.make(Planner._beside(listener.position, person.position, ctx), person.sub_tile_offset, 1.3, &"exclaim")
 	walk["toward"] = listener.id
 	return [walk,
-		TellStep.make(listener.id, table.minutes_for(ReactionTable.TELL), about, outcome.interpretation, strongest(outcome.emotions))]
+		TellStep.make(listener.id, table.minutes_for(ReactionTable.TELL), about, outcome.interpretation, strongest(outcome.emotions),
+			outcome.stimulus.intervention_id)]
 
 
 ## Where to run to: firm ground some way off, away from what happened (null

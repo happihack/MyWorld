@@ -12,9 +12,13 @@ const TYPE := &"tell"
 const EARSHOT := 3.0
 
 
-static func make(listener_id: int, minutes: float, about: StringName, interpretation: StringName, strength: float) -> Dictionary:
-	return {"type": String(TYPE), "listener": listener_id, "minutes": minutes, "elapsed": 0.0,
+static func make(listener_id: int, minutes: float, about: StringName, interpretation: StringName, strength: float,
+		act: int = 0) -> Dictionary:
+	var step := {"type": String(TYPE), "listener": listener_id, "minutes": minutes, "elapsed": 0.0,
 		"about": String(about), "interpretation": String(interpretation), "strength": strength, "told": false}
+	if act != 0:
+		step["act"] = act # (the player's act it was: M11.4)
+	return step
 
 
 func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
@@ -35,7 +39,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		step["told"] = true
 		var about := StringName(str(step.get("about", "")))
 		Gossip.tell(ctx, person, listener, about, StringName(str(step.get("interpretation", ""))),
-			float(step.get("strength", 0.5)), Gossip.fidelity_of(ctx, person, about, true))
+			float(step.get("strength", 0.5)), Gossip.fidelity_of(ctx, person, about, true), {}, int(step.get("act", 0)))
 		# Company is company, whatever is said.
 		Needs.satisfy(person.needs, Needs.Need.SOCIAL, 0.1)
 	return Status.DONE if tick(step, minutes) else Status.RUNNING

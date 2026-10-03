@@ -11,10 +11,10 @@ extends RefCounted
 ## their own account still is; `lore` what the story has become so far
 ## (and in this telling it may change again: see Lore).
 static func tell(ctx: AiContext, teller: PersonData, listener: PersonData, subject: StringName, interpretation: StringName,
-		strength: float, fidelity: float = 1.0, lore: Dictionary = {}) -> void:
+		strength: float, fidelity: float = 1.0, lore: Dictionary = {}, act: int = 0) -> void:
 	var told := Lore.retell(lore, teller, interpretation, ctx.stories_rng())
 	var telling := Stimulus.telling(teller, subject, told[1], clampf(strength * Lore.force(told[0]), 0.0, 1.0), ctx.now(),
-		fidelity, told[0])
+		fidelity, told[0], act)
 	telling.id = ctx.take_stimulus_id()
 	if not ctx.perceptions.has(listener.id):
 		ctx.perceptions[listener.id] = []
@@ -36,7 +36,7 @@ static func share(ctx: AiContext, teller: PersonData, listener: PersonData) -> M
 		Hardship.hear(ctx, teller, listener, memory)
 		return memory
 	tell(ctx, teller, listener, memory.subject, memory.interpretation, clampf(memory.importance + 0.2, 0.3, 0.85), memory.fidelity,
-		_lore_of(memory))
+		_lore_of(memory), memory.intervention_id)
 	return memory
 
 

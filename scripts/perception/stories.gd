@@ -90,7 +90,7 @@ static func tell(ctx: AiContext, teller: PersonData, child: PersonData, story: M
 	var told := Lore.retell(Gossip._lore_of(story), teller, story.interpretation, ctx.stories_rng(), config)
 	var lore: Dictionary = told[0]
 	var telling := Stimulus.telling(teller, story.subject, told[1], clampf(story.intensity * Lore.force(lore), 0.0, 1.0),
-		ctx.now(), story.fidelity, lore)
+		ctx.now(), story.fidelity, lore, story.intervention_id)
 	telling.id = ctx.take_stimulus_id()
 	# What the child makes of it (awake still, if only just).
 	var table := Config.reactions
@@ -118,6 +118,7 @@ static func tell(ctx: AiContext, teller: PersonData, child: PersonData, story: M
 	memory.stage = ctx.stage_of(child)
 	memory.text_key = "MEM_STORY"
 	memory.text_params = lore.duplicate()
+	memory.intervention_id = story.intervention_id
 	var kept := ctx.memories.remember(child, memory)
 	Interpretation.update_beliefs(child, made, config.story_belief_weight, table)
 	story.told_tick = ctx.now()

@@ -175,7 +175,7 @@ static func strength_of(iv: Intervention) -> float:
 
 ## Someone telling a listener of what they experienced.
 static func telling(teller: PersonData, what: StringName, as_what: StringName, strength: float, tick_now: int,
-		how_true: float = 1.0, story: Dictionary = {}) -> Stimulus:
+		how_true: float = 1.0, story: Dictionary = {}, act: int = 0) -> Stimulus:
 	var stimulus := Stimulus.new()
 	stimulus.type = TOLD
 	stimulus.origin = Origin.PERSON
@@ -189,6 +189,7 @@ static func telling(teller: PersonData, what: StringName, as_what: StringName, s
 	stimulus.interpretation = as_what
 	stimulus.fidelity = clampf(how_true, 0.0, 1.0)
 	stimulus.lore = story.duplicate()
+	stimulus.intervention_id = act
 	return stimulus
 
 

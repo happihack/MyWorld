@@ -159,6 +159,9 @@ func stats() -> Dictionary:
 		# Trees felled, fruit brought down, piles carried off: the world's resources, handled.
 		"resources_manipulated": count(Intervention.UPROOT) + int(total_of(&"fruit_shaken"))
 			+ count(Intervention.MOVE_OBJECT, &"pile"),
+		"rain_made": count(Intervention.MAKE_RAIN),
+		"gusts": count(Intervention.MAKE_WIND),
+		"ground_carved": count(Intervention.CARVE),
 	}
 
 
