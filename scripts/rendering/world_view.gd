@@ -263,6 +263,19 @@ func animals_view() -> AnimalsView:
 
 ## The settlement's fire burns, or has gone out: its light, its smoke and
 ## its crackle go with it (the flame itself is part of the prop's mesh).
+## Lights the fires of the settlements founded since the first (M12.3).
+## `fires`: [Settlement …] other than the first.
+func show_other_fires(fires: Array) -> void:
+	_day_night.clear_other_fires()
+	for own: Settlement in fires:
+		var tile := own.start_info().settlement_tile
+		var light := _day_night.add_fire(Vector3(tile.x + 0.5, _world.get_height(tile) * _world.height_step, tile.y + 0.5))
+		light.visible = own.fire_lit()
+		own.fire_changed.connect(func(lit: bool) -> void:
+			if is_instance_valid(light):
+				light.visible = lit)
+
+
 func set_fire_lit(lit: bool) -> void:
 	_day_night.fire_light().visible = lit and _has_fire
 	_ambient.set_fire_lit(lit and _has_fire)

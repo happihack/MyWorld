@@ -53,6 +53,7 @@ var _prop_material: ShaderMaterial
 var _cloud_materials: Array[ShaderMaterial] = []
 var _cloud_strength := 0.2
 var _fire: OmniLight3D
+var _others: Array[OmniLight3D] = []
 var _state := State.new()
 var _dark_houses: Array[Vector3] = []
 var _shown_hour := -100.0
@@ -150,6 +151,25 @@ func fire_light() -> OmniLight3D:
 	return _fire
 
 
+## The light of another settlement's fire (M12.3): made like the first's,
+## flickering with it. Returns it (its `visible` says whether it burns).
+func add_fire(at: Vector3) -> OmniLight3D:
+	var light := _fire.duplicate() as OmniLight3D
+	light.name = "FireLight%d" % (_others.size() + 2)
+	light.position = at + Vector3(0.0, 0.45, 0.0)
+	light.visible = true
+	add_child(light)
+	_others.append(light)
+	return light
+
+
+## Takes the other settlements' fire lights away.
+func clear_other_fires() -> void:
+	for light in _others:
+		light.queue_free()
+	_others.clear()
+
+
 func _process(delta: float) -> void:
 	refresh()
 	# The fire never burns evenly.
@@ -158,6 +178,8 @@ func _process(delta: float) -> void:
 		var config := Config.day_night
 		var wobble := sin(_flicker * 11.0) * 0.5 + sin(_flicker * 17.3 + 1.7) * 0.3 + sin(_flicker * 5.1) * 0.2
 		_fire.light_energy = _state.fire_energy * (1.0 + wobble * config.fire_flicker)
+	for light in _others:
+		light.light_energy = _state.fire_energy * (1.0 + sin(_flicker * 13.0 + light.position.x) * 0.3 * Config.day_night.fire_flicker)
 
 
 ## Brings the light in line with the clock (cheap when the hour has hardly moved).

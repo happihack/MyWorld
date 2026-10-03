@@ -205,7 +205,9 @@ func step(minutes: float) -> void:
 		return
 	if ctx.weather != null:
 		ctx.weather.advance_to(ctx.now())
-	if ctx.settlement != null:
+	if ctx.settlements != null:
+		ctx.settlements.step(ctx.now())
+	elif ctx.settlement != null:
 		ctx.settlement.step(ctx.now())
 	if ctx.fauna != null:
 		ctx.fauna.advance_to(ctx.now())
@@ -217,10 +219,12 @@ func step(minutes: float) -> void:
 		ctx.culture.advance_to(ctx.now())
 	if ctx.construction != null:
 		ctx.construction.advance_to(ctx.now())
-	if ctx.planner != null:
+	if ctx.planner != null and ctx.settlements == null:
 		ctx.planner.advance_to(ctx.now())
 	if ctx.traffic != null:
 		ctx.traffic.advance_to(ctx.now())
+	if ctx.migration != null:
+		ctx.migration.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()
@@ -233,6 +237,7 @@ func step(minutes: float) -> void:
 func live(person: PersonData, minutes: float, think_every: float = -1.0) -> void:
 	if ctx == null or not enabled:
 		return
+	ctx.enter(person)
 	_live(person, minutes, think_every if think_every > 0.0 else float(Config.sim.think_ticks_tier3))
 
 
@@ -264,7 +269,11 @@ func notice(person_id: int, direct: bool) -> void:
 		# Nobody is living: what happens now is not reacted to later.
 		ctx.perceptions.erase(person_id)
 		return
+	if ctx.migration != null and not ctx.migration.journeys.is_empty() and ctx.migration.travelling(person_id):
+		ctx.perceptions.erase(person_id)
+		return
 	if direct:
+		ctx.enter(person)
 		_consider_perceptions(person)
 		_announce_reactions()
 	else:
@@ -332,6 +341,7 @@ func _announce_reactions() -> void:
 ## Makes a person decide now (dropping what they are doing if something else
 ## wins). Returns the decision.
 func think(person: PersonData) -> Brain.Decision:
+	ctx.enter(person)
 	return _think(person, activity_of(person))
 
 
@@ -339,6 +349,7 @@ func think(person: PersonData) -> Brain.Decision:
 ## `score` is how much spoke for it (what something else has to beat for the
 ## person to drop it).
 func set_plan(person: PersonData, activity: StringName, reason: StringName, steps: Array, score: float = 0.0) -> void:
+	ctx.enter(person)
 	_note_change(person, activity, steps, reason)
 	_drop(person)
 	person.current_action = {"activity": String(activity), "reason": String(reason), "since": ctx.now(),
@@ -433,6 +444,10 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	Hardship.live(person, ctx, minutes)
 	Exposure.live(person, ctx, minutes)
 	Health.live(person, ctx, minutes)
+	# On the way to new land: nothing else takes their attention (M12.3).
+	if ctx.migration != null and not ctx.migration.journeys.is_empty() and ctx.migration.travelling(person.id):
+		_carry_on(person, minutes)
+		return
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
 		return

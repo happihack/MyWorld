@@ -18,6 +18,8 @@ var _start: WorldSetup.StartInfo
 var _ids: IdAllocator
 var _archive: HistoryArchive
 var _loose: LooseObjectRegistry
+## A settlement's graves are those within this many tiles of its fire (M12.3).
+const GRAVEYARD_REACH := 14.0
 
 
 func bind(props: PropRegistry, world: WorldData, pathfinder: Pathfinder, start: WorldSetup.StartInfo, ids: IdAllocator,
@@ -45,10 +47,10 @@ func all_graves() -> Array[int]:
 
 ## Lays someone who has died (they are in the archive) in a grave. Returns its
 ## id (0: nowhere to lay them).
-func bury(person_id: int) -> int:
+func bury(person_id: int, start: WorldSetup.StartInfo = null) -> int:
 	if _props == null or _start == null or _archive == null or _archive.get_record(person_id) == null:
 		return 0
-	var site: Variant = site()
+	var site: Variant = site(start)
 	if site == null:
 		return 0
 	var grave := PropData.new()
@@ -64,12 +66,18 @@ func bury(person_id: int) -> int:
 
 
 ## Where the next grave goes (null: nowhere).
-func site() -> Variant:
-	var graves := all_graves()
+## (Near the fire of `start`: the settlement the dead belonged to — the first, if not given.)
+func site(start: WorldSetup.StartInfo = null) -> Variant:
+	var own := start if start != null else _start
+	var graves: Array[int] = []
+	for id in all_graves():
+		var grave := _props.get_prop(id)
+		if grave != null and Vector2(grave.tile - own.settlement_tile).length() <= GRAVEYARD_REACH:
+			graves.append(id)
 	if graves.is_empty():
-		return _first_site()
+		return _first_site(own)
 	var first := _props.get_prop(graves[0])
-	var center: Vector2i = first.tile if first != null else _start.settlement_tile
+	var center: Vector2i = first.tile if first != null else own.settlement_tile
 	var best: Variant = null
 	var best_distance := 1 << 30
 	for dy in range(-GROUND_REACH, GROUND_REACH + 1):
@@ -80,12 +88,12 @@ func site() -> Variant:
 				continue
 			best = tile
 			best_distance = distance
-	return best if best != null else _first_site()
+	return best if best != null else _first_site(own)
 
 
 ## A quiet place a little way from the fire, with free ground around it.
-func _first_site() -> Variant:
-	var fire := _start.settlement_tile
+func _first_site(start: WorldSetup.StartInfo) -> Variant:
+	var fire := start.settlement_tile
 	for reach in range(NEAREST, FURTHEST + 1):
 		var ring: Array[Vector2i] = []
 		for dy in range(-reach, reach + 1):

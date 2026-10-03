@@ -12,6 +12,9 @@ extends RefCounted
 var _records: Dictionary = {} # household id -> {"home": int, "founded": int}
 var _people: PersonRegistry
 var _start: WorldSetup.StartInfo
+## Every settlement (M12.3; null: only the first). A household's homes are
+## those of its settlement.
+var settlements: Settlements
 var _config: LifeConfig
 
 
@@ -49,9 +52,25 @@ func home_of(id: int) -> int:
 	return int((_records.get(id, {}) as Dictionary).get("home", 0))
 
 
-## The homes of the settlement (the huts).
+## Every home (hut) of every settlement.
 func homes() -> Array[int]:
+	if settlements != null and settlements.size() > 0:
+		return settlements.all_homes()
 	return _start.hut_ids if _start != null else ([] as Array[int])
+
+
+## The homes of one settlement (-1: all of them).
+func homes_of(settlement_id: int) -> Array[int]:
+	if settlement_id < 0 or settlements == null:
+		return homes()
+	var own := settlements.get_settlement(settlement_id)
+	return own.start_info().hut_ids if own != null else homes()
+
+
+## The settlement a household belongs to (that of its people; -1: unknown).
+func settlement_of(household_id: int) -> int:
+	var people := members(household_id)
+	return people[0].settlement_id if not people.is_empty() else -1
 
 
 ## How many more fit under a roof before it is crowded (negative: crowded).
@@ -112,7 +131,7 @@ func form_couple(a: PersonData, b: PersonData, now: int, new_id: int) -> int:
 			if not other_parent_there:
 				along.append(child)
 				leaving.append(child.id)
-	var home := roomiest_home(leaving)
+	var home := roomiest_home(leaving, a.settlement_id)
 	_records[new_id] = {"home": home, "founded": now}
 	var old: Array[int] = [a.household_id, b.household_id]
 	for person: PersonData in [a, b] + along:
@@ -128,7 +147,8 @@ func form_couple(a: PersonData, b: PersonData, now: int, new_id: int) -> int:
 ## one household shares (or of a home over-full).
 ## Returns the household that moved (0: nobody needed to).
 func take_new_home(home: int) -> int:
-	var best := mover(home)
+	var own := settlements.of_home(home) if settlements != null else null
+	var best := mover(home, false, own.id if own != null else -1)
 	if best == 0:
 		return 0
 	_records[best]["home"] = home
@@ -141,16 +161,19 @@ func take_new_home(home: int) -> int:
 ## a roof, else one of the most crowded home that more than one household
 ## shares (or that is over-full); `full_only`: only from a home with no room
 ## left (where nobody more can be born). 0: none.
-func mover(except: int = 0, full_only: bool = false) -> int:
+func mover(except: int = 0, full_only: bool = false, settlement_id: int = -1) -> int:
 	var best := 0
 	var least_room := 1_000_000
 	var ids := _records.keys()
 	ids.sort()
+	var all := homes()
 	for id: int in ids:
 		var at := home_of(id)
 		if at == except or members(id).is_empty():
 			continue
-		if at == 0 or not homes().has(at):
+		if settlement_id >= 0 and settlement_of(id) != settlement_id:
+			continue # (another settlement's)
+		if at == 0 or not all.has(at):
 			return id
 		var sharing := 0
 		for other: int in _records:
@@ -161,6 +184,16 @@ func mover(except: int = 0, full_only: bool = false) -> int:
 			least_room = free
 			best = id
 	return best
+
+
+## A whole household goes to live in `home` (M12.3: those who set out, in
+## the first shelter of their new settlement; 0: under no roof yet).
+func move_household(household_id: int, home: int) -> void:
+	if not _records.has(household_id):
+		return
+	_records[household_id]["home"] = home
+	for person in members(household_id):
+		person.home_building_id = home
 
 
 ## Crowded households move into the homes that stand empty. Returns how many moved.
@@ -182,7 +215,7 @@ func rehouse() -> int:
 		var at := home_of(id)
 		if (at != 0 and homes().has(at)) or members(id).is_empty():
 			continue
-		var home := roomiest_home()
+		var home := roomiest_home([], settlement_of(id))
 		if home == 0 or room(home) < members(id).size():
 			continue
 		_records[id]["home"] = home
@@ -194,10 +227,10 @@ func rehouse() -> int:
 
 ## The home with the most room, not counting `leaving` (ids) among those who
 ## live there now (the first of them, by id; 0 if there are no homes).
-func roomiest_home(leaving: Array = []) -> int:
+func roomiest_home(leaving: Array = [], settlement_id: int = -1) -> int:
 	var best := 0
 	var most := -1_000_000
-	var sorted := homes().duplicate()
+	var sorted := homes_of(settlement_id).duplicate()
 	sorted.sort()
 	for home: int in sorted:
 		var living := 0
@@ -276,6 +309,10 @@ func _move_in(person: PersonData, household_id: int, _now: int) -> void:
 	var was := person.household_id
 	person.household_id = household_id
 	person.home_building_id = home_of(household_id)
+	# (Taken in elsewhere: they belong to that settlement now.)
+	var own := settlements.of_home(person.home_building_id) if settlements != null else null
+	if own != null:
+		person.settlement_id = own.id
 	if was != household_id:
 		_forget_if_empty(was)
 

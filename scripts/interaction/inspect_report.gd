@@ -37,6 +37,10 @@ var look := 0
 ## building); a site: what is going up there, how far it is (0 … 1) and
 ## what is still to be brought ({resource -> units}).
 var condition := -1
+## A settlement's fire (M12.3): the settlement's name, tier and people ("" when not a fire).
+var settlement_name := ""
+var settlement_tier := 0
+var settlement_people := 0
 ## The ground (M12.2): how much it is walked (Traffic.level), and whether it is a worn path.
 var footfall := 0.0
 var path := false

@@ -51,6 +51,9 @@ var resources: ResourceLibrary
 ## The settlement: its stores and its job board (may be null: then food is
 ## simply there at the fire and every node is worth working at, as before).
 var settlement: Settlement
+## Every settlement (M12.3; may be null: then there is only `settlement`).
+## Whatever a person does, they do as one of their own settlement (see enter).
+var settlements: Settlements
 ## The fields (may be null: nobody farms).
 var farming: Farming
 ## The animals (may be null: there are none to hunt).
@@ -80,6 +83,8 @@ var construction: ConstructionSystem
 var planner: SettlementPlanner
 ## Footfall and paths (M12.2).
 var traffic: Traffic
+## People setting out to found settlements (M12.3; may be null).
+var migration: Migration
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer
@@ -90,6 +95,30 @@ var next_stimulus_id := 1
 # looked: person id -> &"arrived" / &"blocked".
 var _walk_results: Dictionary = {}
 var _stages: Dictionary = {} # person id -> Vector2i(game day, stage)
+
+
+## Switches to the person's settlement: its stores, its places, its plans
+## (M12.3). Cheap when it is the one already in use.
+func enter(person: PersonData) -> void:
+	if settlements == null or person == null:
+		return
+	var own := settlements.of(person)
+	if own == null:
+		return
+	if own != settlement:
+		use(own)
+	elif farming != null:
+		farming.use_start(start) # (the settlements' housekeeping may have used another's)
+
+
+## Makes `own` the settlement everything refers to.
+func use(own: Settlement) -> void:
+	settlement = own
+	places = own.places()
+	start = own.start_info()
+	planner = own.planner
+	if farming != null:
+		farming.use_start(start)
 
 
 func take_stimulus_id() -> int:

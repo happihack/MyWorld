@@ -22,6 +22,8 @@ var _construction: ConstructionSystem
 var _people: PersonRegistry
 var _households: Households
 var _traffic: Traffic
+## What is further than this from the fire is not this settlement's to build or keep.
+const NEAR_REACH := 16.0
 var _world: WorldData
 var _pathfinder: Pathfinder
 var _config: ConstructionConfig
@@ -65,7 +67,7 @@ func advance_to(now: int) -> void:
 ## Weighs the needs now; begins the building the most pressing one calls for.
 ## Returns the project begun ({}: none).
 func plan(now: int) -> Dictionary:
-	var going := _construction.builds()
+	var going := _construction.builds(_settlement.id)
 	for need: StringName in needs(now):
 		# One building at a time — but a home does not wait for anything else.
 		if not going.is_empty() and (need != &"home" or going.any(func(p: Dictionary) -> bool: return str(p["def"]) == "hut")):
@@ -75,13 +77,13 @@ func plan(now: int) -> Dictionary:
 			continue
 		if need == &"bridge":
 			var ford: Variant = _traffic.ford_for_bridge()
-			if ford != null:
-				return _construction.start(def[0].id, ford, now, bridge_turn(ford))
+			if ford != null and _near(ford):
+				return _construction.start(def[0].id, ford, now, bridge_turn(ford), _settlement.id)
 			continue
 		var site: Variant = site_for(def[0])
 		if site == null:
 			continue
-		return _construction.start(def[0].id, site, now)
+		return _construction.start(def[0].id, site, now, 0, _settlement.id)
 	return {}
 
 
@@ -94,7 +96,7 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"storage")
 	if water_far():
 		out.append(&"water")
-	if _traffic != null and _traffic.ford_for_bridge() != null:
+	if _traffic != null and _traffic.ford_for_bridge() != null and _near(_traffic.ford_for_bridge()):
 		out.append(&"bridge")
 	return out
 
@@ -131,7 +133,7 @@ func homes_short() -> bool:
 		if _people.living_in(home_id).is_empty():
 			return false
 	# A home two households share with no room left for a child.
-	if _households != null and _households.mover(0, true) != 0:
+	if _households != null and _households.mover(0, true, _settlement.id) != 0:
 		return true
 	return places - living < _config.homes_spare_least
 
@@ -139,7 +141,7 @@ func homes_short() -> bool:
 ## Are the stores overflowing, or has food been going bad (and no storehouse
 ## for it yet — or not enough of them)?
 func storage_short(now: int) -> bool:
-	var stores := _construction.standing(PropData.Kind.STOREHOUSE).size()
+	var stores := standing_near(PropData.Kind.STOREHOUSE).size()
 	var room := _settlement.stockpile.room(&"berries")
 	var spoiled := 0
 	var today := Config.time.day_index(now)
@@ -151,13 +153,33 @@ func storage_short(now: int) -> bool:
 
 ## Is water to drink far from the fire (and no well yet)?
 func water_far() -> bool:
-	if not _construction.standing(PropData.Kind.WELL).is_empty():
+	if not standing_near(PropData.Kind.WELL).is_empty():
 		return false
 	var fire := _settlement.fire()
 	if fire == null or _settlement.places() == null:
 		return false
 	var water: Variant = _settlement.places().water_tile(fire.tile)
 	return water == null or Vector2(water - fire.tile).length() > _config.well_from
+
+
+## Is `tile` this settlement's to see to (nearer its fire than any other's,
+## and within reach of it)?
+func _near(tile: Vector2i) -> bool:
+	var fire := _settlement.fire()
+	if fire == null or Vector2(tile - fire.tile).length() > NEAR_REACH:
+		return false
+	var settlements := _construction.settlements
+	return settlements == null or settlements.nearest(tile) == _settlement
+
+
+## The buildings of a kind that are this settlement's (near its fire).
+func standing_near(kind: int) -> Array[int]:
+	var out: Array[int] = []
+	for id in _construction.standing(kind):
+		var prop := _settlement.props().get_prop(id)
+		if prop != null and _near(prop.tile):
+			out.append(id)
+	return out
 
 
 ## The best ground for a building (null: none in reach).

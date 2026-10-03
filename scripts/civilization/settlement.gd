@@ -67,6 +67,14 @@ var _config: SettlementConfig
 var _places: Places
 ## What is being built and repaired (M12.1; may be null).
 var construction: ConstructionSystem
+## What this settlement plans to build (M12.1; one planner each, M12.3).
+var planner: SettlementPlanner
+## Its name (M12.3: a placeholder — "Ama's camp" — until names come, M17), when
+## it was founded, by whom and from where (0: the first settlement, by the band).
+var settlement_name := ""
+var founded_tick := 0
+var founders: Array[int] = []
+var founded_from := 0
 ## Since when there has been too little in store (-1: there is enough),
 ## and nothing at all (-1: there is something).
 var _low_since := -1
@@ -130,6 +138,9 @@ func unbind() -> void:
 	stockpile.unbind()
 	_people = null
 	_props = null
+	# (The planner knows its settlement, and the settlement its planner: let go.)
+	planner = null
+	construction = null
 
 
 # --- who and what ---------------------------------------------------------------------------------
@@ -147,6 +158,21 @@ func members() -> Array[PersonData]:
 
 func member_count() -> int:
 	return members().size()
+
+
+## Since when the stores have been low (-1: they are not).
+func short_since() -> int:
+	return _low_since
+
+
+## Camp, hamlet, village … — by how many live here (bible §17.1).
+func tier() -> Settlements.Tier:
+	return Settlements.tier_for(member_count())
+
+
+## What it is called ("the camp" for the first, until names come in M17).
+func display_name() -> String:
+	return settlement_name if settlement_name != "" else "the first camp"
 
 
 ## Its households: household id -> the ids of who belongs to it.
@@ -276,7 +302,7 @@ func ensure_farmer(now: int) -> PersonData:
 ## Likewise with game about and nobody hunting.
 ## Likewise with something to build and nobody building (M12.1).
 func ensure_builder(now: int) -> PersonData:
-	if construction == null or occupations == null or not occupations.has_def(&"builder") or construction.projects().is_empty():
+	if construction == null or occupations == null or not occupations.has_def(&"builder") or construction.projects_of(id).is_empty():
 		return null
 	for person in members():
 		if person.occupation_id == &"builder":
@@ -304,7 +330,7 @@ func ensure_builder(now: int) -> PersonData:
 
 ## Is a home being built or mended?
 func _homes_need_work() -> bool:
-	for project in construction.projects():
+	for project in construction.projects_of(id):
 		if str(project["def"]) == "hut":
 			return true
 	return false
@@ -433,7 +459,8 @@ func to_dict() -> Dictionary:
 	return {"burn_tick": _burn_tick, "day": _day, "jobs": jobs.to_dict(), "shortage": shortage, "seed_eaten": seed_eaten,
 		"forage_low": forage_low, "low_since": _low_since, "empty_since": _empty_since,
 		"served": _served.duplicate(), "served_day": _served_day,
-		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day}
+		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day,
+		"name": settlement_name, "founded": founded_tick, "founders": founders.duplicate(), "from": founded_from}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -464,6 +491,14 @@ func from_dict(data: Dictionary) -> void:
 			var had: Variant = (served as Dictionary)[person_id]
 			if typeof(person_id) == TYPE_INT and (typeof(had) == TYPE_FLOAT or typeof(had) == TYPE_INT):
 				_served[person_id] = float(had)
+	settlement_name = str(data.get("name", "")) if typeof(data.get("name")) == TYPE_STRING else ""
+	founded_tick = int(data["founded"]) if typeof(data.get("founded")) == TYPE_INT else 0
+	founded_from = maxi(int(data["from"]), 0) if typeof(data.get("from")) == TYPE_INT else 0
+	founders.clear()
+	if typeof(data.get("founders")) == TYPE_ARRAY:
+		for id: Variant in data["founders"]:
+			if typeof(id) == TYPE_INT:
+				founders.append(id)
 	_keep_seed()
 	_apply_reach()
 

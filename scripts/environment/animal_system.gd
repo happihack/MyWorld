@@ -88,6 +88,8 @@ var _props: PropRegistry
 var _people: PersonRegistry
 var _ids: IdAllocator
 var _start: WorldSetup.StartInfo
+## Where every settlement's fire is (M12.3; empty: only the first's).
+var settlement_tiles: Array[Vector2i] = []
 var _rng: RandomNumberGenerator
 var _pathfinder: Pathfinder
 var _day := -1_000_000
@@ -730,7 +732,6 @@ func _migrate(_now: int) -> void:
 ## group might live: a few places, the best first.
 func _other_ground(from: Vector2) -> Array[Vector2]:
 	var b := _world.bounds.grow(-3)
-	var settlement := Vector2(_start.settlement_tile) if _start != null else Vector2.INF
 	var scored: Array = [] # [how good, where]
 	for attempt in 80:
 		var tile := Vector2i(_rng.randi_range(b.position.x, b.end.x - 1), _rng.randi_range(b.position.y, b.end.y - 1))
@@ -740,7 +741,7 @@ func _other_ground(from: Vector2) -> Array[Vector2]:
 		var terrain := _world.get_terrain(tile)
 		if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT:
 			continue
-		if settlement != Vector2.INF and at.distance_to(settlement) < SETTLEMENT_CLEARANCE:
+		if _from_people(at) < SETTLEMENT_CLEARANCE:
 			continue
 		# (Green ground, and not further than need be: the further, the likelier the way leads past people.)
 		var green := float(_world.chunk_at_tile(tile).vegetation[_world.index_at_tile(tile)]) / 255.0
@@ -760,11 +761,21 @@ func _clear_way(from: Vector2i, to: Vector2i, clearance: float) -> bool:
 		return false
 	if _start == null:
 		return true
-	var settlement := Vector2(_start.settlement_tile)
 	for tile in way:
-		if Vector2(tile).distance_to(settlement) < clearance:
+		if _from_people(Vector2(tile)) < clearance:
 			return false
 	return true
+
+
+## How far `at` is from the nearest settlement's fire (INF: there is none).
+func _from_people(at: Vector2) -> float:
+	var nearest := INF
+	if not settlement_tiles.is_empty():
+		for tile in settlement_tiles:
+			nearest = minf(nearest, at.distance_to(Vector2(tile)))
+	elif _start != null:
+		nearest = at.distance_to(Vector2(_start.settlement_tile))
+	return nearest
 
 
 ## Whether an animal is on its way to where its group is moving to.
@@ -909,7 +920,6 @@ func _count_water() -> void:
 ## the settlement and (for those who fear them) from where predators live.
 func _find_home(def: SpeciesDef) -> Variant:
 	var b := _world.bounds.grow(-3)
-	var settlement := Vector2(_start.settlement_tile) if _start != null else Vector2.INF
 	var best: Variant = null
 	var best_score := -INF
 	for attempt in 60:
@@ -919,7 +929,7 @@ func _find_home(def: SpeciesDef) -> Variant:
 		var terrain := _world.get_terrain(tile)
 		if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT:
 			continue
-		var from_people := Vector2(tile).distance_to(settlement) if settlement != Vector2.INF else 100.0
+		var from_people := minf(_from_people(Vector2(tile)), 100.0)
 		if from_people < SETTLEMENT_CLEARANCE:
 			continue
 		# Green ground, not on top of another group.

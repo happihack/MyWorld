@@ -86,6 +86,8 @@ var _settlement := Vector2.INF
 var construction: ConstructionSystem
 ## Footfall, for the inspect card of the ground (M12.2).
 var traffic: Traffic
+## The settlements, for the card of a fire (M12.3).
+var settlements: Settlements
 var _people: PersonRegistry
 var _fauna: AnimalSystem
 var _weather: WeatherSystem
@@ -719,6 +721,12 @@ func inspect(target: Picker.Result) -> InspectReport:
 			report.still_needed = construction.still_needed(project)
 		elif prop.is_building():
 			report.condition = prop.condition
+		if prop.kind == PropData.Kind.CAMPFIRE and settlements != null:
+			for own in settlements.all():
+				if own.start_info().campfire_id == prop.id:
+					report.settlement_name = own.display_name()
+					report.settlement_tier = own.tier()
+					report.settlement_people = own.member_count()
 		if prop.kind == PropData.Kind.TREE:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()

@@ -149,6 +149,14 @@ func _run() -> void:
 					person.given_name, person.id, person.age_years(now, config.time.ticks_per_year()), person.position,
 					"prop kind %d #%d" % [there.kind, there.id] if there != null else "no prop", s.world.get_water(person.position),
 					person.current_action.get("activity", "")])
+		# Everyone belongs to a settlement there is, and lives under its roofs (or none yet).
+		for person in s.people.all_people():
+			var own: Variant = s.settlements.get_settlement(person.settlement_id)
+			if own == null:
+				_problem("day %d: %s belongs to no settlement (%d)" % [day, person.given_name, person.settlement_id])
+			elif person.home_building_id != 0 and not own.start_info().hut_ids.has(person.home_building_id) \
+					and not s.migration.travelling(person.id) and s.props.get_prop(person.home_building_id) != null:
+				_problem("day %d: %s of %s lives in another settlement's hut" % [day, person.given_name, own.display_name()])
 		for resource: StringName in s.settlement.stockpile.amounts():
 			if int(s.settlement.stockpile.amounts()[resource]) < 0:
 				_problem("day %d: %d %s in store" % [day, s.settlement.stockpile.amounts()[resource], resource])
@@ -239,6 +247,7 @@ func _run() -> void:
 		s.events.count_of(&"building_begun"), s.events.count_of(&"building_built"), s.events.count_of(&"building_damaged"),
 		s.events.count_of(&"building_repaired"), s.events.count_of(&"building_ruined"), s.construction.debug_text()])
 	print("SOAK %s  bridges %d" % [s.traffic.debug_text(), s.construction.standing(PropData.Kind.BRIDGE).size()])
+	print("SOAK %s  |  %s" % [s.settlements.debug_text(), s.migration.debug_text()])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

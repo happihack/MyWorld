@@ -30,6 +30,8 @@ const FRAME := 1
 const FRAME_FROM := 0.4
 
 var buildings: BuildingLibrary
+## Every settlement (M12.3; null: only the first). Each project is of one.
+var settlements: Settlements
 var _props: PropRegistry
 var _ids: IdAllocator
 var _start: WorldSetup.StartInfo
@@ -76,13 +78,33 @@ func project_at(prop_id: int) -> Dictionary:
 	return {}
 
 
-## New buildings being built (not repairs).
-func builds() -> Array[Dictionary]:
+## New buildings being built (not repairs) — of one settlement (-1: of all).
+func builds(settlement_id: int = -1) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for p in _projects:
-		if str(p["kind"]) == BUILD:
+		if str(p["kind"]) == BUILD and (settlement_id < 0 or settlement_of(p) == settlement_id):
 			out.append(p)
 	return out
+
+
+## The projects of one settlement (M12.3).
+func projects_of(settlement_id: int) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for p in _projects:
+		if settlement_of(p) == settlement_id:
+			out.append(p)
+	return out
+
+
+## Which settlement a project is of (a project from before there were more: the first).
+func settlement_of(p: Dictionary) -> int:
+	return int(p.get("settlement", _start.settlement_id if _start != null else 0))
+
+
+## The start (fire, homes) of a project's settlement.
+func _start_of(p: Dictionary) -> WorldSetup.StartInfo:
+	var own := settlements.get_settlement(settlement_of(p)) if settlements != null else null
+	return own.start_info() if own != null else _start
 
 
 ## Every building of a kind that stands (prop ids, in order).
@@ -139,7 +161,7 @@ func debug_text() -> String:
 
 ## Begins a building of `def_id` on `tile`: its site is staked out. Returns the
 ## project ({}: it cannot be).
-func start(def_id: StringName, tile: Vector2i, now: int, rotation_step: int = 0) -> Dictionary:
+func start(def_id: StringName, tile: Vector2i, now: int, rotation_step: int = 0, settlement_id: int = -1) -> Dictionary:
 	var def := buildings.get_def(def_id) if buildings != null else null
 	if def == null or _props == null or _props.prop_at(tile) != null:
 		return {}
@@ -153,7 +175,8 @@ func start(def_id: StringName, tile: Vector2i, now: int, rotation_step: int = 0)
 	if not _props.add(site):
 		return {}
 	var p := {"id": _next_id, "kind": BUILD, "def": String(def_id), "tile": tile, "site": site.id,
-		"needed": _units_of(def.materials), "delivered": {}, "labor": def.labor, "done": 0.0, "started": now, "builders": {}}
+		"needed": _units_of(def.materials), "delivered": {}, "labor": def.labor, "done": 0.0, "started": now, "builders": {},
+		"settlement": settlement_id if settlement_id >= 0 else (_start.settlement_id if _start != null else 0)}
 	_next_id += 1
 	_projects.append(p)
 	begun.emit(p)
@@ -234,8 +257,9 @@ func _finish(p: Dictionary, now: int) -> void:
 		building.rotation_step = 0
 		if not _props.add(building):
 			return
-	if def.has_tag("home") and _start != null and not _start.hut_ids.has(building.id):
-		_start.hut_ids.append(building.id)
+	var own := _start_of(p)
+	if def.has_tag("home") and own != null and not own.hut_ids.has(building.id):
+		own.hut_ids.append(building.id)
 		_empty_since[building.id] = now
 	# The builders grow better at it.
 	for id in builders_of(p):
@@ -279,9 +303,11 @@ func start_repair(building: PropData, now: int) -> Dictionary:
 		var units := ceili(int(def.materials[resource]) * _config.repair_material_share * worn)
 		if units > 0:
 			needed[str(resource)] = units
+	var owner := settlements.nearest(building.tile) if settlements != null else null
 	var p := {"id": _next_id, "kind": REPAIR, "def": String(def.id), "tile": building.tile, "site": building.id,
 		"needed": needed, "delivered": {}, "labor": maxi(roundi(def.labor * _config.repair_labor_share * worn), 1), "done": 0.0,
-		"started": now, "builders": {}}
+		"started": now, "builders": {},
+		"settlement": owner.id if owner != null else (_start.settlement_id if _start != null else 0)}
 	_next_id += 1
 	_projects.append(p)
 	return p
@@ -299,7 +325,8 @@ func advance_to(now: int) -> void:
 		return
 	var days := mini(today - _day, 30)
 	_day = today
-	for home_id: int in _start.hut_ids.duplicate():
+	var homes: Array[int] = settlements.all_homes() if settlements != null and settlements.size() > 0 else _start.hut_ids.duplicate()
+	for home_id: int in homes:
 		var home := _props.get_prop(home_id)
 		if home == null:
 			continue
@@ -325,6 +352,9 @@ func _ruin(building: PropData, why: StringName) -> void:
 	if not going.is_empty():
 		_projects.erase(going)
 	_start.hut_ids.erase(building.id)
+	if settlements != null:
+		for own in settlements.all():
+			own.start_info().hut_ids.erase(building.id)
 	_empty_since.erase(building.id)
 	var tile := building.tile
 	var id := building.id

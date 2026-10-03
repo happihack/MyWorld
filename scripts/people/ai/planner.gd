@@ -194,7 +194,7 @@ static func _build_work(person: PersonData, ctx: AiContext) -> Array:
 	# Homes first (built or mended), then the rest; the oldest first within each.
 	var projects: Array[Dictionary] = []
 	for home_first in [true, false]:
-		for project in ctx.construction.projects():
+		for project in (ctx.construction.projects_of(ctx.settlement.id) if ctx.settlement != null else ctx.construction.projects()):
 			if (str(project["def"]) == "hut") == home_first:
 				projects.append(project)
 	for project: Dictionary in projects:

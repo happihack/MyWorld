@@ -96,7 +96,7 @@ func refresh(settlement: Settlement, now: int) -> void:
 		# What is being built needs what it has not been brought yet (M12.1).
 		var for_building := {}
 		if settlement.construction != null:
-			for project in settlement.construction.projects():
+			for project in settlement.construction.projects_of(settlement.id):
 				var left := settlement.construction.still_needed(project)
 				for resource: StringName in left:
 					for_building[resource] = int(for_building.get(resource, 0)) + int(left[resource])
@@ -110,9 +110,9 @@ func refresh(settlement: Settlement, now: int) -> void:
 		if stone_wanted > 0.0 and stone < stone_wanted:
 			wanted.append([GATHER, &"stone", ResourceNodes.ROCK, maxf(1.0 - stone / stone_wanted, 0.5), stone, stone_wanted])
 		# Building: as pressing as what it is for (homes when the roofs are full, more).
-		if settlement.construction != null and not settlement.construction.projects().is_empty():
+		if settlement.construction != null and not settlement.construction.projects_of(settlement.id).is_empty():
 			var pressing := Config.construction.build_priority
-			for project in settlement.construction.projects():
+			for project in settlement.construction.projects_of(settlement.id):
 				if str(project["def"]) == "hut":
 					pressing = maxf(pressing, Config.construction.homes_priority)
 			wanted.append([BUILD, &"", &"site", pressing, 0.0, 0.0])

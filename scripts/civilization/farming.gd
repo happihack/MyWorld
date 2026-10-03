@@ -168,6 +168,25 @@ func bind(world: WorldData, props: PropRegistry, ids: IdAllocator, pathfinder: P
 	_dry = false
 
 
+## The settlement whose fields are meant from now on (M12.3: the AI context
+## switches it to each person's own).
+func use_start(start: WorldSetup.StartInfo) -> void:
+	if start != null:
+		_start = start
+
+
+## The plots of the settlement in use (those near its fire).
+func ours() -> Array[PropData]:
+	var out: Array[PropData] = []
+	if _start == null:
+		return out
+	var reach := float(_config.site_max_distance + 2)
+	for crop in crops():
+		if Vector2(crop.tile - _start.settlement_tile).length() <= reach:
+			out.append(crop)
+	return out
+
+
 ## Every plot there is (whatever stands on it).
 func crops() -> Array[PropData]:
 	if _props == null:
@@ -183,7 +202,7 @@ func crops() -> Array[PropData]:
 
 
 func plot_count() -> int:
-	return crops().size()
+	return ours().size()
 
 
 ## How many people farm (their occupation's work is the field).
@@ -192,6 +211,8 @@ func farmer_count() -> int:
 	if _people == null or _occupations == null:
 		return 0
 	for person in _people.all_people():
+		if _start != null and _start.settlement_id != 0 and person.settlement_id != _start.settlement_id:
+			continue # (another settlement's)
 		var def := _occupations.get_def(person.occupation_id)
 		if def != null and def.work_target == &"field":
 			count += 1
@@ -219,7 +240,7 @@ func seed_wanted() -> int:
 	if _harvests <= 0 or _config.seed_per_plot <= 0:
 		return 0
 	var plots := maxi(plots_wanted() - plot_count(), 0)
-	for crop in crops():
+	for crop in ours():
 		var stage := stage_of(crop)
 		if stage == Stage.STUBBLE or stage == Stage.FAILED:
 			plots += 1
@@ -388,9 +409,10 @@ func sow(tile: Vector2i, now: int) -> PropData:
 ## tend what grows. {"task", "tile", "id" (0 for a plot yet to be made)} or {}.
 func task_for(person: PersonData, now: int) -> Dictionary:
 	var from := person.position if person != null else (_start.settlement_tile if _start != null else Vector2i.ZERO)
+	var mine := ours()
 	var nearest := func(wanted: Callable) -> PropData:
 		var found: PropData = null
-		for crop in crops():
+		for crop in mine:
 			if wanted.call(crop) and (found == null or (crop.tile - from).length_squared() < (found.tile - from).length_squared()):
 				found = crop
 		return found
@@ -411,7 +433,7 @@ func task_for(person: PersonData, now: int) -> Dictionary:
 			if tile != null:
 				return {"task": SOW, "tile": tile, "id": 0}
 	var untended: PropData = null
-	for crop in crops():
+	for crop in mine:
 		if is_growing(crop) and now - crop.tended_tick >= _config.tend_every_minutes \
 				and (untended == null or crop.tended_tick < untended.tended_tick):
 			untended = crop

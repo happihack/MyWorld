@@ -98,6 +98,11 @@ func _ready() -> void:
 	if session.settlement != null:
 		session.settlement.fire_changed.connect(world_view.set_fire_lit)
 		world_view.set_fire_lit(session.settlement.fire_lit())
+	# The fires of the settlements founded since (M12.3), and of those yet to be.
+	var light_others := func() -> void:
+		world_view.show_other_fires(session.settlements.all().filter(func(own: Settlement) -> bool: return own != session.settlement))
+	light_others.call()
+	session.migration.founded.connect(func(_own: Settlement, _journey: Dictionary) -> void: light_others.call())
 	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
 		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
 			ui_root.hints().complete(HintDirector.TOUCH))

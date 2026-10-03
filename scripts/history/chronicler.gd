@@ -71,6 +71,7 @@ const TYPE_BUILDING_DAMAGED := &"building_damaged"
 const TYPE_REPAIRED := &"building_repaired"
 const TYPE_RUINED := &"building_ruined"
 const TYPE_PATH := &"path_worn"
+const TYPE_MIGRATION := &"migration"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -594,6 +595,42 @@ func on_building_ruined(ruin_id: int, def_id: StringName, why: StringName = &"")
 	var ruin := _props.get_prop(ruin_id) if _props != null else null
 	_log.record(TYPE_RUINED, {"building": String(def_id), "kind": String(why),
 		"position": ruin.position2d() if ruin != null else _fire_place(), "settlement": _settlement_id()})
+
+
+## People have set out from `from` to find new land (M12.3): led by the most
+## adventurous, because of what drove them (the journey's causes).
+func on_set_out(journey: Dictionary, from: Settlement) -> void:
+	if not _writing():
+		return
+	var members := PackedInt64Array()
+	members.append(int(journey["leader"]))
+	for id: int in journey["members"]:
+		if id != int(journey["leader"]):
+			members.append(id)
+	var origin := from.start_info().settlement_tile if from != null else Vector2i.ZERO
+	var others := members.size() - 1
+	var company := "one other" if others == 1 else ("%d others" % others)
+	var event := _log.record(TYPE_MIGRATION, {"participants": members, "others": others, "company": company,
+		"families": (journey["households"] as Array).size(), "direction": Migration.direction(origin, journey["to"]),
+		"position": from.fire().position2d() if from != null and from.fire() != null else _fire_place(),
+		"settlement": from.id if from != null else _settlement_id()}, journey.get("causes", []))
+	journey["event"] = event.id if event != null else 0
+
+
+## A settlement founded at the end of a journey (M12.3): its founders, the
+## first named first — because they set out.
+func on_founded_by(own: Settlement, journey: Dictionary) -> void:
+	if not _writing() or own == null:
+		return
+	var members := PackedInt64Array()
+	members.append(int(journey["leader"]))
+	for id in own.founders:
+		if id != int(journey["leader"]):
+			members.append(id)
+	var causes: Array = [int(journey["event"])] if int(journey.get("event", 0)) > 0 else []
+	_log.record(TYPE_FOUNDED, {"people": members.size(), "participants": members, "kind": "migrants",
+		"place": own.display_name(), "position": own.fire().position2d() if own.fire() != null else _fire_place(),
+		"settlement": own.id}, causes)
 
 
 ## Feet have worn a path (M12.2): history notes the first.

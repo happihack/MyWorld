@@ -33,6 +33,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	22: _v22_to_v23,
 	23: _v23_to_v24,
 	24: _v24_to_v25,
+	25: _v25_to_v26,
 }
 
 
@@ -353,6 +354,22 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 26 (M12.3) adds the settlements founded since the first, and
+## people under way to found one. An older world has only its first.
+static func _v25_to_v26(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("settlements"):
+		(state as Dictionary)["settlements"] = []
+	if not (state as Dictionary).has("migration"):
+		(state as Dictionary)["migration"] = {}
 	return data
 
 

@@ -48,6 +48,8 @@ var relationships: RelationshipStore
 var memories: MemoryStore
 var day_log: DayLog
 var settlement: Settlement
+## Every settlement (M12.3; may be null: only `settlement`).
+var settlements: Settlements
 var occupations: OccupationLibrary
 var names: NameGenerator
 var ids: IdAllocator
@@ -274,6 +276,11 @@ func _pair_up(now: int) -> void:
 			partner(person, best, now)
 
 
+## The settlement someone belongs to (M12.3).
+func _settlement_of(person: PersonData) -> Settlement:
+	return settlements.of(person) if settlements != null else settlement
+
+
 ## Someone grown-up and free who has nobody they could become partners with
 ## (and room under the roofs): now and then someone from far away comes.
 func _newcomers(now: int) -> void:
@@ -287,8 +294,11 @@ func _newcomers(now: int) -> void:
 	var lonely := lonely_one(now)
 	if lonely == null or rng.randf() >= config.newcomer_chance_per_day:
 		return
-	var stranger := PersonFactory.newcomer(ids, rng, names, occupations, people, start, pathfinder, now,
-		start.settlement_tile, PersonData.LifeStage.ADULT)
+	# (They come to where the lonely one lives.)
+	var own := settlements.of(lonely) if settlements != null else null
+	var there := own.start_info() if own != null else start
+	var stranger := PersonFactory.newcomer(ids, rng, names, occupations, people, there, pathfinder, now,
+		there.settlement_tile, PersonData.LifeStage.ADULT)
 	stranger.sex = PersonData.Sex.MALE if lonely.sex == PersonData.Sex.FEMALE else PersonData.Sex.FEMALE
 	stranger.given_name = names.given_name(rng, stranger.sex, people.given_names())
 	var years := clampi(lonely.age_years(now, Config.time.ticks_per_year()) + rng.randi_range(-4, 4),
@@ -381,7 +391,8 @@ func may_conceive(mother: PersonData, now: int) -> bool:
 		var born_at: Variant = birth_tick_of(child)
 		if born_at != null and now - int(born_at) < config.child_gap_days * DAY:
 			return false
-	if settlement != null and (settlement.is_short() or settlement.days_of_food() < config.food_days_for_child):
+	var stores := _settlement_of(mother)
+	if stores != null and (stores.is_short() or stores.days_of_food() < config.food_days_for_child):
 		return false
 	if households != null and mother.home_building_id != 0 and households.room(mother.home_building_id) <= 0:
 		return false
@@ -472,15 +483,16 @@ func die(person: PersonData, cause: StringName, now: int, causes: Array = []) ->
 		_remember_them(person, record)
 		archive.add(record)
 		if graves != null:
-			graves.bury(person.id)
+			graves.bury(person.id, _settlement_of(person).start_info() if _settlement_of(person) != null else null)
 	var partner := people.get_person(person.partner_id) if person.partner_id != 0 else null
 	if partner != null and partner.partner_id == person.id:
 		partner.partner_id = 0
 		if day_log != null:
 			day_log.note(partner.id, now, "life", "widowed", person.id)
 	# What they carried goes to the stores.
-	if settlement != null and person.carrying != &"" and person.carrying_amount > 0:
-		settlement.stockpile.add(person.carrying, person.carrying_amount)
+	var own := _settlement_of(person)
+	if own != null and person.carrying != &"" and person.carrying_amount > 0:
+		own.stockpile.add(person.carrying, person.carrying_amount)
 	var household := person.household_id
 	var key := "died_" + String(cause)
 	counts[key] = int(counts.get(key, 0)) + 1

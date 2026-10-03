@@ -65,6 +65,8 @@ var construction: ConstructionSystem
 var planner: SettlementPlanner
 ## Where people walk, the paths they wear (M12.2).
 var traffic: Traffic
+## People setting out to found new settlements (M12.3).
+var migration: Migration
 var buildings: BuildingLibrary
 ## Where the dead are laid (M10.3).
 var graves: Graves
@@ -103,6 +105,8 @@ var piles: PileStore
 ## The settlement around the fire: its stores, its job board (null in a
 ## world without one).
 var settlement: Settlement
+## Every settlement: the first (`settlement`) and those founded since (M12.3).
+var settlements := Settlements.new()
 ## The fields and what grows on them.
 var farming: Farming
 ## What the player does frightens the animals at least this near to it (tiles).
@@ -137,12 +141,14 @@ var _saved_culture: Dictionary = {}
 var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
+var _saved_migration: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
 var _saved_perception: Dictionary = {}
 var _saved_day_log: Dictionary = {}
 var _saved_settlement: Dictionary = {}
+var _saved_settlements: Array = []
 var _saved_farming: Dictionary = {}
 var _saved_animals: Dictionary = {}
 var _saved_events: Dictionary = {}
@@ -222,6 +228,10 @@ func _init() -> void:
 	planner = SettlementPlanner.new()
 	traffic = Traffic.new()
 	traffic.worn.connect(chronicle.on_path_worn)
+	migration = Migration.new()
+	migration.set_out.connect(func(journey: Dictionary) -> void:
+		chronicle.on_set_out(journey, settlements.get_settlement(int(journey["from"]))))
+	migration.founded.connect(chronicle.on_founded_by)
 	construction.begun.connect(chronicle.on_building_begun)
 	construction.finished.connect(chronicle.on_building_built)
 	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
@@ -411,6 +421,8 @@ func load_from(data: Dictionary) -> bool:
 	_saved_perception = {}
 	_saved_day_log = {}
 	_saved_settlement = {}
+	_saved_settlements = []
+	_saved_migration = {}
 	_saved_farming = {}
 	_saved_animals = {}
 	_saved_events = {}
@@ -469,6 +481,10 @@ func load_from(data: Dictionary) -> bool:
 			_saved_farming = state["farming"]
 		if typeof((state as Dictionary).get("settlement")) == TYPE_DICTIONARY:
 			_saved_settlement = state["settlement"]
+		if typeof((state as Dictionary).get("settlements")) == TYPE_ARRAY:
+			_saved_settlements = state["settlements"]
+		if typeof((state as Dictionary).get("migration")) == TYPE_DICTIONARY:
+			_saved_migration = state["migration"]
 		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
 			_saved_day_log = state["day_log"]
 		if typeof((state as Dictionary).get("observer")) == TYPE_DICTIONARY:
@@ -544,6 +560,8 @@ func to_dict() -> Dictionary:
 			"day_log": day_log.to_dict(),
 			"observer": observer.to_dict(),
 			"settlement": settlement.to_dict() if settlement != null else {},
+			"settlements": _settlements_to_save(),
+			"migration": migration.to_dict(),
 			"farming": farming.to_dict(),
 			"animals": fauna.to_dict(),
 			"events": events.to_dict(),
@@ -578,6 +596,11 @@ func shutdown() -> void:
 	clock.day_started.disconnect(_on_day_started)
 	clock.season_changed.disconnect(_on_season_changed)
 	clock.year_started.disconnect(_on_year_started)
+	# (Settlements and their planners refer to each other: they are let go of here.)
+	settlements.clear()
+	settlement = null
+	migration.behavior = null # (the behaviour's context knows migration)
+	migration.add_settlement = Callable()
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
 	EventBus.world_unloaded.emit()
 
@@ -595,14 +618,13 @@ func _process(delta: float) -> void:
 		_look_for_powers()
 		if nodes.due(clock.tick):
 			nodes.settle(clock.tick)
-		if settlement != null:
-			settlement.step(clock.tick)
+		settlements.step(clock.tick)
 		relationships.settle(clock.tick)
 		lifecycle.advance_to(clock.tick)
 		culture.advance_to(clock.tick)
 		construction.advance_to(clock.tick)
-		planner.advance_to(clock.tick)
 		traffic.advance_to(clock.tick)
+		migration.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -949,30 +971,11 @@ func _activate() -> void:
 		ids.reserve_above(animal.id)
 	fauna.seed_world(clock.tick)
 	ai.fauna = fauna
-	if settlement != null:
-		settlement.unbind()
+	settlements.clear()
 	settlement = null
 	if start != null and start.campfire_id != 0:
-		settlement = Settlement.new()
-		settlement.bind(start, people, props, piles, ai.places, resources, loose, Config.settlement)
-		settlement.farming = farming
-		settlement.weather = weather
-		settlement.hydrology = hydrology
-		settlement.world = world
-		settlement.pathfinder = pathfinder
-		settlement.occupations = occupations
-		settlement.fauna = fauna
-		settlement.nodes = nodes
-		settlement.from_dict(_saved_settlement)
-		settlement.jobs.refresh(settlement, clock.tick)
-		settlement.shortage_changed.connect(chronicle.on_shortage_changed)
-		settlement.seed_released.connect(chronicle.on_seed_released)
-		settlement.forage_changed.connect(chronicle.on_forage_changed)
-		settlement.fire_changed.connect(chronicle.on_fire_changed)
-		settlement.spoiled.connect(chronicle.on_spoiled)
-		settlement.took_up.connect(chronicle.on_took_up)
-		settlement.flood_took.connect(chronicle.on_flood_took)
-		settlement.home_moved.connect(chronicle.on_home_moved)
+		settlement = _make_settlement(start, ai.places, _saved_settlement)
+		settlements.add(settlement)
 	_saved_settlement = {}
 	# The world's history: what the save has of it. (A world from before
 	# there was one begins it now: what it has in store is no discovery.)
@@ -1053,6 +1056,34 @@ func _activate() -> void:
 	_saved_planner = {}
 	if settlement != null:
 		settlement.construction = construction
+		settlement.planner = planner
+	# The settlements founded since (M12.3), as saved.
+	for saved: Variant in _saved_settlements:
+		if typeof(saved) == TYPE_DICTIONARY:
+			found_from_save(saved)
+	_saved_settlements = []
+	construction.settlements = settlements
+	households.settlements = settlements
+	lifecycle.settlements = settlements
+	ai.settlements = settlements
+	_place_settlements()
+	migration.bind(clock.tick, Config.migration)
+	migration.from_dict(_saved_migration)
+	_saved_migration = {}
+	migration.settlements = settlements
+	migration.people = people
+	migration.households = households
+	migration.relationships = relationships
+	migration.props = props
+	migration.world = world
+	migration.pathfinder = pathfinder
+	migration.ids = ids
+	migration.events = events
+	migration.behavior = behavior
+	migration.rng = rng.stream(&"migration")
+	migration.add_settlement = func(info: WorldSetup.StartInfo) -> Settlement: return add_settlement(info)
+	ai.migration = migration
+	interactions.settlements = settlements
 	_apply_storehouses()
 	ai.construction = construction
 	interactions.construction = construction
@@ -1101,12 +1132,93 @@ func _on_year_started(year: int) -> void:
 	EventBus.year_started.emit(year)
 
 
-## What the storehouses that stand add to the room in the stores.
+## What the storehouses that stand add to the room in the stores (each
+## settlement's own: those near its fire).
 func _apply_storehouses() -> void:
 	if settlement == null or construction == null or buildings == null:
 		return
 	var def := buildings.of_kind(PropData.Kind.STOREHOUSE)
-	settlement.stockpile.extra_room = construction.standing(PropData.Kind.STOREHOUSE).size() * (def.capacity if def != null else 0)
+	for own in settlements.all():
+		var stores := own.planner.standing_near(PropData.Kind.STOREHOUSE).size() if own.planner != null \
+			else construction.standing(PropData.Kind.STOREHOUSE).size()
+		own.stockpile.extra_room = stores * (def.capacity if def != null else 0)
+
+
+## A settlement around a fire: its stores, its jobs; told to the chronicle.
+func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dictionary) -> Settlement:
+	var own := Settlement.new()
+	own.bind(info, people, props, piles, its_places, resources, loose, Config.settlement)
+	own.farming = farming
+	own.weather = weather
+	own.hydrology = hydrology
+	own.world = world
+	own.pathfinder = pathfinder
+	own.occupations = occupations
+	own.fauna = fauna
+	own.nodes = nodes
+	own.from_dict(saved)
+	if farming != null:
+		farming.use_start(info)
+	own.jobs.refresh(own, clock.tick)
+	own.shortage_changed.connect(chronicle.on_shortage_changed)
+	own.seed_released.connect(chronicle.on_seed_released)
+	own.forage_changed.connect(chronicle.on_forage_changed)
+	own.fire_changed.connect(chronicle.on_fire_changed)
+	own.spoiled.connect(chronicle.on_spoiled)
+	own.took_up.connect(chronicle.on_took_up)
+	own.flood_took.connect(chronicle.on_flood_took)
+	own.home_moved.connect(chronicle.on_home_moved)
+	return own
+
+
+## A settlement founded since the first (M12.3): its places, stores, jobs and
+## planner, all bound like the first's. `saved`: {"start", "settlement", "planner"}.
+## Returns it (null: the saved record was unusable).
+func found_from_save(saved: Dictionary) -> Settlement:
+	var info := WorldSetup.StartInfo.from_dict(saved.get("start", {}) if typeof(saved.get("start")) == TYPE_DICTIONARY else {})
+	if info == null or info.settlement_id == 0 or props.get_prop(info.campfire_id) == null \
+			or settlements.get_settlement(info.settlement_id) != null:
+		Log.warn(Log.Category.LOAD, "A saved settlement was unusable and dropped", {"settlement": saved.get("start", {})})
+		return null
+	return add_settlement(info, saved.get("settlement", {}) if typeof(saved.get("settlement")) == TYPE_DICTIONARY else {},
+		saved.get("planner", {}) if typeof(saved.get("planner")) == TYPE_DICTIONARY else {})
+
+
+## Adds a settlement (founded now, or as saved) with everything it needs.
+func add_settlement(info: WorldSetup.StartInfo, saved: Dictionary = {}, saved_planner: Dictionary = {}) -> Settlement:
+	var first_places := settlement.places() if settlement != null else null
+	var its_places := Places.new(world, props, people, pathfinder, info)
+	its_places.resources = resources
+	its_places.nodes = nodes
+	its_places.relationships = relationships
+	its_places.clock = clock
+	its_places.memories = memories
+	if first_places != null:
+		its_places.share_visited(first_places)
+	var own := _make_settlement(info, its_places, saved)
+	own.construction = construction
+	own.planner = SettlementPlanner.new()
+	own.planner.bind(own, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
+	own.planner.from_dict(saved_planner)
+	settlements.add(own)
+	_place_settlements()
+	_apply_storehouses()
+	return own
+
+
+## Everything that needs to know where all the settlements are.
+func _place_settlements() -> void:
+	fauna.settlement_tiles = settlements.fire_tiles()
+
+
+func _settlements_to_save() -> Array:
+	var out: Array = []
+	for own in settlements.all():
+		if own == settlement:
+			continue
+		out.append({"start": own.start_info().to_dict(), "settlement": own.to_dict(),
+			"planner": own.planner.to_dict() if own.planner != null else {}})
+	return out
 
 
 ## Unique even when two worlds share a seed.

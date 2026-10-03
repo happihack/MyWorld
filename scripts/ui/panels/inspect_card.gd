@@ -55,6 +55,9 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 				_add_row("Holds", UIText.holds_text(report.resource, report.resource_left, report.resource_capacity))
 			if report.prop_kind == PropData.Kind.CAMPFIRE:
 				_add_row("Fire", "Gone out — no wood" if report.look == ResourceNodes.Look.BARE else "Burning")
+				if report.settlement_name != "":
+					_add_row("Settlement", report.settlement_name.capitalize() if report.settlement_name.begins_with("the ") else report.settlement_name)
+					_add_row("Tier", "%s — %d people" % [Settlements.tier_name(report.settlement_tier as Settlements.Tier), report.settlement_people])
 			_add_row("Ground height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 		InspectReport.Subject.LOOSE:

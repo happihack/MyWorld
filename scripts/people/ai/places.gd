@@ -354,6 +354,12 @@ func play_tile(person: PersonData, rng: RandomNumberGenerator) -> Variant:
 	return spots[0] if not spots.is_empty() else null
 
 
+## What has been explored is known to every settlement alike (M12.3: those
+## who set out knew the land): this one shares `other`'s record of it.
+func share_visited(other: Places) -> void:
+	_visited = other._visited
+
+
 ## Remembers that someone of the band has been around `tile`.
 func mark_visited(tile: Vector2i) -> void:
 	_visited[_cell(tile)] = true
