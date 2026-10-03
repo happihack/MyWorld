@@ -127,7 +127,8 @@ func test_the_menu() -> void:
 	assert_true(menu.texts().has("PEOPLE"))
 	assert_true(menu.texts().has("Individuals"))
 	assert_false(menu.texts().has("SETTINGS"), "motion is on hold: nothing to set")
-	assert_false(menu.texts().has("WORLD") or menu.texts().has("HISTORY"), "what is not there yet is hidden")
+	assert_false(menu.texts().has("WORLD") or menu.texts().has("PLAYER"), "what is not there yet is hidden")
+	assert_true(menu.texts().has("HISTORY"), "since M11.2: Important People, Firsts")
 	# Individuals: everyone living; a tap goes to them (and the menu closes).
 	menu.entries()[0].pressed.emit()
 	await wait_frames(1)
@@ -229,3 +230,13 @@ func test_from_a_person_or_a_grave_to_the_family() -> void:
 	assert_not_null(ui.main_menu())
 	assert_eq(ui.main_menu().page(), MainMenu.PAGE_TREE)
 	ui.close_all_panels()
+
+
+func test_the_toasts_wait_while_the_menu_is_open() -> void:
+	assert_true(ui.toasts().visible)
+	ui.open_menu()
+	await wait_frames(1)
+	assert_false(ui.toasts().visible)
+	ui.close_all_panels()
+	await wait_frames(1)
+	assert_true(ui.toasts().visible)

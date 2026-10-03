@@ -64,6 +64,7 @@ const TYPE_TAKEN_IN := &"taken_in"
 const TYPE_ARRIVED := &"newcomer_arrived"
 const TYPE_CULTURE := &"cultural_memory"
 const TYPE_MYTH := &"myth_formed"
+const TYPE_IMPORTANT := &"became_important"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -455,7 +456,8 @@ func on_died(person_id: int, cause: StringName, causes: Array) -> WorldEvent:
 		"settlement": _settlement_id()}
 	var record := _people.archive.get_record(person_id) if _people != null and _people.archive != null else null
 	if record != null:
-		params["significance"] = clampf(OBITUARY_BASE + OBITUARY_WEIGHT * record.significance, 0.0, 1.0)
+		params["significance"] = clampf(OBITUARY_BASE + OBITUARY_WEIGHT * minf(record.significance / Config.significance.important_from, 1.0),
+			0.0, 1.0)
 	return _log.record(TYPE_DIED, params, why)
 
 
@@ -522,6 +524,14 @@ func on_myth(myth: Dictionary) -> void:
 	_log.record(TYPE_MYTH, {"subject": str(myth["subject"]), "interpretation": str(myth["agent"]),
 		"epithet": str(myth["epithet"]), "kind": str(myth["sentiment"]), "position": _fire_place(),
 		"settlement": int(myth["settlement"])}, causes)
+
+
+## Someone has become one of the Important People (M11.2): because of what tipped it.
+func on_became_important(person_id: int, event_id: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_IMPORTANT, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()},
+		[event_id] if event_id > 0 else [])
 
 
 ## Someone from far away has come to live here.

@@ -57,6 +57,8 @@ var lifecycle: Lifecycle
 var archive: HistoryArchive
 ## What settlements remember together, and their myths (M11.1).
 var culture: CulturalMemory
+## Who matters to the world's history (M11.2).
+var significance: Significance
 ## Where the dead are laid (M10.3).
 var graves: Graves
 ## Which of the player's powers have shown themselves (rain, wind, water).
@@ -204,6 +206,8 @@ func _init() -> void:
 	archive = HistoryArchive.new()
 	graves = Graves.new()
 	culture = CulturalMemory.new()
+	significance = Significance.new()
+	significance.became_important.connect(chronicle.on_became_important)
 	culture.formed.connect(chronicle.on_cultural_memory)
 	culture.myth_formed.connect(chronicle.on_myth)
 	households = Households.new()
@@ -922,6 +926,7 @@ func _activate() -> void:
 	chronicle.from_dict(_saved_chronicle)
 	if bool(_saved_chronicle.get("adopt", false)):
 		chronicle.adopt()
+	significance.bind(events, people, Config.significance)
 	if not stats.from_dict(_saved_stats):
 		Log.warn(Log.Category.LOAD, "The saved statistics were unusable; they begin anew")
 	_saved_events = {}

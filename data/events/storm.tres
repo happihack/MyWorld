@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"storm"
 significance = 0.5
-first_significance = 0.0
+first_significance = 0.6
 first_by = ""
 visibility = 0
 merge_minutes = 1440

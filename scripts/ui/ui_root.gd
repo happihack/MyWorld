@@ -235,6 +235,9 @@ func open_menu() -> MainMenu:
 	var menu := MainMenu.new()
 	open_panel(menu)
 	menu.setup(_session)
+	# (The toasts wait while the menu is open: they would show through it.)
+	_toasts.visible = false
+	menu.closed.connect(func() -> void: _toasts.visible = true)
 	menu.person_chosen.connect(func(id: int) -> void:
 		_tick()
 		menu.close() # (to them, or to their grave)

@@ -581,9 +581,9 @@ func _remember_them(person: PersonData, record: HistoricalPerson) -> void:
 			return a.importance > b.importance or (a.importance == b.importance and a.id < b.id))
 		for memory in own.slice(0, MEMORIES_KEPT):
 			record.memories.append(memory.to_dict())
+	# (What they took part in is in their significance already: Significance.)
 	var years := float(person.age_years(record.death_tick, Config.time.ticks_per_year()))
-	record.significance = clampf(person.significance + years / 80.0 * 0.3 + mini(person.children.size(), 6) * 0.05 + weight * 0.1,
-		0.0, 1.0)
+	record.significance = maxf(person.significance, 0.0) + years / 80.0 * 0.3 + mini(person.children.size(), 6) * 0.05
 
 
 ## The few things they remembered most are handed down: to their children,

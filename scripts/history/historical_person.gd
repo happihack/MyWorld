@@ -29,7 +29,8 @@ var grave_tile := Vector2i.ZERO
 var accomplishments: PackedInt64Array = PackedInt64Array()
 ## What they remembered most (Memory.to_dict() records, at most a few).
 var memories: Array = []
-## How much they mattered (0 … 1): a long life, children, deeds, the Presence.
+## How much they mattered, in points (Significance, M11.2): what they took
+## part in, a long life, children, the Presence.
 var significance := 0.0
 ## The event that told of their death (0: none).
 var obituary_event := 0
@@ -102,7 +103,7 @@ static func from_dict(data: Dictionary) -> HistoricalPerson:
 			if typeof(entry) == TYPE_DICTIONARY and Memory.from_dict(entry) != null:
 				record.memories.append((entry as Dictionary).duplicate(true))
 	var weight := float(data.get("significance", 0.0)) if typeof(data.get("significance")) in [TYPE_FLOAT, TYPE_INT] else 0.0
-	record.significance = clampf(weight, 0.0, 1.0) if is_finite(weight) else 0.0
+	record.significance = clampf(weight, 0.0, 1000.0) if is_finite(weight) else 0.0
 	record.obituary_event = maxi(int(data.get("obituary_event", 0)), 0)
 	return record
 

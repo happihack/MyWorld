@@ -4,13 +4,13 @@
 
 [resource]
 script = ExtResource("1")
-id = &"fire_out"
+id = &"became_important"
 significance = 0.55
-first_significance = 0.65
+first_significance = 0.0
 first_by = ""
-visibility = 1
+visibility = 2
 merge_minutes = 0
 merge_by = PackedStringArray()
-tags = PackedStringArray("fire", "hardship")
+tags = PackedStringArray("people", "family")
 text_key = ""
 toast = true

@@ -2,7 +2,8 @@ class_name MainMenu
 extends UIPanel
 ## The ☰ menu (bible §26.5), v0: a panel that slides in from the left, with
 ## the sections there is something for — PEOPLE (Individuals, Families,
-## Relationships) and SETTINGS (Motion, while motion controls are on). Other
+## Relationships, Important People), HISTORY (Important People, Firsts) and
+## SETTINGS (Motion, while motion controls are on). Other
 ## sections stay hidden until their systems exist (the menu grows with the
 ## world). Each entry opens a page in the panel; Back goes a page back.
 
@@ -17,6 +18,8 @@ const PAGE_FAMILIES := &"families"
 const PAGE_TREE := &"tree"
 const PAGE_RELATIONSHIPS := &"relationships"
 const PAGE_RELATIONS_OF := &"relations_of"
+const PAGE_IMPORTANT := &"important"
+const PAGE_FIRSTS := &"firsts"
 
 const EDGE_MARGIN := 24.0
 const TOP := 40.0
@@ -138,6 +141,10 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_INDIVIDUALS"), func() -> void: open_page(PAGE_INDIVIDUALS))
 			_entry(MemoryText.translate("MENU_FAMILIES"), func() -> void: open_page(PAGE_FAMILIES))
 			_entry(MemoryText.translate("MENU_RELATIONSHIPS"), func() -> void: open_page(PAGE_RELATIONSHIPS))
+			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
+			_heading(MemoryText.translate("MENU_HISTORY"))
+			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
+			_entry(MemoryText.translate("MENU_FIRSTS"), func() -> void: open_page(PAGE_FIRSTS))
 			if SensorManager.feature_enabled():
 				_heading(MemoryText.translate("MENU_SETTINGS"))
 				_entry(MemoryText.translate("MENU_MOTION"), func() -> void: motion_requested.emit())
@@ -158,6 +165,23 @@ func _show() -> void:
 			_list.add_child(tree)
 			tree.show_family(_session, int(entry[1]), int(entry[2]))
 			tree.person_chosen.connect(func(id: int) -> void: person_chosen.emit(id))
+		PAGE_IMPORTANT:
+			_title.text = MemoryText.translate("MENU_IMPORTANT")
+			var rows := important(_session)
+			if rows.is_empty():
+				_line(MemoryText.translate("MENU_NOBODY_YET"))
+			for row: Array in rows:
+				var id: int = row[0]
+				_entry(row[1], func() -> void: person_chosen.emit(id))
+				if String(row[2]) != "":
+					_small(row[2])
+		PAGE_FIRSTS:
+			_title.text = MemoryText.translate("MENU_FIRSTS")
+			var firsts := _session.significance.firsts() if _session.significance != null else ([] as Array[WorldEvent])
+			if firsts.is_empty():
+				_line(MemoryText.translate("MENU_NOTHING_YET"))
+			for event in firsts:
+				_small(EventText.line(event, _session.people, _session.events))
 		PAGE_RELATIONSHIPS:
 			_title.text = MemoryText.translate("MENU_RELATIONSHIPS")
 			for row: Array in individuals(_session):
@@ -172,6 +196,22 @@ func _show() -> void:
 			for row: Array in rows:
 				var other: int = row[0]
 				_entry(row[1], func() -> void: person_chosen.emit(other))
+
+
+## The Important People, living and dead, the most significant first:
+## [[id, "Mara Tirn" / "Huto (died in year 12)", what they are remembered for], …].
+static func important(session: WorldSession) -> Array:
+	var out: Array = []
+	if session.significance == null:
+		return out
+	for id in session.significance.important_people():
+		var person := session.people.get_person(id)
+		var record := session.archive.get_record(id) if person == null else null
+		var name := person.full_name() if person != null else MemoryText.translate("GRAVE_DEAD_NAME").format(
+			{"name": record.full_name(), "year": HistoryText.year_of(record.death_tick)})
+		var deed := session.significance.best_deed(id)
+		out.append([id, name, EventText.line(deed, session.people, session.events) if deed != null else ""])
+	return out
 
 
 ## Everyone living, by name: [[id, "Ama · 34 · Forager"], …].
@@ -256,6 +296,15 @@ func _heading(text: String) -> void:
 	var label := Label.new()
 	label.text = text
 	label.theme_type_variation = UITheme.DIM
+	_list.add_child(label)
+
+
+func _small(text: String) -> void:
+	var label := Label.new()
+	label.text = text
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.theme_type_variation = UITheme.DIM
+	label.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 	_list.add_child(label)
 
 

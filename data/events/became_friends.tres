@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"became_friends"
 significance = 0.4
-first_significance = 0.0
+first_significance = 0.5
 first_by = ""
 visibility = 2
 merge_minutes = 0

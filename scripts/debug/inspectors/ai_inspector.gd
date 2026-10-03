@@ -212,6 +212,7 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	for injury: Variant in person.injuries:
 		if typeof(injury) == TYPE_DICTIONARY:
 			injuries.append("%s %.2f" % [str(injury.get("kind", "")), float(injury.get("severity", 0.0))])
+	lines.append("significance %.2f%s" % [person.significance, "  IMPORTANT" if session.significance != null and session.significance.is_important(person.id) else ""])
 	lines.append("life: partner %s, %d children, household %d%s%s%s  (dies today: %.4f)" % [partner, person.children.size(),
 		person.household_id,
 		"  WITH CHILD (%d days)" % ((now - int(carrying.get("since", now))) / TimeConfig.MINUTES_PER_DAY) if not carrying.is_empty() else "",

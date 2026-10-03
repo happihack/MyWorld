@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"food_shortage"
 significance = 0.7
-first_significance = 0.0
+first_significance = 0.8
 first_by = ""
 visibility = 1
 merge_minutes = 0

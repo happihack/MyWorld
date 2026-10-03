@@ -85,7 +85,8 @@ func test_death_archives_person() -> void:
 	var obituary := events.get_event(record.obituary_event)
 	assert_not_null(obituary)
 	assert_eq(obituary.type, Chronicler.TYPE_DIED)
-	assert_near(obituary.significance, clampf(Chronicler.OBITUARY_BASE + Chronicler.OBITUARY_WEIGHT * record.significance, 0.0, 1.0), 0.0001)
+	assert_near(obituary.significance, clampf(Chronicler.OBITUARY_BASE + Chronicler.OBITUARY_WEIGHT
+		* minf(record.significance / Config.significance.important_from, 1.0), 0.0, 1.0), 0.0001)
 	# The archive is saved as it is.
 	var copy := HistoricalPerson.from_dict(record.to_dict())
 	assert_eq(copy.to_dict(), record.to_dict())
@@ -292,6 +293,6 @@ func test_version_21_save_loads() -> void:
 	var odd := HistoricalPerson.from_dict({"id": 4, "given_name": "Ama", "significance": 7.0, "memories": ["x", {}],
 		"accomplishments": PackedInt64Array([3, -1])})
 	assert_eq(odd.grave_id, 0, "an older record has no grave")
-	assert_eq(odd.significance, 1.0)
+	assert_eq(odd.significance, 7.0, "points (M11.2), not a share")
 	assert_eq(odd.memories.size(), 0, "broken memories are left out")
 	assert_eq(odd.accomplishments, PackedInt64Array([3]))

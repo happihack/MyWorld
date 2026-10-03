@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"fight"
 significance = 0.6
-first_significance = 0.0
+first_significance = 0.65
 first_by = ""
 visibility = 2
 merge_minutes = 0

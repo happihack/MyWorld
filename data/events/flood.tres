@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"flood"
 significance = 0.85
-first_significance = 0.0
+first_significance = 0.9
 first_by = ""
 visibility = 0
 merge_minutes = 0

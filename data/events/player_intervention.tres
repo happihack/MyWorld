@@ -6,8 +6,8 @@
 script = ExtResource("1")
 id = &"player_intervention"
 significance = 0.1
-first_significance = 0.0
-first_by = ""
+first_significance = 0.6
+first_by = "kind"
 visibility = 3
 merge_minutes = 60
 merge_by = PackedStringArray("kind", "subject")

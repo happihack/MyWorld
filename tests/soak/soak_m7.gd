@@ -241,6 +241,10 @@ func _run() -> void:
 			if memory.text_key == "MEM_STORY":
 				stories += 1
 	print("SOAK the living hold %d bedtime stories" % stories)
+	var important := PackedStringArray()
+	for id: int in s.significance.important_people():
+		important.append("%s %.1f" % [s.people.name_of(id), s.significance.points_of(id)])
+	print("SOAK important people %d: %s   firsts %d" % [important.size(), ", ".join(important), s.significance.firsts().size()])
 	if graves < s.archive.size():
 		_problem("%d of %d dead have no grave" % [s.archive.size() - graves, s.archive.size()])
 	if years >= 100 and deepest < 4:

@@ -14,6 +14,8 @@ signal recorded(event: WorldEvent)
 ## Something happened again and was taken together with an earlier event
 ## (see EventDef.merge_minutes).
 signal merged(event: WorldEvent)
+## The same, with who took part this time (M11.2: their significance grows).
+signal happened_again(event: WorldEvent, participants: PackedInt64Array)
 
 ## What `params` of record() may hold besides what goes into the text.
 const PARAM_POSITION := "position"
@@ -93,6 +95,7 @@ func record(type: StringName, params: Dictionary = {}, causes: Array = []) -> Wo
 					earlier.participants.append(person_id)
 			merges += 1
 			merged.emit(earlier)
+			happened_again.emit(earlier, who)
 			return earlier
 	var event := WorldEvent.new()
 	event.id = _next_id
@@ -159,6 +162,11 @@ func now() -> int:
 
 func size() -> int:
 	return _events.size()
+
+
+## The first event of each kind (key: type, or type:value of EventDef.first_by) -> event id.
+func firsts() -> Dictionary:
+	return _firsts
 
 
 func get_event(id: int) -> WorldEvent:
