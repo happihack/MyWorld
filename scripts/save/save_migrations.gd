@@ -31,6 +31,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	20: _v20_to_v21,
 	21: _v21_to_v22,
 	22: _v22_to_v23,
+	23: _v23_to_v24,
 }
 
 
@@ -351,6 +352,23 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 24 (M12.1) adds building: the projects going on and what the
+## planner remembers, buildings' condition and new kinds of prop (sites,
+## storehouses, wells, workshops). An older world builds nothing yet: its
+## planner begins from today.
+static func _v23_to_v24(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	for key: String in ["construction", "planner"]:
+		if not (state as Dictionary).has(key):
+			(state as Dictionary)[key] = {}
 	return data
 
 

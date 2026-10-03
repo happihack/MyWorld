@@ -18,6 +18,10 @@ var _stale := true
 var _reserved: Dictionary = {}
 
 
+## What storehouses add to the room for each kind of thing (M12.1).
+var extra_room := 0
+
+
 func bind(piles: PileStore, places: Places, library: ResourceLibrary, loose: LooseObjectRegistry,
 		config: ResourcesConfig = null) -> void:
 	unbind()
@@ -105,7 +109,7 @@ func food() -> float:
 ## How much more of `resource` the stores take.
 func room(resource: StringName) -> int:
 	var at := place(resource)
-	return _piles.room(resource, at) if _piles != null and at != Vector2.INF else 0
+	return (_piles.room(resource, at) + extra_room) if _piles != null and at != Vector2.INF else 0
 
 
 ## Puts `units` of `resource` into the stores.

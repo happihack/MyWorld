@@ -851,6 +851,8 @@ func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void
 	_last_work_effect_msec = now
 	var answer := InteractionResponse.new()
 	answer.effect = InteractionResponse.TREE_SHAKE if kind == &"tree" else InteractionResponse.BUSH_RUSTLE
+	if kind == &"build":
+		answer.effect = InteractionResponse.BUILDING_KNOCK
 	answer.entity_id = prop.id
 	answer.tile = prop.tile
 	var at := prop.position2d()
@@ -858,8 +860,8 @@ func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void
 	answer.body = prop.pick_shape()
 	answer.strength = 0.35
 	world_view.effects().play(answer)
-	if kind == &"tree":
-		AudioManager.play_at(&"knock", answer.position, -13.0, 0.85)
+	if kind == &"tree" or kind == &"build":
+		AudioManager.play_at(&"knock", answer.position, -13.0, 0.85 if kind == &"tree" else 1.1)
 
 
 func _doing_debug_section() -> String:

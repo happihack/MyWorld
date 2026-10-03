@@ -123,6 +123,75 @@ func form_couple(a: PersonData, b: PersonData, now: int, new_id: int) -> int:
 	return new_id
 
 
+## A new home stands (M12.1): a household without a roof (theirs has fallen)
+## moves in — or else the household of the most crowded home that more than
+## one household shares (or of a home over-full).
+## Returns the household that moved (0: nobody needed to).
+func take_new_home(home: int) -> int:
+	var best := mover(home)
+	if best == 0:
+		return 0
+	_records[best]["home"] = home
+	for person in members(best):
+		person.home_building_id = home
+	return best
+
+
+## The household that would move to another home (not `except`): one without
+## a roof, else one of the most crowded home that more than one household
+## shares (or that is over-full); `full_only`: only from a home with no room
+## left (where nobody more can be born). 0: none.
+func mover(except: int = 0, full_only: bool = false) -> int:
+	var best := 0
+	var least_room := 1_000_000
+	var ids := _records.keys()
+	ids.sort()
+	for id: int in ids:
+		var at := home_of(id)
+		if at == except or members(id).is_empty():
+			continue
+		if at == 0 or not homes().has(at):
+			return id
+		var sharing := 0
+		for other: int in _records:
+			if home_of(other) == at and not members(other).is_empty():
+				sharing += 1
+		var free := room(at)
+		if (sharing > 1 or free < 0) and free < least_room and (not full_only or free <= 0):
+			least_room = free
+			best = id
+	return best
+
+
+## Crowded households move into the homes that stand empty. Returns how many moved.
+func settle_empty_homes() -> int:
+	var moved := 0
+	for home in homes():
+		if _people != null and _people.living_in(home).is_empty() and take_new_home(home) != 0:
+			moved += 1
+	return moved
+
+
+## A home has fallen (M12.1): its household moves in where there is most
+## room (if there is any). Returns how many households moved.
+func rehouse() -> int:
+	var moved := 0
+	var ids := _records.keys()
+	ids.sort()
+	for id: int in ids:
+		var at := home_of(id)
+		if (at != 0 and homes().has(at)) or members(id).is_empty():
+			continue
+		var home := roomiest_home()
+		if home == 0 or room(home) < members(id).size():
+			continue
+		_records[id]["home"] = home
+		for person in members(id):
+			person.home_building_id = home
+		moved += 1
+	return moved
+
+
 ## The home with the most room, not counting `leaving` (ids) among those who
 ## live there now (the first of them, by id; 0 if there are no homes).
 func roomiest_home(leaving: Array = []) -> int:

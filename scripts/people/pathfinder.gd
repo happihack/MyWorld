@@ -163,9 +163,6 @@ func rebuild() -> void:
 	# this runs for every tile of the box whenever a world is opened).
 	var deep := WADE_DEPTH * _world.height_step
 	var size := _world.chunk_size
-	var hut := PropData.Kind.HUT + 1
-	var fire := PropData.Kind.CAMPFIRE + 1
-	var ruin := PropData.Kind.RUIN + 1
 	for coord in _world.chunk_coords():
 		var chunk := _world.get_chunk(coord)
 		var origin := WorldCoords.chunk_origin(coord, size)
@@ -183,7 +180,7 @@ func rebuild() -> void:
 				_height[id] = chunk.height[i]
 				_water_class[id] = water
 				_prop_kind[id] = kind
-				_solid[id] = 1 if water == _DEEP or kind == hut or kind == fire or kind == ruin else 0
+				_solid[id] = 1 if water == _DEEP or _is_solid_kind(kind) else 0
 				_astar.add_point(id, Vector2(x + 0.5, origin.y + ly + 0.5), 1.0)
 	var height := _bounds.size.y
 	for id in count:
@@ -530,8 +527,7 @@ func _read(tile: Vector2i, id: int) -> bool:
 	var height := _world.get_height(tile)
 	var water := _water_at(tile)
 	var kind := _kind_at(tile)
-	var solid := 1 if water == _DEEP or kind == PropData.Kind.HUT + 1 or kind == PropData.Kind.CAMPFIRE + 1 \
-		or kind == PropData.Kind.RUIN + 1 else 0
+	var solid := 1 if water == _DEEP or _is_solid_kind(kind) else 0
 	var changed := _height[id] != height or _solid[id] != solid
 	_height[id] = height
 	_water_class[id] = water
@@ -670,3 +666,8 @@ func _remember(key: int, path: Array[Vector2i]) -> void:
 	if _cache.size() >= CACHE_SIZE:
 		_cache.erase(_cache.keys()[0]) # the oldest
 	_cache[key] = [version, path]
+
+
+## Is a prop of this kind (as `_kind_at` gives it: kind + 1, 0 = none) something nobody walks through?
+static func _is_solid_kind(kind_plus_one: int) -> bool:
+	return kind_plus_one > 0 and PropData.SOLID.has(kind_plus_one - 1)

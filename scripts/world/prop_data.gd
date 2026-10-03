@@ -8,7 +8,13 @@ extends RefCounted
 ## All fields are integers so generated props are bit-identical everywhere.
 
 ## (Saved by number: append, never reorder.)
-enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE }
+enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP }
+## Buildings: what is built, decays, is damaged and repaired (M12.1).
+const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP]
+## Solid: nobody walks through it.
+const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP]
+## A building's full condition (see `condition`).
+const SOUND := 1000
 
 ## Tree variants 0–1 are broadleaf, 2–3 are conifers (higher ground).
 const TREE_CONIFER_FIRST_VARIANT := 2
@@ -29,6 +35,10 @@ const PICK_BODY := {
 	Kind.RUIN: [0.70, 0.42],
 	Kind.CROP: [0.30, 0.42],
 	Kind.GRAVE: [0.40, 0.34],
+	Kind.SITE: [0.80, 0.46],
+	Kind.STOREHOUSE: [0.90, 0.50],
+	Kind.WELL: [0.60, 0.40],
+	Kind.WORKSHOP: [0.90, 0.50],
 }
 
 var id: int = 0
@@ -57,6 +67,9 @@ var felled: bool = false
 var growth: int = 0
 var vigor: int = 1000
 var tended_tick: int = 0
+## A building's condition, 0 (fallen) … SOUND (as built): floods and storms
+## take from it, repairs give it back, neglect wears it away (M12.1).
+var condition: int = SOUND
 
 
 static func generated_id(prop_tile: Vector2i) -> int:
@@ -137,7 +150,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY
@@ -156,6 +169,8 @@ func to_dict() -> Dictionary:
 		record["growth"] = growth
 		record["vigor"] = vigor
 		record["tended_tick"] = tended_tick
+	if condition != SOUND:
+		record["condition"] = condition
 	return record
 
 
@@ -183,4 +198,9 @@ static func from_dict(data: Dictionary) -> PropData:
 		prop.growth = clampi(int(data.get("growth", 0)), 0, 1000)
 		prop.vigor = clampi(int(data.get("vigor", 1000)), 0, 1000)
 		prop.tended_tick = int(data.get("tended_tick", 0))
+	prop.condition = clampi(int(data.get("condition", SOUND)), 0, SOUND)
 	return prop
+
+
+func is_building() -> bool:
+	return BUILDINGS.has(kind)

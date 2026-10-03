@@ -80,6 +80,9 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 	if params.has("epithet"):
 		var epithet := str(params["epithet"])
 		params["epithet"] = MemoryText.translate(epithet if MemoryText.has(epithet) else "EPITHET_UNKNOWN")
+	if params.has("building"):
+		var key := "BUILDING_" + str(params["building"]).to_upper()
+		params["building"] = MemoryText.translate(key) if MemoryText.has(key) else str(params["building"])
 	if params.has("occupation"):
 		params["occupation"] = UIText.occupation_name(StringName(str(params["occupation"]))).to_lower()
 	if event.type == &"player_intervention":

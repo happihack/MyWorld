@@ -95,6 +95,10 @@ func _init() -> void:
 			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()],
 			[HuntStep.TYPE, HuntStep.new()]]:
 		_steps[String(step[0])] = step[1]
+	# Building (M12.1): one handler, three kinds of step.
+	var build := BuildStep.new()
+	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY]:
+		_steps[String(type)] = build
 
 
 ## Takes charge of the people of a world.
@@ -211,6 +215,10 @@ func step(minutes: float) -> void:
 		ctx.lifecycle.advance_to(ctx.now())
 	if ctx.culture != null:
 		ctx.culture.advance_to(ctx.now())
+	if ctx.construction != null:
+		ctx.construction.advance_to(ctx.now())
+	if ctx.planner != null:
+		ctx.planner.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()

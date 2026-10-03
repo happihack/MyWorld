@@ -33,6 +33,13 @@ var resource: StringName = &""
 var resource_left := 0
 var resource_capacity := 0
 var look := 0
+## Buildings only (M12.1): condition (0 … PropData.SOUND; -1 = not a
+## building); a site: what is going up there, how far it is (0 … 1) and
+## what is still to be brought ({resource -> units}).
+var condition := -1
+var building: StringName = &""
+var build_progress := -1.0
+var still_needed: Dictionary = {}
 ## Crops only: Farming.Stage (-1 = not a crop), growth and vigour 0 … 1000,
 ## and whether it stands dry.
 var crop_stage := -1

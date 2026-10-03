@@ -37,6 +37,7 @@ var exposure: ExposureConfig
 var relationships: RelationshipsConfig
 var life: LifeConfig
 var significance: SignificanceConfig
+var construction: ConstructionConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -77,6 +78,7 @@ func reload() -> void:
 	relationships = _load("relationships_config.tres", RelationshipsConfig) as RelationshipsConfig
 	life = _load("life_config.tres", LifeConfig) as LifeConfig
 	significance = _load("significance_config.tres", SignificanceConfig) as SignificanceConfig
+	construction = _load("construction_config.tres", ConstructionConfig) as ConstructionConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

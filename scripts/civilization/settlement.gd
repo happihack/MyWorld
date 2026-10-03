@@ -65,6 +65,8 @@ var _piles: PileStore
 var _library: ResourceLibrary
 var _config: SettlementConfig
 var _places: Places
+## What is being built and repaired (M12.1; may be null).
+var construction: ConstructionSystem
 ## Since when there has been too little in store (-1: there is enough),
 ## and nothing at all (-1: there is something).
 var _low_since := -1
@@ -272,6 +274,63 @@ func ensure_farmer(now: int) -> PersonData:
 
 
 ## Likewise with game about and nobody hunting.
+## Likewise with something to build and nobody building (M12.1).
+func ensure_builder(now: int) -> PersonData:
+	if construction == null or occupations == null or not occupations.has_def(&"builder") or construction.projects().is_empty():
+		return null
+	for person in members():
+		if person.occupation_id == &"builder":
+			return null
+	var taken := _take_up(&"builder", 2, now)
+	if taken != null or not (_roofless() or _homes_need_work()):
+		return taken
+	# A home to build or mend, and nobody to spare: whoever is fittest builds.
+	var builder := occupations.get_def(&"builder")
+	var best: PersonData = null
+	for person in members():
+		var def := occupations.get_def(person.occupation_id)
+		if def == null or def.work_target == &"" or not builder.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
+			continue
+		if best == null or builder.affinity(person.traits) > builder.affinity(best.traits) \
+				or (builder.affinity(person.traits) == builder.affinity(best.traits) and person.id < best.id):
+			best = person
+	if best == null:
+		return null
+	best.occupation_id = builder.id
+	took_up.emit(best.id, builder.id)
+	jobs.refresh(self, now)
+	return best
+
+
+## Is a home being built or mended?
+func _homes_need_work() -> bool:
+	for project in construction.projects():
+		if str(project["def"]) == "hut":
+			return true
+	return false
+
+
+## Is anyone without a roof (no home, or their home is gone)?
+func _roofless() -> bool:
+	for person in members():
+		if person.home_building_id == 0 or _props == null or _props.get_prop(person.home_building_id) == null:
+			return true
+	return false
+
+
+## The settlement's start (its huts, its fire), places and props (M12.1: the planner).
+func start_info() -> WorldSetup.StartInfo:
+	return _start
+
+
+func places() -> Places:
+	return _places
+
+
+func props() -> PropRegistry:
+	return _props
+
+
 func ensure_hunter(now: int) -> PersonData:
 	if fauna == null or occupations == null or not occupations.has_def(&"hunter") or hunter_count() > 0 or not fauna.has_game():
 		return null
@@ -354,6 +413,7 @@ func step(now: int) -> void:
 		_farmer_check_tick = now
 		ensure_farmer(now)
 		ensure_hunter(now)
+		ensure_builder(now)
 		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
 		_keep_seed()
@@ -715,6 +775,8 @@ func _site_for(hut: PropData) -> Variant:
 func _spoil() -> void:
 	if _piles == null:
 		return
-	var lost := _piles.spoil(1.0)
+	# (A storehouse keeps food longer: M12.1.)
+	var kept := construction != null and not construction.standing(PropData.Kind.STOREHOUSE).is_empty()
+	var lost := _piles.spoil(Config.construction.storehouse_spoil_factor if kept else 1.0)
 	for resource: StringName in lost:
 		spoiled.emit(resource, int(lost[resource]))

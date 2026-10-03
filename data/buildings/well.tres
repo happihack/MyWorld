@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"well"
+prop_kind = 10
+materials = {
+&"stone": 12,
+&"wood": 2
+}
+labor = 200
+capacity = 0
+tags = PackedStringArray("water")

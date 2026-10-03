@@ -65,6 +65,11 @@ const TYPE_ARRIVED := &"newcomer_arrived"
 const TYPE_CULTURE := &"cultural_memory"
 const TYPE_MYTH := &"myth_formed"
 const TYPE_IMPORTANT := &"became_important"
+const TYPE_BUILDING_BEGUN := &"building_begun"
+const TYPE_BUILT := &"building_built"
+const TYPE_BUILDING_DAMAGED := &"building_damaged"
+const TYPE_REPAIRED := &"building_repaired"
+const TYPE_RUINED := &"building_ruined"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -532,6 +537,62 @@ func on_became_important(person_id: int, event_id: int) -> void:
 		return
 	_log.record(TYPE_IMPORTANT, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()},
 		[event_id] if event_id > 0 else [])
+
+
+# --- building (M12.1) ---
+
+func on_building_begun(project: Dictionary) -> void:
+	if not _writing():
+		return
+	var tile: Vector2i = project["tile"]
+	_log.record(TYPE_BUILDING_BEGUN, {"building": str(project["def"]), "position": Places.middle_of(tile),
+		"settlement": _settlement_id()})
+
+
+## A building stands: built by those who built it (the one who built most first).
+func on_building_built(project: Dictionary, _building_id: int) -> void:
+	if not _writing():
+		return
+	var tile: Vector2i = project["tile"]
+	var begun: Array = []
+	for event in _log.of_type(TYPE_BUILDING_BEGUN):
+		if event.position == Places.middle_of(tile):
+			begun = [event.id]
+	_log.record(TYPE_BUILT, {"building": str(project["def"]), "participants": ConstructionSystem.builders_of(project),
+		"position": Places.middle_of(tile), "settlement": _settlement_id()}, begun)
+
+
+func on_building_damaged(building_id: int, why: StringName) -> void:
+	if not _writing():
+		return
+	var building := _props.get_prop(building_id) if _props != null else null
+	if building == null:
+		return
+	var causes: Array = []
+	if why == &"flood" and flood_id() != 0:
+		causes = [flood_id()]
+	elif why == &"storm":
+		var storms := _log.of_type(TYPE_STORM)
+		if not storms.is_empty():
+			causes = [storms[-1].id]
+	_log.record(TYPE_BUILDING_DAMAGED, {"building": UIText.prop_name(building.kind).to_lower(), "kind": String(why),
+		"position": building.position2d(), "settlement": _settlement_id()}, causes)
+
+
+func on_building_repaired(project: Dictionary, _building_id: int) -> void:
+	if not _writing():
+		return
+	var tile: Vector2i = project["tile"]
+	_log.record(TYPE_REPAIRED, {"building": str(project["def"]), "participants": ConstructionSystem.builders_of(project),
+		"position": Places.middle_of(tile), "settlement": _settlement_id()})
+
+
+func on_building_ruined(ruin_id: int, def_id: StringName) -> void:
+	if not _writing():
+		return
+	var ruin := _props.get_prop(ruin_id) if _props != null else null
+	_log.record(TYPE_RUINED, {"building": String(def_id), "position": ruin.position2d() if ruin != null else _fire_place(),
+		"settlement": _settlement_id()})
 
 
 ## Someone from far away has come to live here.

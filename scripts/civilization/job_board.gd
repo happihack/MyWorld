@@ -10,6 +10,8 @@ const GATHER := &"gather"
 const TEND := &"tend"
 const FARM := &"farm"
 const HUNT := &"hunt"
+## Something being built or repaired (M12.1).
+const BUILD := &"build"
 
 class Job:
 	extends RefCounted
@@ -34,6 +36,8 @@ class Job:
 			return "the field %.2f" % priority
 		if kind == HUNT:
 			return "hunting %.2f" % priority
+		if kind == BUILD:
+			return "building %.2f" % priority
 		return "%s %.2f (%.0f of %.0f)" % [resource, priority, have, wanted]
 
 
@@ -89,9 +93,29 @@ func refresh(settlement: Settlement, now: int) -> void:
 		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted \
 			* maxf(settlement.winter_factor(now, _config.winter_wood_factor), settlement.cold_factor(now)) \
 			+ settlement.pending_moves() * Config.exposure.move_wood
+		# What is being built needs what it has not been brought yet (M12.1).
+		var for_building := {}
+		if settlement.construction != null:
+			for project in settlement.construction.projects():
+				var left := settlement.construction.still_needed(project)
+				for resource: StringName in left:
+					for_building[resource] = int(for_building.get(resource, 0)) + int(left[resource])
+		wood_wanted += float(for_building.get(&"wood", 0))
 		var wood := float(stock.amount(&"wood"))
 		if wood_wanted > 0.0 and wood < wood_wanted:
 			wanted.append([GATHER, &"wood", ResourceNodes.TREE, 1.0 - wood / wood_wanted, wood, wood_wanted])
+		# Stone, for building.
+		var stone_wanted := float(for_building.get(&"stone", 0))
+		var stone := float(stock.amount(&"stone"))
+		if stone_wanted > 0.0 and stone < stone_wanted:
+			wanted.append([GATHER, &"stone", ResourceNodes.ROCK, maxf(1.0 - stone / stone_wanted, 0.5), stone, stone_wanted])
+		# Building: as pressing as what it is for (homes when the roofs are full, more).
+		if settlement.construction != null and not settlement.construction.projects().is_empty():
+			var pressing := Config.construction.build_priority
+			for project in settlement.construction.projects():
+				if str(project["def"]) == "hut":
+					pressing = maxf(pressing, Config.construction.homes_priority)
+			wanted.append([BUILD, &"", &"site", pressing, 0.0, 0.0])
 		# The fire is always there to be kept.
 		if settlement.fire() != null:
 			wanted.append([TEND, &"", &"fire", _config.fire_job_priority, 0.0, 0.0])

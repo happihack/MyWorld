@@ -22,8 +22,11 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	var water: Variant = step.get("at")
 	# The water has to be there, and within reach (it may have drained away,
 	# or the way may have ended short of it).
-	if typeof(water) != TYPE_VECTOR2I or ctx.world.get_water(water) <= 0.0 \
-			or middle(water).distance_to(person.world2d()) > REACH:
+	if typeof(water) != TYPE_VECTOR2I or middle(water).distance_to(person.world2d()) > REACH:
+		return Status.FAILED
+	# (Water to drink, or a well: M12.1.)
+	var well := ctx.props.prop_at(water) if ctx.props != null else null
+	if ctx.world.get_water(water) <= 0.0 and (well == null or well.kind != PropData.Kind.WELL):
 		return Status.FAILED
 	Needs.satisfy(person.needs, Needs.Need.THIRST, minutes / Config.needs.drink_minutes)
 	var time_up := tick(step, minutes)

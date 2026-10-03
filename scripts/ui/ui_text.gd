@@ -26,6 +26,10 @@ const PROP_NAMES := {
 	PropData.Kind.RUIN: "Old stones",
 	PropData.Kind.CROP: "Field",
 	PropData.Kind.GRAVE: "Grave",
+	PropData.Kind.SITE: "Building site",
+	PropData.Kind.STOREHOUSE: "Storehouse",
+	PropData.Kind.WELL: "Well",
+	PropData.Kind.WORKSHOP: "Workshop",
 }
 
 const SPECIES_NAMES := {
@@ -466,6 +470,31 @@ static func fertility_text(value: int) -> String:
 
 static func vegetation_text(value: int) -> String:
 	return "%s (%s)" % [level_word(value, ["Bare", "Sparse", "Green", "Lush"]), percent(value)]
+
+
+## A building's condition (0 … PropData.SOUND): "Sound", "Weathered (72%)" …
+static func condition_text(condition: int) -> String:
+	var share := float(condition) / float(PropData.SOUND)
+	if share >= 0.95:
+		return "Sound"
+	var word := "Weathered" if share >= 0.7 else ("Damaged" if share >= 0.4 else "Falling apart")
+	return "%s (%d%%)" % [word, roundi(share * 100.0)]
+
+
+## What is going up on a site and how far: "A hut, half built".
+static func build_text(building: StringName, progress: float) -> String:
+	var key := "BUILDING_" + String(building).to_upper()
+	var name := MemoryText.translate(key) if MemoryText.has(key) else String(building)
+	var how := "just begun" if progress < 0.05 else ("%d%% built" % roundi(progress * 100.0))
+	return "%s %s, %s" % ["An" if "aeiou".contains(name.substr(0, 1)) else "A", name, how]
+
+
+## Materials still to be brought: "12 wood, 6 stone".
+static func needed_text(needed: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for resource: Variant in needed:
+		parts.append(resource_amount(StringName(str(resource)), int(needed[resource])))
+	return ", ".join(parts)
 
 
 static func size_text(scale_percent: int) -> String:

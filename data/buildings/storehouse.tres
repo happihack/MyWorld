@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"storehouse"
+prop_kind = 9
+materials = {
+&"stone": 6,
+&"wood": 16
+}
+labor = 240
+capacity = 60
+tags = PackedStringArray("storage")

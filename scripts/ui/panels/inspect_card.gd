@@ -40,7 +40,14 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 				_add_row("Soil", "%s · %s" % [UIText.moisture_text(report.moisture), UIText.fertility_text(report.fertility)])
 			_subtitle.text = where
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
-			_add_row("Size", UIText.size_text(report.scale_percent))
+			if report.condition >= 0:
+				_add_row("Condition", UIText.condition_text(report.condition))
+			elif report.build_progress >= 0.0:
+				_add_row("Going up", UIText.build_text(report.building, report.build_progress))
+				if not report.still_needed.is_empty():
+					_add_row("Waiting for", UIText.needed_text(report.still_needed))
+			elif report.prop_kind != PropData.Kind.SITE:
+				_add_row("Size", UIText.size_text(report.scale_percent))
 			if report.bears >= 0:
 				_add_row("Bears", UIText.bears_text(report.bears_left, report.bears,
 					report.prop_variant >= PropData.TREE_CONIFER_FIRST_VARIANT))

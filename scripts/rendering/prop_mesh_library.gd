@@ -115,6 +115,11 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
 	_templates[_key(PropData.Kind.GRAVE, 0)] = _grave()
+	_templates[_key(PropData.Kind.SITE, ConstructionSystem.STAKES)] = _site_stakes()
+	_templates[_key(PropData.Kind.SITE, ConstructionSystem.FRAME)] = _site_frame()
+	_templates[_key(PropData.Kind.STOREHOUSE, 0)] = _storehouse()
+	_templates[_key(PropData.Kind.WELL, 0)] = _well()
+	_templates[_key(PropData.Kind.WORKSHOP, 0)] = _workshop()
 	# What is left of nodes that have given up what they had.
 	for variant in 4:
 		_templates[_look_key(PropData.Kind.TREE, variant, ResourceNodes.Look.STUMP)] = _stump(0.095 if variant < 2 else 0.08, 0.16)
@@ -403,6 +408,77 @@ static func _campfire(burning: bool = true) -> Template:
 	var lit_from := t.vertices.size()
 	_fan(t, flame, Vector3(0, 0.36, 0), _rgba(FLAME, 0.6), _rgba(FLAME_HOT, 2.5))
 	t.glow_from(lit_from, 2.0)
+	return t
+
+
+## A building site, staked out (M12.1): corner stakes, a line between
+## them, and the first logs laid by.
+static func _site_stakes() -> Template:
+	var t := Template.new()
+	for corner: Vector2 in [Vector2(-0.36, -0.36), Vector2(0.36, -0.36), Vector2(0.36, 0.36), Vector2(-0.36, 0.36)]:
+		_box(t, Vector3(corner.x, 0.09, corner.y), Vector3(0.025, 0.09, 0.025), _rgba(TRUNK_DARK, 0.0))
+	for side in 4:
+		var yaw := PI * 0.5 * side
+		var mid := Vector3(cos(yaw) * 0.36, 0.14, sin(yaw) * 0.36)
+		_box(t, mid, Vector3(0.006, 0.006, 0.36), _rgba(CROP_STRAW, 0.0), yaw)
+	_box(t, Vector3(0.0, 0.035, 0.12), Vector3(0.22, 0.035, 0.035), _rgba(LOG, 0.0), 0.2)
+	_box(t, Vector3(0.02, 0.035, 0.03), Vector3(0.22, 0.035, 0.035), _rgba(LOG, 0.0), 0.15)
+	_box(t, Vector3(0.0, 0.10, 0.08), Vector3(0.20, 0.035, 0.035), _rgba(LOG.lightened(0.1), 0.0), 0.18)
+	return t
+
+
+## A building going up: posts, beams, and walls half raised.
+static func _site_frame() -> Template:
+	var t := Template.new()
+	var r := 0.36
+	for corner: Vector2 in [Vector2(-r, -r), Vector2(r, -r), Vector2(r, r), Vector2(-r, r)]:
+		_box(t, Vector3(corner.x, 0.30, corner.y), Vector3(0.035, 0.30, 0.035), _rgba(TRUNK, 0.0))
+	for side in 4:
+		var yaw := PI * 0.5 * side
+		_box(t, Vector3(cos(yaw) * r, 0.59, sin(yaw) * r), Vector3(0.03, 0.03, r + 0.03), _rgba(TRUNK_DARK, 0.0), yaw)
+		_box(t, Vector3(cos(yaw) * r, 0.12, sin(yaw) * r), Vector3(0.025, 0.12, r * 0.9), _rgba(WALL_DARK, 0.0), yaw)
+	_box(t, Vector3(0.0, 0.70, 0.0), Vector3(0.03, 0.12, 0.03), _rgba(TRUNK, 0.0))
+	return t
+
+
+## A storehouse: a log store raised off the ground, under a pitched thatch.
+static func _storehouse() -> Template:
+	var t := Template.new()
+	for corner: Vector2 in [Vector2(-0.34, -0.26), Vector2(0.34, -0.26), Vector2(0.34, 0.26), Vector2(-0.34, 0.26)]:
+		_box(t, Vector3(corner.x, 0.06, corner.y), Vector3(0.05, 0.06, 0.05), _rgba(STONE_DARK, 0.0))
+	_box(t, Vector3(0.0, 0.32, 0.0), Vector3(0.40, 0.20, 0.30), _rgba(LOG, 0.0))
+	for row in 4:
+		_box(t, Vector3(0.0, 0.16 + row * 0.1, 0.305), Vector3(0.41, 0.012, 0.012), _rgba(TRUNK_DARK, 0.0))
+	var roof := _ring(0.50, 0.66, 4, 0.5)
+	_fan(t, roof, Vector3(0, 0.86, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	_fan(t, roof, Vector3(0, 0.52, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
+	_box(t, Vector3(0.405, 0.28, 0.0), Vector3(0.012, 0.12, 0.09), _rgba(DOOR, 0.0))
+	return t
+
+
+## A well: a ring of stones, two posts, a crossbar and a little roof.
+static func _well() -> Template:
+	var t := Template.new()
+	for i in 8:
+		var angle := TAU * i / 8.0
+		_box(t, Vector3(cos(angle) * 0.22, 0.11, sin(angle) * 0.22), Vector3(0.07, 0.11, 0.05), _rgba(STONE if i % 2 == 0 else STONE_DARK, 0.0), angle)
+	_box(t, Vector3(0.0, 0.02, 0.0), Vector3(0.16, 0.01, 0.16), _rgba(STRANGE, 0.0))
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.26, 0.34, 0.0), Vector3(0.025, 0.34, 0.025), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.52, 0.0), Vector3(0.26, 0.018, 0.018), _rgba(TRUNK_DARK, 0.0))
+	_box(t, Vector3(0.0, 0.70, 0.08), Vector3(0.32, 0.015, 0.11), _rgba(THATCH, 0.0))
+	_box(t, Vector3(0.0, 0.70, -0.08), Vector3(0.32, 0.015, 0.11), _rgba(THATCH_DARK, 0.0))
+	return t
+
+
+## A workshop: an open shed with a bench under it.
+static func _workshop() -> Template:
+	var t := Template.new()
+	for corner: Vector2 in [Vector2(-0.38, -0.30), Vector2(0.38, -0.30), Vector2(0.38, 0.30), Vector2(-0.38, 0.30)]:
+		_box(t, Vector3(corner.x, 0.30, corner.y), Vector3(0.03, 0.30, 0.03), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
+	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
+	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
 	return t
 
 

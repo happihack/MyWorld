@@ -74,6 +74,10 @@ var bad_water: Callable
 var lifecycle: Lifecycle
 ## What settlements remember together (may be null: nothing).
 var culture: CulturalMemory
+## What is being built (M12.1; may be null).
+var construction: ConstructionSystem
+## What the settlement decides to build (M12.1; may be null).
+var planner: SettlementPlanner
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

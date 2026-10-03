@@ -232,7 +232,7 @@ func test_inspect_shows_a_card_about_the_target() -> void:
 	var rows := card.rows()
 	assert_eq(rows["Stands on"], UIText.terrain_name(session.world.get_terrain(hut.tile)))
 	assert_eq(rows["Ground height"], str(session.world.get_height(hut.tile)))
-	assert_has(rows, "Size")
+	assert_eq(rows["Condition"], "Sound", "a building: its condition, not its size (M12.1)")
 	assert_false(view.pick_highlight().entity_visible(), "the mark goes with the menu")
 	assert_eq(heard.size(), 1, "looking is not touching (only the long press was announced)")
 	# In the corner, on screen, clear of the Home button, with a finger-sized ✕.

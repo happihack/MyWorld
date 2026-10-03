@@ -79,10 +79,21 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var job := ctx.settlement.jobs.choose(def.work_target, rng, def.helps_with)
 				if job != null:
 					target = job.node
+			# Stone for a building: the builder brings it to the site, from the
+			# stores or from the stones lying about.
+			if target == &"rock" and def.work_target == &"site":
+				target = &"site"
 			# The field: whatever it needs most right now. With nothing to do
 			# there, a farmer turns to what else they do.
-			if target == &"field" or target == &"game":
-				var own_work := _field_work(person, ctx) if target == &"field" else _hunt(person, ctx)
+			if target == &"field" or target == &"game" or target == &"site":
+				var own_work: Array
+				match target:
+					&"field":
+						own_work = _field_work(person, ctx)
+					&"game":
+						own_work = _hunt(person, ctx)
+					_:
+						own_work = _build_work(person, ctx)
 				if not own_work.is_empty():
 					return own_work
 				if def.helps_with.is_empty():
@@ -173,6 +184,74 @@ static func _hunt(person: PersonData, ctx: AiContext) -> Array:
 
 ## Work on the field: to the plot, do what it needs — and with a harvest,
 ## home to the stores with it. [] if the field needs nothing.
+## Building (M12.1): materials the site still needs that are in the stores
+## are fetched and brought there; with enough brought, the builder builds.
+## [] if there is nothing they can do there now (then they gather what is
+## missing: their trade helps with stone and wood).
+static func _build_work(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.construction == null or ctx.settlement == null:
+		return []
+	var projects := ctx.construction.projects().duplicate()
+	# (Repairs and new buildings alike; the oldest first.)
+	for project: Dictionary in projects:
+		var tile: Vector2i = project["tile"]
+		var beside := _beside(tile, person.position, ctx)
+		var left := ctx.construction.still_needed(project)
+		# What is in their arms, if the site needs it.
+		if person.carrying_amount > 0 and left.has(person.carrying):
+			return [WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
+		if ctx.construction.can_work(project):
+			return [WalkToStep.make(beside, person.sub_tile_offset),
+				BuildStep.make(int(project["id"]), tile, snappedf(ctx.rng.randf_range(40.0, 90.0), 1.0))]
+		for resource: StringName in left:
+			var there := ctx.settlement.stockpile.available(resource) # (not the seed kept back)
+			if there <= 0:
+				continue
+			var stores: Variant = ctx.places.storage_tile(resource)
+			if stores == null or person.carrying_amount > 0:
+				continue
+			return [WalkToStep.make(stores, STORE_STAND), BuildStep.fetch(resource, mini(int(left[resource]), there)),
+				WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
+		# Stone not in the stores: the stones lying about will do.
+		if left.has(&"stone") and person.carrying_amount <= 0:
+			var stone := _loose_stone(tile, ctx)
+			if stone != null:
+				return [WalkToStep.make(Vector2i(stone.position.floor())), BuildStep.quarry(stone.id),
+					WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
+	return []
+
+
+## The nearest stone lying about near a site that can be walked to from it
+## (a loose rock or pebble, not one the player put down) (null: none).
+static func _loose_stone(site: Vector2i, ctx: AiContext) -> LooseObject:
+	if ctx.loose == null:
+		return null
+	var reach := Config.construction.stone_reach
+	var near: Array = [] # [distance, object]
+	for object in ctx.loose.all_objects():
+		if not BuildStep.STONES.has(object.kind) or object.placed_by_player:
+			continue
+		var distance := object.position.distance_to(Places.middle_of(site))
+		if distance <= reach:
+			near.append([distance, object])
+	near.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	var from := _beside(site, site + Vector2i(1, 1), ctx)
+	var tries := 0
+	for entry: Array in near:
+		var object: LooseObject = entry[1]
+		var at := Vector2i(object.position.floor())
+		if ctx.pathfinder == null or not ctx.pathfinder.is_bound():
+			return object
+		if not ctx.pathfinder.can_stand(at):
+			continue
+		if ctx.pathfinder.is_reachable(from, at):
+			return object
+		tries += 1
+		if tries >= 6:
+			break # (the rest are further still, over the same water)
+	return null
+
+
 static func _field_work(person: PersonData, ctx: AiContext) -> Array:
 	if ctx.farming == null:
 		return []

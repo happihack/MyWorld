@@ -121,6 +121,7 @@ func _run() -> void:
 		if day == 0 and absi(now - start_tick - 1440) > 2:
 			_problem("a day of the soak was %d game minutes" % (now - start_tick))
 		var alive: int = s.people.all_people().size()
+		room_for = s.households.homes().size() * config.life.home_room # (homes are built, M12.1)
 		fewest = mini(fewest, alive)
 		most = maxi(most, alive)
 		if alive == 0:
@@ -232,6 +233,11 @@ func _run() -> void:
 			visits += 1
 	print("SOAK graves %d (of %d dead), %d of the living have been to one" % [graves, s.archive.size(), visits])
 	print("SOAK %s" % s.culture.debug_text())
+	print("SOAK buildings: huts %d  storehouses %d  wells %d  ruins %d  begun %d  built %d  damaged %d  repaired %d  ruined %d  |  %s" % [
+		s.construction.standing(PropData.Kind.HUT).size(), s.construction.standing(PropData.Kind.STOREHOUSE).size(),
+		s.construction.standing(PropData.Kind.WELL).size(), s.construction.standing(PropData.Kind.RUIN).size(),
+		s.events.count_of(&"building_begun"), s.events.count_of(&"building_built"), s.events.count_of(&"building_damaged"),
+		s.events.count_of(&"building_repaired"), s.events.count_of(&"building_ruined"), s.construction.debug_text()])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

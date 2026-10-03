@@ -93,6 +93,10 @@ func test_each_kind_of_prop_answers_in_its_own_way() -> void:
 		PropData.Kind.RUIN: InteractionResponse.RUIN_HUM,
 		PropData.Kind.CROP: InteractionResponse.BUSH_RUSTLE,
 		PropData.Kind.GRAVE: InteractionResponse.DUST,
+		PropData.Kind.SITE: InteractionResponse.BUILDING_KNOCK,
+		PropData.Kind.STOREHOUSE: InteractionResponse.BUILDING_KNOCK,
+		PropData.Kind.WELL: InteractionResponse.ROCK_WOBBLE,
+		PropData.Kind.WORKSHOP: InteractionResponse.BUILDING_KNOCK,
 	}
 	assert_eq(expected.size(), PropData.Kind.size(), "every prop kind has a response")
 	var x := -10

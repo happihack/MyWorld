@@ -11,5 +11,7 @@ trait_weights = {
 "AMBITION": 0.4,
 "CREATIVITY": 0.5
 }
-placeholder = true
+placeholder = false
+work_target = &"site"
+helps_with = PackedStringArray("rock", "tree")
 routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")

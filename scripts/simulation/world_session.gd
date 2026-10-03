@@ -59,6 +59,11 @@ var archive: HistoryArchive
 var culture: CulturalMemory
 ## Who matters to the world's history (M11.2).
 var significance: Significance
+## What is built, repaired and falls into ruin, and what the settlement
+## decides to build (M12.1).
+var construction: ConstructionSystem
+var planner: SettlementPlanner
+var buildings: BuildingLibrary
 ## Where the dead are laid (M10.3).
 var graves: Graves
 ## Which of the player's powers have shown themselves (rain, wind, water).
@@ -127,6 +132,8 @@ var _saved_households: Dictionary = {}
 var _saved_lifecycle: Dictionary = {}
 var _saved_archive: Dictionary = {}
 var _saved_culture: Dictionary = {}
+var _saved_construction: Dictionary = {}
+var _saved_planner: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -208,6 +215,32 @@ func _init() -> void:
 	culture = CulturalMemory.new()
 	significance = Significance.new()
 	significance.became_important.connect(chronicle.on_became_important)
+	construction = ConstructionSystem.new()
+	planner = SettlementPlanner.new()
+	construction.begun.connect(chronicle.on_building_begun)
+	construction.finished.connect(chronicle.on_building_built)
+	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
+	# A new home: a household that shares a crowded roof moves in.
+	construction.finished.connect(func(_project: Dictionary, id: int) -> void:
+		if start != null and start.hut_ids.has(id):
+			households.take_new_home(id))
+	construction.repaired.connect(chronicle.on_building_repaired)
+	construction.damaged.connect(chronicle.on_building_damaged)
+	construction.ruined.connect(chronicle.on_building_ruined)
+	construction.ruined.connect(func(_id: int, _def: StringName) -> void:
+		_apply_storehouses()
+		households.rehouse())
+	# Floods and storms wear the buildings (M12.1).
+	hydrology.flood_changed.connect(func(active: bool, _tiles: int, _at: Vector2) -> void:
+		if active and is_active:
+			for prop in props.all_props():
+				if prop.is_building() and world.get_water(prop.tile) > 0.0:
+					construction.damage(prop.id, Config.construction.flood_damage, &"flood", clock.tick))
+	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
+		if now == WeatherSystem.STORM and is_active:
+			for prop in props.all_props():
+				if prop.is_building():
+					construction.damage(prop.id, Config.construction.storm_damage, &"storm", clock.tick))
 	culture.formed.connect(chronicle.on_cultural_memory)
 	culture.myth_formed.connect(chronicle.on_myth)
 	households = Households.new()
@@ -313,6 +346,8 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_lifecycle = {}
 	_saved_archive = {}
 	_saved_culture = {}
+	_saved_construction = {}
+	_saved_planner = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -380,8 +415,14 @@ func load_from(data: Dictionary) -> bool:
 	_saved_lifecycle = {}
 	_saved_archive = {}
 	_saved_culture = {}
+	_saved_construction = {}
+	_saved_planner = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
+			_saved_construction = state["construction"]
+		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
+			_saved_planner = state["planner"]
 		if typeof((state as Dictionary).get("culture")) == TYPE_DICTIONARY:
 			_saved_culture = state["culture"]
 		if typeof((state as Dictionary).get("relationships")) == TYPE_DICTIONARY:
@@ -502,6 +543,8 @@ func to_dict() -> Dictionary:
 			"lifecycle": lifecycle.to_dict(),
 			"archive": archive.to_dict(),
 			"culture": culture.to_dict(),
+			"construction": construction.to_dict(),
+			"planner": planner.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -542,6 +585,8 @@ func _process(delta: float) -> void:
 		relationships.settle(clock.tick)
 		lifecycle.advance_to(clock.tick)
 		culture.advance_to(clock.tick)
+		construction.advance_to(clock.tick)
+		planner.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -975,6 +1020,23 @@ func _activate() -> void:
 		Log.warn(Log.Category.LOAD, "Some saved cultural memories were unusable and dropped", {"records": unusable_culture})
 	_saved_culture = {}
 	ai.culture = culture
+	# What is being built, as saved; what the settlement plans.
+	if buildings == null:
+		buildings = BuildingLibrary.load_from()
+	construction.bind(props, ids, buildings, start, people, clock.tick, Config.construction)
+	var unusable_projects := construction.from_dict(_saved_construction)
+	if unusable_projects > 0:
+		Log.warn(Log.Category.LOAD, "Some saved building projects were unusable and dropped", {"projects": unusable_projects})
+	_saved_construction = {}
+	planner.bind(settlement, construction, people, world, pathfinder, clock.tick, Config.construction, households)
+	planner.from_dict(_saved_planner)
+	_saved_planner = {}
+	if settlement != null:
+		settlement.construction = construction
+	_apply_storehouses()
+	ai.construction = construction
+	interactions.construction = construction
+	ai.planner = planner
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)
@@ -1015,6 +1077,14 @@ func _on_season_changed(season: int, year: int) -> void:
 
 func _on_year_started(year: int) -> void:
 	EventBus.year_started.emit(year)
+
+
+## What the storehouses that stand add to the room in the stores.
+func _apply_storehouses() -> void:
+	if settlement == null or construction == null or buildings == null:
+		return
+	var def := buildings.of_kind(PropData.Kind.STOREHOUSE)
+	settlement.stockpile.extra_room = construction.standing(PropData.Kind.STOREHOUSE).size() * (def.capacity if def != null else 0)
 
 
 ## Unique even when two worlds share a seed.

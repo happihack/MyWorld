@@ -60,6 +60,10 @@ const _PROP_EFFECTS := {
 	PropData.Kind.RUIN: InteractionResponse.RUIN_HUM,
 	PropData.Kind.CROP: InteractionResponse.BUSH_RUSTLE,
 	PropData.Kind.GRAVE: InteractionResponse.DUST,
+	PropData.Kind.SITE: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.STOREHOUSE: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.WELL: InteractionResponse.ROCK_WOBBLE,
+	PropData.Kind.WORKSHOP: InteractionResponse.BUILDING_KNOCK,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -77,6 +81,8 @@ var _rng: RngStreams
 var _water: WaterSim
 var _clock: GameClock
 var _settlement := Vector2.INF
+## What is being built (M12.1), for the inspect card of a site.
+var construction: ConstructionSystem
 var _people: PersonRegistry
 var _fauna: AnimalSystem
 var _weather: WeatherSystem
@@ -699,6 +705,14 @@ func inspect(target: Picker.Result) -> InspectReport:
 		report.prop_variant = prop.variant
 		report.scale_percent = prop.scale_percent
 		report.generated = prop.is_generated()
+		if prop.is_building():
+			report.condition = prop.condition
+		if construction != null and prop.kind == PropData.Kind.SITE:
+			var project := construction.project_at(prop.id)
+			if not project.is_empty():
+				report.building = StringName(str(project["def"]))
+				report.build_progress = construction.progress(project)
+				report.still_needed = construction.still_needed(project)
 		if prop.kind == PropData.Kind.TREE:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()

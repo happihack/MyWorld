@@ -194,6 +194,14 @@ func water_tile(from: Vector2i, now: int = -1) -> Variant:
 		if distance < best_distance:
 			best = tile
 			best_distance = distance
+	# A well is water too (M12.1).
+	if _props != null:
+		for prop in _props.all_props():
+			if prop.kind == PropData.Kind.WELL:
+				var distance := float((prop.tile - from).length_squared())
+				if distance < best_distance:
+					best = prop.tile
+					best_distance = distance
 	return best
 
 
@@ -210,6 +218,8 @@ func work_place(person: PersonData, target: StringName, rng: RandomNumberGenerat
 			return _nearest_prop(person, PropData.Kind.TREE, rng)
 		&"bush":
 			return _nearest_prop(person, PropData.Kind.BUSH, rng)
+		&"rock":
+			return _nearest_prop(person, PropData.Kind.ROCK, rng)
 	return {}
 
 
