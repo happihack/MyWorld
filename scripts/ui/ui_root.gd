@@ -115,14 +115,13 @@ func _ready() -> void:
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
 	for pressed: Signal in [_follow_banner.follow_pressed, _follow_banner.stop_pressed, _follow_banner.locate_pressed]:
 		pressed.connect(_tick)
-	# The menu (for now: the motion settings), top left.
+	# The menu, top left.
 	_menu_button = MenuButtonRound.new()
-	_menu_button.visible = SensorManager.feature_enabled() # (motion controls are on hold: nothing to open)
 	add_child(_menu_button)
 	move_child(_menu_button, _panel_layer.get_index())
 	_menu_button.pressed.connect(func() -> void:
 		_tick()
-		toggle_motion_settings())
+		toggle_menu())
 	# What the player is told as it happens: between the marked people and
 	# the clock, below the banner.
 	_toasts = ToastStack.new()
@@ -222,9 +221,54 @@ func pins() -> PinList:
 	return _pins
 
 
-## The button that opens the settings.
+## The button that opens the menu.
 func menu_button() -> MenuButtonRound:
 	return _menu_button
+
+
+## The ☰ menu (bible §26.5), in place of any other card.
+func open_menu() -> MainMenu:
+	var open := main_menu()
+	if open != null:
+		return open
+	close_all_panels()
+	var menu := MainMenu.new()
+	open_panel(menu)
+	menu.setup(_session)
+	menu.person_chosen.connect(func(id: int) -> void:
+		_tick()
+		menu.close() # (to them, or to their grave)
+		person_chosen.emit(id))
+	menu.motion_requested.connect(func() -> void:
+		_tick()
+		open_motion_settings())
+	return menu
+
+
+func toggle_menu() -> void:
+	var open := main_menu()
+	if open != null:
+		open.close()
+	else:
+		open_menu()
+
+
+func main_menu() -> MainMenu:
+	for panel: UIPanel in _panels:
+		if panel is MainMenu and not panel.is_closing():
+			return panel
+	return null
+
+
+## The family tree of someone's family (from their furthest known forebear),
+## with them drawn out — in the menu, under People → Families.
+func open_family_tree(person_id: int) -> MainMenu:
+	if _session == null or not (_session.people.has_person(person_id) or _session.archive.get_record(person_id) != null):
+		return null
+	var menu := open_menu()
+	menu.open_page(MainMenu.PAGE_FAMILIES)
+	menu.open_page(MainMenu.PAGE_TREE, FamilyTree.root_of(_session, person_id), person_id)
+	return menu
 
 
 ## The motion settings, in place of any other card.
@@ -302,6 +346,9 @@ func open_person_card(session: WorldSession, person_id: int, state: PersonCard.S
 	card.person_chosen.connect(func(id: int) -> void:
 		_tick()
 		person_chosen.emit(id))
+	card.tree_requested.connect(func(id: int) -> void:
+		_tick()
+		open_family_tree(id))
 	card.closed.connect(func() -> void: person_card_closed.emit(person_id))
 	return card
 
@@ -398,6 +445,9 @@ func open_grave(session: WorldSession, person_id: int, family_first: bool = fals
 	card.person_chosen.connect(func(id: int) -> void:
 		_tick()
 		person_chosen.emit(id))
+	card.tree_requested.connect(func(id: int) -> void:
+		_tick()
+		open_family_tree(id))
 	return card
 
 
@@ -510,6 +560,9 @@ func _on_version_label_input(event: InputEvent) -> void:
 
 
 func _on_back_requested() -> void:
+	# In the menu, back is a page back.
+	if top_panel() is MainMenu and (top_panel() as MainMenu).back():
+		return
 	if close_top_panel():
 		return
 	# Nothing open, so back means "leave the game". Listeners of

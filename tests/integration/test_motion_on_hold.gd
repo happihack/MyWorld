@@ -69,8 +69,10 @@ func test_as_shipped_motion_controls_are_switched_off() -> void:
 	Settings.set_value(&"motion/touch_tilt", true)
 	assert_false(SensorManager.is_sampling())
 	assert_false(SensorManager.touch_tilt_enabled())
-	# Nothing of it is on screen: no menu button, no settings, no calibration.
-	assert_false(ui.menu_button().visible)
+	# Nothing of it is on screen: no Motion in the menu, no settings, no calibration.
+	var menu := ui.open_menu()
+	assert_false(menu.texts().has("Motion"))
+	ui.close_all_panels()
 	assert_null(ui.open_motion_settings())
 	assert_null(ui.open_calibration())
 	assert_eq(ui.panel_count(), 0)

@@ -9,6 +9,8 @@ extends UIPanel
 
 ## Someone of the family was picked (living or dead).
 signal person_chosen(person_id: int)
+## Their family tree was asked for.
+signal tree_requested(person_id: int)
 
 const MAX_WIDTH := 852.0
 const EDGE_MARGIN := 32.0
@@ -16,6 +18,8 @@ const RESERVED_RIGHT := 196.0
 const BOTTOM_MARGIN := 308.0
 const LIST_MAX_HEIGHT := 760.0
 const LIST_MIN_HEIGHT := 150.0
+## The "Family tree" button under Family.
+const TREE_BUTTON := &"FamilyTree"
 
 @onready var _title: Label = %Title
 @onready var _subtitle: Label = %Subtitle
@@ -198,6 +202,13 @@ func _add_lines(lines: PackedStringArray) -> void:
 
 func _add_family(family: Array) -> void:
 	_add_heading(MemoryText.translate("GRAVE_FAMILY"))
+	var tree := Button.new()
+	tree.text = MemoryText.translate("FAM_TREE")
+	tree.name = TREE_BUTTON
+	tree.focus_mode = Control.FOCUS_NONE
+	tree.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
+	tree.pressed.connect(func() -> void: tree_requested.emit(_person_id))
+	_list.add_child(tree)
 	if family.is_empty():
 		_add_lines(PackedStringArray([MemoryText.translate("GRAVE_NO_FAMILY")]))
 		return
@@ -237,6 +248,6 @@ func lines() -> PackedStringArray:
 func family_buttons() -> Array[Button]:
 	var out: Array[Button] = []
 	for child in _list.get_children():
-		if child is Button and not child.is_queued_for_deletion():
+		if child is Button and not child.is_queued_for_deletion() and child.name != TREE_BUTTON:
 			out.append(child)
 	return out

@@ -101,13 +101,19 @@ func _two_fingers(type: Gesture.Type, delta: Vector2 = Vector2.ZERO) -> void:
 
 func test_the_motion_settings() -> void:
 	_samples(5)
-	# The button top left opens them (and closes them again).
+	# The menu button top left opens the menu; SETTINGS → Motion opens them (M10.4).
 	var button := ui.menu_button()
 	assert_true(button.is_in_group(InputRouter.UI_BLOCKER_GROUP))
 	assert_true(button.get_global_rect().position.x < 60.0 and button.get_global_rect().position.y < 80.0, "top left")
 	assert_false(button.get_global_rect().intersects(ui.speed_control().get_global_rect()))
 	assert_null(ui.motion_settings())
 	button.pressed.emit()
+	await wait_frames(2)
+	assert_not_null(ui.main_menu())
+	assert_true(ui.main_menu().texts().has("SETTINGS"))
+	for entry in ui.main_menu().entries():
+		if entry.text == "Motion":
+			entry.pressed.emit()
 	await wait_frames(2)
 	var panel := ui.motion_settings()
 	assert_not_null(panel)

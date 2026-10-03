@@ -19,6 +19,8 @@ enum State { PEEK, HALF, FULL }
 signal action(action: StringName, person_id: int)
 ## The player tapped one of the person's family.
 signal person_chosen(person_id: int)
+## Their family tree was asked for.
+signal tree_requested(person_id: int)
 signal state_changed(state: State)
 
 const REFRESH_INTERVAL_S := 0.25
@@ -36,6 +38,8 @@ const ACTION_TOUCH := &"touch"
 const ACTION_FOLLOW := &"follow"
 const ACTION_FOCUS := &"focus"
 const ACTION_MARK := &"mark"
+## The "Family tree" button under the family.
+const TREE_BUTTON := &"FamilyTree"
 
 @onready var _header: Control = %Header
 @onready var _glyph: PersonGlyph = %Glyph
@@ -179,7 +183,7 @@ func button(which: StringName) -> Button:
 func family_buttons() -> Array[Button]:
 	var out: Array[Button] = []
 	for child in _family.get_children():
-		if child is Button and not child.is_queued_for_deletion():
+		if child is Button and not child.is_queued_for_deletion() and child.name != TREE_BUTTON:
 			out.append(child)
 	return out
 
@@ -388,6 +392,14 @@ func _show_family(family: Array) -> void:
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 		button.pressed.connect(func() -> void: person_chosen.emit(entry[0]))
 		_family.add_child(button)
+	# The whole family, across the generations.
+	var tree := Button.new()
+	tree.text = MemoryText.translate("FAM_TREE")
+	tree.name = TREE_BUTTON
+	tree.focus_mode = Control.FOCUS_NONE
+	tree.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
+	tree.pressed.connect(func() -> void: tree_requested.emit(_person_id))
+	_family.add_child(tree)
 
 
 func _show_memories(lines: PackedStringArray) -> void:
