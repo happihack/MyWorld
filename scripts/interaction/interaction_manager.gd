@@ -28,6 +28,9 @@ const ACTION_INSPECT := &"inspect"
 const ACTION_TOUCH := &"touch"
 const ACTION_FOCUS := &"focus"
 const ACTION_REMOVE := &"remove"
+## A grave: who lies there, and their family (M10.3).
+const ACTION_READ := &"read"
+const ACTION_VIEW_FAMILY := &"view_family"
 
 ## The first shake of a tree only rustles it; each further shake drops one of
 ## what it bears with this chance.
@@ -56,6 +59,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.CAMPFIRE: InteractionResponse.FIRE_FLARE,
 	PropData.Kind.RUIN: InteractionResponse.RUIN_HUM,
 	PropData.Kind.CROP: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.GRAVE: InteractionResponse.DUST,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -641,6 +645,11 @@ func describe(target: Picker.Result) -> InteractionResponse:
 func actions_for(target: Picker.Result) -> Array[StringName]:
 	var actions: Array[StringName] = []
 	if target == null or not target.is_hit() or _world == null:
+		return actions
+	# A grave is read, not touched (bible §26.6).
+	if target.kind == Picker.Kind.ENTITY and _props != null and _props.get_prop(target.entity_id) != null \
+			and _props.get_prop(target.entity_id).kind == PropData.Kind.GRAVE:
+		actions.append_array([ACTION_READ, ACTION_VIEW_FAMILY, ACTION_FOCUS])
 		return actions
 	actions.append(ACTION_INSPECT)
 	actions.append(ACTION_TOUCH)

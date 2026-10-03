@@ -140,6 +140,32 @@ func meal_spot(person: PersonData) -> Vector2i:
 
 
 ## A parent of the person who is up and about (the nearer one), or null.
+## The grave of someone this person has lost, to go to: whoever they grieve
+## for, else a parent, a partner, a child of theirs who has died.
+## {"tile": Vector2i, "of": person id} — {} if there is none.
+func grave_to_visit(person: PersonData) -> Dictionary:
+	var archive := _people.archive
+	if archive == null or archive.size() == 0:
+		return {}
+	var close: Array[int] = []
+	var grieved := Lifecycle.grieving_for(person)
+	if grieved != 0:
+		close.append(grieved)
+	for id in person.parents:
+		close.append(id)
+	for id in person.children:
+		close.append(id)
+	for id in close:
+		var record := archive.get_record(id)
+		if record != null and record.grave_id != 0 and _props.get_prop(record.grave_id) != null:
+			return {"tile": record.grave_tile, "of": record.id}
+	# A partner who has died (their record knows whose partner they were).
+	for record in archive.all_records():
+		if record.partner_id == person.id and record.grave_id != 0 and _props.get_prop(record.grave_id) != null:
+			return {"tile": record.grave_tile, "of": record.id}
+	return {}
+
+
 func parent_about(person: PersonData) -> PersonData:
 	var best: PersonData = null
 	var best_distance := INF
@@ -221,6 +247,10 @@ func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
 	# Of the nearest few, the ones they like: friends and family more, rivals not
 	# at all (unless there is nobody else).
 	var near := others.slice(0, mini(others.size(), COMPANY_CHOICES))
+	# Someone free to court is sought out wherever they are (M10.2).
+	for other in others.slice(COMPANY_CHOICES):
+		if _courting(person, other):
+			near.append(other)
 	var weights := PackedFloat32Array()
 	var total := 0.0
 	for other: PersonData in near:
@@ -228,6 +258,8 @@ func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
 		var weight := 0.0
 		if kinds & (Relationship.Kind.RIVAL | Relationship.Kind.ENEMY) == 0:
 			weight = exp(2.0 * relationships.affinity(person.id, other.id)) * (1.5 if relationships.is_family(person.id, other.id) else 1.0)
+			if _courting(person, other):
+				weight *= 1.0 + COURTING * SocialActs.chemistry(person, other)
 		weights.append(weight)
 		total += weight
 	if total <= 0.0:
@@ -242,6 +274,22 @@ func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
 
 ## How many of the nearest are thought of when looking for company.
 const COMPANY_CHOICES := 5
+## How much more someone free to court is sought out (× how drawn to them).
+const COURTING := 3.0
+## The clock (may be null: then nobody courts).
+var clock: GameClock
+
+
+## Two grown-ups, both free, of either sex to the other, not kin: they may
+## become partners (see Lifecycle), so they seek each other out.
+func _courting(person: PersonData, other: PersonData) -> bool:
+	if clock == null or relationships == null or person.partner_id != 0 or other.partner_id != 0 or person.sex == other.sex:
+		return false
+	var year := Config.time.ticks_per_year()
+	if person.life_stage(clock.tick, year, Config.people) != PersonData.LifeStage.ADULT \
+			or other.life_stage(clock.tick, year, Config.people) != PersonData.LifeStage.ADULT:
+		return false
+	return not relationships.is_family(person.id, other.id) and not relationships.close_kin(person.id, other.id)
 ## What people are to each other (may be null: then the nearest few, at random).
 var relationships: RelationshipStore
 

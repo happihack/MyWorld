@@ -29,6 +29,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	18: _v18_to_v19,
 	19: _v19_to_v20,
 	20: _v20_to_v21,
+	21: _v21_to_v22,
 }
 
 
@@ -349,6 +350,13 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 22 (M10.3) adds graves (props of a new kind) and, to the records
+## of the dead, their grave, deeds, memories and significance. Nothing is
+## missing from an older world: its dead (if any) simply have no grave.
+static func _v21_to_v22(data: Dictionary) -> Dictionary:
 	return data
 
 

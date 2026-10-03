@@ -25,6 +25,7 @@ const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
 const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
 const HISTORY_CARD := preload("res://scenes/ui/panels/history_card.tscn")
+const GRAVE_CARD := preload("res://scenes/ui/panels/grave_card.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 const CALIBRATION := preload("res://scenes/ui/calibration.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
@@ -379,6 +380,30 @@ func history_card() -> HistoryCard:
 func person_card() -> PersonCard:
 	for panel: UIPanel in _panels:
 		if panel is PersonCard and not panel.is_closing():
+			return panel
+	return null
+
+
+## Shows the grave of someone who has died (in the archive); `family_first`:
+## to see their family. Replaces a card that is already open.
+func open_grave(session: WorldSession, person_id: int, family_first: bool = false) -> GraveCard:
+	if session == null or session.archive.get_record(person_id) == null:
+		return null
+	for panel: UIPanel in _panels.duplicate():
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard or panel is GraveCard:
+			panel.close()
+	var card: GraveCard = GRAVE_CARD.instantiate()
+	card.setup(session, person_id, family_first)
+	open_panel(card)
+	card.person_chosen.connect(func(id: int) -> void:
+		_tick()
+		person_chosen.emit(id))
+	return card
+
+
+func grave_card() -> GraveCard:
+	for panel: UIPanel in _panels:
+		if panel is GraveCard and not panel.is_closing():
 			return panel
 	return null
 

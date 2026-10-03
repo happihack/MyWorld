@@ -138,6 +138,9 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 			total += Config.life.unwell_rest_weight * unwell
 		elif def.id == &"work" or OUTDOORS.has(def.id):
 			total *= 1.0 - Config.life.unwell_work_cut * unwell
+	# Someone grieving goes to the grave.
+	if def.id == &"visit_grave" and ctx.lifecycle != null:
+		total += Config.life.visit_grave_weight * ctx.lifecycle.grief_of(person, ctx.now())
 	# A baby keeps to its parent, wherever they are.
 	if infant and def.id == &"tag_along":
 		total += INFANT_FOLLOW

@@ -304,7 +304,8 @@ func layout() -> void:
 ## What the card shows about `person`, as plain values:
 ##   name, age, occupation, activity, mood: String; stage: PersonData.LifeStage;
 ##   needs: PackedFloat32Array; traits: PackedStringArray; marked: bool;
-##   family: Array of [person id, relation, name] (those still in the world);
+##   family: Array of [person id, relation, name] (living and dead: parents,
+##     partner, children, brothers and sisters);
 ##   memories: PackedStringArray, the most recent first ("Age 23 · Felt …");
 ##   today_title, today: String — their day so far ("Today", "06:30 wakes · …").
 static func facts(session: WorldSession, person: PersonData) -> Dictionary:
@@ -312,18 +313,10 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 	var year := Config.time.ticks_per_year()
 	var stage := person.life_stage(now, year, Config.people)
 	var doing := BehaviorSystem.activity_of(person)
+	# Their family, living and dead (a dead one's grave can be read).
 	var family: Array = []
-	var seen := {}
-	var relatives: Array = [[person.partner_id, &"partner"]]
-	for parent_id in person.parents:
-		relatives.append([parent_id, &"parent"])
-	for child_id in person.children:
-		relatives.append([child_id, &"child"])
-	for entry: Array in relatives:
-		var relative := session.people.get_person(entry[0])
-		if relative != null and not seen.has(relative.id):
-			seen[relative.id] = true
-			family.append([relative.id, UIText.relation_word(entry[1], relative.sex), relative.given_name])
+	for entry: Array in GraveCard.family_of(session, person.id):
+		family.append([entry[0], entry[1], entry[2]])
 	var day := DayLogText.shown(session.day_log, person.id, now, session.people)
 	return {
 		"today_title": day[0],

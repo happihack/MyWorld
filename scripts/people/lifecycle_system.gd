@@ -27,6 +27,16 @@ const CAUSE_STARVATION := &"starvation"
 const CAUSE_ACCIDENT := &"accident"
 const CAUSE_DISASTER := &"disaster"
 const PREGNANT := &"pregnant"
+## Grieving someone who died: {"id": "grief", "of": id, "since": tick, "strength": 0 … 1}.
+const GRIEF := &"grief"
+## What the archive keeps of a life: so many deeds and memories.
+const DEEDS_KEPT := 5
+const MEMORIES_KEPT := 3
+## What is no deed of theirs: what happened to them, and what they were to
+## someone (friends, fallen out: their relationships keep that).
+const NOT_DEEDS: Array[StringName] = [&"came_of_age", &"person_injured", &"person_ill", &"person_hungry_sick",
+	&"person_cold_sick", &"person_recovered", &"taken_in", &"person_born", &"became_friends", &"fell_out",
+	&"became_enemies", &"reconciled"]
 ## Days caught up at once at most (a world left for long lives its last days only).
 const MAX_DAYS_AT_ONCE := 30
 const DAY := TimeConfig.MINUTES_PER_DAY
@@ -45,6 +55,8 @@ var rng: RandomNumberGenerator
 var clock: GameClock
 var pathfinder: Pathfinder
 var start: WorldSetup.StartInfo
+var events: EventLog
+var graves: Graves
 var config: LifeConfig
 ## Off: nobody is born, ages into new work or dies (tests of other things).
 var enabled := true
@@ -163,6 +175,9 @@ func _live_day(now: int) -> void:
 	everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool: return a.id < b.id)
 	for person in everyone:
 		_grow(person, now)
+		# Grief that has run its course is over.
+		if not person.conditions.is_empty() and not Hardship.condition_of(person, GRIEF).is_empty() and grief_of(person, now) <= 0.0:
+			person.conditions.erase(Hardship.condition_of(person, GRIEF))
 	_mishaps(everyone, now)
 	for person in everyone:
 		if people.has_person(person.id):
@@ -444,8 +459,13 @@ func die(person: PersonData, cause: StringName, now: int, causes: Array = []) ->
 	if person == null or not people.has_person(person.id):
 		return
 	_hand_down(person, now)
+	_mourn(person, now)
 	if archive != null:
-		archive.add(HistoricalPerson.of(person, now, cause))
+		var record := HistoricalPerson.of(person, now, cause)
+		_remember_them(person, record)
+		archive.add(record)
+		if graves != null:
+			graves.bury(person.id)
 	var partner := people.get_person(person.partner_id) if person.partner_id != 0 else null
 	if partner != null and partner.partner_id == person.id:
 		partner.partner_id = 0
@@ -470,7 +490,93 @@ func die(person: PersonData, cause: StringName, now: int, causes: Array = []) ->
 	EventBus.person_died.emit(person.id, cause)
 
 
+## How much someone grieves now (0: not at all … 1), fading over the days of
+## their mourning.
+func grief_of(person: PersonData, now: int) -> float:
+	var grieving := Hardship.condition_of(person, GRIEF)
+	if grieving.is_empty():
+		return 0.0
+	var days := maxf(config.grief_days * float(grieving.get("strength", 0.0)), 0.001) * DAY
+	return float(grieving.get("strength", 0.0)) * clampf(1.0 - float(now - int(grieving.get("since", now))) / days, 0.0, 1.0)
+
+
+## Whose death someone grieves (0: nobody's).
+static func grieving_for(person: PersonData) -> int:
+	return int(Hardship.condition_of(person, GRIEF).get("of", 0))
+
+
 # --- internals --------------------------------------------------------------------------------------
+
+## Those who were close to them grieve: family most, then friends. Their
+## spirits sink, they remember the loss, and they go to the grave.
+func _mourn(person: PersonData, now: int) -> void:
+	if relationships == null:
+		return
+	var everyone := people.all_people()
+	everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool: return a.id < b.id)
+	for other in everyone:
+		if other.id == person.id:
+			continue
+		var tie := relationships.family(other.id, person.id)
+		var strength := 0.0
+		if tie & (Relationship.Kind.PARTNER | Relationship.Kind.CHILD | Relationship.Kind.PARENT):
+			strength = 1.0
+		elif tie & Relationship.Kind.SIBLING:
+			strength = 0.8
+		elif relationships.close_kin(other.id, person.id):
+			strength = 0.6
+		var record := relationships.between(other.id, person.id)
+		if record != null:
+			if record.has_kind(Relationship.Kind.FRIEND):
+				strength = maxf(strength, 0.5)
+			elif record.affinity >= 0.25:
+				strength = maxf(strength, 0.3)
+		if strength <= 0.0:
+			continue
+		var grieving := Hardship.condition_of(other, GRIEF)
+		if not grieving.is_empty() and grief_of(other, now) >= strength:
+			pass # (a deeper grief already)
+		else:
+			other.conditions.erase(grieving)
+			other.conditions.append({"id": String(GRIEF), "of": person.id, "since": now, "strength": strength})
+		other.mood = maxf(other.mood - config.grief_mood * strength, 0.0)
+		other.stress = minf(other.stress + 0.3 * strength, 1.0)
+		if day_log != null and other.id != person.partner_id: # (their partner "loses" them: see die)
+			day_log.note(other.id, now, "life", "mourns", person.id)
+		if memories != null:
+			var memory := _life_memory(&"death_of", "MEM_MOURNED", other, now, 0.4 + 0.5 * strength)
+			memory.told_by = person.id
+			memory.location = person.world2d()
+			memory.emotions[ReactionTable.Emotion.JOY] = 0.0
+			memory.emotions[ReactionTable.Emotion.FEAR] = 0.2 * strength
+			memories.remember(other, memory)
+
+
+## What the world keeps of them: what they did that was told of, what they
+## remembered most, and how much they mattered.
+func _remember_them(person: PersonData, record: HistoricalPerson) -> void:
+	var deeds: Array[WorldEvent] = []
+	if events != null:
+		for event in events.all_events():
+			# (Anything they were part of: everyone of a band founded the settlement.)
+			if event.participants.has(person.id) and not NOT_DEEDS.has(event.type):
+				deeds.append(event)
+	deeds.sort_custom(func(a: WorldEvent, b: WorldEvent) -> bool:
+		return a.significance > b.significance or (a.significance == b.significance and a.id < b.id))
+	var weight := 0.0
+	for event in deeds.slice(0, DEEDS_KEPT):
+		record.accomplishments.append(event.id)
+		weight += event.significance
+	if memories != null:
+		var own := memories.of(person)
+		own.sort_custom(func(a: Memory, b: Memory) -> bool:
+			return a.importance > b.importance or (a.importance == b.importance and a.id < b.id))
+		for memory in own.slice(0, MEMORIES_KEPT):
+			record.memories.append(memory.to_dict())
+	var years := float(person.age_years(record.death_tick, Config.time.ticks_per_year()))
+	record.significance = clampf(person.significance + years / 80.0 * 0.3 + mini(person.children.size(), 6) * 0.05 + weight * 0.1,
+		0.0, 1.0)
+
 
 ## The few things they remembered most are handed down: to their children,
 ## else their partner, else their brothers and sisters.

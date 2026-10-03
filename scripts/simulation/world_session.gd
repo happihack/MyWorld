@@ -55,6 +55,8 @@ var households: Households
 var lifecycle: Lifecycle
 ## Everyone who has died.
 var archive: HistoryArchive
+## Where the dead are laid (M10.3).
+var graves: Graves
 ## Which of the player's powers have shown themselves (rain, wind, water).
 var powers: ToolReveals
 ## The soil of all the land, and what grows on it.
@@ -197,10 +199,15 @@ func _init() -> void:
 			record.note_event(event.id))
 	# Lives begin and end; what is worth telling of it is told.
 	archive = HistoryArchive.new()
+	graves = Graves.new()
 	households = Households.new()
 	lifecycle = Lifecycle.new()
 	lifecycle.born.connect(chronicle.on_born)
-	lifecycle.died.connect(chronicle.on_died)
+	lifecycle.died.connect(func(person_id: int, cause: StringName, causes: Array) -> void:
+		var obituary := chronicle.on_died(person_id, cause, causes)
+		var record := archive.get_record(person_id)
+		if obituary != null and record != null:
+			record.obituary_event = obituary.id)
 	lifecycle.partnered.connect(chronicle.on_partnered)
 	lifecycle.came_of_age.connect(chronicle.on_came_of_age)
 	lifecycle.injured.connect(chronicle.on_injured)
@@ -808,6 +815,7 @@ func _activate() -> void:
 		relationships.seed_from(people, clock.tick)
 	ai.relationships = relationships
 	ai.places.relationships = relationships
+	ai.places.clock = clock
 	# Who has died, and who lives with whom: as saved (a world from before
 	# they were kept: nobody has died, and households are as people have them).
 	var unusable_dead := archive.from_dict(_saved_archive)
@@ -929,6 +937,9 @@ func _activate() -> void:
 	lifecycle.clock = clock
 	lifecycle.pathfinder = pathfinder
 	lifecycle.start = start
+	lifecycle.events = events
+	graves.bind(props, world, pathfinder, start, ids, archive, loose)
+	lifecycle.graves = graves if start != null and start.campfire_id != 0 else null
 	ai.lifecycle = lifecycle
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}

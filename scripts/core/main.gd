@@ -434,6 +434,10 @@ func _on_person_action(action: StringName, person_id: int) -> void:
 
 ## A person was picked in the UI (family on a card, a marked name): go to them.
 func _on_person_chosen(person_id: int) -> void:
+	# Someone who has died: their grave is read.
+	if not session.people.has_person(person_id) and session.archive.get_record(person_id) != null:
+		ui_root.open_grave(session, person_id)
+		return
 	var card := ui_root.person_card()
 	if select_person(person_id, card.state() if card != null else PersonCard.State.PEEK):
 		focus_on_person(person_id)
@@ -640,6 +644,10 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 			_note_pick(target, session.interactions.tap(target, tools.current_id()))
 		InteractionManager.ACTION_REMOVE:
 			_note_pick(target, session.interactions.uproot(target, tools.current_id()))
+		InteractionManager.ACTION_READ, InteractionManager.ACTION_VIEW_FAMILY:
+			var record := session.archive.buried_in(target.entity_id) if target != null else null
+			if record != null:
+				ui_root.open_grave(session, record.id, action == InteractionManager.ACTION_VIEW_FAMILY)
 		InteractionManager.ACTION_FOCUS:
 			var what := session.interactions.describe(target)
 			if what != null:

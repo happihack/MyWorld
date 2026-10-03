@@ -85,6 +85,7 @@ var _barred: Dictionary = {} # person id -> {activity id -> tick until which it 
 var _last: Dictionary = {} # person id -> Brain.Decision
 var _outcomes: Dictionary = {} # person id -> Reactions.Outcome: how they took the last thing they noticed
 var _reacted: Array = [] # reactions not announced yet: [id, reaction, interpretation, stimulus, direct]
+var _ground_version := -1 # the pathfinder's version when everyone's footing was last looked at
 
 
 func _init() -> void:
@@ -130,6 +131,7 @@ func unbind() -> void:
 	_outcomes.clear()
 	_reacted.clear()
 	reactions = 0
+	_ground_version = -1
 
 
 # --- saving -------------------------------------------------------------------------------------
@@ -353,6 +355,8 @@ func _note_change(person: PersonData, activity: StringName, steps: Array, reason
 			"rest":
 				if (step as Dictionary).has("shelter"):
 					detail = "shelter_" + str((step as Dictionary)["shelter"])
+				if (step as Dictionary).has("grave_of"):
+					other = int((step as Dictionary)["grave_of"])
 			"socialize":
 				other = int((step as Dictionary).get("partner", 0))
 			"work":
@@ -408,13 +412,15 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 	var handler := _handler(step_now)
 	Needs.decay(person, minutes, Config.needs, ctx.stage_of(person),
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
+	# The ground changed (the water rose): whoever stands in water too deep steps out of it at once.
+	if ctx.pathfinder != null and ctx.world != null:
+		ctx.pathfinder.refresh_dirty()
+		if ctx.pathfinder.version != _ground_version:
+			_ground_version = ctx.pathfinder.version
+			_step_out_of_water()
 	Hardship.live(person, ctx, minutes)
 	Exposure.live(person, ctx, minutes)
 	Health.live(person, ctx, minutes)
-	# The water rose around them while they stood (drinking at the shore): they step out of it.
-	if ctx.world != null and not person.has_flag(PersonData.FLAG_INDOORS) \
-			and ctx.world.get_water(person.position) > Pathfinder.WADE_DEPTH * ctx.world.height_step:
-		_rescue_if_stranded(person.id)
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
 		return
@@ -600,6 +606,11 @@ func _think(person: PersonData, current: StringName) -> Brain.Decision:
 		if person.needs.size() == Needs.COUNT else 0.0
 	person.mood = Needs.mood(person.needs)
 	person.stress = Needs.stress(person.needs)
+	# Grief weighs on them (M10.3).
+	if ctx.lifecycle != null and not person.conditions.is_empty():
+		var grief := ctx.lifecycle.grief_of(person, ctx.now())
+		person.mood = maxf(person.mood - Config.life.grief_mood * grief, 0.0)
+		person.stress = maxf(person.stress, 0.3 * grief)
 	# What they are doing counts as "current" only if it is something the
 	# brain knows (not standing idle, not a plan that has just ended).
 	var keeping := current if ctx.activities.get_def(current) != null and not current_step(person).is_empty() else &""
@@ -694,6 +705,15 @@ func _rescue_if_stranded(person_id: int) -> void:
 			{"person": person.full_name(), "from": person.position, "to": ground[0]})
 		rescues += 1
 	ctx.people.move(person_id, ground[0], Vector2(0.5, 0.5), person.facing)
+
+
+## The water rose around people who stood still (drinking at the shore,
+## working, waiting): they step out of it — at once, not when they next look up.
+func _step_out_of_water() -> void:
+	var deep := Pathfinder.WADE_DEPTH * ctx.world.height_step
+	for person in ctx.people.all_people():
+		if not person.has_flag(PersonData.FLAG_INDOORS) and ctx.world.get_water(person.position) > deep:
+			_rescue_if_stranded(person.id)
 
 
 func _on_person_removed(person_id: int) -> void:

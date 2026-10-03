@@ -62,6 +62,9 @@ const TYPE_INJURED := &"person_injured"
 const TYPE_ILL := &"person_ill"
 const TYPE_TAKEN_IN := &"taken_in"
 const TYPE_ARRIVED := &"newcomer_arrived"
+## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
+const OBITUARY_BASE := 0.45
+const OBITUARY_WEIGHT := 0.5
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -430,10 +433,12 @@ func on_born(child_id: int, mother_id: int, father_id: int) -> void:
 		_between(mother_id, father_id, TYPE_PARTNERS) if father_id > 0 else [])
 
 
-## Someone has died (they are still in the registry): of what, and because of what.
-func on_died(person_id: int, cause: StringName, causes: Array) -> void:
+## Someone has died (they are still in the registry, and already in the
+## archive): of what, and because of what. Their obituary: the more they
+## mattered, the more it matters. Returns the event (null: none).
+func on_died(person_id: int, cause: StringName, causes: Array) -> WorldEvent:
 	if not _writing():
-		return
+		return null
 	var why: Array = causes.duplicate()
 	match cause:
 		Lifecycle.CAUSE_STARVATION:
@@ -444,8 +449,12 @@ func on_died(person_id: int, cause: StringName, causes: Array) -> void:
 			why.append_array(_latest_of(person_id, [TYPE_FIGHT]))
 		Lifecycle.CAUSE_ACCIDENT:
 			why.append_array(_latest_of(person_id, [TYPE_INJURED]))
-	_log.record(TYPE_DIED, {"participants": [person_id], "cause": String(cause), "position": _place_of(person_id),
-		"settlement": _settlement_id()}, why)
+	var params := {"participants": [person_id], "cause": String(cause), "position": _place_of(person_id),
+		"settlement": _settlement_id()}
+	var record := _people.archive.get_record(person_id) if _people != null and _people.archive != null else null
+	if record != null:
+		params["significance"] = clampf(OBITUARY_BASE + OBITUARY_WEIGHT * record.significance, 0.0, 1.0)
+	return _log.record(TYPE_DIED, params, why)
 
 
 func on_partnered(a: int, b: int) -> void:

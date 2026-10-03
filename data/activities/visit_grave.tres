@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"visit_grave"
+base = 0.02
+need_weights = {}
+trait_weights = {
+"SPIRITUALITY": 0.15
+}
+hours = PackedFloat32Array(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.3, 0.8, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.8, 0.3, 0.0, 0.0, 0.0, 0.0)
+requires = Array[StringName]([&"grave"])
+repeat_after_minutes = 720.0

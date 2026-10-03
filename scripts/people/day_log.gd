@@ -23,8 +23,11 @@ const BRIEF_MINUTES := 3
 const WAKE := "wake"
 const STIR := "stir"
 const REACT := "react"
+## What life brings (born, partners, a death in the family: M10.2): it
+## happens beside whatever they were doing, and takes nothing's place.
+const LIFE := "life"
 ## Entries that stand, however brief.
-const MOMENTS: Array[String] = [WAKE, STIR, REACT]
+const MOMENTS: Array[String] = [WAKE, STIR, REACT, LIFE]
 ## Things done with someone, where going from one person to the next is
 ## still the same thing: the entry names the first and says there were more.
 const ROUNDS: Array[String] = ["socialize"]
@@ -52,7 +55,7 @@ func note(person_id: int, tick: int, kind: String, detail: String = "", other: i
 	# What they had only just turned to did not come to anything.
 	if not log.is_empty():
 		var last: Array = log[-1]
-		if tick - int(last[TICK]) < BRIEF_MINUTES and not MOMENTS.has(str(last[KIND])) and not _same(last, kind, detail, other):
+		if tick - int(last[TICK]) < BRIEF_MINUTES and not MOMENTS.has(str(last[KIND])) and kind != LIFE and not _same(last, kind, detail, other):
 			log.pop_back()
 	if kind == WAKE and not log.is_empty() and str((log[-1] as Array)[KIND]) == WAKE 			and tick - int((log[-1] as Array)[TICK]) < WAKING_MINUTES:
 		return false

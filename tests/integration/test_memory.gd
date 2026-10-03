@@ -878,7 +878,8 @@ func test_broken_memories_do_not_break_the_world() -> void:
 	var heirs := 0
 	for other in session.people.all_people():
 		for kept in store.of(other):
-			assert_eq(kept.source, Memory.Source.INHERITED)
+			# (What was handed down — and the loss itself, for those who mourn them: M10.3.)
+			assert_true(kept.source == Memory.Source.INHERITED or kept.subject == &"death_of", str(kept.to_dict()))
 			assert_eq(kept.told_by, person.id)
 			heirs += 1
 	assert_eq(store.size(), heirs, "nothing is left that was theirs")

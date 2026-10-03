@@ -164,21 +164,30 @@ func test_the_facts_about_a_person() -> void:
 	assert_near((facts["needs"] as PackedFloat32Array)[Needs.Need.HUNGER], 0.1, 0.001)
 	assert_eq(facts["traits"], UIText.trait_words(parent.traits))
 	assert_false(facts["marked"])
+	# Family: parents, partner, children, brothers and sisters (M10.3).
 	var family: Array = facts["family"]
-	assert_eq(family.size(), 1 + parent.children.size(), "partner and children")
-	assert_eq(family[0][0], parent.partner_id)
-	assert_eq(family[0][1], "Partner")
+	var by_id := {}
+	for entry: Array in family:
+		by_id[entry[0]] = entry
+	assert_eq(family.size(), by_id.size(), "each once")
+	assert_eq(by_id[parent.partner_id][1], "Partner")
 	var child := session.people.get_person(parent.children[0])
-	assert_eq(family[1], [child.id, "Daughter" if child.sex == PersonData.Sex.FEMALE else "Son", child.given_name])
-	# The child's card names its parents.
+	assert_eq(by_id[child.id], [child.id, "Daughter" if child.sex == PersonData.Sex.FEMALE else "Son", child.given_name])
+	for parent_id in parent.parents:
+		assert_true(by_id.has(parent_id), "and their own parents")
+	# The child's card names its parents (and brothers and sisters).
 	var of_child: Array = PersonCard.facts(session, child)["family"]
-	assert_eq(of_child.size(), child.parents.size())
+	assert_eq(of_child.size(), child.parents.size() + parent.children.size() - 1)
 	for entry: Array in of_child:
-		assert_true(entry[1] == "Mother" or entry[1] == "Father", str(entry))
+		assert_true(entry[1] in ["Mother", "Father", "Brother", "Sister"], str(entry))
 	assert_eq(PersonCard.facts(session, child)["occupation"], "Child")
-	# Family who are gone are not offered.
+	# Family who are gone are still named — as gone (their grave can be read).
 	session.kill_person(child.id)
-	assert_eq((PersonCard.facts(session, parent)["family"] as Array).size(), family.size() - 1)
+	var after: Array = PersonCard.facts(session, parent)["family"]
+	assert_eq(after.size(), family.size())
+	for entry: Array in after:
+		if entry[0] == child.id:
+			assert_eq(entry[2], "%s (died in year %d)" % [child.given_name, HistoryText.year_of(session.clock.tick)])
 	# Someone with nothing to do, and broken needs.
 	parent.current_action = {}
 	parent.needs = PackedFloat32Array([NAN, 7.0])

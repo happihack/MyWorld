@@ -114,6 +114,7 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.HUT, 0)] = _hut()
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
+	_templates[_key(PropData.Kind.GRAVE, 0)] = _grave()
 	# What is left of nodes that have given up what they had.
 	for variant in 4:
 		_templates[_look_key(PropData.Kind.TREE, variant, ResourceNodes.Look.STUMP)] = _stump(0.095 if variant < 2 else 0.08, 0.16)
@@ -402,6 +403,16 @@ static func _campfire(burning: bool = true) -> Template:
 	var lit_from := t.vertices.size()
 	_fan(t, flame, Vector3(0, 0.36, 0), _rgba(FLAME, 0.6), _rgba(FLAME_HOT, 2.5))
 	t.glow_from(lit_from, 2.0)
+	return t
+
+
+## A grave: a low mound of earth with a standing stone at its head.
+static func _grave() -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0, 0.035, 0.03), Vector3(0.16, 0.035, 0.30), _rgba(SOIL_DARK, 0.0), 0.0)
+	_box(t, Vector3(0, 0.075, 0.05), Vector3(0.11, 0.03, 0.22), _rgba(SOIL_DARK.lightened(0.12), 0.0), 0.0)
+	_box(t, Vector3(0, 0.17, -0.30), Vector3(0.10, 0.17, 0.035), _rgba(STONE, 0.0), 0.0)
+	_box(t, Vector3(0, 0.345, -0.30), Vector3(0.07, 0.015, 0.03), _rgba(STONE_DARK, 0.0), 0.0)
 	return t
 
 

@@ -225,6 +225,14 @@ func _run() -> void:
 	print("SOAK lives: %d people now (%d at the start, %d … %d), %d have died, %d generations  %s" % [
 		s.people.all_people().size(), people_at_start, fewest, most, s.archive.size(), deepest, s.lifecycle.counts])
 	print("SOAK ages at death: %s" % " ".join(ages))
+	var graves: int = s.graves.all_graves().size()
+	var visits := 0
+	for person in s.people.all_people():
+		if person.activity_log.has("visit_grave"):
+			visits += 1
+	print("SOAK graves %d (of %d dead), %d of the living have been to one" % [graves, s.archive.size(), visits])
+	if graves < s.archive.size():
+		_problem("%d of %d dead have no grave" % [s.archive.size() - graves, s.archive.size()])
 	if years >= 100 and deepest < 4:
 		_problem("only %d generations in %d years" % [deepest, years])
 	var pairs := PackedStringArray()

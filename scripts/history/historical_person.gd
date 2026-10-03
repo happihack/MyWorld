@@ -1,9 +1,9 @@
 class_name HistoricalPerson
 extends RefCounted
 ## Someone who has died, as the world remembers them (bible §16.3): a compact
-## record kept in the HistoryArchive in place of the person. (M10.2 keeps who
-## they were and whose family they are; their deeds, memories and grave come
-## with M10.3.)
+## record kept in the HistoryArchive in place of the person: who they were,
+## whose family they are, what they did that the world remembers, what they
+## remembered most, how much they mattered, and where they lie.
 
 var id := 0
 var given_name := ""
@@ -22,6 +22,17 @@ var household_id := 0
 var settlement_id := 0
 ## Where they died.
 var place := Vector2.ZERO
+## Their grave (a prop; 0: none) — and where it is.
+var grave_id := 0
+var grave_tile := Vector2i.ZERO
+## Events they took part in (not what merely happened to them), the most notable first (ids).
+var accomplishments: PackedInt64Array = PackedInt64Array()
+## What they remembered most (Memory.to_dict() records, at most a few).
+var memories: Array = []
+## How much they mattered (0 … 1): a long life, children, deeds, the Presence.
+var significance := 0.0
+## The event that told of their death (0: none).
+var obituary_event := 0
 
 
 static func of(person: PersonData, now: int, why: StringName) -> HistoricalPerson:
@@ -57,7 +68,8 @@ func to_dict() -> Dictionary:
 		"birth_tick": birth_tick, "death_tick": death_tick, "cause": String(cause),
 		"parents": parents.duplicate(), "children": children.duplicate(), "partner_id": partner_id,
 		"occupation_id": String(occupation_id), "household_id": household_id, "settlement_id": settlement_id,
-		"place": place}
+		"place": place, "grave_id": grave_id, "grave_tile": grave_tile, "accomplishments": accomplishments.duplicate(),
+		"memories": memories.duplicate(true), "significance": significance, "obituary_event": obituary_event}
 
 
 ## Null if the record is unusable (no id).
@@ -81,7 +93,28 @@ static func from_dict(data: Dictionary) -> HistoricalPerson:
 	var where: Variant = data.get("place")
 	if typeof(where) == TYPE_VECTOR2 and is_finite((where as Vector2).x) and is_finite((where as Vector2).y):
 		record.place = where
+	record.grave_id = maxi(int(data.get("grave_id", 0)), 0)
+	if typeof(data.get("grave_tile")) == TYPE_VECTOR2I:
+		record.grave_tile = data["grave_tile"]
+	record.accomplishments = _ids(data.get("accomplishments"))
+	if typeof(data.get("memories")) == TYPE_ARRAY:
+		for entry: Variant in data["memories"]:
+			if typeof(entry) == TYPE_DICTIONARY and Memory.from_dict(entry) != null:
+				record.memories.append((entry as Dictionary).duplicate(true))
+	var weight := float(data.get("significance", 0.0)) if typeof(data.get("significance")) in [TYPE_FLOAT, TYPE_INT] else 0.0
+	record.significance = clampf(weight, 0.0, 1.0) if is_finite(weight) else 0.0
+	record.obituary_event = maxi(int(data.get("obituary_event", 0)), 0)
 	return record
+
+
+## What they remembered most, as memories (owned by nobody living).
+func remembered() -> Array[Memory]:
+	var out: Array[Memory] = []
+	for entry: Dictionary in memories:
+		var memory := Memory.from_dict(entry)
+		if memory != null:
+			out.append(memory)
+	return out
 
 
 static func _ids(value: Variant) -> PackedInt64Array:

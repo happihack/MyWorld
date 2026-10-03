@@ -7,7 +7,8 @@ extends RefCounted
 ##
 ## All fields are integers so generated props are bit-identical everywhere.
 
-enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP }
+## (Saved by number: append, never reorder.)
+enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE }
 
 ## Tree variants 0–1 are broadleaf, 2–3 are conifers (higher ground).
 const TREE_CONIFER_FIRST_VARIANT := 2
@@ -27,6 +28,7 @@ const PICK_BODY := {
 	Kind.CAMPFIRE: [0.36, 0.26],
 	Kind.RUIN: [0.70, 0.42],
 	Kind.CROP: [0.30, 0.42],
+	Kind.GRAVE: [0.40, 0.34],
 }
 
 var id: int = 0
@@ -135,7 +137,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

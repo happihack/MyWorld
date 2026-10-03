@@ -8,8 +8,8 @@ extends ConfigBase
 @export_group("Partners")
 ## Two grown-ups (both free, not of one family) become partners once romance
 ## between them is at least this and they like each other at least this much …
-@export_range(0.0, 1.0, 0.01) var partner_romance: float = 0.35
-@export_range(-1.0, 1.0, 0.01) var partner_affinity: float = 0.15
+@export_range(0.0, 1.0, 0.01) var partner_romance: float = 0.3
+@export_range(-1.0, 1.0, 0.01) var partner_affinity: float = 0.1
 ## … and are no more than this many years apart; each day it may happen, it
 ## happens this often.
 @export_range(0, 60) var partner_most_years_apart: int = 14
@@ -97,6 +97,14 @@ extends ConfigBase
 ## (× how unwell, 0 … 1), and work and play speak this much less.
 @export_range(0.0, 2.0, 0.01) var unwell_rest_weight: float = 0.5
 @export_range(0.0, 1.0, 0.01) var unwell_work_cut: float = 0.6
+
+@export_group("Mourning")
+## Those close to someone who died grieve for this many days (× how close:
+## 1 for a partner, child or parent), their mood this much lower at first.
+@export_range(0.0, 120.0, 0.5) var grief_days: float = 12.0
+@export_range(0.0, 1.0, 0.01) var grief_mood: float = 0.35
+## How much grief draws them to the grave (× how much they grieve now).
+@export_range(0.0, 2.0, 0.01) var visit_grave_weight: float = 0.5
 
 @export_group("Inheritance")
 ## What a parent leaves their children (or partner, or brothers and sisters):

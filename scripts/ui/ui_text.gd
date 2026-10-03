@@ -25,6 +25,7 @@ const PROP_NAMES := {
 	PropData.Kind.CAMPFIRE: "Campfire",
 	PropData.Kind.RUIN: "Old stones",
 	PropData.Kind.CROP: "Field",
+	PropData.Kind.GRAVE: "Grave",
 }
 
 const SPECIES_NAMES := {
@@ -119,6 +120,7 @@ const ACTIVITY_NAMES := {
 	&"play": "Playing",
 	&"tag_along": "Tagging along",
 	&"go_home": "Resting at home",
+	&"visit_grave": "At a grave",
 	&"called": "Answering a call",
 	&"idle": "Standing about",
 }
@@ -254,6 +256,8 @@ static func relation_word(relation: StringName, sex: int) -> String:
 			return "Mother" if woman else "Father"
 		&"child":
 			return "Daughter" if woman else "Son"
+		&"sibling":
+			return "Sister" if woman else "Brother"
 	return "Partner"
 
 
@@ -425,6 +429,10 @@ static func action_label(action: StringName, touch_effect: StringName = &"") -> 
 			return "Look closer"
 		InteractionManager.ACTION_REMOVE:
 			return "Uproot"
+		InteractionManager.ACTION_READ:
+			return "Read"
+		InteractionManager.ACTION_VIEW_FAMILY:
+			return "View family"
 		InteractionManager.ACTION_TOUCH:
 			match touch_effect:
 				InteractionResponse.TREE_SHAKE, InteractionResponse.BUSH_RUSTLE:

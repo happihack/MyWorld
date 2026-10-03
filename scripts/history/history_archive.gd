@@ -6,15 +6,36 @@ extends RefCounted
 ## outlives people.
 
 var _records: Dictionary = {} # id -> HistoricalPerson
+var _graves: Dictionary = {} # grave (prop) id -> person id
 
 
 func clear() -> void:
 	_records.clear()
+	_graves.clear()
 
 
 func add(record: HistoricalPerson) -> void:
 	if record != null and record.id > 0:
 		_records[record.id] = record
+		if record.grave_id > 0:
+			_graves[record.grave_id] = record.id
+
+
+## Whoever lies in this grave (null: nobody known).
+func buried_in(grave_id: int) -> HistoricalPerson:
+	return _records.get(int(_graves.get(grave_id, 0)))
+
+
+## Their grave is (now) this prop at this tile.
+func set_grave(person_id: int, grave_id: int, tile: Vector2i) -> void:
+	var record: HistoricalPerson = _records.get(person_id)
+	if record == null:
+		return
+	_graves.erase(record.grave_id)
+	record.grave_id = grave_id
+	record.grave_tile = tile
+	if grave_id > 0:
+		_graves[grave_id] = person_id
 
 
 func get_record(id: int) -> HistoricalPerson:
@@ -66,5 +87,5 @@ func from_dict(data: Dictionary) -> int:
 		if record == null or _records.has(record.id):
 			skipped += 1
 			continue
-		_records[record.id] = record
+		add(record)
 	return skipped

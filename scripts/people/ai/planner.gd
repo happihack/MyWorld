@@ -4,7 +4,7 @@ extends RefCounted
 ## each plain data (see ActionStep). An empty list means it cannot be done
 ## right now — nothing to eat, nowhere to sleep, nobody to talk to.
 
-const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent"]
+const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent", &"grave"]
 ## Where on the storage tile someone stands to put things down (the piles
 ## lie around its middle).
 const STORE_STAND := Vector2(0.5, 0.88)
@@ -27,6 +27,8 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 			return ctx.places.has_company(person, ctx.now())
 		&"parent":
 			return ctx.places.parent_about(person) != null
+		&"grave":
+			return not ctx.places.grave_to_visit(person).is_empty()
 	return false
 
 
@@ -118,6 +120,18 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var walk := WalkToStep.make(_beside(parent.position, person.position, ctx), person.sub_tile_offset)
 			walk["toward"] = parent.id
 			return [walk, SocializeStep.make(parent.id, snappedf(rng.randf_range(25.0, 50.0), 1.0))]
+		&"visit_grave":
+			# To the grave of someone they have lost, to kneel there a while.
+			var grave := ctx.places.grave_to_visit(person)
+			if grave.is_empty():
+				return []
+			var rest := RestStep.make(snappedf(rng.randf_range(20.0, 40.0), 1.0), grave["tile"])
+			rest["kneel"] = true
+			rest["grave_of"] = grave["of"]
+			# (At its foot, if one can stand there: the stone is at its head.)
+			var foot: Vector2i = grave["tile"] + Vector2i(0, 1)
+			var at := foot if ctx.pathfinder.can_stand(foot) else _beside(grave["tile"], person.position, ctx)
+			return [WalkToStep.make(at, Vector2(0.5, 0.35)), rest]
 		&"play":
 			var spot: Variant = ctx.places.play_tile(person, rng)
 			if spot == null:
