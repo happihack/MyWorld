@@ -63,6 +63,8 @@ var significance: Significance
 ## decides to build (M12.1).
 var construction: ConstructionSystem
 var planner: SettlementPlanner
+## Where people walk, the paths they wear (M12.2).
+var traffic: Traffic
 var buildings: BuildingLibrary
 ## Where the dead are laid (M10.3).
 var graves: Graves
@@ -134,6 +136,7 @@ var _saved_archive: Dictionary = {}
 var _saved_culture: Dictionary = {}
 var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
+var _saved_traffic: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -217,6 +220,8 @@ func _init() -> void:
 	significance.became_important.connect(chronicle.on_became_important)
 	construction = ConstructionSystem.new()
 	planner = SettlementPlanner.new()
+	traffic = Traffic.new()
+	traffic.worn.connect(chronicle.on_path_worn)
 	construction.begun.connect(chronicle.on_building_begun)
 	construction.finished.connect(chronicle.on_building_built)
 	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
@@ -227,14 +232,19 @@ func _init() -> void:
 	construction.repaired.connect(chronicle.on_building_repaired)
 	construction.damaged.connect(chronicle.on_building_damaged)
 	construction.ruined.connect(chronicle.on_building_ruined)
-	construction.ruined.connect(func(_id: int, _def: StringName) -> void:
+	# (A bridge finished where it stood: the way over it is open.)
+	construction.finished.connect(func(project: Dictionary, _id: int) -> void:
+		pathfinder.mark_dirty(project["tile"]))
+	construction.ruined.connect(func(_id: int, _def: StringName, _why: StringName) -> void:
 		_apply_storehouses()
 		households.rehouse())
 	# Floods and storms wear the buildings (M12.1).
 	hydrology.flood_changed.connect(func(active: bool, _tiles: int, _at: Vector2) -> void:
 		if active and is_active:
 			for prop in props.all_props():
-				if prop.is_building() and world.get_water(prop.tile) > 0.0:
+				# (A bridge stands in its ford: only water over the ford — too deep to wade — harms it.)
+				var over := Pathfinder.WADE_DEPTH * world.height_step if prop.kind == PropData.Kind.BRIDGE else 0.0
+				if prop.is_building() and world.get_water(prop.tile) > over:
 					construction.damage(prop.id, Config.construction.flood_damage, &"flood", clock.tick))
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
 		if now == WeatherSystem.STORM and is_active:
@@ -348,6 +358,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_culture = {}
 	_saved_construction = {}
 	_saved_planner = {}
+	_saved_traffic = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -417,8 +428,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_culture = {}
 	_saved_construction = {}
 	_saved_planner = {}
+	_saved_traffic = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("traffic")) == TYPE_DICTIONARY:
+			_saved_traffic = state["traffic"]
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -545,6 +559,7 @@ func to_dict() -> Dictionary:
 			"culture": culture.to_dict(),
 			"construction": construction.to_dict(),
 			"planner": planner.to_dict(),
+			"traffic": traffic.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -587,6 +602,7 @@ func _process(delta: float) -> void:
 		culture.advance_to(clock.tick)
 		construction.advance_to(clock.tick)
 		planner.advance_to(clock.tick)
+		traffic.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -1028,7 +1044,11 @@ func _activate() -> void:
 	if unusable_projects > 0:
 		Log.warn(Log.Category.LOAD, "Some saved building projects were unusable and dropped", {"projects": unusable_projects})
 	_saved_construction = {}
-	planner.bind(settlement, construction, people, world, pathfinder, clock.tick, Config.construction, households)
+	traffic.bind(world, props, clock.tick, Config.construction)
+	traffic.from_dict(_saved_traffic)
+	_saved_traffic = {}
+	movement.traffic = traffic
+	planner.bind(settlement, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
 	planner.from_dict(_saved_planner)
 	_saved_planner = {}
 	if settlement != null:
@@ -1037,6 +1057,8 @@ func _activate() -> void:
 	ai.construction = construction
 	interactions.construction = construction
 	ai.planner = planner
+	ai.traffic = traffic
+	interactions.traffic = traffic
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)

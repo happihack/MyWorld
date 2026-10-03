@@ -57,6 +57,8 @@ var _frame := 0
 ## For the debug overlay.
 var arrivals := 0
 var blocks := 0
+## Counts every step onto a tile (M12.2: paths are worn where people walk).
+var traffic: Traffic
 
 
 func bind(people: PersonRegistry, pathfinder: Pathfinder, clock: GameClock) -> void:
@@ -257,6 +259,8 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		if distance <= speed * left:
 			at = goal
 			left -= distance / speed
+			if traffic != null:
+				traffic.add(tile)
 			if last:
 				_put(person, at, facing)
 				_forget(walk.person_id)

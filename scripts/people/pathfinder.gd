@@ -538,6 +538,10 @@ func _read(tile: Vector2i, id: int) -> bool:
 
 func _weigh(tile: Vector2i, id: int) -> float:
 	var weight: float = TERRAIN_WEIGHT.get(_world.get_terrain(tile), 1.0)
+	if _prop_kind[id] - 1 == PropData.Kind.BRIDGE and _props != null:
+		var bridge := _props.prop_at(tile)
+		if bridge != null and bridge.variant >= PropData.BRIDGE_DONE:
+			return TERRAIN_WEIGHT[ChunkData.Terrain.ROAD] # (dry-shod over the ford)
 	if _water_class[id] == _WADE:
 		weight += WEIGHT_WADING
 	match _prop_kind[id] - 1:

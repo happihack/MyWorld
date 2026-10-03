@@ -64,6 +64,8 @@ var reduced_motion := false:
 		_outline_material.set_shader_parameter(&"motion", REDUCED_MOTION if value else 1.0)
 
 var _world: WorldData
+## For the bridges people walk over (M12.2).
+var props: PropRegistry
 var _people: PersonRegistry
 var _clock: GameClock
 var _occupations: OccupationLibrary
@@ -382,7 +384,11 @@ func pick_shape(person_id: int) -> Variant:
 ## Where a person's feet are in the world.
 func ground_position(person: PersonData) -> Vector3:
 	var at := person.world2d()
-	return Vector3(at.x, _world.get_height(person.position) * _world.height_step, at.y)
+	var y := _world.get_height(person.position) * _world.height_step
+	var bridge := props.prop_at(person.position) if props != null else null
+	if bridge != null and bridge.kind == PropData.Kind.BRIDGE and bridge.variant >= PropData.BRIDGE_DONE:
+		y += PropData.BRIDGE_DECK
+	return Vector3(at.x, y, at.y)
 
 
 ## Where a person is seen right now: their body's place if they have one

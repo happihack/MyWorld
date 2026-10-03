@@ -219,6 +219,8 @@ func step(minutes: float) -> void:
 		ctx.construction.advance_to(ctx.now())
 	if ctx.planner != null:
 		ctx.planner.advance_to(ctx.now())
+	if ctx.traffic != null:
+		ctx.traffic.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()

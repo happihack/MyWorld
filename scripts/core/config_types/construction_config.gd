@@ -54,6 +54,18 @@ extends ConfigBase
 @export_range(0, 1000) var empty_home_days: int = 48
 @export_range(0, 1000) var decay_per_day: int = 20
 
+@export_group("Paths and bridges")
+## Of what a tile has been walked, this much is remembered the next day
+## (the rest fades: a path nobody walks grows over).
+@export_range(0.5, 0.999, 0.001) var footfall_kept_per_day: float = 0.9
+## Grass walked this much (remembered footfall: about a tenth of it is one
+## day's steps, kept up) is worn to a path; a path walked less than
+## `path_gone` grows over.
+@export_range(1.0, 1000.0) var path_from: float = 30.0
+@export_range(0.0, 1000.0) var path_gone: float = 8.0
+## A ford waded this much calls for a bridge.
+@export_range(1.0, 1000.0) var bridge_from: float = 40.0
+
 @export_group("Storage")
 ## Food kept near a storehouse goes bad this much as fast.
 @export_range(0.0, 1.0, 0.01) var storehouse_spoil_factor: float = 0.5
@@ -62,4 +74,5 @@ extends ConfigBase
 func validate() -> PackedStringArray:
 	var p := PackedStringArray()
 	_check(p, site_nearest < site_farthest, "site_nearest must be below site_farthest")
+	_check(p, path_gone < path_from, "path_gone must be below path_from")
 	return p

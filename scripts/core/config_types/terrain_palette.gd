@@ -10,7 +10,7 @@ extends ConfigBase
 	Color(0.61, 0.60, 0.62), # ROCK
 	Color(0.95, 0.96, 0.98), # SNOW
 	Color(0.55, 0.42, 0.24), # FARMLAND
-	Color(0.68, 0.62, 0.50), # ROAD
+	Color(0.64, 0.53, 0.38), # ROAD (a path worn into the turf: bare earth)
 	Color(0.52, 0.47, 0.38), # RIVERBED
 	Color(0.40, 0.32, 0.24), # MUD
 	Color(0.30, 0.30, 0.30), # ASH

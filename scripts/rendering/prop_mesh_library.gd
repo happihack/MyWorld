@@ -120,6 +120,8 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.STOREHOUSE, 0)] = _storehouse()
 	_templates[_key(PropData.Kind.WELL, 0)] = _well()
 	_templates[_key(PropData.Kind.WORKSHOP, 0)] = _workshop()
+	for stage in PropData.BRIDGE_DONE + 1:
+		_templates[_key(PropData.Kind.BRIDGE, stage)] = _bridge(stage)
 	# What is left of nodes that have given up what they had.
 	for variant in 4:
 		_templates[_look_key(PropData.Kind.TREE, variant, ResourceNodes.Look.STUMP)] = _stump(0.095 if variant < 2 else 0.08, 0.16)
@@ -479,6 +481,31 @@ static func _workshop() -> Template:
 	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
 	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
 	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
+	return t
+
+
+## A footbridge over a ford (M12.2), running north–south (turned by the
+## prop's rotation): posts driven into the bed (0), beams laid on them (1),
+## then a deck of planks with a rail (PropData.BRIDGE_DONE). Its deck is
+## PropData.BRIDGE_DECK above the bed, over the water of a ford.
+static func _bridge(stage: int) -> Template:
+	var t := Template.new()
+	var deck := PropData.BRIDGE_DECK
+	for z: float in [-0.42, 0.0, 0.42]:
+		for x: float in [-0.24, 0.24]:
+			_box(t, Vector3(x, deck * 0.5 + 0.01, z), Vector3(0.03, deck * 0.5 + 0.01, 0.03), _rgba(TRUNK_DARK, 0.0))
+	if stage >= 1:
+		for x: float in [-0.22, 0.22]:
+			_box(t, Vector3(x, deck - 0.03, 0.0), Vector3(0.025, 0.025, 0.5), _rgba(TRUNK, 0.0))
+	if stage >= PropData.BRIDGE_DONE:
+		for i in 6:
+			var z := -0.42 + i * 0.168
+			var tone := LOG.lightened(0.18 if i % 2 == 0 else 0.1)
+			_box(t, Vector3(0.0, deck + 0.01, z), Vector3(0.27, 0.018, 0.078), _rgba(tone, 0.0))
+		for x: float in [-0.26, 0.26]:
+			for z: float in [-0.42, 0.42]:
+				_box(t, Vector3(x, deck + 0.13, z), Vector3(0.018, 0.12, 0.018), _rgba(TRUNK, 0.0))
+			_box(t, Vector3(x, deck + 0.24, 0.0), Vector3(0.015, 0.015, 0.44), _rgba(TRUNK_DARK, 0.0))
 	return t
 
 

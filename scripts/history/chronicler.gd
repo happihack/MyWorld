@@ -70,6 +70,7 @@ const TYPE_BUILT := &"building_built"
 const TYPE_BUILDING_DAMAGED := &"building_damaged"
 const TYPE_REPAIRED := &"building_repaired"
 const TYPE_RUINED := &"building_ruined"
+const TYPE_PATH := &"path_worn"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -587,12 +588,19 @@ func on_building_repaired(project: Dictionary, _building_id: int) -> void:
 		"position": Places.middle_of(tile), "settlement": _settlement_id()})
 
 
-func on_building_ruined(ruin_id: int, def_id: StringName) -> void:
+func on_building_ruined(ruin_id: int, def_id: StringName, why: StringName = &"") -> void:
 	if not _writing():
 		return
 	var ruin := _props.get_prop(ruin_id) if _props != null else null
-	_log.record(TYPE_RUINED, {"building": String(def_id), "position": ruin.position2d() if ruin != null else _fire_place(),
-		"settlement": _settlement_id()})
+	_log.record(TYPE_RUINED, {"building": String(def_id), "kind": String(why),
+		"position": ruin.position2d() if ruin != null else _fire_place(), "settlement": _settlement_id()})
+
+
+## Feet have worn a path (M12.2): history notes the first.
+func on_path_worn(tile: Vector2i, path: bool) -> void:
+	if not _writing() or not path or _log.count_of(TYPE_PATH) > 0:
+		return
+	_log.record(TYPE_PATH, {"position": Places.middle_of(tile), "settlement": _settlement_id()})
 
 
 ## Someone from far away has come to live here.

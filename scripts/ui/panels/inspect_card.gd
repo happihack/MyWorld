@@ -86,7 +86,9 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 			_add_row("Height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 			_add_row("Fertility", UIText.fertility_text(report.fertility))
-			_add_row("Plant cover", UIText.vegetation_text(report.vegetation))
+			if report.terrain != ChunkData.Terrain.ROAD: # (worn bare)
+				_add_row("Plant cover", UIText.vegetation_text(report.vegetation))
+			_add_row("Footfall", UIText.footfall_text(report.footfall, report.path))
 	layout()
 
 

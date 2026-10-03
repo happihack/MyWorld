@@ -153,6 +153,7 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 
 ## Shows the people of the world that is being shown (call after show_world).
 func show_people(people: PersonRegistry, clock: GameClock, occupations: OccupationLibrary) -> void:
+	_people_view.props = _props
 	_people_view.show_people(_world, people, clock, occupations)
 	_people = people
 	_day_night.bind(clock) # the light of the day follows the same clock

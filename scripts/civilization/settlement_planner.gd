@@ -10,6 +10,7 @@ extends RefCounted
 ##   or two households crowded under one)
 ##   the stores overflowing, food going bad   → a storehouse
 ##   water to drink far from the fire         → a well
+##   a ford waded often                       → a bridge (M12.2)
 ##   (crafting and the knowing of toolmaking  → a workshop: M12.4, M18)
 ##
 ## Where: open, dry ground a few tiles from the fire, above the highest water
@@ -20,6 +21,7 @@ var _settlement: Settlement
 var _construction: ConstructionSystem
 var _people: PersonRegistry
 var _households: Households
+var _traffic: Traffic
 var _world: WorldData
 var _pathfinder: Pathfinder
 var _config: ConstructionConfig
@@ -28,9 +30,11 @@ var _spoiled: Array = [] # [day, units]
 
 
 func bind(settlement: Settlement, construction: ConstructionSystem, people: PersonRegistry, world: WorldData,
-		pathfinder: Pathfinder, now: int, config: ConstructionConfig = null, households: Households = null) -> void:
+		pathfinder: Pathfinder, now: int, config: ConstructionConfig = null, households: Households = null,
+		traffic: Traffic = null) -> void:
 	_settlement = settlement
 	_households = households
+	_traffic = traffic
 	_construction = construction
 	_people = people
 	_world = world
@@ -69,6 +73,11 @@ func plan(now: int) -> Dictionary:
 		var def := _construction.buildings.with_tag(String(need))
 		if def.is_empty() or def[0].tech != &"":
 			continue
+		if need == &"bridge":
+			var ford: Variant = _traffic.ford_for_bridge()
+			if ford != null:
+				return _construction.start(def[0].id, ford, now, bridge_turn(ford))
+			continue
 		var site: Variant = site_for(def[0])
 		if site == null:
 			continue
@@ -85,7 +94,27 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"storage")
 	if water_far():
 		out.append(&"water")
+	if _traffic != null and _traffic.ford_for_bridge() != null:
+		out.append(&"bridge")
 	return out
+
+
+## Which way a bridge on `ford` runs: across the water, the shorter way to
+## dry land on both sides (0: north–south; 64: east–west).
+func bridge_turn(ford: Vector2i) -> int:
+	var across_x := _water_run(ford, Vector2i(1, 0)) + _water_run(ford, Vector2i(-1, 0))
+	var across_y := _water_run(ford, Vector2i(0, 1)) + _water_run(ford, Vector2i(0, -1))
+	return 64 if across_x < across_y else 0
+
+
+## Tiles of water from `tile` (not counted) in direction `step` before dry land (at most 16).
+func _water_run(tile: Vector2i, step: Vector2i) -> int:
+	var run := 0
+	var at := tile + step
+	while run < 16 and _world.is_in_bounds(at) and _world.get_water(at) > 0.0:
+		run += 1
+		at += step
+	return run
 
 
 ## Are the homes full (or is someone without a roof)?

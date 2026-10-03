@@ -191,8 +191,12 @@ static func _hunt(person: PersonData, ctx: AiContext) -> Array:
 static func _build_work(person: PersonData, ctx: AiContext) -> Array:
 	if ctx.construction == null or ctx.settlement == null:
 		return []
-	var projects := ctx.construction.projects().duplicate()
-	# (Repairs and new buildings alike; the oldest first.)
+	# Homes first (built or mended), then the rest; the oldest first within each.
+	var projects: Array[Dictionary] = []
+	for home_first in [true, false]:
+		for project in ctx.construction.projects():
+			if (str(project["def"]) == "hut") == home_first:
+				projects.append(project)
 	for project: Dictionary in projects:
 		var tile: Vector2i = project["tile"]
 		var beside := _beside(tile, person.position, ctx)

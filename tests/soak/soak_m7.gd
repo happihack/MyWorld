@@ -238,6 +238,7 @@ func _run() -> void:
 		s.construction.standing(PropData.Kind.WELL).size(), s.construction.standing(PropData.Kind.RUIN).size(),
 		s.events.count_of(&"building_begun"), s.events.count_of(&"building_built"), s.events.count_of(&"building_damaged"),
 		s.events.count_of(&"building_repaired"), s.events.count_of(&"building_ruined"), s.construction.debug_text()])
+	print("SOAK %s  bridges %d" % [s.traffic.debug_text(), s.construction.standing(PropData.Kind.BRIDGE).size()])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

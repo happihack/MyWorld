@@ -78,6 +78,8 @@ var culture: CulturalMemory
 var construction: ConstructionSystem
 ## What the settlement decides to build (M12.1; may be null).
 var planner: SettlementPlanner
+## Footfall and paths (M12.2).
+var traffic: Traffic
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

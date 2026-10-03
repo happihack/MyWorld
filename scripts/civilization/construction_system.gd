@@ -18,7 +18,8 @@ signal begun(project: Dictionary)
 signal finished(project: Dictionary, building_id: int)
 signal repaired(project: Dictionary, building_id: int)
 signal damaged(building_id: int, why: StringName)
-signal ruined(building_id: int, def_id: StringName)
+## `why`: &"empty" (nobody lived in it), &"worn" (damage), &"washed" (a bridge gone).
+signal ruined(building_id: int, def_id: StringName, why: StringName)
 
 const BUILD := "build"
 const REPAIR := "repair"
@@ -138,16 +139,17 @@ func debug_text() -> String:
 
 ## Begins a building of `def_id` on `tile`: its site is staked out. Returns the
 ## project ({}: it cannot be).
-func start(def_id: StringName, tile: Vector2i, now: int) -> Dictionary:
+func start(def_id: StringName, tile: Vector2i, now: int, rotation_step: int = 0) -> Dictionary:
 	var def := buildings.get_def(def_id) if buildings != null else null
 	if def == null or _props == null or _props.prop_at(tile) != null:
 		return {}
 	var site := PropData.new()
 	site.id = _ids.next_id()
-	site.kind = PropData.Kind.SITE
+	# (A bridge is built where it will stand, in the ford: people wade past it meanwhile.)
+	site.kind = PropData.Kind.BRIDGE if def.has_tag("bridge") else PropData.Kind.SITE
 	site.tile = tile
 	site.variant = STAKES
-	site.rotation_step = 0
+	site.rotation_step = rotation_step
 	if not _props.add(site):
 		return {}
 	var p := {"id": _next_id, "kind": BUILD, "def": String(def_id), "tile": tile, "site": site.id,
@@ -185,7 +187,8 @@ func work(p: Dictionary, person: PersonData, minutes: float, now: int) -> bool:
 		builders[str(person.id)] = float(builders.get(str(person.id), 0.0)) + float(p["done"]) - before
 	# The site shows how far it has come.
 	var site := _props.get_prop(int(p["site"])) if str(p["kind"]) == BUILD else null
-	if site != null and site.kind == PropData.Kind.SITE and progress(p) >= FRAME_FROM and site.variant != FRAME:
+	if site != null and (site.kind == PropData.Kind.SITE or site.kind == PropData.Kind.BRIDGE) and progress(p) >= FRAME_FROM \
+			and site.variant == STAKES:
 		site.variant = FRAME
 		_props.touch(site.id)
 	if float(p["done"]) >= float(p["labor"]) - 0.001 and still_needed(p).is_empty():
@@ -216,14 +219,21 @@ func _finish(p: Dictionary, now: int) -> void:
 		return
 	var def := buildings.get_def(StringName(str(p["def"])))
 	var tile: Vector2i = p["tile"]
-	_props.remove(int(p["site"]))
-	var building := PropData.new()
-	building.id = _ids.next_id()
-	building.kind = def.prop_kind as PropData.Kind
-	building.tile = tile
-	building.rotation_step = 0
-	if not _props.add(building):
-		return
+	var building := _props.get_prop(int(p["site"]))
+	if building != null and building.kind == def.prop_kind:
+		# (Built where it stands: a bridge.)
+		building.variant = PropData.BRIDGE_DONE
+		building.condition = PropData.SOUND
+		_props.touch(building.id)
+	else:
+		_props.remove(int(p["site"]))
+		building = PropData.new()
+		building.id = _ids.next_id()
+		building.kind = def.prop_kind as PropData.Kind
+		building.tile = tile
+		building.rotation_step = 0
+		if not _props.add(building):
+			return
 	if def.has_tag("home") and _start != null and not _start.hut_ids.has(building.id):
 		_start.hut_ids.append(building.id)
 		_empty_since[building.id] = now
@@ -250,7 +260,7 @@ func damage(building_id: int, amount: int, why: StringName, now: int) -> void:
 	if building.condition < _config.repair_below and (was >= _config.repair_below or amount >= _config.repair_below / 2):
 		damaged.emit(building.id, why)
 	if building.condition <= 0:
-		_ruin(building)
+		_ruin(building, &"washed" if building.kind == PropData.Kind.BRIDGE else &"worn")
 	elif building.condition < _config.repair_below:
 		start_repair(building, now)
 
@@ -305,11 +315,11 @@ func advance_to(now: int) -> void:
 		home.condition = maxi(home.condition - _config.decay_per_day * mini(days, past), 0)
 		_props.touch(home.id)
 		if home.condition <= 0:
-			_ruin(home)
+			_ruin(home, &"empty")
 
 
 ## A building has fallen: what is left of it is a ruin (and history).
-func _ruin(building: PropData) -> void:
+func _ruin(building: PropData, why: StringName) -> void:
 	var def := buildings.of_kind(building.kind) if buildings != null else null
 	var going := project_at(building.id)
 	if not going.is_empty():
@@ -319,12 +329,16 @@ func _ruin(building: PropData) -> void:
 	var tile := building.tile
 	var id := building.id
 	_props.remove(id)
+	if building.kind == PropData.Kind.BRIDGE:
+		# (Washed away: nothing is left standing in the ford.)
+		ruined.emit(id, def.id if def != null else &"", why)
+		return
 	var ruin := PropData.new()
 	ruin.id = _ids.next_id()
 	ruin.kind = PropData.Kind.RUIN
 	ruin.tile = tile
 	_props.add(ruin)
-	ruined.emit(ruin.id, def.id if def != null else &"")
+	ruined.emit(ruin.id, def.id if def != null else &"", why)
 
 
 ## Materials as plain data: resource id (String) -> units.

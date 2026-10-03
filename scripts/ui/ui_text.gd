@@ -30,6 +30,7 @@ const PROP_NAMES := {
 	PropData.Kind.STOREHOUSE: "Storehouse",
 	PropData.Kind.WELL: "Well",
 	PropData.Kind.WORKSHOP: "Workshop",
+	PropData.Kind.BRIDGE: "Bridge",
 }
 
 const SPECIES_NAMES := {
@@ -470,6 +471,12 @@ static func fertility_text(value: int) -> String:
 
 static func vegetation_text(value: int) -> String:
 	return "%s (%s)" % [level_word(value, ["Bare", "Sparse", "Green", "Lush"]), percent(value)]
+
+
+## How much a tile is walked (Traffic.level): "Well trodden" …
+static func footfall_text(level: float, path: bool) -> String:
+	var word := "Untrodden" if level < 1.0 else ("Seldom walked" if level < 10.0 else ("Trodden" if level < 30.0 else "Well trodden"))
+	return word + (" — a path" if path else "")
 
 
 ## A building's condition (0 … PropData.SOUND): "Sound", "Weathered (72%)" …

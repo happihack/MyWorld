@@ -8,13 +8,18 @@ extends RefCounted
 ## All fields are integers so generated props are bit-identical everywhere.
 
 ## (Saved by number: append, never reorder.)
-enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP }
+enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE }
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
-const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP]
+const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE]
 ## Solid: nobody walks through it.
 const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP]
 ## A building's full condition (see `condition`).
 const SOUND := 1000
+## A bridge (M12.2) is built where it stands: posts (0), beams (1), then it
+## can be walked (this variant).
+const BRIDGE_DONE := 2
+## How far above the bed of the ford a bridge's deck is (world units).
+const BRIDGE_DECK := 0.3
 
 ## Tree variants 0–1 are broadleaf, 2–3 are conifers (higher ground).
 const TREE_CONIFER_FIRST_VARIANT := 2
@@ -39,6 +44,7 @@ const PICK_BODY := {
 	Kind.STOREHOUSE: [0.90, 0.50],
 	Kind.WELL: [0.60, 0.40],
 	Kind.WORKSHOP: [0.90, 0.50],
+	Kind.BRIDGE: [0.36, 0.48],
 }
 
 var id: int = 0
@@ -150,7 +156,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

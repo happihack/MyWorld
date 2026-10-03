@@ -64,6 +64,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.STOREHOUSE: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.WELL: InteractionResponse.ROCK_WOBBLE,
 	PropData.Kind.WORKSHOP: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.BRIDGE: InteractionResponse.BUILDING_KNOCK,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -83,6 +84,8 @@ var _clock: GameClock
 var _settlement := Vector2.INF
 ## What is being built (M12.1), for the inspect card of a site.
 var construction: ConstructionSystem
+## Footfall, for the inspect card of the ground (M12.2).
+var traffic: Traffic
 var _people: PersonRegistry
 var _fauna: AnimalSystem
 var _weather: WeatherSystem
@@ -698,6 +701,9 @@ func inspect(target: Picker.Result) -> InspectReport:
 	report.fertility = chunk.fertility[i]
 	report.vegetation = chunk.vegetation[i]
 	report.water_depth = chunk.water[i]
+	if traffic != null:
+		report.footfall = traffic.level(report.tile)
+		report.path = traffic.is_path(report.tile)
 	if prop != null:
 		report.subject = InspectReport.Subject.PROP
 		report.entity_id = prop.id
@@ -705,14 +711,14 @@ func inspect(target: Picker.Result) -> InspectReport:
 		report.prop_variant = prop.variant
 		report.scale_percent = prop.scale_percent
 		report.generated = prop.is_generated()
-		if prop.is_building():
+		# (A site, or a bridge going up where it stands; a repair: the condition says it.)
+		var project := construction.project_at(prop.id) if construction != null else {}
+		if not project.is_empty() and str(project["kind"]) == ConstructionSystem.BUILD:
+			report.building = StringName(str(project["def"]))
+			report.build_progress = construction.progress(project)
+			report.still_needed = construction.still_needed(project)
+		elif prop.is_building():
 			report.condition = prop.condition
-		if construction != null and prop.kind == PropData.Kind.SITE:
-			var project := construction.project_at(prop.id)
-			if not project.is_empty():
-				report.building = StringName(str(project["def"]))
-				report.build_progress = construction.progress(project)
-				report.still_needed = construction.still_needed(project)
 		if prop.kind == PropData.Kind.TREE:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()

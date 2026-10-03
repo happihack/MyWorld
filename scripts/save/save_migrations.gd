@@ -32,6 +32,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	21: _v21_to_v22,
 	22: _v22_to_v23,
 	23: _v23_to_v24,
+	24: _v24_to_v25,
 }
 
 
@@ -352,6 +353,20 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 25 (M12.2) adds footfall and the paths it has worn (and bridges,
+## a new kind of prop). An older world begins with no paths.
+static func _v24_to_v25(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("traffic"):
+		(state as Dictionary)["traffic"] = {}
 	return data
 
 
