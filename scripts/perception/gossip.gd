@@ -8,10 +8,13 @@ extends RefCounted
 ## Puts before `listener` what `teller` tells them: something of the kind
 ## `subject`, taken by the teller as `interpretation`. `strength` (0 … 1) is
 ## how much the teller makes of it; `fidelity` how true to what happened
-## their own account still is.
+## their own account still is; `lore` what the story has become so far
+## (and in this telling it may change again: see Lore).
 static func tell(ctx: AiContext, teller: PersonData, listener: PersonData, subject: StringName, interpretation: StringName,
-		strength: float, fidelity: float = 1.0) -> void:
-	var telling := Stimulus.telling(teller, subject, interpretation, strength, ctx.now(), fidelity)
+		strength: float, fidelity: float = 1.0, lore: Dictionary = {}) -> void:
+	var told := Lore.retell(lore, teller, interpretation, ctx.stories_rng())
+	var telling := Stimulus.telling(teller, subject, told[1], clampf(strength * Lore.force(told[0]), 0.0, 1.0), ctx.now(),
+		fidelity, told[0])
 	telling.id = ctx.take_stimulus_id()
 	if not ctx.perceptions.has(listener.id):
 		ctx.perceptions[listener.id] = []
@@ -32,8 +35,18 @@ static func share(ctx: AiContext, teller: PersonData, listener: PersonData) -> M
 	if memory.kind == Memory.KIND_HARDSHIP:
 		Hardship.hear(ctx, teller, listener, memory)
 		return memory
-	tell(ctx, teller, listener, memory.subject, memory.interpretation, clampf(memory.importance + 0.2, 0.3, 0.85), memory.fidelity)
+	tell(ctx, teller, listener, memory.subject, memory.interpretation, clampf(memory.importance + 0.2, 0.3, 0.85), memory.fidelity,
+		_lore_of(memory))
 	return memory
+
+
+## What a memory's story has become (its text parameters that are Lore's).
+static func _lore_of(memory: Memory) -> Dictionary:
+	var out := {}
+	for key: String in [Lore.GRAND, Lore.FIRST_DAYS, Lore.PERSONIFIED]:
+		if memory.text_params.has(key):
+			out[key] = memory.text_params[key]
+	return out
 
 
 ## How true `teller`'s own account of something of the kind `subject` is:

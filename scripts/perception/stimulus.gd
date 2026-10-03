@@ -77,6 +77,8 @@ var interpretation: StringName = &""
 ## How true to what happened the teller's account is (1 = they were there
 ## and remember it well).
 var fidelity := 1.0
+## What the story has become in the telling (see Lore).
+var lore: Dictionary = {}
 
 
 ## The stimulus an intervention gives off (null if it gives off none).
@@ -173,7 +175,7 @@ static func strength_of(iv: Intervention) -> float:
 
 ## Someone telling a listener of what they experienced.
 static func telling(teller: PersonData, what: StringName, as_what: StringName, strength: float, tick_now: int,
-		how_true: float = 1.0) -> Stimulus:
+		how_true: float = 1.0, story: Dictionary = {}) -> Stimulus:
 	var stimulus := Stimulus.new()
 	stimulus.type = TOLD
 	stimulus.origin = Origin.PERSON
@@ -186,6 +188,7 @@ static func telling(teller: PersonData, what: StringName, as_what: StringName, s
 	stimulus.about = what
 	stimulus.interpretation = as_what
 	stimulus.fidelity = clampf(how_true, 0.0, 1.0)
+	stimulus.lore = story.duplicate()
 	return stimulus
 
 

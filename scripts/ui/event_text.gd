@@ -70,6 +70,16 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 		params["resource"] = UIText.resource_name(StringName(str(params["resource"])))
 	if params.has("species"):
 		params["species"] = UIText.species_name(StringName(str(params["species"]))).to_lower()
+	# (What a memory or a myth is about, and what is made of it.)
+	if params.has("subject"):
+		var what_key := "MEMWHAT_" + str(params["subject"]).to_upper()
+		params["what"] = MemoryText.translate(what_key if MemoryText.has(what_key) else "MEMWHAT_UNKNOWN")
+	if params.has("interpretation") and str(params["interpretation"]) != "":
+		var belief_key := "MEMBELIEF_" + str(params["interpretation"]).to_upper()
+		params["belief"] = MemoryText.translate(belief_key if MemoryText.has(belief_key) else "MEMBELIEF_NATURAL")
+	if params.has("epithet"):
+		var epithet := str(params["epithet"])
+		params["epithet"] = MemoryText.translate(epithet if MemoryText.has(epithet) else "EPITHET_UNKNOWN")
 	if params.has("occupation"):
 		params["occupation"] = UIText.occupation_name(StringName(str(params["occupation"]))).to_lower()
 	if event.type == &"player_intervention":

@@ -42,6 +42,10 @@ static func translate(key: String) -> String:
 	return String(TranslationServer.translate(key))
 
 
+## The words of a memory that was told (whose story is what was told).
+const TOLD_KEYS: Array[String] = ["MEM_TOLD", "MEM_TOLD_NOBODY", "MEM_STORY"]
+
+
 ## The memory as a clause: "felt the touch of a spirit (3 times)".
 ## `people`: to name whoever told it (may be null).
 static func text(memory: Memory, people: PersonRegistry = null) -> String:
@@ -53,14 +57,22 @@ static func text(memory: Memory, people: PersonRegistry = null) -> String:
 		key = "MEM_SAW"
 	var what_key := "MEMWHAT_" + String(memory.subject).to_upper()
 	var belief_key := "MEMBELIEF_" + String(memory.interpretation).to_upper()
+	var what := translate(what_key if has(what_key) else "MEMWHAT_UNKNOWN")
+	# A story told: what it has become is part of what was told ("of a touch …, in the first days").
+	var told_story := TOLD_KEYS.has(key) and Lore.has_lore(memory.text_params)
+	if told_story:
+		what = Lore.wrap_what(what, memory.text_params)
 	var out := translate(key).format({
-		"what": translate(what_key if has(what_key) else "MEMWHAT_UNKNOWN"),
+		"what": what,
 		"belief": translate(belief_key if has(belief_key) else "MEMBELIEF_NATURAL"),
 		"teller": teller if teller != "" else translate("MEM_SOMEONE"),
 	})
 	# What was handed down from someone who has died: their memory, as theirs.
 	if memory.source == Memory.Source.INHERITED:
 		out = translate("MEM_INHERITED").format({"teller": teller if teller != "" else translate("MEM_SOMEONE"), "text": out})
+	# What the story has become in the telling (one's own memory of it).
+	if not told_story and not memory.text_params.is_empty():
+		out = Lore.wrap(out, memory.text_params)
 	if memory.count > 1:
 		out = translate("MEM_TIMES").format({"text": out, "count": memory.count})
 	return out

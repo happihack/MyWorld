@@ -26,6 +26,11 @@ extends ConfigBase
 @export_range(0.0, 1.0, 0.001) var daily_fade: float = 0.04
 ## Below this it is forgotten.
 @export_range(0.0, 1.0, 0.01) var forget_below: float = 0.05
+## What was lived strongly (intensity at least this: a child born, a parent
+## lost, a partner found, a strong touch) lasts: it fades this much as fast
+## (for years, not seasons: M11.1).
+@export_range(0.0, 1.0, 0.01) var lasting_from: float = 0.6
+@export_range(0.0, 1.0, 0.005) var lasting_fade: float = 0.04
 
 @export_group("Telling")
 ## How much of a memory's fidelity survives a retelling.
@@ -57,6 +62,49 @@ extends ConfigBase
 ## ...and has lain there at least this long (game minutes): what is seen to
 ## land is not "found".
 @export_range(0, 10000) var find_after_minutes: int = 30
+
+@export_group("Stories (M11.1)")
+## When a child goes to bed, a parent or grandparent nearby tells them a
+## story this often: the most important thing they remember that the child
+## has not heard from them yet (at least this important).
+@export_range(0.0, 1.0, 0.01) var bedtime_story_chance: float = 0.8
+@export_range(0.0, 1.0, 0.01) var story_importance: float = 0.15
+## How near (tiles) the teller must be (or under the same roof).
+@export_range(0.0, 60.0, 0.5) var story_reach: float = 10.0
+## A story is remembered this much less than what the teller lived through,
+## and moves the child's convictions with this weight.
+@export_range(0.0, 1.0, 0.01) var story_share: float = 0.7
+@export_range(0.0, 1.0, 0.01) var story_belief_weight: float = 0.4
+## Grandparents tell grandchildren: their stories count this much more.
+@export_range(0.0, 1.0, 0.01) var elder_story_bonus: float = 0.15
+
+@export_group("Retelling (M11.1, bible §15.4)")
+## Each retelling may change the story — this often for the most creative
+## teller (half as often for the least): it grows ("greater than anyone had
+## seen"), moves to "the first days", or becomes someone's doing.
+@export_range(0.0, 1.0, 0.01) var mutate_chance: float = 0.25
+
+@export_group("Cultural memory (M11.1)")
+## A settlement remembers something together once this many of its people
+## (and at least this share of them) hold a memory of it, made of it the same
+## (at least `pool_importance` important).
+@export_range(1, 100) var pool_holders: int = 3
+@export_range(0.0, 1.0, 0.01) var pool_share: float = 0.3
+@export_range(0.0, 1.0, 0.01) var pool_importance: float = 0.12
+## Held: its strength follows the share of holders; unheld, it fades this
+## much a day, and is gone below `pool_forget`.
+@export_range(0.0, 1.0, 0.005) var pool_fade_per_day: float = 0.03
+@export_range(0.0, 1.0, 0.01) var pool_forget: float = 0.05
+## What a settlement remembers together colours how its people take the like
+## of it: this much (× its strength) for that interpretation.
+@export_range(0.0, 3.0, 0.05) var pool_weight: float = 0.8
+
+@export_group("Myths (M11.1, bible §15.4)")
+## A myth forms when a cultural memory takes the like of something to be
+## someone's doing (a spirit, a god, an ancestor, an unknown mind) and its
+## people have lived through it on at least this many days.
+@export_range(1, 100) var myth_events: int = 3
+@export_range(0.0, 1.0, 0.01) var myth_strength: float = 0.3
 
 
 func validate() -> PackedStringArray:

@@ -138,6 +138,7 @@ static func from_outcome(person: PersonData, outcome: Reactions.Outcome, stage: 
 	if told:
 		memory.source = Memory.Source.TOLD
 		memory.told_by = stimulus.told_by
+		memory.text_params = stimulus.lore.duplicate()
 		memory.fidelity = clampf(stimulus.fidelity * config.retelling_fidelity, 0.0, 1.0)
 		relevance = config.relevance_told * lerpf(0.5, 1.0, memory.fidelity)
 	elif outcome.direct:
@@ -203,8 +204,10 @@ func fade(days: int, config: MemoryConfig = null) -> int:
 		config = Config.memory
 	var gone: Array[Memory] = []
 	for memory: Memory in _memories.values():
+		# (What was lived strongly lasts: it fades for years, not seasons.)
+		var rate := config.daily_fade * (config.lasting_fade if memory.intensity >= config.lasting_from else 1.0)
 		for day in days:
-			memory.importance -= config.daily_fade * (1.05 - memory.importance)
+			memory.importance -= rate * (1.05 - memory.importance)
 		if memory.importance < config.forget_below:
 			gone.append(memory)
 	for memory in gone:
@@ -262,6 +265,8 @@ func worth_telling(person: PersonData, listener: PersonData, now_tick: int, conf
 	for memory in of(person):
 		if memory.importance < config.tell_importance or memory.fidelity < config.tell_fidelity:
 			continue
+		if memory.kind == Memory.KIND_LIFE:
+			continue # (one's own life is not news)
 		if now_tick - memory.tick > config.tell_recent_days * TimeConfig.MINUTES_PER_DAY:
 			continue
 		if memory.told_tick >= 0 and now_tick - memory.told_tick < config.tell_again_minutes:

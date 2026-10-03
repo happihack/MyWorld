@@ -55,6 +55,8 @@ var households: Households
 var lifecycle: Lifecycle
 ## Everyone who has died.
 var archive: HistoryArchive
+## What settlements remember together, and their myths (M11.1).
+var culture: CulturalMemory
 ## Where the dead are laid (M10.3).
 var graves: Graves
 ## Which of the player's powers have shown themselves (rain, wind, water).
@@ -122,6 +124,7 @@ var _saved_relationships: Dictionary = {}
 var _saved_households: Dictionary = {}
 var _saved_lifecycle: Dictionary = {}
 var _saved_archive: Dictionary = {}
+var _saved_culture: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -200,6 +203,9 @@ func _init() -> void:
 	# Lives begin and end; what is worth telling of it is told.
 	archive = HistoryArchive.new()
 	graves = Graves.new()
+	culture = CulturalMemory.new()
+	culture.formed.connect(chronicle.on_cultural_memory)
+	culture.myth_formed.connect(chronicle.on_myth)
 	households = Households.new()
 	lifecycle = Lifecycle.new()
 	lifecycle.born.connect(chronicle.on_born)
@@ -261,6 +267,15 @@ func _init() -> void:
 		if event != null and record != null:
 			record.note_event(event.id))
 	behavior.fell_ill.connect(chronicle.on_fell_ill)
+	# A child goes to bed: perhaps a story (M11.1).
+	behavior.bedtime.connect(func(child_id: int) -> void:
+		var child := people.get_person(child_id) if people != null else null
+		if child != null and behavior.ctx != null:
+			Stories.bedtime(behavior.ctx, child))
+	# A flood in the settlement: everyone remembers living through it.
+	hydrology.flood_changed.connect(func(active: bool, _tiles: int, _at: Vector2) -> void:
+		if active and is_active:
+			lifecycle.remember_all(&"life_flood", clock.tick, 0.6))
 	behavior.recovered.connect(chronicle.on_recovered)
 	simulation = SimulationManager.new()
 	simulation.name = "SimulationManager"
@@ -293,6 +308,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_households = {}
 	_saved_lifecycle = {}
 	_saved_archive = {}
+	_saved_culture = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -359,8 +375,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_households = {}
 	_saved_lifecycle = {}
 	_saved_archive = {}
+	_saved_culture = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("culture")) == TYPE_DICTIONARY:
+			_saved_culture = state["culture"]
 		if typeof((state as Dictionary).get("relationships")) == TYPE_DICTIONARY:
 			_saved_relationships = state["relationships"]
 		if typeof((state as Dictionary).get("households")) == TYPE_DICTIONARY:
@@ -478,6 +497,7 @@ func to_dict() -> Dictionary:
 			"households": households.to_dict(),
 			"lifecycle": lifecycle.to_dict(),
 			"archive": archive.to_dict(),
+			"culture": culture.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -517,6 +537,7 @@ func _process(delta: float) -> void:
 			settlement.step(clock.tick)
 		relationships.settle(clock.tick)
 		lifecycle.advance_to(clock.tick)
+		culture.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -908,6 +929,7 @@ func _activate() -> void:
 	_saved_stats = {}
 	ai.settlement = settlement
 	ai.rng = rng.stream(&"ai")
+	ai.story_rng = rng.stream(&"stories")
 	ai.world_seed = world_seed
 	memories.bind(people)
 	var unusable := memories.from_dict(_saved_memories)
@@ -941,6 +963,13 @@ func _activate() -> void:
 	graves.bind(props, world, pathfinder, start, ids, archive, loose)
 	lifecycle.graves = graves if start != null and start.campfire_id != 0 else null
 	ai.lifecycle = lifecycle
+	# What settlements remember together, as saved.
+	culture.bind(people, memories, clock.tick, Config.memory)
+	var unusable_culture := culture.from_dict(_saved_culture)
+	if unusable_culture > 0:
+		Log.warn(Log.Category.LOAD, "Some saved cultural memories were unusable and dropped", {"records": unusable_culture})
+	_saved_culture = {}
+	ai.culture = culture
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)

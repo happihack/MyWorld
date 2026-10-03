@@ -16,6 +16,14 @@ var activities: ActivityLibrary
 var places: Places
 ## The world's "ai" stream.
 var rng: RandomNumberGenerator
+## The world's "stories" stream: who tells a story at bedtime, how a story
+## changes in the telling (its own dice, so that stories do not change what
+## everyone does next). Falls back to `rng` if unset.
+var story_rng: RandomNumberGenerator
+
+
+func stories_rng() -> RandomNumberGenerator:
+	return story_rng if story_rng != null else rng
 ## Strokes of work done since the BehaviorSystem last announced them: each
 ## [person id, kind, target id]. (Plain data rather than a callback: a callback
 ## into the system that owns this context would keep both alive for ever.)
@@ -64,6 +72,8 @@ var ailments: Array = []
 var bad_water: Callable
 ## Births, partners, deaths (may be null: nobody is born or dies).
 var lifecycle: Lifecycle
+## What settlements remember together (may be null: nothing).
+var culture: CulturalMemory
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer

@@ -62,6 +62,8 @@ const TYPE_INJURED := &"person_injured"
 const TYPE_ILL := &"person_ill"
 const TYPE_TAKEN_IN := &"taken_in"
 const TYPE_ARRIVED := &"newcomer_arrived"
+const TYPE_CULTURE := &"cultural_memory"
+const TYPE_MYTH := &"myth_formed"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -498,6 +500,28 @@ func on_taken_in(person_id: int, household_id: int) -> void:
 	var deaths := _log.of_type(TYPE_DIED)
 	_log.record(TYPE_TAKEN_IN, {"participants": who, "position": _place_of(person_id), "settlement": _settlement_id()},
 		[deaths[-1].id] if not deaths.is_empty() else [])
+
+
+## A settlement now remembers something together (M11.1).
+func on_cultural_memory(settlement_id: int, subject: StringName, interpretation: StringName) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_CULTURE, {"subject": String(subject), "interpretation": String(interpretation),
+		"kind": "lived" if interpretation == &"" else "", "position": _fire_place(), "settlement": settlement_id})
+
+
+## A myth has taken shape (M11.1): caused by the settlement's memory of it.
+func on_myth(myth: Dictionary) -> void:
+	if not _writing():
+		return
+	var causes: Array = []
+	for event in _log.of_type(TYPE_CULTURE):
+		if str(event.text_params.get("subject", "")) == str(myth["subject"]) \
+				and str(event.text_params.get("interpretation", "")) == str(myth["agent"]):
+			causes = [event.id]
+	_log.record(TYPE_MYTH, {"subject": str(myth["subject"]), "interpretation": str(myth["agent"]),
+		"epithet": str(myth["epithet"]), "kind": str(myth["sentiment"]), "position": _fire_place(),
+		"settlement": int(myth["settlement"])}, causes)
 
 
 ## Someone from far away has come to live here.

@@ -209,6 +209,8 @@ func step(minutes: float) -> void:
 		ctx.relationships.settle(ctx.now())
 	if ctx.lifecycle != null:
 		ctx.lifecycle.advance_to(ctx.now())
+	if ctx.culture != null:
+		ctx.culture.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()

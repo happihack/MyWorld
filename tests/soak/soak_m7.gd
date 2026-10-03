@@ -231,6 +231,16 @@ func _run() -> void:
 		if person.activity_log.has("visit_grave"):
 			visits += 1
 	print("SOAK graves %d (of %d dead), %d of the living have been to one" % [graves, s.archive.size(), visits])
+	print("SOAK %s" % s.culture.debug_text())
+	for myth: Dictionary in s.culture.myths():
+		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
+			int(myth["believers"]), int(myth["formed"]) / 1440])
+	var stories := 0
+	for person in s.people.all_people():
+		for memory in s.memories.of(person):
+			if memory.text_key == "MEM_STORY":
+				stories += 1
+	print("SOAK the living hold %d bedtime stories" % stories)
 	if graves < s.archive.size():
 		_problem("%d of %d dead have no grave" % [s.archive.size() - graves, s.archive.size()])
 	if years >= 100 and deepest < 4:

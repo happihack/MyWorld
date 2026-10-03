@@ -122,6 +122,10 @@ static func scores(person: PersonData, stimulus: Stimulus, circumstances: Dictio
 		var context: Dictionary = table.interpretation_context.get(interpretation, {})
 		for feature: StringName in context:
 			score += float(context[feature]) * float(circumstances.get(feature, 0.0))
+		# What my people remember of the like of it, together (M11.1).
+		if ctx.culture != null:
+			var kind := stimulus.about if stimulus.type == Stimulus.TOLD and stimulus.about != &"" else stimulus.type
+			score += ctx.culture.weight(person.settlement_id, kind, interpretation) * Config.memory.pool_weight * prior_factor
 		# What I am told it was (the suspicious take less on trust).
 		if stimulus.type == Stimulus.TOLD and stimulus.interpretation == interpretation:
 			score += table.told_weight * (1.0 - 0.5 * maxf(ReactionTable.lean(person.traits, Traits.Axis.SUSPICION), 0.0))

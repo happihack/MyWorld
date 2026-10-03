@@ -30,6 +30,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	19: _v19_to_v20,
 	20: _v20_to_v21,
 	21: _v21_to_v22,
+	22: _v22_to_v23,
 }
 
 
@@ -350,6 +351,21 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 23 (M11.1) adds what settlements remember together, and their
+## myths. An older world remembers nothing together yet: it will, from what
+## its people remember.
+static func _v22_to_v23(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("culture"):
+		(state as Dictionary)["culture"] = {}
 	return data
 
 

@@ -211,6 +211,8 @@ func _grow(person: PersonData, now: int) -> void:
 		day_log.note(person.id, now, "life", "grew_%s" % _stage_word(stage))
 	if stage == PersonData.LifeStage.ADULT or stage == PersonData.LifeStage.ELDER:
 		came_of_age.emit(person.id, stage)
+	if stage == PersonData.LifeStage.ADULT:
+		remember_life(person, &"life_came_of_age", now, 0.4)
 
 
 ## A day's mishaps: accidents at work, and illness under crowded roofs.
@@ -224,6 +226,7 @@ func _mishaps(everyone: Array[PersonData], now: int) -> void:
 			Health.injure(person, kind, rng.randf_range(0.15, 0.7), now, config)
 			if day_log != null:
 				day_log.note(person.id, now, "life", "hurt_%s" % kind)
+			remember_life(person, &"life_hurt", now, 0.4)
 			injured.emit(person.id, kind)
 	if households == null:
 		return
@@ -237,6 +240,7 @@ func _mishaps(everyone: Array[PersonData], now: int) -> void:
 			if rng.randf() < config.crowding_chance_per_day * over and Health.fall_ill(person, Health.CROWDING, now):
 				if day_log != null:
 					day_log.note(person.id, now, "life", "ill_crowding")
+				remember_life(person, &"life_ill", now, 0.35)
 				injured.emit(person.id, Health.CROWDING)
 
 
@@ -304,6 +308,7 @@ func _newcomers(now: int) -> void:
 	counts["arrived"] = int(counts.get("arrived", 0)) + 1
 	if day_log != null:
 		day_log.note(stranger.id, now, "life", "arrived")
+	remember_life(stranger, &"life_arrived", now, 0.6)
 	arrived.emit(stranger.id)
 	EventBus.person_born.emit(stranger.id)
 
@@ -341,6 +346,8 @@ func partner(a: PersonData, b: PersonData, now: int) -> void:
 	if day_log != null:
 		day_log.note(a.id, now, "life", "partner", b.id)
 		day_log.note(b.id, now, "life", "partner", a.id)
+	remember_life(a, &"life_partnered", now, 0.7, b.id)
+	remember_life(b, &"life_partnered", now, 0.7, a.id)
 	partnered.emit(mini(a.id, b.id), maxi(a.id, b.id))
 
 
@@ -486,6 +493,7 @@ func die(person: PersonData, cause: StringName, now: int, causes: Array = []) ->
 		for moved: Array in households.after_death(household, now):
 			if day_log != null:
 				day_log.note(int(moved[0]), now, "life", "taken_in")
+			remember_life(people.get_person(int(moved[0])), &"life_taken_in", now, 0.6, person.id)
 			taken_in.emit(int(moved[0]), int(moved[1]))
 	EventBus.person_died.emit(person.id, cause)
 
@@ -672,9 +680,27 @@ func _parents_of(id: int) -> PackedInt64Array:
 	return record.parents if record != null else PackedInt64Array()
 
 
+## Someone remembers a moment of their own life (M11.1): `other` is whom it
+## was with (named in its words as {teller}; 0: nobody).
+func remember_life(person: PersonData, subject: StringName, now: int, importance: float, other: int = 0) -> void:
+	if memories == null or person == null:
+		return
+	var memory := _life_memory(subject, "MEM_" + String(subject).to_upper(), person, now, importance)
+	memory.told_by = other
+	memories.remember(person, memory)
+
+
+## Everyone of the settlement remembers it (a flood lived through).
+func remember_all(subject: StringName, now: int, importance: float) -> void:
+	var everyone := people.all_people()
+	everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool: return a.id < b.id)
+	for person in everyone:
+		remember_life(person, subject, now, importance)
+
+
 func _life_memory(subject: StringName, key: String, owner: PersonData, now: int, importance: float) -> Memory:
 	var memory := Memory.new()
-	memory.kind = Memory.KIND_EXPERIENCE
+	memory.kind = Memory.KIND_LIFE
 	memory.subject = subject
 	memory.tick = now
 	memory.first_tick = now

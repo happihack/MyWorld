@@ -129,3 +129,5 @@ static func drank(person: PersonData, ctx: AiContext, tile: Vector2i, config: Li
 		ctx.ailments.append([person.id, ILLNESS, true])
 		if ctx.day_log != null:
 			ctx.day_log.note(person.id, ctx.now(), "life", "ill_bad_water")
+		if ctx.lifecycle != null:
+			ctx.lifecycle.remember_life(person, &"life_ill", ctx.now(), 0.35)

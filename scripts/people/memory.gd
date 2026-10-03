@@ -15,6 +15,10 @@ const KIND_EXPERIENCE := &"experience"
 ## Something hard that was lived through (going hungry): no doing of the
 ## player's, nothing to be interpreted — but remembered, and talked about.
 const KIND_HARDSHIP := &"hardship"
+## A moment of one's own life (a child born, a partner found, a flood lived
+## through, someone lost: M10–M11): remembered, but not news to tell, nor a
+## story for bedtime.
+const KIND_LIFE := &"life"
 
 var id := 0
 var owner_kind: OwnerKind = OwnerKind.PERSON
