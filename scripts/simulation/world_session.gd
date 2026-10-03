@@ -67,6 +67,8 @@ var planner: SettlementPlanner
 var traffic: Traffic
 ## People setting out to found new settlements (M12.3).
 var migration: Migration
+## Trade between settlements (M12.4).
+var trade: TradeSystem
 var buildings: BuildingLibrary
 ## Where the dead are laid (M10.3).
 var graves: Graves
@@ -142,6 +144,7 @@ var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
 var _saved_migration: Dictionary = {}
+var _saved_trade: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -232,6 +235,11 @@ func _init() -> void:
 	migration.set_out.connect(func(journey: Dictionary) -> void:
 		chronicle.on_set_out(journey, settlements.get_settlement(int(journey["from"]))))
 	migration.founded.connect(chronicle.on_founded_by)
+	trade = TradeSystem.new()
+	trade.route_opened.connect(func(record: Dictionary) -> void:
+		var from := settlements.get_settlement(int(record["from"]))
+		var to := settlements.get_settlement(int(record["to"]))
+		chronicle.on_route_opened(record, from.display_name() if from != null else "", to.display_name() if to != null else ""))
 	construction.begun.connect(chronicle.on_building_begun)
 	construction.finished.connect(chronicle.on_building_built)
 	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
@@ -423,6 +431,7 @@ func load_from(data: Dictionary) -> bool:
 	_saved_settlement = {}
 	_saved_settlements = []
 	_saved_migration = {}
+	_saved_trade = {}
 	_saved_farming = {}
 	_saved_animals = {}
 	_saved_events = {}
@@ -485,6 +494,8 @@ func load_from(data: Dictionary) -> bool:
 			_saved_settlements = state["settlements"]
 		if typeof((state as Dictionary).get("migration")) == TYPE_DICTIONARY:
 			_saved_migration = state["migration"]
+		if typeof((state as Dictionary).get("trade")) == TYPE_DICTIONARY:
+			_saved_trade = state["trade"]
 		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
 			_saved_day_log = state["day_log"]
 		if typeof((state as Dictionary).get("observer")) == TYPE_DICTIONARY:
@@ -562,6 +573,7 @@ func to_dict() -> Dictionary:
 			"settlement": settlement.to_dict() if settlement != null else {},
 			"settlements": _settlements_to_save(),
 			"migration": migration.to_dict(),
+			"trade": trade.to_dict(),
 			"farming": farming.to_dict(),
 			"animals": fauna.to_dict(),
 			"events": events.to_dict(),
@@ -599,6 +611,7 @@ func shutdown() -> void:
 	# (Settlements and their planners refer to each other: they are let go of here.)
 	settlements.clear()
 	settlement = null
+	trade.settlements = null
 	migration.behavior = null # (the behaviour's context knows migration)
 	migration.add_settlement = Callable()
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
@@ -625,6 +638,7 @@ func _process(delta: float) -> void:
 		construction.advance_to(clock.tick)
 		traffic.advance_to(clock.tick)
 		migration.advance_to(clock.tick)
+		trade.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -700,6 +714,7 @@ func sample_stats() -> Dictionary:
 		&"grass": vegetation.grass_cover(),
 		&"wood": float(stores.amount(&"wood")) if stores != null else 0.0,
 		&"stone": float(stores.amount(&"stone")) if stores != null else 0.0,
+		&"tools": float(_tools_in_store()),
 		&"health": health / count if count > 0 else 0.0,
 		&"temperature": weather.temperature(clock.tick),
 		&"mood": mood / count if count > 0 else 0.0,
@@ -1084,6 +1099,13 @@ func _activate() -> void:
 	migration.add_settlement = func(info: WorldSetup.StartInfo) -> Settlement: return add_settlement(info)
 	ai.migration = migration
 	interactions.settlements = settlements
+	trade.bind(clock.tick, Config.trade)
+	trade.from_dict(_saved_trade)
+	_saved_trade = {}
+	trade.settlements = settlements
+	trade.resources = resources
+	trade.pathfinder = pathfinder
+	ai.trade = trade
 	_apply_storehouses()
 	ai.construction = construction
 	interactions.construction = construction
@@ -1168,6 +1190,8 @@ func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dic
 	own.took_up.connect(chronicle.on_took_up)
 	own.flood_took.connect(chronicle.on_flood_took)
 	own.home_moved.connect(chronicle.on_home_moved)
+	own.learned.connect(chronicle.on_learned)
+	own.trade = trade
 	return own
 
 
@@ -1204,6 +1228,14 @@ func add_settlement(info: WorldSetup.StartInfo, saved: Dictionary = {}, saved_pl
 	_place_settlements()
 	_apply_storehouses()
 	return own
+
+
+## The tools in every settlement's stores (M12.4: the first "tools" statistic).
+func _tools_in_store() -> int:
+	var count := 0
+	for own in settlements.all():
+		count += own.stockpile.amount(&"tools")
+	return count
 
 
 ## Everything that needs to know where all the settlements are.

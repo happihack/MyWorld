@@ -21,6 +21,17 @@ signal shortage_changed(stage: int, was: int)
 signal seed_released(units: int)
 ## The bushes around it are picked bare (or have berries again).
 signal forage_changed(low: bool)
+## Someone of it has worked something out (M12.4: &"toolmaking").
+signal learned(person_id: int, what: StringName)
+
+## The trade a settlement is known for, by what it brings in most (M12.4).
+const SPECIALTY_TRADES := {"wood": &"woodcutter", "berries": &"forager", "grain": &"farmer", "meat": &"hunter", "fish": &"hunter"}
+## Among other settlements, a settlement is known for what is at least this
+## share of what it brings in and this many times its share of what all bring in.
+const RELATIVE_SHARE := 0.15
+const RELATIVE_LEAD := 1.15
+## Work at these is helped by tools (and makes people better at it).
+const TOOL_WORK: Array[StringName] = [&"tree", &"bush", &"field", &"game"]
 
 ## How short of food it is.
 enum Shortage {
@@ -75,6 +86,14 @@ var settlement_name := ""
 var founded_tick := 0
 var founders: Array[int] = []
 var founded_from := 0
+## Trade between settlements (M12.4; may be null).
+var trade: TradeSystem
+## What it has brought in of late: resource (String) -> units (fading day by day).
+var produced: Dictionary = {}
+## What its people know how to do: what (String) -> tick it was worked out.
+var knows: Dictionary = {}
+var tools_made := 0
+var _tool_level := 0.0
 ## Since when there has been too little in store (-1: there is enough),
 ## and nothing at all (-1: there is something).
 var _low_since := -1
@@ -158,6 +177,166 @@ func members() -> Array[PersonData]:
 
 func member_count() -> int:
 	return members().size()
+
+
+## Something has been brought in (gathered, reaped, hunted).
+func note_produced(resource: StringName, units: int) -> void:
+	if units > 0:
+		produced[String(resource)] = float(produced.get(String(resource), 0.0)) + units
+
+
+## What it is known for (&"": nothing yet, or nothing stands out): among
+## other settlements, what it brings in more of than they do (a greater share
+## of what it brings in than of what all bring in); alone, the greater part
+## of what it brings in.
+func specialty() -> StringName:
+	var total := 0.0
+	var best := ""
+	var most := 0.0
+	var kinds := produced.keys()
+	kinds.sort()
+	for resource: String in kinds:
+		total += float(produced[resource])
+		if float(produced[resource]) > most:
+			most = produced[resource]
+			best = resource
+	if total < Config.trade.specialty_from:
+		return &""
+	var all: Array = trade.settlements.all() if trade != null and trade.settlements != null else []
+	if all.size() >= 2:
+		var world := {}
+		var world_total := 0.0
+		for own: Settlement in all:
+			for resource: String in own.produced:
+				world[resource] = float(world.get(resource, 0.0)) + float(own.produced[resource])
+				world_total += float(own.produced[resource])
+		var standout := ""
+		var lead := RELATIVE_LEAD
+		for resource: String in kinds:
+			var share := float(produced[resource]) / total
+			var lean := share / maxf(float(world.get(resource, 0.0)) / maxf(world_total, 0.001), 0.01)
+			if share >= RELATIVE_SHARE and lean > lead:
+				lead = lean
+				standout = resource
+		if standout != "":
+			return StringName(standout)
+	if most / maxf(total, 0.001) < Config.trade.specialty_share:
+		return &""
+	return StringName(best)
+
+
+## The trade of what it is known for (&"": none).
+func specialty_trade() -> StringName:
+	return SPECIALTY_TRADES.get(String(specialty()), &"")
+
+
+func knows_how(what: StringName) -> bool:
+	return knows.has(String(what))
+
+
+## Someone has worked something out: the settlement knows it now.
+func learn(what: StringName, person_id: int, now: int) -> void:
+	if knows_how(what):
+		return
+	knows[String(what)] = now
+	learned.emit(person_id, what)
+
+
+## How many of its people work at what tools help with.
+func worker_count() -> int:
+	var count := 0
+	if occupations == null:
+		return 0
+	for person in members():
+		var def := occupations.get_def(person.occupation_id)
+		if def != null and TOOL_WORK.has(def.work_target):
+			count += 1
+	return count
+
+
+## How well its workers are equipped: tools in store for every worker = 1.
+func tool_level() -> float:
+	return _tool_level
+
+
+## Does it want more tools?
+func tools_wanted() -> bool:
+	return stockpile.amount(&"tools") < ceili(worker_count() * Config.trade.tools_per_worker)
+
+
+## A tool is made (at the workshop): from wood and stone of the stores. False when they are not there.
+func make_tool(_person: PersonData) -> bool:
+	var config := Config.trade
+	if stockpile.available(&"wood") < config.tool_wood or stockpile.available(&"stone") < config.tool_stone:
+		return false
+	stockpile.take(&"wood", config.tool_wood)
+	stockpile.take(&"stone", config.tool_stone)
+	stockpile.add(&"tools", 1)
+	tools_made += 1
+	_refresh_tools()
+	return true
+
+
+## A tool has worn out in use.
+func wear_tool() -> void:
+	if stockpile.take(&"tools", 1) > 0:
+		_refresh_tools()
+
+
+## Its workshop (null: it has none).
+func workshop() -> PropData:
+	if planner == null or _props == null:
+		return null
+	var ids := planner.standing_near(PropData.Kind.WORKSHOP)
+	return _props.get_prop(ids[0]) if not ids.is_empty() else null
+
+
+## Someone carries its trade, once there is trade to be done.
+func ensure_trader(now: int) -> PersonData:
+	if trade == null or occupations == null or not occupations.has_def(&"trader") or not trade.has_offer(id):
+		return null
+	for person in members():
+		if person.occupation_id == &"trader":
+			return null
+	return _take_up(&"trader", Config.trade.trader_from, now)
+
+
+## Someone makes tools, once there is a workshop and tools are wanted.
+func ensure_toolmaker(now: int) -> PersonData:
+	if occupations == null or not occupations.has_def(&"toolmaker") or workshop() == null or not tools_wanted():
+		return null
+	for person in members():
+		if person.occupation_id == &"toolmaker":
+			return null
+	return _take_up(&"toolmaker", 3, now)
+
+
+func _refresh_tools() -> void:
+	var wanted := worker_count() * Config.trade.tools_per_worker
+	_tool_level = clampf(float(stockpile.amount(&"tools")) / maxf(wanted, 1.0), 0.0, 1.0)
+
+
+## A day has passed: what was brought in fades from memory; a skilled worker
+## may work out how to make good tools.
+func _each_day(day: int) -> void:
+	var keep := Config.trade.produced_kept_per_day
+	for resource: String in produced.keys():
+		produced[resource] = float(produced[resource]) * keep
+		if float(produced[resource]) < 0.05:
+			produced.erase(resource)
+	if knows_how(&"toolmaking"):
+		return
+	for person in members():
+		var skill := 0.0
+		for trade_id: Variant in person.skills:
+			if String(trade_id) != "builder":
+				skill = maxf(skill, float(person.skills[trade_id]))
+		if skill < Config.trade.toolmaking_skill:
+			continue
+		var roll := float(posmod(hash([id, day, person.id, "toolmaking"]), 10000)) / 10000.0
+		if roll < Config.trade.toolmaking_chance:
+			learn(&"toolmaking", person.id, day * TimeConfig.MINUTES_PER_DAY)
+			return
 
 
 ## Since when the stores have been low (-1: they are not).
@@ -429,6 +608,7 @@ func step(now: int) -> void:
 		_day += 1
 		made_up += 1
 		_spoil()
+		_each_day(_day)
 	_day = today
 	if farming != null:
 		farming.settle(now)
@@ -440,6 +620,9 @@ func step(now: int) -> void:
 		ensure_farmer(now)
 		ensure_hunter(now)
 		ensure_builder(now)
+		ensure_trader(now)
+		ensure_toolmaker(now)
+		_refresh_tools()
 		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:
 		_keep_seed()
@@ -460,7 +643,8 @@ func to_dict() -> Dictionary:
 		"forage_low": forage_low, "low_since": _low_since, "empty_since": _empty_since,
 		"served": _served.duplicate(), "served_day": _served_day,
 		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day,
-		"name": settlement_name, "founded": founded_tick, "founders": founders.duplicate(), "from": founded_from}
+		"name": settlement_name, "founded": founded_tick, "founders": founders.duplicate(), "from": founded_from,
+		"produced": produced.duplicate(), "knows": knows.duplicate(), "tools_made": tools_made}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -494,6 +678,15 @@ func from_dict(data: Dictionary) -> void:
 	settlement_name = str(data.get("name", "")) if typeof(data.get("name")) == TYPE_STRING else ""
 	founded_tick = int(data["founded"]) if typeof(data.get("founded")) == TYPE_INT else 0
 	founded_from = maxi(int(data["from"]), 0) if typeof(data.get("from")) == TYPE_INT else 0
+	produced.clear()
+	if typeof(data.get("produced")) == TYPE_DICTIONARY:
+		for resource: Variant in data["produced"]:
+			produced[str(resource)] = maxf(float(data["produced"][resource]), 0.0)
+	knows.clear()
+	if typeof(data.get("knows")) == TYPE_DICTIONARY:
+		for what: Variant in data["knows"]:
+			knows[str(what)] = int(data["knows"][what])
+	tools_made = maxi(int(data.get("tools_made", 0)), 0)
 	founders.clear()
 	if typeof(data.get("founders")) == TYPE_ARRAY:
 		for id: Variant in data["founders"]:

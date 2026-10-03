@@ -161,6 +161,8 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _wood_pile()
 			&"stone":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _stone_pile()
+			&"tools":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
 
@@ -327,6 +329,18 @@ static func _wood_pile() -> Template:
 		_merge(t, log, Transform3D(Basis(Vector3.UP, 0.04 * (i - 1)), Vector3(0.0, 0.0, (i - 1) * radius * 2.05)))
 	for i in 2:
 		_merge(t, log, Transform3D(Basis(Vector3.UP, -0.06 + 0.1 * i), Vector3(0.02, radius * 1.72, (i - 0.5) * radius * 2.05)))
+	return t
+
+
+## Tools laid together (M12.4): wooden handles with stone heads.
+static func _tool_pile() -> Template:
+	var t := Template.new()
+	for i in 3:
+		var yaw := -0.5 + 0.5 * i
+		var at := Vector3((i - 1) * 0.07, 0.025 + 0.02 * (i % 2), (i - 1) * 0.03)
+		_box(t, at, Vector3(0.2, 0.018, 0.018), _rgba(TRUNK, 0.0), yaw)
+		var head := at + Vector3(cos(yaw), 0.0, -sin(yaw)) * 0.19 + Vector3(0.0, 0.02, 0.0)
+		_box(t, head, Vector3(0.035, 0.04, 0.05), _rgba(STONE_DARK, 0.0), yaw)
 	return t
 
 

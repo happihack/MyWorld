@@ -12,6 +12,9 @@ const FARM := &"farm"
 const HUNT := &"hunt"
 ## Something being built or repaired (M12.1).
 const BUILD := &"build"
+## A trade run, and tools to make (M12.4).
+const TRADE := &"trade"
+const CRAFT := &"craft"
 
 class Job:
 	extends RefCounted
@@ -38,6 +41,10 @@ class Job:
 			return "hunting %.2f" % priority
 		if kind == BUILD:
 			return "building %.2f" % priority
+		if kind == TRADE:
+			return "trade %.2f" % priority
+		if kind == CRAFT:
+			return "tools %.2f" % priority
 		return "%s %.2f (%.0f of %.0f)" % [resource, priority, have, wanted]
 
 
@@ -116,6 +123,10 @@ func refresh(settlement: Settlement, now: int) -> void:
 				if str(project["def"]) == "hut":
 					pressing = maxf(pressing, Config.construction.homes_priority)
 			wanted.append([BUILD, &"", &"site", pressing, 0.0, 0.0])
+		if settlement.trade != null and settlement.trade.has_offer(settlement.id):
+			wanted.append([TRADE, &"", &"trade", Config.trade.trade_priority, 0.0, 0.0])
+		if settlement.workshop() != null and settlement.tools_wanted():
+			wanted.append([CRAFT, &"", &"workshop", Config.trade.trade_priority, 0.0, 0.0])
 		# The fire is always there to be kept.
 		if settlement.fire() != null:
 			wanted.append([TEND, &"", &"fire", _config.fire_job_priority, 0.0, 0.0])

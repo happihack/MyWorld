@@ -727,6 +727,13 @@ func inspect(target: Picker.Result) -> InspectReport:
 					report.settlement_name = own.display_name()
 					report.settlement_tier = own.tier()
 					report.settlement_people = own.member_count()
+					report.known_for = String(own.specialty())
+					if own.trade != null:
+						var balance := own.trade.balance_of(own.id)
+						report.sends = balance[0]
+						report.gets = balance[1]
+					for what: String in own.knows:
+						report.knows.append(what)
 		if prop.kind == PropData.Kind.TREE:
 			report.bears = prop.bears()
 			report.bears_left = prop.bears_left()

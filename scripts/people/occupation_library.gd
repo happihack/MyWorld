@@ -66,7 +66,7 @@ func ids() -> Array[StringName]:
 ## them and by what the band still lacks (`counts`: id -> how many have it
 ## already), never by argmax (bible §13.2). &"" if nothing is open to them.
 func choose(stage: PersonData.LifeStage, traits: PackedFloat32Array, rng: RandomNumberGenerator,
-		counts: Dictionary = {}) -> StringName:
+		counts: Dictionary = {}, favour: StringName = &"", pull: float = 0.0) -> StringName:
 	var open: Array[StringName] = []
 	var weights := PackedFloat32Array()
 	var total := 0.0
@@ -75,6 +75,8 @@ func choose(stage: PersonData.LifeStage, traits: PackedFloat32Array, rng: Random
 		if not def.allows(stage) or def.starting_share <= 0.0:
 			continue
 		var weight := def.starting_share * exp(def.affinity(traits)) / (1.0 + float(counts.get(id, 0)))
+		if id == favour:
+			weight *= 1.0 + pull # (what one's settlement is known for, M12.4)
 		open.append(id)
 		weights.append(weight)
 		total += weight

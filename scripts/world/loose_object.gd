@@ -32,7 +32,7 @@ const SPECS := {
 ## The resources piles are drawn for, in the order of their looks
 ## (`variant` of a pile; PropMeshLibrary has a shape for each). Part of the
 ## save format: append, never reorder.
-const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs"]
+const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs", &"tools"]
 
 ## A generated rock at least this big (PropData.scale_percent) is a boulder.
 const BOULDER_FROM_SCALE := 110

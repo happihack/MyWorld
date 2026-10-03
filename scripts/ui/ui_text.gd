@@ -110,6 +110,8 @@ const OCCUPATION_NAMES := {
 	&"builder": "Builder",
 	&"farmer": "Farmer",
 	&"hunter": "Hunter",
+	&"trader": "Trader",
+	&"toolmaker": "Toolmaker",
 	&"child": "Child",
 	&"elder": "Elder",
 }
@@ -471,6 +473,16 @@ static func fertility_text(value: int) -> String:
 
 static func vegetation_text(value: int) -> String:
 	return "%s (%s)" % [level_word(value, ["Bare", "Sparse", "Green", "Lush"]), percent(value)]
+
+
+## What a settlement sends and gets most: "sends wood · gets grain".
+static func trade_text(sends: String, gets: String) -> String:
+	var parts := PackedStringArray()
+	if sends != "":
+		parts.append("sends " + resource_name(StringName(sends)))
+	if gets != "":
+		parts.append("gets " + resource_name(StringName(gets)))
+	return " · ".join(parts)
 
 
 ## How much a tile is walked (Traffic.level): "Well trodden" …

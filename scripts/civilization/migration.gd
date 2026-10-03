@@ -370,6 +370,9 @@ func found(journey: Dictionary, now: int) -> Settlement:
 	own.settlement_name = "%s's camp" % (leader.given_name if leader != null else "Someone")
 	own.founded_tick = now
 	own.founded_from = int(journey["from"])
+	var origin := settlements.get_settlement(int(journey["from"]))
+	if origin != null:
+		own.knows = origin.knows.duplicate() # (what they knew, they know there too)
 	for id: int in members:
 		own.founders.append(id)
 	for id: int in members:

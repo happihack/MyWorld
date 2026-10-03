@@ -62,14 +62,24 @@ static func gather(ctx: AiContext, person: PersonData, step: Dictionary, prop: P
 		return true # their arms are full of something else
 	var capacity := ctx.carry_capacity(resource)
 	var per_unit := ctx.nodes.strokes_per_unit(prop)
-	var effort := int(step.get("effort", 0)) + strokes
+	# The skilled work faster, and with tools faster still (M12.4).
+	var trade := Config.trade
+	var skill_key := String(person.occupation_id)
+	var skill := float(person.skills.get(skill_key, 0.0))
+	var tools := ctx.settlement.tool_level() if ctx.settlement != null else 0.0
+	var pace := (1.0 + trade.skill_speed * skill) * (1.0 + trade.tool_bonus * tools)
+	var effort := float(step.get("effort", 0)) + strokes * pace
 	while effort >= per_unit and person.carrying_amount < capacity:
 		if ctx.nodes.take(prop.id, 1, ctx.now()) <= 0:
 			break
 		effort -= per_unit
 		person.carrying = resource
 		person.carrying_amount += 1
-	step["effort"] = mini(effort, per_unit)
+		skill = minf(skill + trade.skill_per_unit, 1.0)
+		person.skills[skill_key] = skill
+		if tools > 0.0 and ctx.rng != null and ctx.rng.randf() < trade.tool_wear:
+			ctx.settlement.wear_tool()
+	step["effort"] = minf(effort, float(per_unit))
 	return person.carrying_amount >= capacity or ctx.nodes.available(prop) <= 0
 
 

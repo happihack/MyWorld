@@ -72,6 +72,8 @@ const TYPE_REPAIRED := &"building_repaired"
 const TYPE_RUINED := &"building_ruined"
 const TYPE_PATH := &"path_worn"
 const TYPE_MIGRATION := &"migration"
+const TYPE_TRADE_ROUTE := &"trade_route"
+const TYPE_LEARNED := &"knowledge_learned"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -631,6 +633,22 @@ func on_founded_by(own: Settlement, journey: Dictionary) -> void:
 	_log.record(TYPE_FOUNDED, {"people": members.size(), "participants": members, "kind": "migrants",
 		"place": own.display_name(), "position": own.fire().position2d() if own.fire() != null else _fire_place(),
 		"settlement": own.id}, causes)
+
+
+## Trade between two settlements has begun (M12.4): the first load carried.
+func on_route_opened(record: Dictionary, from_name: String, to_name: String) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_TRADE_ROUTE, {"participants": [int(record["trader"])], "resource": str(record["resource"]),
+		"from": from_name, "place": to_name, "position": _place_of(int(record["trader"])), "settlement": int(record["from"])})
+
+
+## Someone has worked something out (M12.4: how to make good tools).
+func on_learned(person_id: int, what: StringName) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_LEARNED, {"participants": [person_id], "kind": String(what), "position": _place_of(person_id),
+		"settlement": _settlement_id()})
 
 
 ## Feet have worn a path (M12.2): history notes the first.

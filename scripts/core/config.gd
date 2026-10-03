@@ -39,6 +39,7 @@ var life: LifeConfig
 var significance: SignificanceConfig
 var construction: ConstructionConfig
 var migration: MigrationConfig
+var trade: TradeConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -81,6 +82,7 @@ func reload() -> void:
 	significance = _load("significance_config.tres", SignificanceConfig) as SignificanceConfig
 	construction = _load("construction_config.tres", ConstructionConfig) as ConstructionConfig
 	migration = _load("migration_config.tres", MigrationConfig) as MigrationConfig
+	trade = _load("trade_config.tres", TradeConfig) as TradeConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

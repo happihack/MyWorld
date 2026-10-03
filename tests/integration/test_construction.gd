@@ -410,6 +410,32 @@ func test_stone_lying_about_is_brought_to_the_site() -> void:
 	assert_true(stones.call() < before, "with stones that lay about (%d of %d left)" % [stones.call(), before])
 
 
+func test_stone_is_broken_from_rocky_ground_once_none_lies_about() -> void:
+	# Every stone lying about has been taken.
+	for object in session.loose.all_objects():
+		if BuildStep.STONES.has(object.kind):
+			session.loose.remove(object.id)
+	var tile: Variant = planner.site_for(session.buildings.get_def(&"storehouse"))
+	var ctx := session.behavior.ctx
+	var steps := Planner._stone_steps(tile, ctx)
+	assert_eq(steps.size(), 2)
+	assert_eq(steps[1]["type"], "break", "stone from rocky ground")
+	var rock: Vector2i = steps[1]["at"]
+	assert_eq(session.world.get_terrain(rock), ChunkData.Terrain.ROCK)
+	# Breaking it gives a load of stone.
+	var person := session.people.all_people()[0]
+	person.carrying = &""
+	person.carrying_amount = 0
+	var handler := BuildStep.new()
+	var step: Dictionary = steps[1]
+	var status := ActionStep.Status.RUNNING
+	while status == ActionStep.Status.RUNNING:
+		status = handler.update(ctx, person, step, 5.0)
+	assert_eq(status, ActionStep.Status.DONE)
+	assert_eq(person.carrying, &"stone")
+	assert_eq(person.carrying_amount, ctx.carry_capacity(&"stone"))
+
+
 func test_version_23_save_loads() -> void:
 	# Written by M11.4 (80e2a02): before anything was built.
 	var dir := SaveManager.world_dir(V23_ID)

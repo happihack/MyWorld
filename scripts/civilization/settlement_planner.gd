@@ -73,7 +73,7 @@ func plan(now: int) -> Dictionary:
 		if not going.is_empty() and (need != &"home" or going.any(func(p: Dictionary) -> bool: return str(p["def"]) == "hut")):
 			continue
 		var def := _construction.buildings.with_tag(String(need))
-		if def.is_empty() or def[0].tech != &"":
+		if def.is_empty() or (def[0].tech != &"" and not _settlement.knows_how(def[0].tech)):
 			continue
 		if need == &"bridge":
 			var ford: Variant = _traffic.ford_for_bridge()
@@ -96,6 +96,8 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"storage")
 	if water_far():
 		out.append(&"water")
+	if workshop_wanted():
+		out.append(&"workshop")
 	if _traffic != null and _traffic.ford_for_bridge() != null and _near(_traffic.ford_for_bridge()):
 		out.append(&"bridge")
 	return out
@@ -149,6 +151,12 @@ func storage_short(now: int) -> bool:
 		if today - int(entry[0]) < _config.spoiled_days:
 			spoiled += int(entry[1])
 	return (room < _config.storage_room_least or spoiled >= _config.spoiled_from) and stores < 1 + _settlement.member_count() / 12
+
+
+## Does it know how to make tools, and is big enough for a workshop, and has none (M12.4)?
+func workshop_wanted() -> bool:
+	return _settlement.knows_how(&"toolmaking") and _settlement.member_count() >= Config.trade.workshop_from \
+		and standing_near(PropData.Kind.WORKSHOP).is_empty()
 
 
 ## Is water to drink far from the fire (and no well yet)?

@@ -248,6 +248,11 @@ func _run() -> void:
 		s.events.count_of(&"building_repaired"), s.events.count_of(&"building_ruined"), s.construction.debug_text()])
 	print("SOAK %s  bridges %d" % [s.traffic.debug_text(), s.construction.standing(PropData.Kind.BRIDGE).size()])
 	print("SOAK %s  |  %s" % [s.settlements.debug_text(), s.migration.debug_text()])
+	var specialties := PackedStringArray()
+	for own in s.settlements.all():
+		specialties.append("%s: known for %s, knows %s, tools %d (made %d)" % [own.display_name(), own.specialty(), own.knows.keys(),
+			own.stockpile.amount(&"tools"), own.tools_made])
+	print("SOAK %s  |  %s" % [s.trade.debug_text(), "; ".join(specialties)])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

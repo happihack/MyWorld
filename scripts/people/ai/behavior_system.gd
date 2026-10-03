@@ -97,8 +97,11 @@ func _init() -> void:
 		_steps[String(step[0])] = step[1]
 	# Building (M12.1): one handler, three kinds of step.
 	var build := BuildStep.new()
-	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY]:
+	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY, BuildStep.BREAK]:
 		_steps[String(type)] = build
+	var trading := TradeStep.new()
+	for type: StringName in [TradeStep.LOAD, TradeStep.UNLOAD, TradeStep.CRAFT]:
+		_steps[String(type)] = trading
 
 
 ## Takes charge of the people of a world.
@@ -225,6 +228,8 @@ func step(minutes: float) -> void:
 		ctx.traffic.advance_to(ctx.now())
 	if ctx.migration != null:
 		ctx.migration.advance_to(ctx.now())
+	if ctx.trade != null:
+		ctx.trade.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()

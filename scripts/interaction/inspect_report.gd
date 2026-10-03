@@ -41,6 +41,11 @@ var condition := -1
 var settlement_name := ""
 var settlement_tier := 0
 var settlement_people := 0
+## (M12.4) what it is known for, sends and gets most (resource ids, "" when none), knows how to do.
+var known_for := ""
+var sends := ""
+var gets := ""
+var knows: PackedStringArray = []
 ## The ground (M12.2): how much it is walked (Traffic.level), and whether it is a worn path.
 var footfall := 0.0
 var path := false

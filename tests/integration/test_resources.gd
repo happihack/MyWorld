@@ -140,9 +140,9 @@ func _target_of(pile: LooseObject) -> Picker.Result:
 func test_resources_are_defined_in_data() -> void:
 	var library := session.resources
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"meat", &"stone", &"water", &"wood"] as Array[StringName])
+	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"meat", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"grain", &"meat"] as Array[StringName])
-	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"clay", &"stone", &"wood"] as Array[StringName])
+	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"clay", &"stone", &"tools", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.WATER), [&"water"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MEDICINE), [&"herbs"] as Array[StringName])
 	for id in library.ids():
@@ -580,6 +580,7 @@ func test_gathering() -> void:
 	assert_eq(tree.kind, PropData.Kind.TREE)
 	var full := nodes.capacity(tree)
 	assert_eq(ctx.gatherable(tree.id), &"wood")
+	cutter.skills[String(cutter.occupation_id)] = 0.0 # (a beginner: the skilled are quicker, M12.4)
 	behavior.set_plan(cutter, &"work", &"purpose", steps, 2.0)
 	# At the tree: every dozen strokes a piece of wood, taken up.
 	var waited := 0.0

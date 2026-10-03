@@ -85,6 +85,10 @@ var planner: SettlementPlanner
 var traffic: Traffic
 ## People setting out to found settlements (M12.3; may be null).
 var migration: Migration
+## Trade between settlements (M12.4; may be null).
+var trade: TradeSystem
+## Where stone can be broken near a site: site -> [day, tile or null] (a day's memory).
+var rocky_ground: Dictionary = {}
 ## The things lying about (for coming upon what the player moved; may be null).
 var loose: LooseObjectRegistry
 ## The number the next stimulus gets (saved with the world: memories refer
@@ -236,6 +240,8 @@ func put_down(person: PersonData) -> int:
 	var store: Variant = places.storage_tile(resource)
 	var at := Places.middle_of(store) if store != null else person.world2d()
 	piles.add(resource, amount, at)
+	if settlement != null:
+		settlement.note_produced(resource, amount)
 	return amount
 
 

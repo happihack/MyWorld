@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"tools"
+category = 2
+stack = 12
+spoil_days = 0.0
+weight = 2.0
+color = Color(0.45, 0.36, 0.28, 1)
+defined_only = false
