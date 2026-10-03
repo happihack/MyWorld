@@ -196,4 +196,10 @@ static func _close_ones(person: PersonData, ctx: AiContext) -> Array[PersonData]
 		var parent := ctx.people.get_person(id)
 		if parent != null:
 			out.append(parent)
+	# (And their friends.)
+	if ctx.relationships != null:
+		for id in ctx.relationships.with_kind(person.id, Relationship.Kind.FRIEND):
+			var friend := ctx.people.get_person(id)
+			if friend != null and not out.has(friend):
+				out.append(friend)
 	return out

@@ -27,6 +27,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	16: _v16_to_v17,
 	17: _v17_to_v18,
 	18: _v18_to_v19,
+	19: _v19_to_v20,
 }
 
 
@@ -347,6 +348,21 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 20 (M10.1) adds what people are to each other. An older world has
+## nothing on record: when it is opened, its people are given what a new
+## band has (family close, everyone else known a little).
+static func _v19_to_v20(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("relationships"):
+		(state as Dictionary)["relationships"] = {}
 	return data
 
 

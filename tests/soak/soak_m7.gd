@@ -172,6 +172,16 @@ func _run() -> void:
 		least_food_days, low_below, low_stretches, longest_low, hungriest, worst_health])
 	print("SOAK looked up %d  decisions %d" % [s.behavior.skipped + s.behavior.decisions, s.behavior.decisions])
 	print("SOAK %s  |  %s" % [s.soil.debug_text(), s.vegetation.debug_text()])
+	print("SOAK %s" % s.relationships.debug_text())
+	var pairs := PackedStringArray()
+	for person in s.people.all_people():
+		var known: Dictionary = s.relationships.of(person.id)
+		for other_id: int in known:
+			if other_id > person.id:
+				var record: Relationship = known[other_id]
+				pairs.append("%d-%d %+.2f%s" % [person.id, other_id, record.affinity,
+					"F" if record.has_kind(Relationship.Kind.FRIEND) else ("R" if record.has_kind(Relationship.Kind.RIVAL) else "")])
+	print("SOAK pairs: %s" % " ".join(pairs))
 	print("SOAK %s  (stepped back out of rising water %d times)" % [s.hydrology.debug_text().replace("
 ", "  "), s.behavior.waded_out])
 	print("SOAK %d game minutes in %.1f s (%.3f ms a minute)" % [minutes, elapsed / 1000.0, float(elapsed) / minutes])

@@ -49,6 +49,11 @@ var farming: Farming
 var fauna: AnimalSystem
 ## The weather (may be null: there is none).
 var weather: WeatherSystem
+## What people are to each other (may be null: nobody is anything to anyone).
+var relationships: RelationshipStore
+## What came of people being together that is worth telling, not announced
+## yet: [act, person id, other id] (see SocialActs).
+var social_events: Array = []
 ## Kills not announced yet: [person id, species].
 var kills: Array = []
 ## People who have fallen ill, or recovered, not announced yet:

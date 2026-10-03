@@ -4,9 +4,10 @@ extends ActionStep
 ## something out of it — the one who came more.
 ##   {"type": "socialize", "partner": int, "minutes": float, "elapsed": float,
 ##    "gossiped": bool}
-## A little way into it they tell of what is on their mind (bible §15.3
-## "gossip"): the memory that matters most to them, if the other has not
-## heard it.
+## A little way into it something comes of it (bible §16.1, see SocialActs):
+## mostly a talk — and they tell of what is on their mind (bible §15.3
+## "gossip") — sometimes a hand at the other's work, a gift, a lesson, a
+## flirt, a quarrel.
 
 const TYPE := &"socialize"
 ## Further apart than this (tiles) it is no conversation.
@@ -47,7 +48,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		ctx.face(partner, person.world2d())
 	if not bool(step.get("gossiped", false)) and float(step.get("elapsed", 0.0)) >= GOSSIP_AFTER:
 		step["gossiped"] = true
-		Gossip.share(ctx, person, partner)
+		step["act"] = String(SocialActs.act(ctx, person, partner))
 	var time_up := tick(step, minutes)
 	var full := Needs.value(person.needs, Needs.Need.SOCIAL) >= 0.999 and may_end_early(step)
 	return Status.DONE if time_up or full else Status.RUNNING

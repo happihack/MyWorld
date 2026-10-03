@@ -216,7 +216,34 @@ func company(person: PersonData, rng: RandomNumberGenerator) -> PersonData:
 		var da := a.world2d().distance_squared_to(from)
 		var db := b.world2d().distance_squared_to(from)
 		return da < db or (da == db and a.id < b.id))
-	return others[rng.randi_range(0, mini(others.size(), 3) - 1)]
+	if relationships == null:
+		return others[rng.randi_range(0, mini(others.size(), 3) - 1)]
+	# Of the nearest few, the ones they like: friends and family more, rivals not
+	# at all (unless there is nobody else).
+	var near := others.slice(0, mini(others.size(), COMPANY_CHOICES))
+	var weights := PackedFloat32Array()
+	var total := 0.0
+	for other: PersonData in near:
+		var kinds := relationships.kinds(person.id, other.id)
+		var weight := 0.0
+		if kinds & (Relationship.Kind.RIVAL | Relationship.Kind.ENEMY) == 0:
+			weight = exp(2.0 * relationships.affinity(person.id, other.id)) * (1.5 if relationships.is_family(person.id, other.id) else 1.0)
+		weights.append(weight)
+		total += weight
+	if total <= 0.0:
+		return near[0]
+	var roll := rng.randf() * total
+	for i in near.size():
+		roll -= weights[i]
+		if roll <= 0.0:
+			return near[i]
+	return near[-1]
+
+
+## How many of the nearest are thought of when looking for company.
+const COMPANY_CHOICES := 5
+## What people are to each other (may be null: then the nearest few, at random).
+var relationships: RelationshipStore
 
 
 ## Is anyone of the person's settlement (other than themselves) up and

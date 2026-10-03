@@ -57,6 +57,10 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 	params["count"] = event.count
 	var who := people.get_person(event.participants[0]) if people != null and not event.participants.is_empty() else null
 	params["name"] = who.given_name if who != null else MemoryText.translate("EVENT_SOMEONE")
+	# (A second one, for what happened between two.)
+	if event.participants.size() > 1:
+		var other := people.get_person(event.participants[1]) if people != null else null
+		params["other"] = other.given_name if other != null else MemoryText.translate("EVENT_SOMEONE")
 	if params.has("resource"):
 		params["resource"] = UIText.resource_name(StringName(str(params["resource"])))
 	if params.has("species"):

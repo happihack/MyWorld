@@ -505,6 +505,9 @@ func test_a_starved_settlement_gets_through() -> void:
 	while session.clock.hour() < 19.5:
 		_run(10.0)
 	_empty_food()
+	# (Nothing in hand either: what is left of a meal, or given, would see them to breakfast.)
+	for person in session.people.all_people():
+		person.food_in_hand = 0.0
 	var ate_off_a_bush := {}
 	var hungriest := 1.0
 	var days := 0

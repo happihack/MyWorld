@@ -49,6 +49,11 @@ const TYPE_TREE_WITHERED := &"tree_withered"
 const TYPE_STORES_FLOODED := &"stores_flooded"
 const TYPE_HOME_MOVED := &"home_moved"
 const TYPE_COLD_SICK := &"person_cold_sick"
+const TYPE_FRIENDS := &"became_friends"
+const TYPE_FELL_OUT := &"fell_out"
+const TYPE_ENEMIES := &"became_enemies"
+const TYPE_RECONCILED := &"reconciled"
+const TYPE_FIGHT := &"fight"
 
 ## How much what the player does matters, by how severe it is.
 const PLAYER_SIGNIFICANCE: Array[float] = [0.1, 0.35, 0.6]
@@ -374,6 +379,43 @@ func on_home_moved(_hut_id: int, _from: Vector2i, to: Vector2i) -> void:
 		return
 	_log.record(TYPE_HOME_MOVED, {"position": Places.middle_of(to), "settlement": _settlement_id()},
 		[flood_id()] if flood_id() != 0 else [])
+
+
+# --- people and each other --------------------------------------------------------------------------
+
+## What two people are to each other has changed: friends, fallen out,
+## enemies — or made it up. Returns the event (null: nothing worth telling).
+func on_kind_changed(a: int, b: int, kind: int, gained: bool) -> WorldEvent:
+	if not _writing():
+		return null
+	var params := {"participants": [a, b], "position": _place_of(a), "settlement": _settlement_id()}
+	match kind:
+		Relationship.Kind.FRIEND:
+			return _log.record(TYPE_FRIENDS, params) if gained else null
+		Relationship.Kind.RIVAL:
+			if gained:
+				return _log.record(TYPE_FELL_OUT, params, _between(a, b, TYPE_FIGHT))
+			return _log.record(TYPE_RECONCILED, params, _between(a, b, TYPE_FELL_OUT))
+		Relationship.Kind.ENEMY:
+			return _log.record(TYPE_ENEMIES, params, _between(a, b, TYPE_FELL_OUT)) if gained else null
+	return null
+
+
+## Two came to blows: because they had fallen out, if they had.
+func on_social(act: StringName, a: int, b: int) -> WorldEvent:
+	if not _writing() or act != SocialActs.FIGHT:
+		return null
+	return _log.record(TYPE_FIGHT, {"participants": [a, b], "position": _place_of(a), "settlement": _settlement_id()},
+		_between(a, b, TYPE_FELL_OUT))
+
+
+## The latest event of a type between two people (as a list of causes: [] if none).
+func _between(a: int, b: int, type: StringName) -> Array:
+	var found := _log.of_type(type)
+	for n in range(found.size() - 1, -1, -1):
+		if found[n].involves(a) and found[n].involves(b):
+			return [found[n].id]
+	return []
 
 
 ## Something that goes on for a while begins (an event) or ends (noted on it).

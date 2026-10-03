@@ -34,6 +34,7 @@ var hydrology: HydrologyConfig
 var vegetation: VegetationConfig
 var tools: ToolsConfig
 var exposure: ExposureConfig
+var relationships: RelationshipsConfig
 
 ## Every problem found while loading (used by tests and the debug panel).
 var problems: PackedStringArray = []
@@ -71,6 +72,7 @@ func reload() -> void:
 	vegetation = _load("vegetation_config.tres", VegetationConfig) as VegetationConfig
 	tools = _load("tools_config.tres", ToolsConfig) as ToolsConfig
 	exposure = _load("exposure_config.tres", ExposureConfig) as ExposureConfig
+	relationships = _load("relationships_config.tres", RelationshipsConfig) as RelationshipsConfig
 	if problems.is_empty():
 		Log.info(Log.Category.CORE, "Config loaded")
 	else:

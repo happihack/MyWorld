@@ -47,6 +47,8 @@ var loose_system: LooseObjectSystem
 var water: WaterSim
 ## How the river stands: rain, dry weeks, floods (the coarse side of the water).
 var hydrology: Hydrology
+## What people are to each other.
+var relationships: RelationshipStore
 ## Which of the player's powers have shown themselves (rain, wind, water).
 var powers: ToolReveals
 ## The soil of all the land, and what grows on it.
@@ -108,6 +110,7 @@ var _saved_hydrology: Dictionary = {}
 var _saved_soil: Dictionary = {}
 var _saved_vegetation: Dictionary = {}
 var _saved_powers: Dictionary = {}
+var _saved_relationships: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -176,6 +179,13 @@ func _init() -> void:
 	hydrology.flood_changed.connect(func(active: bool, _tiles: int, at: Vector2) -> void:
 		if active:
 			emit_natural(Stimulus.FLOOD, at))
+	# What people are to each other; what is worth telling of it is told.
+	relationships = RelationshipStore.new()
+	relationships.kind_changed.connect(func(a: int, b: int, kind: int, gained: bool) -> void:
+		var event := chronicle.on_kind_changed(a, b, kind, gained)
+		var record := relationships.between(a, b)
+		if event != null and record != null:
+			record.note_event(event.id))
 	# The player's powers show themselves when the world gives the idea of them.
 	powers = ToolReveals.new()
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
@@ -218,6 +228,11 @@ func _init() -> void:
 		if iv != null and iv.applied and iv.type == Intervention.TOUCH and iv.subject == &"water":
 			powers.on_water_touched(history.count(Intervention.TOUCH, &"water"), clock.tick))
 	behavior.hunted.connect(chronicle.on_hunted)
+	behavior.social.connect(func(act: StringName, a: int, b: int) -> void:
+		var event := chronicle.on_social(act, a, b)
+		var record := relationships.between(a, b)
+		if event != null and record != null:
+			record.note_event(event.id))
 	behavior.fell_ill.connect(chronicle.on_fell_ill)
 	behavior.recovered.connect(chronicle.on_recovered)
 	simulation = SimulationManager.new()
@@ -247,6 +262,7 @@ func create_new(seed_value: int = 0) -> void:
 	_saved_soil = {}
 	_saved_vegetation = {}
 	_saved_powers = {}
+	_saved_relationships = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -309,8 +325,11 @@ func load_from(data: Dictionary) -> bool:
 	_saved_soil = {}
 	_saved_vegetation = {}
 	_saved_powers = {}
+	_saved_relationships = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
+		if typeof((state as Dictionary).get("relationships")) == TYPE_DICTIONARY:
+			_saved_relationships = state["relationships"]
 		if typeof((state as Dictionary).get("powers")) == TYPE_DICTIONARY:
 			_saved_powers = state["powers"]
 		if typeof((state as Dictionary).get("soil")) == TYPE_DICTIONARY:
@@ -416,6 +435,7 @@ func to_dict() -> Dictionary:
 			"weather": weather.to_dict(),
 			"hydrology": hydrology.to_dict(),
 			"powers": powers.to_dict(),
+			"relationships": relationships.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -740,6 +760,17 @@ func _activate() -> void:
 	weather.advance_to(clock.tick)
 	pathfinder.set_frozen(weather.frozen, Config.seasons.ice_depth)
 	ai.weather = weather
+	# What people are to each other: as saved — or, for a new world (or one
+	# from before this was kept), what a new band has.
+	relationships.bind(people, Config.relationships)
+	var unusable_pairs := relationships.from_dict(_saved_relationships)
+	if unusable_pairs > 0:
+		Log.warn(Log.Category.LOAD, "Some saved relationships were unusable and dropped", {"pairs": unusable_pairs})
+	_saved_relationships = {}
+	if relationships.size() == 0:
+		relationships.seed_from(people, clock.tick)
+	ai.relationships = relationships
+	ai.places.relationships = relationships
 	farming.bind(world, props, ids, pathfinder, start, people, occupations, generator, world_seed, Config.farming)
 	farming.from_dict(_saved_farming)
 	_saved_farming = {}

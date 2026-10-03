@@ -55,6 +55,11 @@ static func text(entry: Array, people: PersonRegistry = null, config: TimeConfig
 			var particular := "DAY_WORK_" + detail.to_upper()
 			if detail != "" and has(particular):
 				key = particular
+		"social":
+			# (What came of being together: "lends Jon a hand", "quarrels with Ama".)
+			var act := "DAY_SOCIAL_" + detail.to_upper()
+			if has(act):
+				key = act
 		"go_home":
 			# (In out of the weather: "takes shelter from the rain".)
 			var sheltering := "DAY_" + detail.to_upper()

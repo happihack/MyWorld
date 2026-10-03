@@ -29,6 +29,8 @@ signal hunted(person_id: int, species: StringName)
 ## Someone has fallen ill (`condition`: "hunger" — weak with it), or is
 ## over it.
 signal fell_ill(person_id: int, condition: StringName)
+## Something between two people worth telling (a fight).
+signal social(act: StringName, person_id: int, other_id: int)
 signal recovered(person_id: int, condition: StringName)
 ## A person reacted to something they noticed (bible §14.4). `stimulus` is the
 ## kind of thing it was; `direct`: it happened to them.
@@ -201,6 +203,8 @@ func step(minutes: float) -> void:
 		ctx.settlement.step(ctx.now())
 	if ctx.fauna != null:
 		ctx.fauna.advance_to(ctx.now())
+	if ctx.relationships != null:
+		ctx.relationships.settle(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()
@@ -272,6 +276,11 @@ func announce() -> void:
 		ctx.kills.clear()
 		for kill: Array in killed:
 			hunted.emit(kill[0], kill[1])
+	if not ctx.social_events.is_empty():
+		var happened := ctx.social_events.duplicate()
+		ctx.social_events.clear()
+		for entry: Array in happened:
+			social.emit(entry[0], entry[1], entry[2])
 	if not ctx.ailments.is_empty():
 		var ailing := ctx.ailments.duplicate()
 		ctx.ailments.clear()

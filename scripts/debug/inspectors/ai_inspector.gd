@@ -193,6 +193,18 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	lines.append("doing: %s  (%s, for %d min, begun at %.2f)" % [
 		PersonCard.activity_line(person) if activity != &"" else "nothing",
 		activity, since, float(person.current_action.get("score", 0.0))])
+	# Who they are close to, and at odds with.
+	if session.relationships != null:
+		var close := PackedStringArray()
+		var known := session.relationships.of(person.id)
+		var ids: Array = known.keys()
+		ids.sort_custom(func(x: int, y: int) -> bool: return (known[x] as Relationship).affinity > (known[y] as Relationship).affinity)
+		for other_id: int in ids.slice(0, 4):
+			var other := session.people.get_person(other_id)
+			var record: Relationship = known[other_id]
+			close.append("%s %+.2f%s" % [other.given_name if other != null else "#%d" % other_id, record.affinity,
+				" friend" if record.has_kind(Relationship.Kind.FRIEND) else (" RIVAL" if record.has_kind(Relationship.Kind.RIVAL) else "")])
+		lines.append("knows %d: %s" % [known.size(), ", ".join(close)])
 	# What they remember.
 	if session.memories != null and not person.memory_ids.is_empty():
 		var latest := session.memories.recent(person, 1)[0]

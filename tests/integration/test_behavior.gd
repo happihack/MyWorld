@@ -543,10 +543,11 @@ func test_company_is_good_for_both() -> void:
 	assert_true(Vector2.from_angle(person.facing).dot((partner.world2d() - person.world2d()).normalized()) > 0.95, "turned to them")
 	assert_true(Vector2.from_angle(partner.facing).dot((person.world2d() - partner.world2d()).normalized()) > 0.95, "and they to the visitor")
 	assert_eq(person.pose, PersonData.Pose.TALK)
-	# The partner goes to bed: the talk is over.
+	# The partner goes to bed: the talk with them is over (they may well turn to someone else).
 	partner.set_flag(PersonData.FLAG_INDOORS, true)
 	_run_one(person, 0.5)
-	assert_ne(_step_type(person), "socialize")
+	var now_step: Dictionary = BehaviorSystem.current_step(person)
+	assert_true(_step_type(person) != "socialize" or int(now_step.get("partner", 0)) != partner.id)
 
 
 func test_exploring_leads_somewhere_new() -> void:
