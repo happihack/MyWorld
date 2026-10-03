@@ -11,6 +11,8 @@ extends UIPanel
 signal person_chosen(person_id: int)
 ## The motion settings were asked for.
 signal motion_requested
+## The timeline was asked for (M11.3).
+signal timeline_requested
 
 const PAGE_ROOT := &"root"
 const PAGE_INDIVIDUALS := &"individuals"
@@ -143,6 +145,7 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_RELATIONSHIPS"), func() -> void: open_page(PAGE_RELATIONSHIPS))
 			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
 			_heading(MemoryText.translate("MENU_HISTORY"))
+			_entry(MemoryText.translate("MENU_TIMELINE"), func() -> void: timeline_requested.emit())
 			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
 			_entry(MemoryText.translate("MENU_FIRSTS"), func() -> void: open_page(PAGE_FIRSTS))
 			if SensorManager.feature_enabled():

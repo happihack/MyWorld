@@ -20,12 +20,15 @@ signal person_chosen(person_id: int)
 signal person_card_closed(person_id: int)
 ## "Show" was pressed on a toast: look at this place (world X/Z).
 signal locate_requested(position: Vector2)
+## An event on the timeline was tapped (M11.3): look for it.
+signal event_chosen(event_id: int)
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
 const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
 const HISTORY_CARD := preload("res://scenes/ui/panels/history_card.tscn")
 const GRAVE_CARD := preload("res://scenes/ui/panels/grave_card.tscn")
+const TIMELINE := preload("res://scenes/ui/panels/timeline.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 const CALIBRATION := preload("res://scenes/ui/calibration.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
@@ -245,7 +248,34 @@ func open_menu() -> MainMenu:
 	menu.motion_requested.connect(func() -> void:
 		_tick()
 		open_motion_settings())
+	menu.timeline_requested.connect(func() -> void:
+		_tick()
+		open_timeline())
 	return menu
+
+
+## The world's history, year by year (in place of any other card).
+func open_timeline() -> TimelinePanel:
+	var open := timeline()
+	if open != null:
+		return open
+	close_all_panels()
+	var panel: TimelinePanel = TIMELINE.instantiate()
+	open_panel(panel)
+	panel.setup(_session)
+	_toasts.visible = false
+	panel.closed.connect(func() -> void: _toasts.visible = true)
+	panel.event_chosen.connect(func(id: int) -> void:
+		_tick()
+		event_chosen.emit(id))
+	return panel
+
+
+func timeline() -> TimelinePanel:
+	for panel: UIPanel in _panels:
+		if panel is TimelinePanel and not panel.is_closing():
+			return panel
+	return null
 
 
 func toggle_menu() -> void:

@@ -88,6 +88,7 @@ func _ready() -> void:
 	NotificationManager.bind(session.events, session.people)
 	NotificationManager.quiet = follow.is_following()
 	ui_root.locate_requested.connect(look_at_place)
+	ui_root.event_chosen.connect(locate_event)
 	input_router.gesture_recognized.connect(_on_gesture)
 	world_view.camera_rig().handles_double_tap = false # decided in _on_gesture
 	session.interactions.responded.connect(world_view.effects().play)
@@ -697,6 +698,26 @@ func touch_tilt() -> Vector2:
 
 ## Glides the camera to a place (world X/Z), no further away than the
 ## settlement is seen from: where a toast says something happened.
+## An event of the timeline: look for it — where it happened, or whom it
+## concerned (the living, the grave of the dead, a living descendant).
+## Returns how it was found.
+func locate_event(event_id: int) -> TimelineModel.Found:
+	var target := TimelineModel.locate(session, session.events.get_event(event_id))
+	match target.found:
+		TimelineModel.Found.PLACE:
+			ui_root.close_all_panels()
+			look_at_place(target.position)
+		TimelineModel.Found.PERSON, TimelineModel.Found.DESCENDANT:
+			ui_root.close_all_panels()
+			if select_person(target.person_id):
+				focus_on_person(target.person_id)
+		TimelineModel.Found.GRAVE:
+			ui_root.close_all_panels()
+			look_at_place(target.position)
+			ui_root.open_grave(session, target.person_id)
+	return target.found
+
+
 func look_at_place(place: Vector2) -> void:
 	if not place.is_finite():
 		return
