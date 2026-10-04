@@ -114,8 +114,6 @@ var piles: PileStore
 var settlement: Settlement
 ## Every settlement: the first (`settlement`) and those founded since (M12.3).
 var settlements := Settlements.new()
-## The statistics count food lasting more days than this as this many.
-const FOOD_DAYS_MOST := 999.0
 ## The fields and what grows on them.
 var farming: Farming
 ## What the player does frightens the animals at least this near to it (tiles).
@@ -786,42 +784,11 @@ func stored(resource: StringName) -> int:
 
 
 ## The world's numbers as they are now (what the StatsRecorder writes down
-## every game hour). What is in store is every settlement's together.
+## every game hour; M15: StatsSampler).
 func sample_stats() -> Dictionary:
-	var count := 0
-	var health := 0.0
-	var mood := 0.0
-	for person in people.all_people():
-		count += 1
-		health += person.health
-		mood += Needs.mood(person.needs)
-	var food := 0.0
-	var need := 0.0
-	var wood := 0
-	var stone := 0
-	for own in settlements.all():
-		food += own.stockpile.food()
-		need += own.food_need_per_day()
-		wood += own.stockpile.amount(&"wood")
-		stone += own.stockpile.amount(&"stone")
-	return {
-		&"population": float(count),
-		&"food": food,
-		# (How many days it lasts them all; with nobody to eat it, none.)
-		&"food_days": minf(food / need, FOOD_DAYS_MOST) if need > 0.0 else 0.0,
-		&"water": water.total_volume(),
-		&"trees": float(vegetation.tree_count()),
-		&"grass": vegetation.grass_cover(),
-		&"wood": float(wood),
-		&"stone": float(stone),
-		&"tools": float(_tools_in_store()),
-		&"health": health / count if count > 0 else 0.0,
-		&"temperature": weather.temperature(clock.tick),
-		&"mood": mood / count if count > 0 else 0.0,
-	}
+	return StatsSampler.sample(self)
 
 
-## Generates terrain, props and the starting settlement for `world_seed`.
 func _build_new_world(setup_ids: IdAllocator) -> void:
 	var started := Time.get_ticks_msec()
 	var template := _load_template(template_id)

@@ -2003,18 +2003,30 @@ All five sub-phases are done (M13.1–M13.5) — **before the VS gate, at the ow
 
 ---
 
-## M15 — STATISTICS
+## M15 — STATISTICS — ✅ DONE (2026-10-04)
 
 **Goal:** Turn the simulation into something players enjoy studying. (P:M15, S§9, B§27.1)
 **Depends on:** M14.
 
-- [ ] `StatsRecorder` full: all categories (B§27.1) derived from sim data; multi-resolution time series (hourly for recent days, daily for years, yearly for centuries) with bounded storage; saved.
-- [ ] `scripts/ui/widgets/chart.gd`: sparkline, line chart (pan/zoom time), stacked bars (age distribution), colourblind-safe palette + shape markers.
-- [ ] Panels: Population · Economy · Society · Environment · Player (B§27.3 counters).
-- [ ] **Progressive reveal:** stat appears after the underlying system produces data (e.g., inequality only after multiple households with differing wealth).
-- [ ] Derived "insight" lines ("Food production fell 30% after the drought of Year 12.") using events + series.
+- [x] `StatsRecorder` full: all categories (B§27.1) derived from sim data; multi-resolution time series (hourly for recent days, daily for years, yearly for centuries) with bounded storage; saved.
+- [x] `scripts/ui/widgets/chart.gd`: sparkline, line chart (pan/zoom time), stacked bars (age distribution), colourblind-safe palette + shape markers.
+- [x] Panels: Population · Economy · Society · Environment · Player (B§27.3 counters).
+- [x] **Progressive reveal:** stat appears after the underlying system produces data (e.g., inequality only after multiple households with differing wealth).
+- [x] Derived "insight" lines ("Food production fell 30% after the drought of Year 12.") using events + series.
 **Tests:** `test_stats_derived_not_static` (changing sim data changes stats), `test_series_downsampling`, `test_stats_persistence`.
 **Exit criteria:** Testers voluntarily open statistics twice in a session and find something they didn't know.
+
+### M15 — What was built
+(Before the VS gate, at the owner's word: VS.1–VS.4 done, VS.5 skipped for now, VS.6 open.)
+- [x] **The numbers, worked out from the world** (`scripts/simulation/stats_sampler.gd`, `StatsSampler.sample`; `WorldSession.sample_stats` hands over to it): 38 of them — *population*: people, born, died, average age, children/adults/elders, settlements, moves away, health, fed, unwell; *economy*: food in store and how many days it lasts, water, wood, stone, tools, brought in, trade trips, buildings, fields; *society*: mood, fear, fondness (the average affinity between those who know each other), friendships, rivalries; *environment*: weather (temperature), rain, forest, grass, trees, wild animals, soil (the average fertility, every fourth tile); *the player*: touches, who remember the player, the share who believe in a god, or in nature. Nothing is counted by hand: each is read off the people, the stores, the events, the land when the hour comes.
+- [x] **Kept at three resolutions** (`StatsRecorder`): every hour (the recent 40 days, as before), **every day — the day's average — for a hundred years, every year — the year's average — for two thousand**; each a ring of its own, so it stays bounded however long the world lives. The day and the year being gathered are saved too, so a world saved part way through a day carries on as if never saved; **a world saved before M15 reads as before** (its hours; the numbers not kept then are blank; days and years begin).
+- [x] **The chart** (`scripts/ui/widgets/chart.gd`): lines over time — **dragged to look back, zoomed (+ and −, the mouse wheel)**, the scale fitting what is in view, the first and last dates below; or **stacked bars**. Colours anyone can tell apart (Okabe–Ito) and **every line its own mark** (circle, square, triangle, diamond). New samples keep the window where it was (and one showing now keeps showing now).
+- [x] **The panel** (`StatsPanel`, rebuilt): tabs **Population · Economy · Society · Environment · You** (the player's: what was done and what the world makes of it — the history card's counters — then the player's numbers). Each number as it is now, with its line; **a tap opens it**: its value, a chart by **Hours, Days, Years** (each once there are two to draw), and what the numbers say about it. On Population, **the ages — women and men, by ten years — as stacked bars**. It is built anew only when what it shows changes (a new tab, a number revealed, an insight); otherwise only the numbers move.
+- [x] **Shown once there is something** (`StatsCatalog`): people, average age, adults, settlements, health, fed, food, its days, water, mood, the weather, forest, grass, trees and soil from the start; every other number once it has been other than nothing (born, died, rivalries, trade trips, rain, the player's…); a tab with nothing in it is not there (the player's always is).
+- [x] **What the numbers say** (`scripts/simulation/insights.gd`): for each drought, flood, storm, cold snap, heat wave, shortage, failed harvest, new settlement, unfolding of the box and touch of the player, the numbers it may have changed are compared — the daily averages of the six days before and after (three at the least each side) — and **a change of a quarter or more is said: "Food in store fell 50% after the drought in year 1."** The largest first, three on a tab, five on a number; one a year for each kind and number.
+- **Deviations:** no inequality yet (no households with differing wealth: it comes with them, by the same rule). "Brought in" is the settlements' produced counters together. Interventions, births, deaths and moves are counts so far (the chart shows them rising); "per year" waits for a reason. On its side the panel scrolls to the chart (the tabs make way while a number is open).
+- **Verified:** `test_statistics_m15` (7): **`test_stats_derived_not_static`** (a death and wood added change the numbers; every series has a value; the ages add up), **`test_series_downsampling`** (days as the averages of their hours, dated by their first; years of days; the hours bounded, the oldest let go), **`test_stats_persistence`** (saved part way through a day and carried on = never saved; a world from before M15; with the world through var_to_bytes), `test_insights` (the drought halves the food: said; the unchanged water is not; too few days: nothing), `test_reveal` (born appears once someone is; every series has a tab, a name, a way to be written), `test_chart` (zoom, pan within bounds, the scale, following now, bars), `test_panel_tabs_and_detail` (tabs, ages = the living, a tap opens the chart, Days, a new sample doesn't rebuild or unzoom, back, the player's tab). Changed: `test_statistics_panel` (numbers on their tabs). **Full suite (alone): 1289 passed, 0 failed.** Caught by it: the empty day and year rings made a pristine world's save too big — empty rings are not saved now. Desktop screenshots (`C:/tmp/m15/`): Population with the ages, Economy, food by the hour and by the day with its insight, You; upright and on its side (the forty days drawn there are made up around the world's own numbers, a drought among them).
+- **Exit criteria** (*testers open statistics twice in a session and find something they didn't know*): **needs players** (with VS.6).
 
 ---
 

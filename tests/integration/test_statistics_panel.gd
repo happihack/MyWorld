@@ -43,12 +43,17 @@ func test_from_the_menu() -> void:
 	assert_not_null(panel)
 	var now := session.sample_stats()
 	assert_eq(panel.value_label(&"population").text, str(int(now[&"population"])))
-	assert_true(panel.value_label(&"food_days").text.ends_with(" days"))
 	assert_true(panel.value_label(&"health").text.ends_with("%"))
+	for key in [&"population", &"health"]:
+		assert_not_null(panel.sparkline(key), String(key))
+	panel.set_tab(StatsCatalog.ECONOMY)
+	assert_true(panel.value_label(&"food_days").text.ends_with(" days"))
+	for key in [&"food_days", &"water"]:
+		assert_not_null(panel.sparkline(key), String(key))
+	panel.set_tab(StatsCatalog.ENVIRONMENT)
 	assert_eq(panel.value_label(&"temperature").text,
 		UIText.weather_line(session.weather.state, session.stats.latest().get(&"temperature", now[&"temperature"])))
-	for key in [&"population", &"food_days", &"water", &"wood", &"stone", &"health", &"mood", &"temperature"]:
-		assert_not_null(panel.sparkline(key), String(key))
+	assert_not_null(panel.sparkline(&"temperature"))
 
 
 func test_lines_over_time() -> void:
@@ -70,7 +75,11 @@ func test_lines_over_time() -> void:
 	panel.refresh()
 	await wait_frames(2)
 	assert_eq(panel.value_label(&"population").text, "10")
+	panel.set_tab(StatsCatalog.ECONOMY)
 	assert_eq(panel.value_label(&"food_days").text, "2.1 days")
+	var food := panel.sparkline(&"food_days").points()
+	assert_true(food[-1].y > food[0].y, "less food: the line falls")
+	panel.set_tab(StatsCatalog.POPULATION)
 	assert_eq(panel.span_label().text, "Over the last 2 days")
 	var line := panel.sparkline(&"population")
 	assert_eq(line.values(), stats.series(&"population"))
@@ -78,8 +87,6 @@ func test_lines_over_time() -> void:
 	assert_eq(at.size(), 72)
 	assert_true(at[-1].y < at[0].y, "more people: the line rises")
 	assert_true(at[-1].x > at[0].x, "now on the right")
-	var food := panel.sparkline(&"food_days").points()
-	assert_true(food[-1].y > food[0].y, "less food: the line falls")
 	# A new sample shows within a second.
 	var values := session.sample_stats()
 	values[&"population"] = 12.0
