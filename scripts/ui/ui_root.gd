@@ -22,6 +22,8 @@ signal person_card_closed(person_id: int)
 signal locate_requested(position: Vector2)
 ## An event on the timeline was tapped (M11.3): look for it.
 signal event_chosen(event_id: int)
+## Another world is to be opened (VS.3; see MainMenu.world_requested).
+signal world_requested(plan: Dictionary, erase_this: bool)
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
@@ -254,6 +256,9 @@ func open_menu() -> MainMenu:
 	menu.statistics_requested.connect(func() -> void:
 		_tick()
 		open_statistics())
+	menu.world_requested.connect(func(plan: Dictionary, erase_this: bool) -> void:
+		menu.close()
+		world_requested.emit(plan, erase_this))
 	menu.history_requested.connect(func() -> void:
 		_tick()
 		close_all_panels()

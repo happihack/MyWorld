@@ -17,6 +17,9 @@ signal motion_requested
 signal timeline_requested
 ## The statistics were asked for (VS.2).
 signal statistics_requested
+## Another world is to be opened (VS.3): `plan` as SaveManager.open_next;
+## `erase_this`: this world is erased first (Reset).
+signal world_requested(plan: Dictionary, erase_this: bool)
 ## The player's own history was asked for (M11.4).
 signal history_requested
 
@@ -32,6 +35,9 @@ const PAGE_WEATHER := &"weather"
 const PAGE_AUDIO := &"audio"
 const PAGE_HAPTICS := &"haptics"
 const PAGE_SAVE := &"save"
+const PAGE_WORLDS := &"worlds"
+const PAGE_BACKUPS := &"backups"
+const PAGE_CONFIRM := &"confirm"
 
 ## The volumes on the Audio page, and how far a step moves them.
 const VOLUMES: Array[StringName] = [&"audio/master", &"audio/ambience", &"audio/sfx", &"audio/ui"]
@@ -53,6 +59,8 @@ var _scroll: ScrollContainer
 var _list: VBoxContainer
 var _settling := 0
 var _slide: Tween
+## The question PAGE_CONFIRM asks: [text, yes text, what yes does].
+var _confirm: Array = []
 
 
 func _init() -> void:
@@ -198,6 +206,48 @@ func _show() -> void:
 				if _session != null:
 					SaveManager.save_world(_session, &"menu")
 				_show())
+			if not other_worlds(_session).is_empty():
+				_entry(MemoryText.translate("MENU_CONTINUE"), func() -> void: open_page(PAGE_WORLDS))
+			_entry(MemoryText.translate("MENU_NEW_WORLD"), func() -> void:
+				ask(MemoryText.translate("MENU_NEW_WORLD_ASK"), MemoryText.translate("MENU_NEW_WORLD_YES"), func() -> void:
+					world_requested.emit({"kind": "new"}, false)))
+			_entry(MemoryText.translate("MENU_BACKUPS"), func() -> void: open_page(PAGE_BACKUPS))
+			_entry(MemoryText.translate("MENU_RESET"), func() -> void:
+				ask(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
+					world_requested.emit({"kind": "new"}, true)))
+		PAGE_WORLDS:
+			_title.text = MemoryText.translate("MENU_CONTINUE")
+			var now_unix := int(Time.get_unix_time_from_system())
+			for other in other_worlds(_session):
+				var world_id: String = other["world_id"]
+				_entry(world_text(other, now_unix), func() -> void:
+					world_requested.emit({"kind": "world", "world_id": world_id}, false))
+		PAGE_BACKUPS:
+			_title.text = MemoryText.translate("MENU_BACKUPS")
+			var kept := SaveManager.backups(_session.world_id) if _session != null else ([] as Array[Dictionary])
+			if kept.is_empty():
+				_line(MemoryText.translate("MENU_NO_BACKUPS"))
+			else:
+				_small(MemoryText.translate("MENU_BACKUPS_ABOUT"))
+			var now_unix := int(Time.get_unix_time_from_system())
+			for backup in kept:
+				var file_name: String = backup["file"]
+				_entry(backup_text(backup, now_unix), func() -> void:
+					ask(MemoryText.translate("MENU_BACKUP_ASK"), MemoryText.translate("MENU_BACKUP_YES"), func() -> void:
+						var loaded := SaveManager.load_file(_session.world_id, file_name)
+						if loaded.ok:
+							world_requested.emit({"kind": "loaded", "loaded": loaded}, false)
+						else:
+							back()
+							_line(MemoryText.translate("MENU_BACKUP_UNREADABLE"))))
+		PAGE_CONFIRM:
+			_title.text = MemoryText.translate("MENU_SURE")
+			_line(_confirm[0])
+			var yes: Callable = _confirm[2]
+			_entry(_confirm[1], func() -> void:
+				AudioManager.play_ui(&"ui_tap")
+				yes.call())
+			_entry(MemoryText.translate("MENU_NO"), func() -> void: back())
 		PAGE_INDIVIDUALS:
 			_title.text = MemoryText.translate("MENU_INDIVIDUALS")
 			for row: Array in individuals(_session):
@@ -270,6 +320,51 @@ static func weather_lines(session: WorldSession) -> PackedStringArray:
 	out.append(MemoryText.translate("MENU_RAIN_DAYS").format({"rainy": rainy, "days": days}) if rainy > 0
 		else MemoryText.translate("MENU_NO_RAIN").format({"days": days}))
 	return out
+
+
+## Asks before something that cannot simply be taken back (a page of its own).
+func ask(text: String, yes_text: String, yes: Callable) -> void:
+	_confirm = [text, yes_text, yes]
+	open_page(PAGE_CONFIRM)
+
+
+## The saved worlds other than this one, the newest first (SaveManager.worlds).
+static func other_worlds(session: WorldSession) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for world in SaveManager.worlds():
+		if session == null or world["world_id"] != session.world_id:
+			out.append(world)
+	return out
+
+
+## "Year 3 · Spring · Day 4" of a game tick.
+static func date_of(tick: int) -> String:
+	return String(TranslationServer.translate(&"TIME_DATE")).format({"year": Config.time.year_of(tick),
+		"season": GameClock.season_name(Config.time.season_of(tick)), "day": Config.time.day_of_season(tick)})
+
+
+## A saved world in a line: "Seed 48213 · Year 3 · Spring · Day 4 · Saved 2 h ago".
+static func world_text(world: Dictionary, now_unix: int) -> String:
+	return MemoryText.translate("MENU_WORLD_ROW").format({"seed": int(world["seed"]), "date": date_of(int(world["game_tick"])),
+		"saved": ago_text(int(world["saved_unix"]), now_unix)})
+
+
+## A backup in a line: "Year 1 · Spring · Day 3 · Saved 4 min ago".
+static func backup_text(backup: Dictionary, now_unix: int) -> String:
+	return MemoryText.translate("MENU_BACKUP_ROW").format({"date": date_of(int(backup["game_tick"])),
+		"saved": ago_text(int(backup["saved_unix"]), now_unix)})
+
+
+## How long ago, in a word or two: "just now", "4 min ago", "2 h ago", "3 days ago".
+static func ago_text(then_unix: int, now_unix: int) -> String:
+	var ago := maxi(now_unix - then_unix, 0)
+	if ago < 60:
+		return MemoryText.translate("MENU_AGO_NOW")
+	if ago < 3600:
+		return MemoryText.translate("MENU_AGO_MINUTES").format({"count": ago / 60})
+	if ago < 86400:
+		return MemoryText.translate("MENU_AGO_HOURS").format({"count": ago / 3600})
+	return MemoryText.translate("MENU_AGO_DAYS").format({"count": ago / 86400})
 
 
 ## When the world was last saved, in words: "Saved just now", "Saved 3 minutes ago".
@@ -445,7 +540,8 @@ func _entry(text: String, pressed: Callable) -> void:
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.focus_mode = Control.FOCUS_NONE
-	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# (Long lines — a saved world, a backup — wrap rather than lose their end.)
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(pressed)

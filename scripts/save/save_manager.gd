@@ -9,12 +9,25 @@ extends Node
 ## app died between rotating backups and the final rename, and it only loads if
 ## it fully verifies), then each backup.
 ## Saves are synchronous for now; threaded writes arrive in M22.
+## A world loaded from a fallback because its world.sav was unusable gets that
+## file set aside (world.sav.corrupt) at its next save, not rotated into the
+## backups in place of a good one (VS.3).
+##
+## The player's own choices (VS.3, Settings → Save): continue another world,
+## start a new one, go back to a backup, erase this one — `open_next` tells
+## Main what to open when it next opens a world.
 
 ## 1: clock, ids, rng. 2: + world_state (modified chunks, prop differences, start info).
 ## 3: + loose objects, changed props, player history, water books (M3).
 ## 4: + people (M4.1). 5: + what the band knows of the world (M4.6).
 const SAVE_VERSION := 28
 const SAVE_FILE := "world.sav"
+const CORRUPT_SUFFIX := ".corrupt"
+
+## What Main opens next instead of the newest world (taken once):
+## {"kind": "world", "world_id": …} · {"kind": "new"} ·
+## {"kind": "loaded", "loaded": LoadResult} (a backup gone back to).
+var open_next: Dictionary = {}
 
 ## Last save outcome, for the debug overlay.
 var last_save_info: Dictionary = {}
@@ -26,6 +39,8 @@ var _change_timer: Timer
 var _first_unsaved_msec := 0
 var _last_saved_world_id := ""
 var _last_saved_msec := 0
+## world_id -> true: its world.sav was unusable when it was loaded.
+var _bad_main: Dictionary = {}
 
 
 class LoadResult:
@@ -132,7 +147,13 @@ func save_world(session: WorldSession, reason: StringName = &"manual") -> bool:
 	if not verify.ok:
 		return _save_failed("verification failed: " + verify.error)
 
-	_rotate_backups(path)
+	if _bad_main.has(session.world_id):
+		# (The unusable file is kept aside, and the good backups stay as they are.)
+		if FileAccess.file_exists(path):
+			DirAccess.rename_absolute(path, path + CORRUPT_SUFFIX)
+		_bad_main.erase(session.world_id)
+	else:
+		_rotate_backups(path)
 	err = DirAccess.rename_absolute(tmp, path)
 	if err != OK:
 		return _save_failed("final rename failed (%s)" % error_string(err))
@@ -190,6 +211,8 @@ func load_world(world_id: String) -> LoadResult:
 			continue
 		var read := SaveContainer.read(path)
 		if not read.ok:
+			if file_name == SAVE_FILE:
+				_bad_main[world_id] = true
 			errors.append("%s: %s" % [file_name, read.error])
 			Log.warn(Log.Category.LOAD, "Save file unusable", {"file": file_name, "error": read.error})
 			continue
@@ -214,6 +237,73 @@ func load_world(world_id: String) -> LoadResult:
 	Log.error(Log.Category.LOAD, "World load failed", {"world_id": world_id, "error": result.error})
 	EventBus.load_failed.emit(result.error)
 	return result
+
+
+## One saved file of a world, as it is: that file only, no fallback (a
+## backup to go back to). Never modifies files.
+func load_file(world_id: String, file_name: String) -> LoadResult:
+	var result := LoadResult.new()
+	var path := world_dir(world_id).path_join(file_name)
+	var read := SaveContainer.read(path)
+	if not read.ok:
+		result.error = read.error
+		return result
+	var migrated := SaveMigrations.migrate(read.data, int(read.header.get("save_version", 0)), SAVE_VERSION)
+	if not migrated.ok or typeof(migrated.data.get("world")) != TYPE_DICTIONARY:
+		result.error = migrated.error if not migrated.ok else "no world data"
+		return result
+	result.ok = true
+	result.world = migrated.data["world"]
+	result.header = read.header
+	result.source = file_name
+	return result
+
+
+## Every saved world, the newest save first: [{world_id, seed, saved_unix, game_tick}, …].
+func worlds() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for world_id in world_ids_by_recency():
+		for file_name in _candidate_files():
+			var header := SaveContainer.read_header(world_dir(world_id).path_join(file_name))
+			if header.ok:
+				out.append({"world_id": world_id, "seed": int(header.header.get("world_seed", 0)),
+					"saved_unix": int(header.header.get("saved_unix", 0)), "game_tick": int(header.header.get("game_tick", 0))})
+				break
+	return out
+
+
+## A world's backups that can be read, the newest first: [{file, saved_unix, game_tick}, …].
+func backups(world_id: String) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for i in range(1, Config.save.backup_count + 1):
+		var file_name := "%s.bak%d" % [SAVE_FILE, i]
+		var header := SaveContainer.read_header(world_dir(world_id).path_join(file_name))
+		if header.ok:
+			out.append({"file": file_name, "saved_unix": int(header.header.get("saved_unix", 0)),
+				"game_tick": int(header.header.get("game_tick", 0))})
+	return out
+
+
+## Erases a world and all its files for good. Returns whether it is gone.
+func delete_world(world_id: String) -> bool:
+	if world_id == "" or world_id.contains("/") or world_id.contains(".."):
+		return false
+	var dir := world_dir(world_id)
+	if not DirAccess.dir_exists_absolute(dir):
+		return true
+	for file_name in DirAccess.get_files_at(dir):
+		DirAccess.remove_absolute(dir.path_join(file_name))
+	_bad_main.erase(world_id)
+	if _last_saved_world_id == world_id:
+		_last_saved_world_id = ""
+	return DirAccess.remove_absolute(dir) == OK
+
+
+## What Main is to open next (see open_next), once; {} for the newest world.
+func take_open_next() -> Dictionary:
+	var plan := open_next
+	open_next = {}
+	return plan
 
 
 func world_dir(world_id: String) -> String:

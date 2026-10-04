@@ -48,6 +48,9 @@ var _last_work_effect_msec := 0
 ## Voices of people reacting to what they only saw are heard at most this often.
 const VOICE_GAP_MSEC := 220
 var _last_voice_msec := 0
+## The file the world came from when it was not its world.sav (its save was
+## unusable: brought back from a backup), "" otherwise.
+var restored_from := ""
 
 
 func _ready() -> void:
@@ -66,6 +69,7 @@ func _ready() -> void:
 	session.loose_system.landed.connect(_on_object_landed)
 	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
+	ui_root.world_requested.connect(switch_world)
 	ui_root.person_action.connect(_on_person_action)
 	ui_root.person_chosen.connect(_on_person_chosen)
 	ui_root.person_card_closed.connect(_on_person_card_closed)
@@ -87,6 +91,13 @@ func _ready() -> void:
 	# What happens in the world is told as it happens (and shown where).
 	NotificationManager.bind(session.events, session.people)
 	NotificationManager.quiet = follow.is_following()
+	# (A save that could not be read is told once the notices are bound: binding clears them.)
+	if restored_from != "":
+		var notice := Notice.new()
+		notice.kind = &"world_restored"
+		notice.text = MemoryText.translate("SAVE_RESTORED")
+		notice.priority = 0.9
+		NotificationManager.offer_notice(notice)
 	ui_root.locate_requested.connect(look_at_place)
 	ui_root.event_chosen.connect(locate_event)
 	input_router.gesture_recognized.connect(_on_gesture)
@@ -746,15 +757,48 @@ func go_home() -> void:
 
 
 func _open_world() -> void:
+	# What the player chose (Settings → Save), if anything.
+	var plan := SaveManager.take_open_next()
+	match String(plan.get("kind", "")):
+		"new":
+			session.create_new()
+			SaveManager.save_world(session, &"new_world")
+			return
+		"loaded": # a backup gone back to: it is the world now (and what was is a backup)
+			var chosen: Variant = plan.get("loaded")
+			if chosen != null and chosen.ok and session.load_from(chosen.world):
+				SaveManager.save_world(session, &"backup_restored")
+				return
+		"world":
+			var other := SaveManager.load_world(String(plan.get("world_id", "")))
+			if other.ok and session.load_from(other.world):
+				restored_from = other.source if other.source != SaveManager.SAVE_FILE else ""
+				return
 	# Newest first; skip worlds that cannot be loaded (e.g. corrupt with a
 	# misleadingly recent header) instead of abandoning continuity.
 	for world_id in SaveManager.world_ids_by_recency():
 		var loaded := SaveManager.load_world(world_id)
 		if loaded.ok and session.load_from(loaded.world):
+			restored_from = loaded.source if loaded.source != SaveManager.SAVE_FILE else ""
 			return
 		Log.error(Log.Category.LOAD, "Could not continue world; trying older", {"world_id": world_id})
 	session.create_new()
 	SaveManager.save_world(session, &"new_world") # persist immediately
+
+
+## Opens another world (VS.3): this one is saved first — or, with
+## `erase_this`, erased for good — and the scene opens `plan` (see
+## SaveManager.open_next) as it opens the newest world at launch.
+func switch_world(plan: Dictionary, erase_this: bool = false) -> void:
+	var leaving := session.world_id
+	if not erase_this and session.is_active:
+		SaveManager.save_world(session, &"switch")
+	SaveManager.attach(null) # (closing this world saves nothing more)
+	if erase_this:
+		session.shutdown()
+		SaveManager.delete_world(leaving)
+	SaveManager.open_next = plan
+	get_tree().reload_current_scene.call_deferred()
 
 
 func _world_debug_section() -> String:
