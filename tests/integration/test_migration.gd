@@ -150,6 +150,28 @@ func test_who_goes_and_where() -> void:
 	assert_eq(Migration.direction(Vector2i(0, 0), Vector2i(7, 7)), "south-east")
 
 
+func test_a_flood_at_home_does_not_rule_out_land_elsewhere() -> void:
+	# Seed 4242 never founded a camp: one shallow flood at home was remembered,
+	# and every site at the camp's own height was ruled out, anywhere, for good.
+	_explore()
+	var own := session.settlement
+	var to: Variant = migration.destination(own)
+	assert_not_null(to)
+	own.flood_level = session.world.get_height(to) * session.world.height_step + 0.2
+	assert_eq(migration.destination(own), to, "judged by its own water, not by the flood at home")
+	# But a site below the water near it is no site.
+	var near: Variant = null
+	for dy in range(-6, 7):
+		for dx in range(-6, 7):
+			var at: Vector2i = to + Vector2i(dx, dy)
+			if near == null and session.world.get_water(at) > Pathfinder.WET_DEPTH:
+				near = at
+	assert_not_null(near, "water near the site")
+	var ground := session.world.get_height(to) * session.world.height_step
+	session.world.set_water(near, ground + 0.5 - session.world.get_height(near) * session.world.height_step)
+	assert_null(migration.site_score(to, own), "the water near it stands higher")
+
+
 func test_migration_founds_settlement() -> void:
 	var first := session.settlement
 	var food_before := first.stockpile.food_units()

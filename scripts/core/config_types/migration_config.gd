@@ -62,6 +62,8 @@ extends ConfigBase
 ## Water within this many tiles (but not on the bank), trees within `tree_reach`.
 @export_range(1.0, 40.0) var water_within: float = 10.0
 @export_range(1, 20) var tree_reach: int = 6
+## Its ground at least this far above the highest water near it (world units).
+@export_range(0.0, 4.0, 0.01) var flood_clear: float = 0.1
 ## A settlement that would send people out but knows of nowhere for them
 ## scouts: its grown explore this many tiles further.
 @export_range(0.0, 60.0) var scout_further: float = 16.0

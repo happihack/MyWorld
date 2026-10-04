@@ -417,7 +417,7 @@ func destination(own: Settlement) -> Variant:
 
 
 ## How good `tile` is to settle at (null: not at all): even, dry, open ground
-## above the water `own` remembers, water near but not on the bank, trees near.
+## above the water near it, water near but not on the bank, trees near.
 func site_score(tile: Vector2i, own: Settlement) -> Variant:
 	if not WorldSetup._is_flat_dry_square(world, tile, 1):
 		return null
@@ -426,19 +426,26 @@ func site_score(tile: Vector2i, own: Settlement) -> Variant:
 		return null
 	if props.prop_at(tile) != null or (pathfinder != null and not pathfinder.can_stand(tile)):
 		return null
-	if world.get_height(tile) * world.height_step <= own.flood_level + 0.01:
-		return null
 	if pathfinder != null and not pathfinder.is_reachable(own.start_info().settlement_tile + Vector2i(1, 0), tile):
 		return null
 	# Water near (not on the bank).
 	var water := INF
+	var highest := -INF
+	var ground := world.get_height(tile) * world.height_step
 	var reach := ceili(config.water_within)
 	for dy in range(-reach, reach + 1):
 		for dx in range(-reach, reach + 1):
 			var at := tile + Vector2i(dx, dy)
 			if world.is_in_bounds(at) and world.get_water(at) > Pathfinder.WET_DEPTH:
 				water = minf(water, Vector2(dx, dy).length())
+				highest = maxf(highest, world.get_height(at) * world.height_step + world.get_water(at))
 	if water > config.water_within or water < 2.5:
+		return null
+	# Above the water near it (by `flood_clear`): a site is judged by its own
+	# water. (It was judged by the flood the settlement remembers at home —
+	# one shallow flood there ruled out every site at its height, anywhere in
+	# the world, for good: seed 4242 never founded a camp.)
+	if ground <= highest + config.flood_clear:
 		return null
 	var trees := 0
 	for dy in range(-config.tree_reach, config.tree_reach + 1):
