@@ -44,6 +44,9 @@ const PAGE_BACKUPS := &"backups"
 const PAGE_CONFIRM := &"confirm"
 const PAGE_NEW_WORLD := &"new_world"
 const PAGE_REGIONS := &"regions"
+const PAGE_LOCATE := &"locate"
+## The most of each kind the Locate page lists.
+const LOCATE_EACH := 30
 ## The boxes a new world can begin in (tiles across; M13.2 — the first is the usual).
 const NEW_WORLD_SIZES: Array[int] = [64, 128, 256]
 
@@ -69,6 +72,9 @@ var _settling := 0
 var _slide: Tween
 ## The question PAGE_CONFIRM asks: [text, yes text, what yes does].
 var _confirm: Array = []
+## The Locate page's search, and what it found.
+var _search: LineEdit
+var _query := ""
 
 
 func _init() -> void:
@@ -173,6 +179,7 @@ func _show() -> void:
 			_title.text = MemoryText.translate("MENU_TITLE")
 			if _session != null and _session.weather != null:
 				_heading(MemoryText.translate("MENU_WORLD"))
+				_entry(MemoryText.translate("MENU_LOCATE"), func() -> void: open_page(PAGE_LOCATE))
 				_entry(MemoryText.translate("MENU_MAP"), func() -> void: map_requested.emit())
 				if _session.knowledge != null and not _session.knowledge.found_regions().is_empty():
 					_entry(MemoryText.translate("MENU_REGIONS"), func() -> void: open_page(PAGE_REGIONS))
@@ -224,6 +231,18 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_RESET"), func() -> void:
 				ask(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
 					world_requested.emit({"kind": "new"}, true)))
+		PAGE_LOCATE:
+			_title.text = MemoryText.translate("MENU_LOCATE")
+			_search = LineEdit.new()
+			_search.placeholder_text = MemoryText.translate("LOCATE_SEARCH")
+			_search.text = _query
+			_search.clear_button_enabled = true
+			_search.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.6)
+			_search.text_changed.connect(func(text: String) -> void:
+				_query = text
+				_fill_locate())
+			_list.add_child(_search)
+			_fill_locate()
 		PAGE_REGIONS:
 			_title.text = MemoryText.translate("MENU_REGIONS")
 			for row: Array in regions(_session):
@@ -343,6 +362,79 @@ static func weather_lines(session: WorldSession) -> PackedStringArray:
 			rainy += 1
 	out.append(MemoryText.translate("MENU_RAIN_DAYS").format({"rainy": rainy, "days": days}) if rainy > 0
 		else MemoryText.translate("MENU_NO_RAIN").format({"days": days}))
+	return out
+
+
+## Lists what can be found on the Locate page (under the search box), by
+## what it is; only what matches the search.
+func _fill_locate() -> void:
+	for child in _list.get_children():
+		if child != _search:
+			child.queue_free()
+	var last := ""
+	for row: Array in locate_rows(_session, _query):
+		if String(row[0]) != last:
+			last = row[0]
+			_heading(MemoryText.translate("LOCATE_" + last.to_upper()))
+		var id: int = row[3]
+		var at: Vector2 = row[2]
+		_entry(row[1], func() -> void:
+			if id != 0:
+				person_chosen.emit(id)
+			else:
+				place_chosen.emit(at))
+	if last == "":
+		_line(MemoryText.translate("LOCATE_NOTHING"))
+	_settling = 3
+
+
+## Everything that can be found (M13.5), matching `query` (any case; "" all):
+## [[kind, text, world XZ, person id (0: a place)], …], by kind — people,
+## settlements, buildings, events, discoveries.
+static func locate_rows(session: WorldSession, query: String = "") -> Array:
+	var out: Array = []
+	if session == null:
+		return out
+	var wanted := query.strip_edges().to_lower()
+	var add := func(kind: String, text: String, at: Vector2, id: int) -> void:
+		if wanted == "" or text.to_lower().contains(wanted):
+			out.append([kind, text, at, id])
+	var shown := 0
+	for row: Array in individuals(session):
+		var person := session.people.get_person(int(row[0]))
+		if person != null and shown < LOCATE_EACH:
+			add.call("people", row[1], person.world2d(), person.id)
+			shown += 1
+	for own in session.settlements.all():
+		var tile := own.start_info().settlement_tile
+		add.call("settlements", "%s · %s" % [own.display_name(), Settlements.tier_name(own.tier())], Vector2(tile) + Vector2(0.5, 0.5), 0)
+	shown = 0
+	for prop in session.props.all_props():
+		if not prop.is_building() or prop.kind == PropData.Kind.CAMPFIRE or shown >= LOCATE_EACH:
+			continue
+		var own := session.settlements.nearest(prop.tile)
+		var where := own.display_name() if own != null else ""
+		var living := session.people.living_in(prop.id)
+		var key := "LOCATE_HOME" if not living.is_empty() and living[0].family_name != "" else "LOCATE_BUILDING"
+		add.call("buildings", MemoryText.translate(key).format({"what": UIText.prop_name(prop.kind, prop.variant), "where": where,
+			"family": living[0].family_name if not living.is_empty() else ""}),
+			prop.position2d(), 0)
+		shown += 1
+	var events := session.events.all_events()
+	shown = 0
+	for i in range(events.size() - 1, -1, -1):
+		var event: WorldEvent = events[i]
+		if shown >= LOCATE_EACH:
+			break
+		if event.position != Vector2.INF and event.significance >= Config.events.major_from:
+			add.call("events", EventText.line(event, session.people, session.events), event.position, 0)
+			shown += 1
+	if session.knowledge != null:
+		for region in session.knowledge.found_regions():
+			add.call("discoveries", region.name.substr(0, 1).to_upper() + region.name.substr(1), region.centre, 0)
+	for prop in session.props.all_props():
+		if prop.kind == PropData.Kind.RUIN:
+			add.call("discoveries", UIText.prop_name(prop.kind, prop.variant), prop.position2d(), 0)
 	return out
 
 

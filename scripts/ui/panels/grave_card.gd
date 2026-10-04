@@ -11,6 +11,8 @@ extends UIPanel
 signal person_chosen(person_id: int)
 ## Their family tree was asked for.
 signal tree_requested(person_id: int)
+## The grave is to be looked at (M13.5: Locate).
+signal locate_requested(position: Vector2)
 
 const MAX_WIDTH := 852.0
 const EDGE_MARGIN := 32.0
@@ -211,6 +213,7 @@ func _add_family(family: Array) -> void:
 	_list.add_child(tree)
 	if family.is_empty():
 		_add_lines(PackedStringArray([MemoryText.translate("GRAVE_NO_FAMILY")]))
+		_add_locate()
 		return
 	for entry: Array in family:
 		var button := Button.new()
@@ -220,6 +223,23 @@ func _add_family(family: Array) -> void:
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 		button.pressed.connect(func() -> void: person_chosen.emit(entry[0]))
 		_list.add_child(button)
+	_add_locate()
+
+
+## Where they lie (M13.5): a button that takes the camera there.
+func _add_locate() -> void:
+	var record := _session.archive.get_record(_person_id) if _session != null else null
+	var grave := _session.props.get_prop(record.grave_id) if record != null and record.grave_id > 0 else null
+	if grave == null:
+		return
+	var locate := Button.new()
+	locate.text = MemoryText.translate("LOCATE")
+	locate.name = "Locate"
+	locate.focus_mode = Control.FOCUS_NONE
+	locate.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
+	var at := grave.position2d()
+	locate.pressed.connect(func() -> void: locate_requested.emit(at))
+	_list.add_child(locate)
 
 
 # --- for tests --------------------------------------------------------------------------------------
@@ -248,6 +268,6 @@ func lines() -> PackedStringArray:
 func family_buttons() -> Array[Button]:
 	var out: Array[Button] = []
 	for child in _list.get_children():
-		if child is Button and not child.is_queued_for_deletion() and child.name != TREE_BUTTON:
+		if child is Button and not child.is_queued_for_deletion() and child.name != TREE_BUTTON and child.name != "Locate":
 			out.append(child)
 	return out

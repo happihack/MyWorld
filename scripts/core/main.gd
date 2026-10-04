@@ -855,14 +855,16 @@ func look_at_place(place: Vector2) -> void:
 	rig.focus_on(Vector3(place.x, height, place.y), minf(rig.distance(), Config.camera.home_distance))
 
 
-## Glides the camera to the settlement (or frames the box if there is none).
+## Glides the camera home: the largest settlement (M13.5; or frames the box
+## if there is none).
 func go_home() -> void:
 	follow.pause()
 	var rig := world_view.camera_rig()
-	if session.start == null or session.start.campfire_id == 0:
+	var home := session.settlements.home()
+	if home == null or session.start == null or session.start.campfire_id == 0:
 		rig.frame_box()
 		return
-	var tile := session.start.settlement_tile
+	var tile := home.start_info().settlement_tile
 	rig.focus_on(Vector3(tile.x + 0.5, 0.0, tile.y + 0.5), Config.camera.home_distance)
 
 

@@ -48,6 +48,15 @@ func all() -> Array[Settlement]:
 	return _list
 
 
+## Home (M13.5): the largest settlement — the first among equals (null if none).
+func home() -> Settlement:
+	var best: Settlement = null
+	for own in _list:
+		if best == null or own.member_count() > best.member_count():
+			best = own
+	return best
+
+
 func size() -> int:
 	return _list.size()
 

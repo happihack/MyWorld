@@ -569,6 +569,9 @@ func open_grave(session: WorldSession, person_id: int, family_first: bool = fals
 	card.tree_requested.connect(func(id: int) -> void:
 		_tick()
 		open_family_tree(id))
+	card.locate_requested.connect(func(at: Vector2) -> void:
+		_tick()
+		locate_requested.emit(at))
 	return card
 
 
