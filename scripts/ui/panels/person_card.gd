@@ -355,7 +355,9 @@ static func memory_lines_of(session: WorldSession, person: PersonData, count: in
 static func activity_line(person: PersonData) -> String:
 	var doing := BehaviorSystem.activity_of(person)
 	if doing == BehaviorSystem.ACTIVITY_REACT:
-		return UIText.reaction_phrase(BehaviorSystem.reaction_of(person), BehaviorSystem.reason_of(person))
+		var phrase := UIText.reaction_phrase(BehaviorSystem.reaction_of(person), BehaviorSystem.reason_of(person))
+		# Something of the player's, known again.
+		return UIText.REMEMBERS_THIS + phrase if BehaviorSystem.recognizes(person) else phrase
 	var line: String = UIText.ACTIVITY_NAMES[&"idle"] if doing == &"" else UIText.activity_phrase(doing, BehaviorSystem.reason_of(person))
 	# What they have in their arms.
 	if person.carrying_amount > 0:

@@ -47,6 +47,12 @@ var _goal_distance := 100.0
 
 ## True while fingers are on the world (no spring-back, no animation).
 var _touching := false
+## A jolt (VS.5: something heavy came down): seconds left, and how much.
+var _bump := 0.0
+var _bump_size := 0.0
+## How long a jolt lasts, and how quickly it shudders.
+const BUMP_SECONDS := 0.35
+const BUMP_HZ := 9.0
 ## Where the pivot would be without the rubber band (accumulates drag motion).
 var _raw_pivot := Vector3.ZERO
 var _fling_velocity := Vector2.ZERO # viewport units per second
@@ -258,10 +264,26 @@ func handle_gesture(gesture: Gesture) -> bool:
 	return false
 
 
+## Something heavy came down: the view shudders a little (`amount` 0 … 1;
+## a share of the distance, so it looks the same however far away).
+func bump(amount: float) -> void:
+	_bump = BUMP_SECONDS
+	_bump_size = clampf(amount, 0.0, 1.0) * 0.008
+
+
+## How far the view is jolted right now (world units, up and down).
+func bump_offset() -> float:
+	if _bump <= 0.0:
+		return 0.0
+	var t := 1.0 - _bump / BUMP_SECONDS
+	return sin(t * TAU * BUMP_HZ * BUMP_SECONDS) * (1.0 - t) * (1.0 - t) * _bump_size * _distance
+
+
 ## Advances flings and animated moves. Called every frame; tests call it directly.
 func advance(delta: float) -> void:
 	if delta <= 0.0:
 		return
+	_bump = maxf(_bump - delta, 0.0)
 	_guard() # before anything uses the state, so a bad value never reaches the camera
 	if _fling_velocity != Vector2.ZERO:
 		_advance_fling(delta)
@@ -405,6 +427,8 @@ func _snap() -> void:
 
 func _apply() -> void:
 	_camera.transform = camera_transform()
+	if _bump > 0.0:
+		_camera.transform.origin.y += bump_offset()
 	_camera.far = maxf(_fit_distance * 3.0, 200.0)
 
 

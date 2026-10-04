@@ -60,6 +60,11 @@ var told_tick := -1
 ## The text template and what goes into it (see MemoryText).
 var text_key := ""
 var text_params: Dictionary = {}
+## What of the player's earlier doing it brought back (VS.5, see Recognition):
+## its kind, when it was (-1: it brought back nothing) and where, in words.
+var recalls_subject: StringName = &""
+var recalls_tick := -1
+var recalls_where := ""
 
 
 ## How it felt, in one of the five (0 if they felt nothing of the sort).
@@ -103,6 +108,8 @@ func to_dict() -> Dictionary:
 		out["told_tick"] = told_tick
 	if not text_params.is_empty():
 		out["text_params"] = text_params.duplicate(true)
+	if recalls_tick >= 0:
+		out["recalls"] = [String(recalls_subject), recalls_tick, recalls_where]
 	return out
 
 
@@ -143,6 +150,11 @@ static func from_dict(data: Dictionary) -> Memory:
 	var params: Variant = data.get("text_params")
 	if typeof(params) == TYPE_DICTIONARY:
 		memory.text_params = (params as Dictionary).duplicate(true)
+	var recalls: Variant = data.get("recalls")
+	if typeof(recalls) == TYPE_ARRAY and (recalls as Array).size() == 3 and typeof(recalls[1]) == TYPE_INT:
+		memory.recalls_subject = StringName(str(recalls[0]))
+		memory.recalls_tick = maxi(int(recalls[1]), 0)
+		memory.recalls_where = str(recalls[2])
 	return memory
 
 

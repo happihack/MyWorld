@@ -220,6 +220,10 @@ const INTERPRETATION_PHRASES := {
 }
 
 
+## Before the reaction of someone who knows the player's doing again (VS.5).
+const REMEMBERS_THIS := "Remembers this · "
+
+
 ## "Praying — thinks a spirit is near": what someone does about what they
 ## noticed, and why (bible §14.4: the reaction is "a line on the person card").
 static func reaction_phrase(reaction: StringName, interpretation: StringName) -> String:

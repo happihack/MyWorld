@@ -19,6 +19,12 @@ var _seconds := 0.0
 var _since_pulse := 0.0
 var _units := 0.0
 var _rng := RandomNumberGenerator.new() # looks only (where a ripple shows)
+## Out of a clear sky (VS.5): the cloud gathers with a murmur, and the first
+## drops are felt when they land.
+var _clear_sky := false
+var _first_drops := false
+## How many drops were shown landing (tests).
+var splashes := 0
 
 
 func _init() -> void:
@@ -79,8 +85,11 @@ func begin_at(screen: Vector2) -> bool:
 	var under: Variant = ground_under(screen)
 	if under == null or not Rect2(ctx.session.world.bounds).has_point(under):
 		return false
-	if not ctx.session.interactions.rain(under, 0.0, Intervention.PHASE_BEGIN, ID).applied:
+	var begun := ctx.session.interactions.rain(under, 0.0, Intervention.PHASE_BEGIN, ID)
+	if not begun.applied:
 		return false
+	_clear_sky = bool(begun.params.get("clear_sky", true))
+	_first_drops = false
 	_raining = true
 	_finger = screen
 	_at = under
@@ -93,6 +102,9 @@ func begin_at(screen: Vector2) -> bool:
 		ctx.view.tool_fx().show_rain(surface_at(_at), Config.tools.rain_radius)
 	AudioManager.set_made_rain(0.4)
 	Haptics.light()
+	if _clear_sky:
+		# Out of nowhere: the air stirs, and something rumbles far off.
+		AudioManager.play_at(&"thunder", surface_at(_at), -17.0, 1.35, false)
 	return true
 
 
@@ -114,6 +126,11 @@ func update(delta: float) -> void:
 		if ctx.session.interactions.rain(_at, units, Intervention.PHASE_MORE, ID).applied:
 			_units += units
 		_ripple()
+		if not _first_drops:
+			# The first drops land: heard, and felt.
+			_first_drops = true
+			AudioManager.play_at(&"plip", surface_at(_at), -8.0, 1.2)
+			Haptics.pulse(Haptics.Strength.MEDIUM if _clear_sky else Haptics.Strength.LIGHT)
 	var strength := clampf(_units / config.rain_moderate_units, 0.3, 1.0)
 	if ctx.view != null:
 		ctx.view.tool_fx().move_rain(surface_at(_at), strength)
@@ -131,12 +148,15 @@ func stop() -> void:
 	ctx.session.interactions.rain(_at, _units, Intervention.PHASE_END, ID)
 
 
-## Where the rain falls on water, rings spread.
+## Where the rain falls on water, rings spread; on dry ground, a drop splashes.
 func _ripple() -> void:
 	if ctx.view == null:
 		return
 	var radius := Config.tools.rain_radius
 	var spot := _at + Vector2.RIGHT.rotated(_rng.randf() * TAU) * (sqrt(_rng.randf()) * radius)
 	var world := ctx.session.world
+	splashes += 1
 	if world.get_water(WorldCoords.world2d_to_tile(spot)) > WaterMesher.MIN_DEPTH:
 		ctx.view.effects().ring(surface_at(spot), 0.45, 0.8, WorldEffects.WATER_RING)
+	else:
+		ctx.view.effects().ring(surface_at(spot), 0.22, 0.5, WorldEffects.DROP_RING)

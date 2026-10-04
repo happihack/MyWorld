@@ -7,6 +7,7 @@ extends RefCounted
 ## Haptic strengths (the values of Haptics.Strength).
 const LIGHT := 0
 const MEDIUM := 1
+const STRONG := 2
 ## Targets that give way less than this (boulders) are felt as a medium pulse.
 const HEAVY_BELOW := 0.5
 
@@ -53,7 +54,12 @@ static func landed(at: Vector3, give: float, impact_speed: float, on_water: bool
 	var volume := -12.0 + 9.0 * force + (3.0 if give < HEAVY_BELOW else 0.0)
 	var pitch := clampf(0.5 + 0.5 * give, 0.6, 1.4)
 	AudioManager.play_at(&"plip" if on_water else &"thud", at, volume, pitch)
-	Haptics.pulse(MEDIUM if give < HEAVY_BELOW else LIGHT)
+	# Something heavy, dropped from high: felt in the hand.
+	var heavy := give < HEAVY_BELOW
+	Haptics.pulse(STRONG if heavy and force >= 0.8 else (MEDIUM if heavy else LIGHT))
+	if heavy and not on_water:
+		# …and a lower thud under it, the ground answering.
+		AudioManager.play_at(&"thud", at, volume - 4.0, pitch * 0.6, false)
 
 
 ## A moving loose object ran into a wall, a prop or another object at `speed`.

@@ -19,7 +19,7 @@ const RAIN_SECONDS := 2.5
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
 	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice", &"crickets",
-	&"rain", &"thunder", &"gust",
+	&"rain", &"thunder", &"gust", &"chime",
 ]
 
 
@@ -92,6 +92,8 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _finish(_gust(rng), 0.6)
 		&"thunder":
 			return _finish(_thunder(rng), 0.9)
+		&"chime":
+			return _finish(_chime(), 0.5)
 		&"voice":
 			# A small "oh!": up, and down again. (Pitched per person when played.)
 			return _finish(_whistles(0.24, [[0.0, 0.09, 430.0, 600.0], [0.11, 0.12, 600.0, 390.0]]), 0.55)
@@ -242,6 +244,22 @@ static func _hum() -> PackedFloat32Array:
 		var chord := sin(TAU * 262.0 * wobble * t) + 0.6 * sin(TAU * 392.0 * wobble * t) + 0.35 * sin(TAU * 523.0 * t)
 		var envelope := minf(t / 0.3, 1.0) * minf((1.5 - t) / 0.9, 1.0)
 		out[i] = chord * envelope
+	return out
+
+
+## Something known again (VS.5): two soft bell notes, a fifth apart, the
+## second answering the first.
+static func _chime() -> PackedFloat32Array:
+	var n := int(1.1 * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for note: Array in [[0.0, 784.0], [0.16, 1175.0]]:
+		var start := int(float(note[0]) * RATE)
+		var hz: float = note[1]
+		for i in range(start, n):
+			var t := (i - start) / float(RATE)
+			var bell := sin(TAU * hz * t) + 0.35 * sin(TAU * hz * 2.76 * t) * exp(-t * 6.0) + 0.2 * sin(TAU * hz * 5.4 * t) * exp(-t * 12.0)
+			out[i] += bell * minf(t / 0.004, 1.0) * exp(-t * 4.2)
 	return out
 
 

@@ -75,6 +75,8 @@ static func text(memory: Memory, people: PersonRegistry = null) -> String:
 		out = Lore.wrap(out, memory.text_params)
 	if memory.count > 1:
 		out = translate("MEM_TIMES").format({"text": out, "count": memory.count})
+	# What it brought back of the player's doing before (VS.5).
+	out = Recognition.wrap(out, memory)
 	return out
 
 

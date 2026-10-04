@@ -5,6 +5,9 @@ extends RefCounted
 ## feelings; the feelings (and who they are) give a reaction; the reaction is
 ## a short plan of steps like any other (see ActionStep).
 
+## The sign over someone who knows the player's doing again.
+const RECOGNIZE_EMOTE := &"recognize"
+
 
 ## Everything that came of one person noticing one thing.
 class Outcome:
@@ -22,6 +25,8 @@ class Outcome:
 	var steps: Array = []
 	## They go and tell someone afterwards.
 	var tells := false
+	## What of the player's earlier doing they knew it by (VS.5; null: nothing).
+	var recalled: Memory = null
 
 
 ## One perception as plain data (see PerceptionSystem):
@@ -45,11 +50,17 @@ static func respond(person: PersonData, perception: Dictionary, ctx: AiContext, 
 	if outcome.interpretation == ReactionTable.DREAM:
 		outcome.reaction = ReactionTable.STIR
 		return outcome
+	# Something of the player's again: they know it (see Recognition).
+	if outcome.direct or outcome.salience >= Config.memory.remember_threshold:
+		outcome.recalled = Recognition.recalled(person, stimulus, ctx.memories)
 	var options := options_for(person, stimulus, outcome.direct, ctx, table)
 	# Wonder at the like of it, remembered, draws them closer this time.
 	var wonder := ctx.memories.wonder_about(person, kind) if ctx.memories != null else 0.0
 	outcome.reaction_scores = reaction_scores(person, outcome.interpretation, outcome.emotions, circumstances,
 		outcome.salience, options, table, wonder * Config.memory.wonder_weight)
+	# Known again: how it felt the last time leans how they meet it now.
+	if outcome.recalled != null:
+		_lean_on(outcome.reaction_scores, outcome.recalled)
 	var heat := table.reaction_temperature * lerpf(0.7, 1.4, Traits.value(person.traits, Traits.Axis.CREATIVITY))
 	outcome.reaction = Interpretation.draw(outcome.reaction_scores, heat, ctx.rng) if not outcome.reaction_scores.is_empty() \
 		else ReactionTable.LOOK
@@ -63,6 +74,18 @@ static func respond(person: PersonData, perception: Dictionary, ctx: AiContext, 
 		outcome.tells = ctx.rng != null and ctx.rng.randf() < chance
 	outcome.steps = plan(person, outcome, ctx, table)
 	return outcome
+
+
+## How what was felt the last time (`recalled`) leans the reactions now: the
+## glad wave, the frightened run, the awed pray (VS.5).
+const RECALL_LEAN := 0.6
+
+
+static func _lean_on(scores: Dictionary, recalled: Memory) -> void:
+	for pair: Array in [[ReactionTable.WAVE, ReactionTable.Emotion.JOY], [ReactionTable.RUN, ReactionTable.Emotion.FEAR],
+			[ReactionTable.PRAY, ReactionTable.Emotion.AWE]]:
+		if scores.has(pair[0]):
+			scores[pair[0]] = float(scores[pair[0]]) + recalled.emotion(pair[1]) * RECALL_LEAN
 
 
 ## The five feelings (bible §14.4), each 0 … 1.
@@ -218,6 +241,9 @@ static func plan(person: PersonData, outcome: Outcome, ctx: AiContext, table: Re
 				steps = [ReactStep.make(PersonData.Pose.IDLE, &"question", minutes, look)]
 	if outcome.tells:
 		steps.append_array(_telling(person, outcome, ctx, table))
+	# Knowing it again shows first: a moment's stillness, and the sign of it.
+	if outcome.recalled != null and not steps.is_empty():
+		steps.push_front(ReactStep.make(PersonData.Pose.IDLE, RECOGNIZE_EMOTE, table.startle_minutes * 1.5, look))
 	return steps
 
 

@@ -25,8 +25,16 @@ const RING_LIFT := 0.04
 const REDUCED_MOTION_SCALE := 0.35
 
 const WATER_RING := Color(0.93, 0.98, 1.0, 0.85)
+## A drop of the player's rain on dry ground: a small dark splash (VS.5).
+const DROP_RING := Color(0.35, 0.40, 0.50, 0.55)
 const RUIN_RING := Color(0.62, 0.95, 0.90, 0.75)
 const PERSON_RING := Color(1.0, 0.90, 0.62, 0.8)
+## The warm motes a touched person gives off (VS.5).
+const PERSON_MOTE := Color(1.0, 0.86, 0.52)
+## What came down this heavily (LooseObject.give below it) sends a ring of dust out.
+const HEAVY_GIVE := 0.5
+## Key in `played` for the first touch of anyone, ever.
+const FIRST_TOUCH := &"first_touch"
 const RUIN_MOTE := Color(0.70, 1.0, 0.92)
 const SPLASH := Color(0.90, 0.96, 1.0)
 const SPARK := Color(1.0, 0.62, 0.18)
@@ -176,6 +184,7 @@ func play(response: InteractionResponse) -> void:
 		InteractionResponse.PERSON_TOUCH:
 			# The touch itself, made visible; what the person makes of it is theirs.
 			ring(at, 0.55, 0.7, PERSON_RING)
+			burst(Burst.MOTES, at + Vector3(0.0, maxf(height, 0.4) * 0.6, 0.0), PERSON_MOTE)
 		InteractionResponse.RUIN_HUM:
 			_shake(response)
 			ring(at, 1.5, 1.6, RUIN_RING)
@@ -183,14 +192,27 @@ func play(response: InteractionResponse) -> void:
 
 
 ## Something came down at `at`: dust from the ground it hit, or a splash and
-## ripples if it fell into water. `size` is the radius of what landed.
-func play_landing(at: Vector3, terrain: int, on_water: bool, size: float = 0.25) -> void:
+## ripples if it fell into water. `size` is the radius of what landed; `give`
+## how light it is (LooseObject.give): what is heavy sends dust out in a ring.
+func play_landing(at: Vector3, terrain: int, on_water: bool, size: float = 0.25, give: float = 1.0) -> void:
 	played[LANDING] = int(played.get(LANDING, 0)) + 1
+	var heavy := give < HEAVY_GIVE
 	if on_water:
-		ring(at, 0.6 + size * 1.5, 0.9, WATER_RING)
+		ring(at, 0.6 + size * 1.5 + (0.6 if heavy else 0.0), 0.9, WATER_RING)
 		burst(Burst.DUST, at + Vector3(0.0, 0.05, 0.0), SPLASH)
 	else:
 		burst(Burst.DUST, at + Vector3(0.0, 0.05, 0.0), dust_color(terrain))
+		if heavy:
+			var dust := dust_color(terrain)
+			ring(at, 1.0 + size * 2.0, 0.6, Color(dust, 0.75))
+			burst(Burst.DUST, at + Vector3(0.0, 0.12, 0.0), dust)
+
+
+## The first time the player ever touches anyone: more of it (VS.5).
+func play_first_touch(at: Vector3, height: float) -> void:
+	played[FIRST_TOUCH] = int(played.get(FIRST_TOUCH, 0)) + 1
+	ring(at, 1.4, 1.3, PERSON_RING)
+	burst(Burst.MOTES, at + Vector3(0.0, maxf(height, 0.4) * 0.9, 0.0), PERSON_MOTE)
 
 
 ## Advances shakes and rings. Called every frame; tests call it directly.

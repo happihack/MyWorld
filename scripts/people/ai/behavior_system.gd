@@ -584,6 +584,9 @@ func _consider_perceptions(person: PersonData) -> bool:
 	# What was made of it is remembered (bible §15).
 	if ctx.memories != null:
 		var memory := MemoryStore.from_outcome(person, outcome, ctx.stage_of(person), times_before, ctx.now())
+		if memory != null and outcome.recalled != null:
+			Recognition.note(memory, outcome.recalled,
+				Recognition.where_key(outcome.recalled.location, ctx.world, ctx.props, ctx.settlements))
 		if memory != null:
 			ctx.memories.remember(person, memory)
 	# (A dream is no evidence of anything: it leaves convictions as they were.)
@@ -609,6 +612,8 @@ func _consider_perceptions(person: PersonData) -> bool:
 	person.current_action["stimulus"] = String(stimulus.about if second_hand else stimulus.type)
 	person.current_action["salience"] = outcome.salience
 	person.current_action["emotions"] = outcome.emotions.duplicate()
+	if outcome.recalled != null:
+		person.current_action["recalls"] = true
 	if stimulus.type == Stimulus.TOUCH:
 		person.set_flag(PersonData.FLAG_TOUCHED_BY_PLAYER, true)
 	_reacted.append([person.id, outcome.reaction, outcome.interpretation,
@@ -623,6 +628,11 @@ static func _outranks(a: Dictionary, b: Dictionary) -> bool:
 	if a_direct != bool(b.get("direct", false)):
 		return a_direct
 	return float(a.get("salience", 0.0)) > float(b.get("salience", 0.0))
+
+
+## Is the person reacting to something of the player's they know again (VS.5)?
+static func recognizes(person: PersonData) -> bool:
+	return activity_of(person) == ACTIVITY_REACT and bool(person.current_action.get("recalls", false))
 
 
 ## What the person is doing about something they noticed (&"" if nothing).

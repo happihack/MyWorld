@@ -233,6 +233,8 @@ static func _short(value: float) -> String:
 func _gui_input(event: InputEvent) -> void:
 	if mode != Mode.LINE:
 		return
+	if event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
+		return # (on a phone every touch comes twice: as itself and as a mouse)
 	var point := Vector2.INF
 	var pressed := false
 	var released := false

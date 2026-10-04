@@ -25,6 +25,7 @@ const EMOTES := {
 	&"speech": preload("res://assets/ui/emotes/speech.svg"),
 	&"note": preload("res://assets/ui/emotes/note.svg"),
 	&"dots": preload("res://assets/ui/emotes/dots.svg"),
+	&"recognize": preload("res://assets/ui/emotes/recognize.svg"),
 }
 ## How large a sign is in the world, and the least it is on screen (viewport
 ## units): readable from the middle distance.
@@ -421,6 +422,13 @@ func bodies_shown() -> bool:
 
 func view_of(id: int) -> PersonView:
 	return _pool.view_of(id) as PersonView
+
+
+## Someone was touched: their body gives under it (less with reduced motion).
+func poke(id: int, strength: float = 1.0) -> void:
+	var view := view_of(id)
+	if view != null:
+		view.poke(strength * (0.35 if reduced_motion else 1.0))
 
 
 func pool() -> EntityViewPool:

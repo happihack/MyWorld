@@ -17,6 +17,10 @@ const STILL_SPEED := 0.08
 const TURN_RATE := 9.0
 const SHADOW_ALPHA := 0.26
 const SHADOW_LIFT := 0.03
+## A touch (VS.5): the body gives under it and springs back, this long.
+const POKE_SECONDS := 0.5
+## How far it gives (a share of its height) at a full touch.
+const POKE_SQUASH := 0.2
 
 ## Whose view this is (0 = nobody's: in the pool).
 var person_id := 0
@@ -52,6 +56,9 @@ var _shown_act := -1.0
 var _at_rest := false
 var _rest_target := Vector3.ZERO
 var _rest_facing := 0.0
+## The touch being shown: seconds left of it, and how strong it was.
+var _poke := 0.0
+var _poke_strength := 0.0
 
 
 ## Gives the view its shared materials (once, when it is created).
@@ -75,6 +82,8 @@ func setup(body_material: Material, accessory_material: Material, shadow_materia
 func bind(person: PersonData, now_tick: int, ticks_per_year: int, config: PeopleConfig,
 		occupations: OccupationLibrary, at: Vector3) -> void:
 	person_id = person.id
+	_poke = 0.0
+	_show_poke(0.0)
 	dress(person, now_tick, ticks_per_year, config, occupations)
 	_velocity = Vector3.ZERO
 	_at_rest = false
@@ -166,9 +175,35 @@ func is_bound() -> bool:
 	return person_id != 0
 
 
+## The person was touched: the body gives under it and springs back
+## (`strength` 0 … 1).
+func poke(strength: float = 1.0) -> void:
+	_poke = POKE_SECONDS
+	_poke_strength = clampf(strength, 0.0, 1.0)
+
+
+## How much the body is squashed right now (0: not at all; below 0: stretched).
+func squash() -> float:
+	if _poke <= 0.0:
+		return 0.0
+	var t := 1.0 - _poke / POKE_SECONDS
+	return sin(t * TAU * 1.5) * exp(-t * 3.5) * POKE_SQUASH * _poke_strength
+
+
+func _show_poke(delta: float) -> void:
+	_poke = maxf(_poke - delta, 0.0)
+	var s := squash()
+	var shape := Vector3(1.0 + s * 0.5, 1.0 - s, 1.0 + s * 0.5)
+	_body.scale = shape
+	_accessory.scale = shape
+	_load.scale = shape
+
+
 ## Follows the person: glides to `target` (their feet) and turns to `facing`
 ## — or, while moving, the way it is going.
 func advance(delta: float, target: Vector3, facing: float) -> void:
+	if _poke > 0.0 and delta > 0.0:
+		_show_poke(delta)
 	if delta <= 0.0 or (_at_rest and target == _rest_target and facing == _rest_facing):
 		return
 	_at_rest = false

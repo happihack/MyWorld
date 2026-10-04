@@ -48,6 +48,9 @@ var _last_work_effect_msec := 0
 ## Voices of people reacting to what they only saw are heard at most this often.
 const VOICE_GAP_MSEC := 220
 var _last_voice_msec := 0
+var _last_chime_msec := -100000
+## Something heavy landing at least this fast (tiles/s) jolts the view (VS.5).
+const HEAVY_JOLT_SPEED := 3.0
 ## The file the world came from when it was not its world.sav (its save was
 ## unusable: brought back from a backup), "" otherwise.
 var restored_from := ""
@@ -148,9 +151,7 @@ func _ready() -> void:
 	session.unfolded.connect(func(old: Rect2i, _new: Rect2i) -> void:
 		switch_world({"kind": "world", "world_id": session.world_id, "unfolded_from": old}))
 	session.migration.abandoned.connect(func(_id: int, _name: String, _at: Vector2i) -> void: light_others.call())
-	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
-		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
-			ui_root.hints().complete(HintDirector.TOUCH))
+	session.interactions.responded.connect(_on_person_touched)
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
 	# The first event: the ☰ glows once (there is something to read in it).
@@ -742,6 +743,19 @@ func _on_world_touched(_position: Vector2) -> void:
 	_tap_closed_menu = ui_root.dismiss_transient_panels()
 
 
+## Someone was touched (VS.5): their body gives under the finger — and the
+## very first time anyone is, more of it: a wider ring, a chime, a firmer pulse.
+func _on_person_touched(response: InteractionResponse) -> void:
+	if response == null or response.person_id == 0 or response.effect != InteractionResponse.PERSON_TOUCH:
+		return
+	world_view.people_view().poke(response.person_id)
+	if not ui_root.hints().is_completed(HintDirector.TOUCH):
+		world_view.effects().play_first_touch(response.position, response.body.x)
+		AudioManager.play_at(&"chime", response.position, -8.0, 1.0, false)
+		Haptics.strong()
+	ui_root.hints().complete(HintDirector.TOUCH)
+
+
 ## A loose object came to rest: dust or a splash, a thud, a pulse.
 func _on_object_landed(id: int, impact_speed: float) -> void:
 	var object := session.loose.get_object(id)
@@ -752,8 +766,11 @@ func _on_object_landed(id: int, impact_speed: float) -> void:
 	var at := object.world_position(session.world)
 	if on_water:
 		at.y = session.world.get_height(tile) * session.world.height_step + session.world.get_water(tile)
-	world_view.effects().play_landing(at, session.world.get_terrain(tile), on_water, object.radius())
+	world_view.effects().play_landing(at, session.world.get_terrain(tile), on_water, object.radius(), object.give())
 	TouchFeedback.landed(at, object.give(), impact_speed, on_water)
+	# Something heavy, dropped from high: the view jolts (not with reduced motion).
+	if object.give() < WorldEffects.HEAVY_GIVE and impact_speed >= HEAVY_JOLT_SPEED and not bool(Settings.get_value(&"accessibility/reduced_motion")):
+		world_view.camera_rig().bump(clampf(impact_speed / 6.0, 0.3, 1.0))
 
 
 ## A moving loose object ran into something: a knock.
@@ -968,6 +985,13 @@ func _on_person_reacted(person_id: int, reaction: StringName, _interpretation: S
 	if direct:
 		Haptics.medium()
 	var now := Time.get_ticks_msec()
+	# Something of the player's, known again (VS.5): a soft chime.
+	var outcome := session.behavior.last_outcome(person_id)
+	if outcome != null and outcome.recalled != null and now - _last_chime_msec >= VOICE_GAP_MSEC and world_view.people_view().view_of(person_id) != null:
+		_last_chime_msec = now
+		AudioManager.play_at(&"chime", world_view.people_view().ground_position(person), -10.0 if direct else -14.0)
+		if not direct:
+			Haptics.light()
 	if reaction == ReactionTable.DISMISS or reaction == ReactionTable.LISTEN \
 			or (not direct and now - _last_voice_msec < VOICE_GAP_MSEC) \
 			or world_view.people_view().view_of(person_id) == null:

@@ -314,7 +314,11 @@ func test_landings_are_heard_and_felt_by_weight_and_speed() -> void:
 	TouchFeedback.landed(Vector3.ZERO, 0.27, 5.0, false) # a boulder
 	assert_true(AudioManager.world_voice(0).volume_db > rock_volume, "a stronger thud")
 	assert_true(AudioManager.world_voice(0).pitch_scale < 0.75, "and a lower one")
-	assert_eq(pulses[1][0], Config.feedback.haptic_medium_ms)
+	assert_eq(pulses[1][0], Config.feedback.haptic_strong_ms, "dropped from high: felt strongly (VS.5)")
+	Haptics.reset()
+	AudioManager.stop_all()
+	TouchFeedback.landed(Vector3.ZERO, 0.27, 2.0, false) # a boulder set down
+	assert_eq(pulses[2][0], Config.feedback.haptic_medium_ms)
 	Haptics.reset()
 	AudioManager.stop_all()
 	TouchFeedback.landed(Vector3.ZERO, 1.0, 1.0, false) # set down gently

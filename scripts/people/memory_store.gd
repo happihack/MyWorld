@@ -361,6 +361,11 @@ func _merge(known: Memory, again: Memory, config: MemoryConfig) -> void:
 		known.told_by = again.told_by
 	known.text_key = again.text_key
 	known.text_params = again.text_params
+	# What it brought back this time (if it brought anything back).
+	if again.recalls_tick >= 0:
+		known.recalls_subject = again.recalls_subject
+		known.recalls_tick = again.recalls_tick
+		known.recalls_where = again.recalls_where
 
 
 ## Moves a memory to the end of its owner's list (the most recent).

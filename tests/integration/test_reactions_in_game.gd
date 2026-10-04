@@ -123,7 +123,9 @@ func test_a_touched_person_shows_what_they_make_of_it() -> void:
 	if reacted[0][1] != ReactionTable.DISMISS:
 		assert_eq(AudioManager.last_sound, &"voice")
 	assert_true(pulses.size() >= 1, "felt")
-	assert_eq(pulses[0][0], Haptics.duration_ms(Haptics.Strength.MEDIUM), "a medium pulse")
+	# (The first touch of anyone, ever, is felt firmly first — VS.5.)
+	assert_eq(pulses[0][0], Haptics.duration_ms(Haptics.Strength.STRONG), "the first touch: a strong pulse")
+	# (The reaction's medium pulse right after it is not felt over it.)
 	# ...and a line on their card that says why.
 	var card := ui.person_card()
 	assert_not_null(card, "the tap selected them too")
