@@ -1,8 +1,7 @@
 extends TestCase
 ## Roads & traffic (M12.2, bible §17.3): where people walk is counted; grass
 ## walked enough is worn to a path (which the pathfinder prefers, so it draws
-## more feet), and a path nobody walks grows over; a ford waded often gets a
-## bridge, built where it stands, that takes people over dry-shod.
+## more feet), and a path nobody walks grows over. (Bridges: test_crossing.)
 
 const SessionScript := preload("res://scripts/simulation/world_session.gd")
 const DAY := 1440
@@ -70,18 +69,6 @@ func _walk(tiles: Array, steps: int, days: int) -> void:
 				traffic.add(tile)
 		session.clock.tick += DAY
 		traffic.advance_to(session.clock.tick)
-
-
-func _a_ford() -> Variant:
-	var fire := session.settlement.fire().tile
-	var best: Variant = null
-	for dy in range(-30, 31):
-		for dx in range(-30, 31):
-			var tile := fire + Vector2i(dx, dy)
-			if traffic.is_ford(tile) and session.props.prop_at(tile) == null and session.pathfinder.can_stand(tile):
-				if best == null or Vector2(tile - fire).length() < Vector2(best - fire).length():
-					best = tile
-	return best
 
 
 func test_traffic_to_road() -> void:
@@ -154,55 +141,6 @@ func test_a_path_draws_feet() -> void:
 	var path := session.pathfinder.find_path(from, to)
 	for tile in path:
 		assert_true(traffic.is_path(tile), "along the path (%s)" % tile)
-
-
-func test_a_bridge_over_a_busy_ford() -> void:
-	var ford: Variant = _a_ford()
-	assert_not_null(ford, "a ford near the settlement")
-	var planner := session.planner
-	_knob(Config.construction, &"homes_spare_least", -1000)
-	_knob(Config.construction, &"storage_room_least", -1000)
-	_knob(Config.construction, &"spoiled_from", 1_000_000)
-	_knob(Config.construction, &"well_from", 1_000_000)
-	assert_eq(planner.needs(session.clock.tick), [] as Array[StringName])
-	var wading := session.pathfinder.weight_at(ford)
-	assert_true(wading > 2.0, "wading is slow (%.2f)" % wading)
-	# Waded again and again.
-	_walk([ford], 8, 10)
-	assert_false(traffic.is_path(ford), "no path is worn in water")
-	assert_eq(traffic.ford_for_bridge(), ford)
-	assert_eq(planner.needs(session.clock.tick), [&"bridge"] as Array[StringName])
-	var p := planner.plan(session.clock.tick)
-	assert_eq(str(p.get("def", "")), "bridge")
-	var bridge := session.props.prop_at(ford)
-	assert_eq([bridge.kind, bridge.variant], [PropData.Kind.BRIDGE, 0], "posts in the ford")
-	assert_true(session.pathfinder.can_stand(ford), "people still wade past it meanwhile")
-	assert_true(traffic.ford_for_bridge() == null, "one there already")
-	var builder := session.people.all_people()[0]
-	session.construction.deliver(p, &"wood", 10)
-	while not session.construction.work(p, builder, 30.0, session.clock.tick):
-		if session.construction.progress(p) >= ConstructionSystem.FRAME_FROM:
-			assert_eq(bridge.variant, 1, "beams")
-	assert_eq(session.props.prop_at(ford), bridge, "built where it stands")
-	assert_eq(bridge.variant, PropData.BRIDGE_DONE)
-	assert_true(session.pathfinder.weight_at(ford) < 1.0, "dry-shod over the ford (%.2f)" % session.pathfinder.weight_at(ford))
-	assert_eq(EventText.text(session.events.of_type(&"building_built")[0], session.people, session.events),
-		"The first bridge stands, built by %s" % builder.given_name)
-	assert_eq(UIText.prop_name(PropData.Kind.BRIDGE), "Bridge")
-	# Someone on it stands on its deck.
-	var view := PeopleView.new()
-	view.props = session.props
-	view._world = session.world
-	builder.position = ford
-	assert_near(view.ground_position(builder).y,
-		session.world.get_height(ford) * session.world.height_step + PropData.BRIDGE_DECK, 0.001)
-	view.free()
-	# A flood can wash it away: nothing is left in the ford.
-	session.construction.damage(bridge.id, PropData.SOUND, &"flood", session.clock.tick)
-	assert_null(session.props.prop_at(ford), "washed away")
-	assert_true(session.pathfinder.can_stand(ford))
-	var gone := session.events.of_type(&"building_ruined")
-	assert_eq(EventText.text(gone[-1], session.people, session.events), "The bridge has been washed away")
 
 
 func test_paths_are_saved() -> void:

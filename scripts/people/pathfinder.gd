@@ -454,6 +454,8 @@ func _on_props_changed(coord: Vector2i) -> void:
 
 func _on_water_changed(tiles: Array[Vector2i]) -> void:
 	for tile in tiles:
+		if _bounds.has_point(tile) and _prop_kind[_id(tile)] - 1 == PropData.Kind.BRIDGE and Crossing.deck_at(_props, tile) != null:
+			continue # (the water under a deck changes nothing on it)
 		if _bounds.has_point(tile) and _water_class[_id(tile)] != _water_at(tile):
 			_dirty[tile] = true
 
@@ -527,6 +529,12 @@ func _read(tile: Vector2i, id: int) -> bool:
 	var height := _world.get_height(tile)
 	var water := _water_at(tile)
 	var kind := _kind_at(tile)
+	# A bridge's deck (Crossing): dry ground at the level of its banks, over
+	# whatever water is below.
+	var deck := Crossing.deck_at(_props, tile) if kind - 1 == PropData.Kind.BRIDGE else null
+	if deck != null:
+		height = Crossing.deck_level(_world, _props, deck)
+		water = _DRY
 	var solid := 1 if water == _DEEP or _is_solid_kind(kind) else 0
 	var changed := _height[id] != height or _solid[id] != solid
 	_height[id] = height

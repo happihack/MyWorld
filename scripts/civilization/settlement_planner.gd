@@ -10,7 +10,10 @@ extends RefCounted
 ##   or two households crowded under one)
 ##   the stores overflowing, food going bad   → a storehouse
 ##   water to drink far from the fire         → a well
-##   a ford waded often                       → a bridge (M12.2)
+##   land near the fire cut off by water      → a bridge across, bank to bank,
+##     (a crossing: tile by tile, the near      (Crossing; at the owner's word,
+##     bank first)                               2026-10-04 — it was one tile
+##                                               over a ford waded often, M12.2)
 ##   (crafting and the knowing of toolmaking  → a workshop: M12.4, M18)
 ##
 ## Where: open, dry ground a few tiles from the fire, above the highest water
@@ -29,6 +32,8 @@ var _pathfinder: Pathfinder
 var _config: ConstructionConfig
 var _day := -1_000_000
 var _spoiled: Array = [] # [day, units]
+## The crossing worked out today: [day, {tiles, turn}] (it takes a walk over the land).
+var _crossing_today: Array = [-1_000_000, {}]
 
 
 func bind(settlement: Settlement, construction: ConstructionSystem, people: PersonRegistry, world: WorldData,
@@ -76,9 +81,11 @@ func plan(now: int) -> Dictionary:
 		if def.is_empty() or (def[0].tech != &"" and not _settlement.knows_how(def[0].tech)):
 			continue
 		if need == &"bridge":
-			var ford: Variant = _traffic.ford_for_bridge()
-			if ford != null and _near(ford):
-				return _construction.start(def[0].id, ford, now, bridge_turn(ford), _settlement.id)
+			var across := crossing(now)
+			for tile: Vector2i in across.get("tiles", []):
+				if Crossing.is_bridge(_construction.props(), tile):
+					continue # (built, or going up)
+				return _construction.start(def[0].id, tile, now, int(across["turn"]), _settlement.id)
 			continue
 		var site: Variant = site_for(def[0])
 		if site == null:
@@ -98,27 +105,172 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"water")
 	if workshop_wanted():
 		out.append(&"workshop")
-	if _traffic != null and _traffic.ford_for_bridge() != null and _near(_traffic.ford_for_bridge()):
+	if not crossing(now).is_empty():
 		out.append(&"bridge")
 	return out
 
 
-## Which way a bridge on `ford` runs: across the water, the shorter way to
-## dry land on both sides (0: north–south; 64: east–west).
-func bridge_turn(ford: Vector2i) -> int:
-	var across_x := _water_run(ford, Vector2i(1, 0)) + _water_run(ford, Vector2i(-1, 0))
-	var across_y := _water_run(ford, Vector2i(0, 1)) + _water_run(ford, Vector2i(0, -1))
-	return 64 if across_x < across_y else 0
+## Where to bridge the water (worked out once a day): land near the fire
+## that cannot be reached on foot, and the shortest way over to it from
+## land that can — straight across, at most `crossing_span_most` tiles of
+## water, the near bank first; the bridges of a crossing already begun count
+## as built (so it is carried on, and an old one-tile bridge is a start).
+## {"tiles": [Vector2i…], "turn": rotation} — {} if there is none to make.
+func crossing(now: int) -> Dictionary:
+	var today := Config.time.day_index(now)
+	if int(_crossing_today[0]) != today:
+		_crossing_today = [today, _find_crossing()]
+	return _crossing_today[1]
 
 
-## Tiles of water from `tile` (not counted) in direction `step` before dry land (at most 16).
-func _water_run(tile: Vector2i, step: Vector2i) -> int:
-	var run := 0
-	var at := tile + step
-	while run < 16 and _world.is_in_bounds(at) and _world.get_water(at) > 0.0:
-		run += 1
-		at += step
-	return run
+func _find_crossing() -> Dictionary:
+	if _pathfinder == null or _settlement == null or _settlement.member_count() < _config.crossing_from_people:
+		return {}
+	var fire := _settlement.start_info().settlement_tile
+	var reach := _config.crossing_reach
+	var area := Rect2i(fire - Vector2i(reach, reach), Vector2i(reach * 2 + 1, reach * 2 + 1)).intersection(_world.bounds)
+	# What can be walked to from the fire.
+	var reached := {}
+	var start := fire
+	if not _pathfinder.can_stand(start):
+		var near := _pathfinder.standable_near(fire, 1, 3)
+		if near.is_empty():
+			return {}
+		start = near[0]
+	var queue: Array[Vector2i] = [start]
+	reached[start] = true
+	while not queue.is_empty():
+		var at: Vector2i = queue.pop_back()
+		for step: Vector2i in _STEPS:
+			var next := at + step
+			if not reached.has(next) and area.has_point(next) and _pathfinder.can_step(at, next):
+				reached[next] = true
+				queue.append(next)
+	# A crossing begun is carried on to the far bank (even where the last of
+	# it could be waded).
+	var begun := _unfinished(fire, reach, reached)
+	if not begun.is_empty():
+		return begun
+	# Land that cannot be walked to: enough of it to want a way over.
+	var cut_off := 0
+	for y in range(area.position.y, area.end.y):
+		for x in range(area.position.x, area.end.x):
+			var tile := Vector2i(x, y)
+			if not reached.has(tile) and _dry(tile) and _pathfinder.can_stand(tile):
+				cut_off += 1
+	if cut_off < _config.cut_off_least:
+		return {}
+	# The shortest way over, nearest the fire.
+	var best := {}
+	var best_cost := INF
+	var props := _construction.props()
+	for from: Vector2i in reached:
+		if not _dry(from):
+			continue
+		for step: Vector2i in _STEPS:
+			var tiles: Array[Vector2i] = []
+			var built := 0
+			var at := from + step
+			while tiles.size() < _config.crossing_span_most and _world.is_in_bounds(at) and (Crossing.is_bridge(props, at) or not _dry(at)):
+				var there := props.prop_at(at) if props != null else null
+				if there != null and there.kind != PropData.Kind.BRIDGE:
+					tiles.clear()
+					break
+				tiles.append(at)
+				if Crossing.deck_at(props, at) != null:
+					built += 1
+				at += step
+			if tiles.is_empty() or not _world.is_in_bounds(at) or not _dry(at) or reached.has(at) or not _pathfinder.can_stand(at):
+				continue
+			var cost := (tiles.size() - built) * 10.0 + Vector2(from - fire).length()
+			if cost < best_cost:
+				best_cost = cost
+				best = {"tiles": tiles, "turn": 64 if step.x != 0 else 0}
+	return best
+
+
+## A bridge begun that does not reach dry land on both sides yet (a crossing
+## under way, or an old one-tile bridge): the whole way over it, from the bank
+## that can be walked to — the nearest the fire; none within CROSSINGS_APART
+## of a crossing that is finished (one way over a stretch of water is enough).
+func _unfinished(fire: Vector2i, reach: int, reached: Dictionary) -> Dictionary:
+	var props := _construction.props()
+	if props == null:
+		return {}
+	var finished: Array[Vector2i] = []
+	var open: Array[Dictionary] = []
+	var seen := {}
+	for prop in props.all_props():
+		if prop.kind != PropData.Kind.BRIDGE or seen.has(prop.tile) or Vector2(prop.tile - fire).length() > reach:
+			continue
+		var axis := Crossing.axis_of(prop.rotation_step)
+		var line := _line_through(prop.tile, axis)
+		for tile: Vector2i in line.get("tiles", [prop.tile]):
+			seen[tile] = true
+		if line.is_empty():
+			continue
+		if int(line["open"]) == 0:
+			finished.append_array(line["tiles"])
+		else:
+			line["turn"] = prop.rotation_step
+			open.append(line)
+	var best := {}
+	var best_distance := INF
+	for line in open:
+		var tiles: Array[Vector2i] = line["tiles"]
+		var beside := false
+		for done in finished:
+			for tile in tiles:
+				if Vector2(done - tile).length() <= CROSSINGS_APART:
+					beside = true
+		if beside:
+			continue
+		if not reached.has(line["from"]):
+			if not reached.has(line["to"]):
+				continue
+			tiles.reverse() # (from the bank they can walk to)
+		var distance := Vector2(tiles[0] - fire).length()
+		if distance < best_distance:
+			best_distance = distance
+			best = {"tiles": tiles, "turn": int(line["turn"])}
+	return best
+
+
+## The way over the water through `tile` along `axis`, bank to bank:
+## {"tiles": the water tiles in order, "from"/"to": the dry banks, "open": how
+## many have no deck yet} — {} if it does not reach dry land on both sides
+## within `crossing_span_most` tiles.
+func _line_through(tile: Vector2i, axis: Vector2i) -> Dictionary:
+	var props := _construction.props()
+	var at := tile
+	var span := 0
+	while span <= _config.crossing_span_most and _world.is_in_bounds(at) and (Crossing.is_bridge(props, at) or not _dry(at)):
+		at -= axis
+		span += 1
+	if not _world.is_in_bounds(at) or span > _config.crossing_span_most:
+		return {}
+	var from := at
+	var tiles: Array[Vector2i] = []
+	var open := 0
+	at += axis
+	while tiles.size() <= _config.crossing_span_most and _world.is_in_bounds(at) and (Crossing.is_bridge(props, at) or not _dry(at)):
+		tiles.append(at)
+		if Crossing.deck_at(props, at) == null:
+			open += 1
+		at += axis
+	if tiles.is_empty() or tiles.size() > _config.crossing_span_most or not _world.is_in_bounds(at):
+		return {}
+	return {"tiles": tiles, "from": from, "to": at, "open": open}
+
+
+## Crossings closer than this (tiles) are one stretch of water's: one is enough.
+const CROSSINGS_APART := 6.0
+const _STEPS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+
+
+## Dry ground (not water, not a wet patch).
+func _dry(tile: Vector2i) -> bool:
+	return _world.is_in_bounds(tile) and _world.get_water(tile) <= Pathfinder.WET_DEPTH
 
 
 ## Are the homes full (or is someone without a roof)?

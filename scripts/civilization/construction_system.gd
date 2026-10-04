@@ -63,6 +63,11 @@ func bind(props: PropRegistry, ids: IdAllocator, library: BuildingLibrary, start
 
 # --- what there is ----------------------------------------------------------------------------------
 
+## What stands in the world (the sites and buildings among it).
+func props() -> PropRegistry:
+	return _props
+
+
 func projects() -> Array[Dictionary]:
 	return _projects
 

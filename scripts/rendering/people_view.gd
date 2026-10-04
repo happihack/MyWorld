@@ -387,7 +387,7 @@ func ground_position(person: PersonData) -> Vector3:
 	var y := _world.get_height(person.position) * _world.height_step
 	var bridge := props.prop_at(person.position) if props != null else null
 	if bridge != null and bridge.kind == PropData.Kind.BRIDGE and bridge.variant >= PropData.BRIDGE_DONE:
-		y += PropData.BRIDGE_DECK
+		y = Crossing.deck_y(_world, props, bridge)
 	return Vector3(at.x, y, at.y)
 
 

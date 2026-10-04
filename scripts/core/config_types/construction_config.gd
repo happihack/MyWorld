@@ -63,8 +63,14 @@ extends ConfigBase
 ## `path_gone` grows over.
 @export_range(1.0, 1000.0) var path_from: float = 30.0
 @export_range(0.0, 1000.0) var path_gone: float = 8.0
-## A ford waded this much calls for a bridge.
-@export_range(1.0, 1000.0) var bridge_from: float = 40.0
+## A bridge across (Crossing): land this near the fire (tiles, each way)
+## that cannot be reached on foot — at least `cut_off_least` tiles of it —
+## calls for one, over at most `crossing_span_most` tiles of water, once the
+## settlement is `crossing_from_people` strong.
+@export_range(4, 64) var crossing_reach: int = 24
+@export_range(1, 10000) var cut_off_least: int = 12
+@export_range(1, 32) var crossing_span_most: int = 8
+@export_range(1, 100) var crossing_from_people: int = 6
 
 @export_group("Storage")
 ## Food kept near a storehouse goes bad this much as fast.

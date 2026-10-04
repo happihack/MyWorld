@@ -5,8 +5,8 @@ extends RefCounted
 ## being walked, and the memory fades. Grass walked enough is worn to a path
 ## (ChunkData.Terrain.ROAD — open ground the pathfinder prefers, so a path
 ## draws more feet to it); a path nobody walks any more grows over again.
-## Where people wade across the water often, a bridge is wanted (the
-## settlement planner begins one).
+## (Bridges are wanted where land near the fire is cut off by water — the
+## settlement planner's crossing — not where a ford is waded: M12 follow-up.)
 ##
 ## Roads proper (laid, not worn) come with technology (M18).
 
@@ -60,23 +60,6 @@ func path_tiles() -> Array[Vector2i]:
 		out.append(tile)
 	out.sort()
 	return out
-
-
-## The most walked ford — shallow water people wade across — that is walked
-## enough to want a bridge and has nothing on it (null: none).
-func ford_for_bridge() -> Variant:
-	if _world == null:
-		return null
-	var best: Variant = null
-	var most := _config.bridge_from
-	for tile: Vector2i in _level:
-		var walked := float(_level[tile])
-		if walked < most or not is_ford(tile) or (_props != null and _props.prop_at(tile) != null):
-			continue
-		if best == null or walked > most or (walked == most and (tile.y < best.y or (tile.y == best.y and tile.x < best.x))):
-			best = tile
-			most = walked
-	return best
 
 
 ## Water one wades through (not a wet patch, not too deep to cross on foot).

@@ -56,11 +56,25 @@ static func placements(world: WorldData, props: PropRegistry, coord: Vector2i, l
 		var pos := prop.position2d()
 		var ground := world.get_height(prop.tile) * step
 		var shown := prop.scale() * (ResourceNodes.look_scale(prop) if prop.stock >= 0 else 1.0)
+		if prop.kind == PropData.Kind.BRIDGE:
+			# Its deck at its banks' level (Crossing), on posts down to the bed.
+			var bed := ground
+			ground = Crossing.deck_y(world, props, prop) - PropData.BRIDGE_DECK
+			if ground > bed + 0.01:
+				_piles(out, library.pile(), prop, Vector3(pos.x - origin.x, bed, pos.y - origin.y), ground - bed)
 		var xform := Transform3D(
 			Basis(Vector3.UP, prop.rotation_radians()).scaled(Vector3.ONE * shown),
 			Vector3(pos.x - origin.x, ground, pos.y - origin.y))
 		out.append([template, xform, _tint(prop)])
 	return out
+
+
+## A bridge's corner posts from the bed (`at`) up `height` to where its own
+## posts begin.
+static func _piles(out: Array, pile: PropMeshLibrary.Template, bridge: PropData, at: Vector3, height: float) -> void:
+	var turn := Basis(Vector3.UP, bridge.rotation_radians())
+	for corner: Vector3 in [Vector3(-0.24, 0.0, -0.42), Vector3(0.24, 0.0, -0.42), Vector3(-0.24, 0.0, 0.42), Vector3(0.24, 0.0, 0.42)]:
+		out.append([pile, Transform3D(turn.scaled(Vector3(1.0, height, 1.0)), at + turn * corner), 1.0])
 
 
 ## Which tiles of a chunk something stands on (1 each; main thread): no grass

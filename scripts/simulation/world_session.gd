@@ -276,9 +276,9 @@ func _init() -> void:
 	hydrology.flood_changed.connect(func(active: bool, _tiles: int, _at: Vector2) -> void:
 		if active and is_active:
 			for prop in props.all_props():
-				# (A bridge stands in its ford: only water over the ford — too deep to wade — harms it.)
-				var over := Pathfinder.WADE_DEPTH * world.height_step if prop.kind == PropData.Kind.BRIDGE else 0.0
-				if prop.is_building() and world.get_water(prop.tile) > over:
+				# (A bridge stands in the water: only water up to its deck harms it.)
+				var harmed := Crossing.flooded(world, props, prop) if prop.kind == PropData.Kind.BRIDGE else world.get_water(prop.tile) > 0.0
+				if prop.is_building() and harmed:
 					construction.damage(prop.id, Config.construction.flood_damage, &"flood", clock.tick))
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
 		if now == WeatherSystem.STORM and is_active:

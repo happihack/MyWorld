@@ -100,6 +100,8 @@ const _LOOK_SHIFT := 1024
 var _templates: Dictionary = {} # key -> Template
 var _loose: Dictionary = {} # loose key -> Template
 var _tuft: Template
+## A bridge's post below its deck, one unit tall (stretched down to the bed).
+var _pile: Template
 
 
 func _init() -> void:
@@ -141,6 +143,8 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.CROP, Farming.Stage.GROWING + Farming.DRY_VARIANT)] = _crop(0.22, CROP_DRY.darkened(0.1), CROP_DRY, false, 0.3)
 	_templates[_key(PropData.Kind.CROP, Farming.Stage.RIPE + Farming.DRY_VARIANT)] = _crop(0.3, CROP_DRY.darkened(0.15), CROP_DRY, true, 0.3)
 	_tuft = _grass_tuft()
+	_pile = Template.new()
+	_box(_pile, Vector3(0.0, 0.5, 0.0), Vector3(0.035, 0.5, 0.035), _rgba(TRUNK_DARK, 0.0))
 	# Loose objects (things that can be moved). Rocks look like the rock props
 	# they replace; boulders are the same stone, bigger.
 	_loose[loose_key(LooseObject.Kind.PEBBLE, 0)] = _rock(0.09, 0.07, 0.0)
@@ -209,6 +213,11 @@ func template_for(kind: PropData.Kind, variant: int, look: int = 0) -> Template:
 
 func grass_tuft() -> Template:
 	return _tuft
+
+
+## A post of a bridge, from y 0 to 1 (Crossing: from the bed up to the deck).
+func pile() -> Template:
+	return _pile
 
 
 func all_templates() -> Array[Template]:
