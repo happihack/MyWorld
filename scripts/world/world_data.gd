@@ -121,6 +121,20 @@ func unload_chunk(coord: Vector2i) -> bool:
 	return true
 
 
+## A world of its own holding copies of the chunk at `coord` and the chunks
+## around it (generated here if missing) — all a mesher reads — for a worker
+## thread to build from while this world goes on changing.
+func snapshot_around(coord: Vector2i) -> WorldData:
+	var copy := WorldData.new(bounds, chunk_size)
+	copy.height_step = height_step
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var chunk := get_chunk(coord + Vector2i(dx, dy))
+			if chunk != null:
+				copy._chunks[chunk.coord] = chunk.snapshot()
+	return copy
+
+
 # --- tile access ---------------------------------------------------------------------
 
 func get_height(tile: Vector2i) -> int:

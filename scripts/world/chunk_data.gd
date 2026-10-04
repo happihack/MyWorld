@@ -172,6 +172,24 @@ func to_dict() -> Dictionary:
 	}
 
 
+## A copy of every layer that no longer changes with this chunk (for a worker
+## thread to read while the simulation writes here).
+func snapshot() -> ChunkData:
+	var copy := ChunkData.new(coord, size)
+	copy.height = height.duplicate()
+	copy.terrain = terrain.duplicate()
+	copy.water = water.duplicate()
+	copy.moisture = moisture.duplicate()
+	copy.fertility = fertility.duplicate()
+	copy.vegetation = vegetation.duplicate()
+	copy.traffic = traffic.duplicate()
+	copy.temperature = temperature.duplicate()
+	copy.flags = flags.duplicate()
+	copy.modified = modified
+	copy.dirty = dirty
+	return copy
+
+
 ## Rebuilds a chunk from to_dict() output. Returns null if anything is missing
 ## or the wrong size (the caller then regenerates the chunk instead).
 static func from_dict(data: Dictionary) -> ChunkData:

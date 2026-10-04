@@ -15,7 +15,9 @@ var _prop_material: ShaderMaterial
 var _props_dirty: Dictionary = {} # chunk coord -> true
 var _ambient: AmbientLife
 var _chunks: Node3D
-var _chunk_views: Dictionary = {} # Vector2i -> ChunkView
+var _chunk_views: Dictionary = {} # Vector2i -> ChunkView (only those in sight: M13.1)
+## Which chunks have views: what the camera sees, built on worker threads.
+var _streamer := ChunkStreamer.new()
 var _has_fire := false
 var _animals_view: AnimalsView
 var _terrain_material: ShaderMaterial
@@ -111,6 +113,11 @@ func _ready() -> void:
 	Settings.setting_changed.connect(_on_setting_changed)
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		_streamer.stop() # (every worker's task is waited for)
+
+
 ## Shows `world` and what stands on it, replacing whatever was shown before.
 ## `start` (optional) tells the ambient effects where the campfire is.
 func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.StartInfo = null,
@@ -121,21 +128,21 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	_loose = loose
 	_loose_view.show_objects(world, loose)
 	var started := Time.get_ticks_msec()
-	for coord in world.chunk_coords():
-		var view := ChunkView.new()
-		_chunks.add_child(view)
-		view.setup(world, coord, _terrain_material, _water_material)
-		if props != null:
-			view.rebuild_props(world, props, _prop_library, _prop_material)
-		_chunk_views[coord] = view
-		_chunk_order.append(coord)
+	var box_height := Config.world.height_levels * world.height_step + BOX_HEADROOM
+	_frame.build(world.bounds, box_height)
+	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
+	_rig.ground_height = _ground_height_at
+	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
+	# What the camera sees is built now (the whole box, as it is framed);
+	# the rest as it comes into sight.
+	_streamer.bind(_chunks, _chunk_views, world, props, _prop_library, _terrain_material, _water_material,
+		_prop_material, Config.world.height_levels * world.height_step)
+	_streamer.fill(_streamer.visible_chunks(_rig))
+	_chunk_order = world.chunk_coords()
 	if props != null:
 		props.chunk_changed.connect(_on_props_changed)
 	world.ground_changed.connect(_on_ground_changed)
 	_tool_fx.bind(world)
-	var box_height := Config.world.height_levels * world.height_step + BOX_HEADROOM
-	_frame.build(world.bounds, box_height)
-	_lighting.fit_to_box(_frame.outer_rect(), _frame.bottom_y(), box_height)
 	var has_fire := start != null and start.campfire_id != 0
 	_has_fire = has_fire
 	_ambient.setup(world, start.settlement_tile if has_fire else Vector2i.ZERO, has_fire)
@@ -146,8 +153,6 @@ func show_world(world: WorldData, props: PropRegistry = null, start: WorldSetup.
 	_day_night.set_fire(fire_at, has_fire)
 	_hut_ids = start.hut_ids.duplicate() if start != null else ([] as Array[int])
 	_weather_fx.fit_to_box(Rect2(world.bounds), 0.0, box_height)
-	_rig.ground_height = _ground_height_at
-	_rig.setup(Rect2(world.bounds), _frame.outer_rect(), _frame.bottom_y(), box_height)
 	Log.info(Log.Category.WORLD, "World view built", {"chunks": _chunk_views.size(), "ms": Time.get_ticks_msec() - started})
 
 
@@ -216,6 +221,7 @@ func clear() -> void:
 	if _world != null and _world.ground_changed.is_connected(_on_ground_changed):
 		_world.ground_changed.disconnect(_on_ground_changed)
 	_ground_dirty = false
+	_streamer.unbind()
 	for view: ChunkView in _chunk_views.values():
 		view.queue_free()
 	_chunk_views.clear()
@@ -281,9 +287,15 @@ func set_fire_lit(lit: bool) -> void:
 	_ambient.set_fire_lit(lit and _has_fire)
 
 
-## The view of one chunk (null if it is not shown).
+## The view of one chunk (null if it is not shown: out of sight).
+## (Its meshes may still be on their way: chunk_streamer().pending().)
 func chunk_view(coord: Vector2i) -> ChunkView:
 	return _chunk_views.get(coord)
+
+
+## What has views, and builds them as the camera moves (M13.1).
+func chunk_streamer() -> ChunkStreamer:
+	return _streamer
 
 
 func loose_view() -> LooseObjectsView:
@@ -388,6 +400,9 @@ func _process(_delta: float) -> void:
 	# Flowing water changes its chunks ten times a second; rebuilding a water
 	# mesh costs milliseconds on a phone. One chunk at a time, a few frames
 	# apart: moving water is redrawn several times a second, smoothly enough.
+	# Chunks come into sight and go out of it with the camera.
+	if _world != null:
+		_streamer.update(_rig)
 	_water_wait -= 1
 	if _water_wait <= 0 and refresh_dirty_water(1) > 0:
 		_water_wait = WATER_REBUILD_EVERY_FRAMES
@@ -431,7 +446,10 @@ func refresh_dirty_water(limit: int = 1000) -> int:
 		var chunk := _world.get_chunk(coord, false)
 		if chunk == null or not chunk.is_dirty(ChunkData.DIRTY_WATER) or chunk.is_dirty(ChunkData.DIRTY_MESH):
 			continue # (terrain changes are rebuilt, with their water, by refresh_dirty_chunks)
-		(_chunk_views[coord] as ChunkView).rebuild_water(_world)
+		var view: ChunkView = _chunk_views.get(coord)
+		if view == null:
+			continue # out of sight: built as it is when it comes into sight
+		view.rebuild_water(_world)
 		rebuilt += 1
 		_water_cursor = (first + n + 1) % count
 	return rebuilt

@@ -33,14 +33,18 @@ class Buffers:
 
 static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i,
 		library: PropMeshLibrary, with_tufts: bool = true) -> Buffers:
-	var out := Buffers.new()
-	var chunk := world.get_chunk(coord)
-	if chunk == null:
-		return out
-	var size := world.chunk_size
-	var origin := WorldCoords.chunk_origin(coord, size)
-	var step := world.height_step
+	if world.get_chunk(coord) == null:
+		return Buffers.new()
+	return build_from(world, coord, placements(world, props, coord, library), taken_tiles(world, props, coord),
+		library.grass_tuft() if with_tufts else null)
 
+
+## What stands on a chunk, as [template, transform, tint] for each prop (read
+## from the registry: main thread). See build_from.
+static func placements(world: WorldData, props: PropRegistry, coord: Vector2i, library: PropMeshLibrary) -> Array:
+	var out: Array = []
+	var origin := WorldCoords.chunk_origin(coord, world.chunk_size)
+	var step := world.height_step
 	for prop in props.props_in_chunk(coord):
 		# A node that has given up what it had looks it (a stump, a bare bush).
 		var look := ResourceNodes.look_of(prop) if prop.stock >= 0 else ResourceNodes.Look.FULL
@@ -55,10 +59,39 @@ static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i
 		var xform := Transform3D(
 			Basis(Vector3.UP, prop.rotation_radians()).scaled(Vector3.ONE * shown),
 			Vector3(pos.x - origin.x, ground, pos.y - origin.y))
-		_append(out, template, xform, _tint(prop))
+		out.append([template, xform, _tint(prop)])
+	return out
 
-	if with_tufts:
-		var tuft := library.grass_tuft()
+
+## Which tiles of a chunk something stands on (1 each; main thread): no grass
+## tufts grow there.
+static func taken_tiles(world: WorldData, props: PropRegistry, coord: Vector2i) -> PackedByteArray:
+	var size := world.chunk_size
+	var origin := WorldCoords.chunk_origin(coord, size)
+	var out := PackedByteArray()
+	out.resize(size * size)
+	for ly in size:
+		for lx in size:
+			if props.has_prop_at(origin + Vector2i(lx, ly)):
+				out[ly * size + lx] = 1
+	return out
+
+
+## The merged buffers of `placements` and, with a `tuft`, the grass tufts.
+## Touches no registry: safe on a worker thread with a world of its own.
+static func build_from(world: WorldData, coord: Vector2i, placed: Array, taken: PackedByteArray,
+		tuft: PropMeshLibrary.Template) -> Buffers:
+	var out := Buffers.new()
+	var chunk := world.get_chunk(coord)
+	if chunk == null:
+		return out
+	var size := world.chunk_size
+	var origin := WorldCoords.chunk_origin(coord, size)
+	var step := world.height_step
+	for one: Array in placed:
+		_append(out, one[0], one[1], one[2])
+
+	if tuft != null:
 		for ly in size:
 			for lx in size:
 				var i := ly * size + lx
@@ -67,7 +100,7 @@ static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i
 					continue
 				var tile := origin + Vector2i(lx, ly)
 				var h := HashNoise.hash2(tile.x, tile.y, _TUFT_SALT)
-				if int(h % 100) >= TUFT_CHANCE_PERCENT or props.has_prop_at(tile):
+				if int(h % 100) >= TUFT_CHANCE_PERCENT or taken[i] != 0:
 					continue
 				var ox := ((h >> 8) & 0xFF) / 255.0 * 0.7 + 0.15
 				var oz := ((h >> 16) & 0xFF) / 255.0 * 0.7 + 0.15
@@ -82,7 +115,11 @@ static func build_buffers(world: WorldData, props: PropRegistry, coord: Vector2i
 ## The chunk's merged prop mesh, or null if nothing stands on it.
 static func build_mesh(world: WorldData, props: PropRegistry, coord: Vector2i,
 		library: PropMeshLibrary, with_tufts: bool = true) -> ArrayMesh:
-	var buffers := build_buffers(world, props, coord, library, with_tufts)
+	return mesh_from(build_buffers(world, props, coord, library, with_tufts))
+
+
+## The mesh of built buffers (main thread), or null if they are empty.
+static func mesh_from(buffers: Buffers) -> ArrayMesh:
 	if buffers.is_empty():
 		return null
 	var arrays: Array = []

@@ -102,7 +102,11 @@ static func build_buffers(world: WorldData, coord: Vector2i, deep_depth: float) 
 
 ## The chunk's water ArrayMesh, or null if the chunk is dry.
 static func build_mesh(world: WorldData, coord: Vector2i, deep_depth: float) -> ArrayMesh:
-	var buffers := build_buffers(world, coord, deep_depth)
+	return mesh_from(build_buffers(world, coord, deep_depth))
+
+
+## The mesh of built buffers (main thread), or null if they are empty.
+static func mesh_from(buffers: Buffers) -> ArrayMesh:
 	if buffers.is_empty():
 		return null
 	var arrays: Array = []

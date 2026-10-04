@@ -9,8 +9,9 @@ extends RefCounted
 ##
 ## Colours are per-vertex (no textures): terrain colour, slight per-tile
 ## variation, corner ambient occlusion on top faces and a darker base on sides.
-## Pure functions: safe to call headless and (later) from worker threads, as
-## long as the chunks involved are not being modified.
+## Pure functions: safe to call headless and from worker threads, as long as
+## the chunks involved are not being modified (ChunkStreamer gives a worker
+## its own copies).
 
 const OUTSIDE := -1 # height used for tiles outside the box
 
@@ -100,7 +101,11 @@ static func build_buffers(world: WorldData, coord: Vector2i, palette: TerrainPal
 
 ## The chunk's ArrayMesh, or null if it has no geometry.
 static func build_mesh(world: WorldData, coord: Vector2i, palette: TerrainPalette, height_step: float) -> ArrayMesh:
-	var buffers := build_buffers(world, coord, palette, height_step)
+	return mesh_from(build_buffers(world, coord, palette, height_step))
+
+
+## The mesh of built buffers (main thread), or null if they are empty.
+static func mesh_from(buffers: Buffers) -> ArrayMesh:
 	if buffers.is_empty():
 		return null
 	var arrays: Array = []
