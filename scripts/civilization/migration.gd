@@ -21,6 +21,11 @@ signal set_out(journey: Dictionary)
 signal founded(settlement: Settlement, journey: Dictionary)
 ## A settlement founded since the first has nobody left: it is abandoned (M12.5).
 signal abandoned(settlement_id: int, name: String, at: Vector2i)
+## People have set out to live at another settlement (a young camp they join,
+## or — `journey["last"]` — the last few of one that cannot grow).
+signal joining(journey: Dictionary)
+## They are there: of that settlement now.
+signal joined(settlement: Settlement, journey: Dictionary)
 
 const ACTIVITY := &"migrate"
 ## Hut places around a new fire, the nearest first.
@@ -52,6 +57,8 @@ var _next_id := 1
 var departures := 0
 var foundings := 0
 var abandonments := 0
+var joinings := 0
+var leavings := 0
 
 
 func bind(now: int, cfg: MigrationConfig = null) -> void:
@@ -86,22 +93,33 @@ func advance_to(now: int) -> void:
 		return
 	_day = today
 	_abandon_empty()
+	_leave_dwindling(now)
 	for own in settlements.all().duplicate():
-		if settlements.size() + journeys.size() >= config.most_settlements:
-			return
 		var push := pressure(own, now)
+		if own.places() != null:
+			own.places().scouting = 0.0
 		if float(push["total"]) < config.leave_from:
+			continue
+		# Nowhere known to go (and no camp to join): they scout further, until somewhere is found.
+		if camp_to_join(own) == null and destination(own) == null:
+			if own.places() != null:
+				own.places().scouting = config.scout_further
 			continue
 		if rng != null and rng.randf() >= config.chance_per_day * float(push["total"]):
 			continue
-		depart(own, now, push)
+		# A young camp near: they join it (it is to last) rather than found yet another.
+		var camp := camp_to_join(own)
+		if camp != null:
+			depart_join(own, camp, now, push)
+		elif settlements.size() + journeys.size() < config.most_settlements:
+			depart(own, now, push)
 
 
 ## What drives people away from `own` now: {"total", "crowding", "scarcity",
 ## "conflict", "disaster", "adventure", "causes": [event ids]} (total 0 when
 ## it is too small, or rests after the last who set out, or has nobody to send).
 func pressure(own: Settlement, now: int) -> Dictionary:
-	var out := {"total": 0.0, "crowding": 0.0, "scarcity": 0.0, "conflict": 0.0, "disaster": 0.0, "adventure": 0.0, "causes": []}
+	var out := {"total": 0.0, "crowding": 0.0, "size": 0.0, "scarcity": 0.0, "conflict": 0.0, "disaster": 0.0, "adventure": 0.0, "causes": []}
 	var members := own.members()
 	if members.size() < config.least_people:
 		return out
@@ -116,6 +134,9 @@ func pressure(own: Settlement, now: int) -> Dictionary:
 	var spare := places - members.size()
 	if spare <= config.crowded_from_spare:
 		out["crowding"] = config.crowding * clampf(float(config.crowded_from_spare - spare + 1) / float(config.crowded_from_spare + 1), 0.0, 1.0)
+	# Size: a big settlement sends people out, however many roofs it builds.
+	if members.size() >= config.big_from:
+		out["size"] = config.size
 	# Hunger, days on end.
 	if own.shortage != Settlement.Shortage.NONE and own.short_since() >= 0 and now - own.short_since() >= config.scarce_days * TimeConfig.MINUTES_PER_DAY:
 		out["scarcity"] = config.scarcity
@@ -145,20 +166,26 @@ func pressure(own: Settlement, now: int) -> Dictionary:
 		out["disaster"] = floods * config.disaster_per_flood
 		if floods > 0:
 			_cause(causes, &"flood")
-	# The adventurous.
+	# The adventurous (a group that could found a settlement — or join a young camp).
 	var group := choose_group(own, now)
+	if group.is_empty() and camp_to_join(own) != null:
+		group = choose_group(own, now, 1, 2)
 	if group.is_empty():
 		return out
 	out["adventure"] = config.adventure * float(group["adventure"])
 	out["causes"] = causes
-	out["total"] = float(out["crowding"]) + float(out["scarcity"]) + float(out["conflict"]) + float(out["disaster"]) + float(out["adventure"])
+	out["total"] = float(out["crowding"]) + float(out["size"]) + float(out["scarcity"]) + float(out["conflict"]) + float(out["disaster"]) + float(out["adventure"])
 	return out
 
 
 ## Who would go from `own`: {"households": [ids], "members": [ids], "leader",
 ## "adventure": 0 … 1} — the most adventurous households, one or two, with a
 ## man and a woman grown among them, leaving at least `stay_least` behind ({}: nobody).
-func choose_group(own: Settlement, now: int) -> Dictionary:
+func choose_group(own: Settlement, now: int, households_least: int = -1, people_least: int = -1) -> Dictionary:
+	if households_least < 0:
+		households_least = config.households_least
+	if people_least < 0:
+		people_least = config.group_least
 	var by_household: Dictionary = own.households()
 	var scored: Array = [] # [score, household id, adventure]
 	for household_id: int in by_household:
@@ -190,9 +217,9 @@ func choose_group(own: Settlement, now: int) -> Dictionary:
 		for id in household:
 			going.append(id)
 		adventure = maxf(adventure, (float(entry[0]) + 1.0) * 0.5)
-		if _has_couple(going, now) and going.size() >= config.group_least:
+		if _has_couple(going, now) and going.size() >= people_least and chosen.size() >= households_least:
 			break
-	if chosen.is_empty() or going.size() < config.group_least or not _has_couple(going, now):
+	if chosen.size() < households_least or going.size() < people_least or not _has_couple(going, now):
 		return {}
 	# The leader: the most adventurous grown one.
 	var leader := 0
@@ -203,6 +230,154 @@ func choose_group(own: Settlement, now: int) -> Dictionary:
 			most = Traits.value(person.traits, Traits.Axis.ADVENTURE)
 			leader = id
 	return {"households": chosen, "members": going, "leader": leader, "adventure": adventure}
+
+
+## Can `own` grow (M12)? Not with nobody grown under elder age; not when
+## there are fewer than `viable_least` and no couple young enough for children.
+func viable(own: Settlement, now: int) -> bool:
+	var members := own.members()
+	var year := Config.time.ticks_per_year()
+	var grown := 0
+	var young_couple := false
+	for person in members:
+		var stage := person.life_stage(now, year, Config.people)
+		if stage == PersonData.LifeStage.ADULT:
+			grown += 1
+			var partner := people.get_person(person.partner_id) if person.partner_id != 0 else null
+			if person.sex == PersonData.Sex.FEMALE and partner != null and partner.settlement_id == own.id \
+					and person.age_years(now, year) <= Config.life.fertile_until_years:
+				young_couple = true
+	if grown == 0:
+		return false
+	return members.size() >= config.viable_least or young_couple
+
+
+## A young camp that those leaving `own` would join (null: none): one smaller
+## than `small_from` and than `own`, that can grow, within reach (the nearest).
+func camp_to_join(own: Settlement) -> Settlement:
+	var best: Settlement = null
+	var best_distance := INF
+	var from := own.start_info().settlement_tile
+	for other in settlements.all():
+		var size := other.member_count()
+		if other == own or size == 0 or size >= config.small_from or size >= own.member_count():
+			continue
+		var distance := Vector2(other.start_info().settlement_tile - from).length()
+		if distance > config.farthest_journey * 1.5 or distance >= best_distance:
+			continue
+		if pathfinder != null and pathfinder.is_bound() and not pathfinder.is_reachable(from + Vector2i(1, 0), other.start_info().settlement_tile + Vector2i(1, 0)):
+			continue
+		best = other
+		best_distance = distance
+	return best
+
+
+## Settlements that cannot grow (see `viable`) send their last few to the
+## nearest settlement that can (once there is another).
+func _leave_dwindling(now: int) -> void:
+	for own: Settlement in settlements.all().duplicate():
+		if own.member_count() == 0 or _going_from(own.id) or viable(own, now):
+			continue
+		var target: Settlement = null
+		var best_distance := INF
+		for other in settlements.all():
+			if other == own or other.member_count() == 0 or not viable(other, now):
+				continue
+			var distance := Vector2(other.start_info().settlement_tile - own.start_info().settlement_tile).length()
+			if distance < best_distance:
+				best_distance = distance
+				target = other
+		if target != null:
+			depart_join(own, target, now, {}, true)
+
+
+## A group from `own` sets out to live at `target` — some households (the
+## most adventurous), or `everyone` (the last few). Returns the journey ({}: nobody).
+func depart_join(own: Settlement, target: Settlement, now: int, push: Dictionary = {}, everyone: bool = false) -> Dictionary:
+	var going: Array = []
+	var households_going: Array = []
+	var leader := 0
+	if everyone:
+		for person in own.members():
+			going.append(person.id)
+			if person.household_id > 0 and not households_going.has(person.household_id):
+				households_going.append(person.household_id)
+		var oldest := -1
+		for id: int in going:
+			var person := people.get_person(id)
+			if person != null and _grown(person, now) and (leader == 0 or person.birth_tick < oldest):
+				leader = id
+				oldest = person.birth_tick
+		if leader == 0 and not going.is_empty():
+			leader = going[0]
+	else:
+		var group := choose_group(own, now, 1, 2)
+		if group.is_empty():
+			return {}
+		going = group["members"]
+		households_going = group["households"]
+		leader = group["leader"]
+	if going.is_empty():
+		return {}
+	var to := target.start_info().settlement_tile
+	var goods := {}
+	var food := ceili(own.food_need_per_day() / maxf(own.member_count(), 1) * going.size() * config.food_days)
+	var share := 1.0 if everyone else config.food_share
+	var wanted := mini(food if not everyone else own.stockpile.food_units(), floori(own.stockpile.food_units() * share))
+	var taken := 0
+	while taken < wanted:
+		var kind := own.stockpile.take_food()
+		if kind == &"":
+			break
+		goods[String(kind)] = int(goods.get(String(kind), 0)) + 1
+		taken += 1
+	var journey := {"id": _next_id, "kind": "join", "last": everyone, "from": own.id, "target": target.id, "to": to,
+		"members": going.duplicate(), "households": households_going, "leader": leader, "started": now, "goods": goods,
+		"causes": push.get("causes", []), "event": 0}
+	_next_id += 1
+	journeys.append(journey)
+	_rested[own.id] = Config.time.day_index(now)
+	if everyone:
+		leavings += 1
+	else:
+		joinings += 1
+	var spots := pathfinder.standable_near(to, going.size(), 3) if pathfinder != null else []
+	for i in going.size():
+		var person := people.get_person(going[i])
+		if person == null:
+			continue
+		var spot: Vector2i = spots[i % spots.size()] if not spots.is_empty() else to
+		if behavior != null:
+			behavior.set_plan(person, ACTIVITY, ACTIVITY, [WalkToStep.make(spot, person.sub_tile_offset)])
+	joining.emit(journey)
+	return journey
+
+
+## They are there: of `target` now, under its roofs (the roomiest; crowded if
+## need be — its planner sees to more), with what they brought.
+func join(journey: Dictionary, now: int) -> Settlement:
+	journeys.erase(journey)
+	var target := settlements.get_settlement(int(journey["target"]))
+	if target == null:
+		target = settlements.nearest(journey["to"])
+	if target == null:
+		return null
+	for id: int in journey["members"]:
+		var person := people.get_person(id)
+		if person == null:
+			continue
+		person.settlement_id = target.id
+		if BehaviorSystem.activity_of(person) == ACTIVITY:
+			person.current_action = {}
+	if households != null:
+		for household_id: int in journey["households"]:
+			households.move_household(household_id, households.roomiest_home([], target.id))
+	var goods: Dictionary = journey["goods"]
+	for resource: Variant in goods:
+		if int(goods[resource]) > 0:
+			target.stockpile.add(StringName(str(resource)), int(goods[resource]))
+	joined.emit(target, journey)
+	return target
 
 
 ## The best place someone of `own` has explored to found a settlement (null: none).
@@ -338,7 +513,10 @@ func _follow_journeys(now: int) -> void:
 			elif BehaviorSystem.activity_of(person) == ACTIVITY:
 				walking += 1
 		if there == members.size() or (there > 0 and walking == 0) or now - int(journey["started"]) >= config.longest_journey:
-			found(journey, now)
+			if str(journey.get("kind", "")) == "join":
+				join(journey, now)
+			else:
+				found(journey, now)
 
 
 ## Founds the settlement at the end of a journey: the fire, a first shelter
@@ -488,7 +666,8 @@ func _cause(causes: Array, type: StringName) -> void:
 
 
 func debug_text() -> String:
-	return "migration: %d set out, %d founded, %d under way, %d abandoned" % [departures, foundings, journeys.size(), abandonments]
+	return "migration: %d set out, %d founded, %d under way, %d abandoned, %d joined a camp, %d last few moved" % [departures,
+		foundings, journeys.size(), abandonments, joinings, leavings]
 
 
 # --- saving ---------------------------------------------------------------------------------------
@@ -498,7 +677,7 @@ func to_dict() -> Dictionary:
 	for id: int in _rested:
 		rested[str(id)] = _rested[id]
 	return {"journeys": journeys.duplicate(true), "rested": rested, "day": _day, "next_id": _next_id,
-		"departures": departures, "foundings": foundings, "abandonments": abandonments}
+		"departures": departures, "foundings": foundings, "abandonments": abandonments, "joinings": joinings, "leavings": leavings}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -510,6 +689,8 @@ func from_dict(data: Dictionary) -> void:
 	departures = maxi(int(data.get("departures", 0)), 0)
 	foundings = maxi(int(data.get("foundings", 0)), 0)
 	abandonments = maxi(int(data.get("abandonments", 0)), 0)
+	joinings = maxi(int(data.get("joinings", 0)), 0)
+	leavings = maxi(int(data.get("leavings", 0)), 0)
 	if typeof(data.get("rested")) == TYPE_DICTIONARY:
 		for key: Variant in data["rested"]:
 			_rested[int(str(key))] = int(data["rested"][key])

@@ -76,6 +76,7 @@ const TYPE_TRADE_ROUTE := &"trade_route"
 const TYPE_LEARNED := &"knowledge_learned"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
+const TYPE_MOVED_TO := &"moved_to"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -643,6 +644,24 @@ func on_route_opened(record: Dictionary, from_name: String, to_name: String) -> 
 		return
 	_log.record(TYPE_TRADE_ROUTE, {"participants": [int(record["trader"])], "resource": str(record["resource"]),
 		"from": from_name, "place": to_name, "position": _place_of(int(record["trader"])), "settlement": int(record["from"])})
+
+
+## People set out to live at another settlement (M12): to join a young camp,
+## or the last few of one that cannot grow.
+func on_joining(journey: Dictionary, from_name: String, to_name: String) -> void:
+	if not _writing():
+		return
+	var members := PackedInt64Array()
+	members.append(int(journey["leader"]))
+	for id: int in journey["members"]:
+		if id != int(journey["leader"]):
+			members.append(id)
+	var others := members.size() - 1
+	var company := "nobody" if others == 0 else ("one other" if others == 1 else ("%d others" % others))
+	var event := _log.record(TYPE_MOVED_TO, {"participants": members, "company": company, "from": from_name, "place": to_name,
+		"kind": "last" if bool(journey.get("last", false)) else "join", "settlement": int(journey["from"]),
+		"position": Places.middle_of(journey["to"])}, journey.get("causes", []))
+	journey["event"] = event.id if event != null else 0
 
 
 ## A settlement has nobody left: it is abandoned (M12.5).

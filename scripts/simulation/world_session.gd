@@ -238,6 +238,10 @@ func _init() -> void:
 	migration.set_out.connect(func(journey: Dictionary) -> void:
 		chronicle.on_set_out(journey, settlements.get_settlement(int(journey["from"]))))
 	migration.founded.connect(chronicle.on_founded_by)
+	migration.joining.connect(func(journey: Dictionary) -> void:
+		var from := settlements.get_settlement(int(journey["from"]))
+		var to := settlements.get_settlement(int(journey["target"]))
+		chronicle.on_joining(journey, from.display_name() if from != null else "", to.display_name() if to != null else ""))
 	migration.abandoned.connect(func(id: int, name: String, at: Vector2i) -> void:
 		chronicle.on_abandoned(id, name, at)
 		_place_settlements())

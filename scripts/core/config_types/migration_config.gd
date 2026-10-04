@@ -10,6 +10,9 @@ extends ConfigBase
 ## (at no place left, as much as `crowding`).
 @export_range(0, 20) var crowded_from_spare: int = 2
 @export_range(0.0, 2.0, 0.01) var crowding: float = 0.6
+## A settlement this big feels it whatever its roofs: as much as `size`.
+@export_range(2, 1000) var big_from: int = 20
+@export_range(0.0, 2.0, 0.01) var size: float = 0.4
 ## Food short this many days on end, as much as `scarcity`.
 @export_range(1, 60) var scarce_days: int = 4
 @export_range(0.0, 2.0, 0.01) var scarcity: float = 0.5
@@ -31,11 +34,25 @@ extends ConfigBase
 @export_range(1, 64) var most_settlements: int = 4
 
 @export_group("Who goes")
-## A group is one household, or two; at least this many people, of whom a
-## man and a woman grown; and at least `stay_least` stay behind.
-@export_range(1, 4) var most_households: int = 2
-@export_range(2, 30) var group_least: int = 2
+## A group that founds a settlement is at least `households_least`
+## households (at most `most_households`) and `group_least` people, with a
+## man and a woman grown among them; at least `stay_least` stay behind.
+## (Founded camps are to last: one family alone does not.)
+@export_range(1, 4) var most_households: int = 3
+@export_range(1, 4) var households_least: int = 2
+@export_range(2, 30) var group_least: int = 5
 @export_range(1, 100) var stay_least: int = 6
+
+@export_group("Young camps and the last few")
+## A settlement of fewer than this many is a young camp: those who leave a
+## crowded settlement join it rather than found yet another, and newcomers
+## come to its lonely `newcomer_boost` times as readily.
+@export_range(1, 100) var small_from: int = 10
+@export_range(1.0, 20.0, 0.5) var newcomer_boost: float = 3.0
+## A settlement cannot grow when it has no grown-up under elder age, or fewer
+## than this many and no couple young enough for children: its last few go
+## to live at the nearest settlement that can.
+@export_range(1, 50) var viable_least: int = 4
 
 @export_group("Where to")
 ## Only ground someone has explored. At least this far from every
@@ -45,6 +62,9 @@ extends ConfigBase
 ## Water within this many tiles (but not on the bank), trees within `tree_reach`.
 @export_range(1.0, 40.0) var water_within: float = 10.0
 @export_range(1, 20) var tree_reach: int = 6
+## A settlement that would send people out but knows of nowhere for them
+## scouts: its grown explore this many tiles further.
+@export_range(0.0, 60.0) var scout_further: float = 16.0
 
 @export_group("The journey and the founding")
 ## A journey that takes longer than this (game minutes) ends where they are.

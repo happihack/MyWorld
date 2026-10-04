@@ -88,10 +88,25 @@ static func most_urgent(needs: PackedFloat32Array) -> int:
 ## Lets `minutes` of game time pass for a person's needs.
 static func decay(person: PersonData, minutes: float, config: NeedsConfig, stage: PersonData.LifeStage,
 		state: State = State.AWAKE) -> void:
+	decay_by(person, minutes, config, factors(person, config, stage), state)
+
+
+## What a person's needs run down by, apart from the minutes and what they
+## are doing: [body, missing company, missing purpose] (worked out once a day
+## by the behaviour system: they change only with age).
+static func factors(person: PersonData, config: NeedsConfig, stage: PersonData.LifeStage) -> PackedFloat32Array:
+	return PackedFloat32Array([config.body_factor(stage),
+		1.0 + 0.5 * Traits.value(person.traits, Traits.Axis.SOCIABILITY),
+		1.0 + 0.5 * Traits.value(person.traits, Traits.Axis.AMBITION)])
+
+
+## `decay`, with the person's factors (see `factors`) given.
+static func decay_by(person: PersonData, minutes: float, config: NeedsConfig, factor: PackedFloat32Array,
+		state: State = State.AWAKE) -> void:
 	var needs := person.needs
 	if needs.size() < COUNT or minutes <= 0.0:
 		return
-	var body := config.body_factor(stage)
+	var body := factor[0]
 	var effort := config.working_factor if state == State.WORKING else (config.sleeping_factor if state == State.SLEEPING else 1.0)
 	needs[Need.HUNGER] = maxf(needs[Need.HUNGER] - config.hunger_per_minute * body * effort * minutes, 0.0)
 	needs[Need.THIRST] = maxf(needs[Need.THIRST] - config.thirst_per_minute * effort * minutes, 0.0)
@@ -99,11 +114,9 @@ static func decay(person: PersonData, minutes: float, config: NeedsConfig, stage
 		needs[Need.SLEEP] = maxf(needs[Need.SLEEP] - config.sleep_per_minute * body
 			* (config.working_factor if state == State.WORKING else 1.0) * minutes, 0.0)
 		# Company is missed more by the sociable, purpose more by the ambitious.
-		needs[Need.SOCIAL] = maxf(needs[Need.SOCIAL] - config.social_per_minute
-			* (1.0 + 0.5 * Traits.value(person.traits, Traits.Axis.SOCIABILITY)) * minutes, 0.0)
+		needs[Need.SOCIAL] = maxf(needs[Need.SOCIAL] - config.social_per_minute * factor[1] * minutes, 0.0)
 		if state != State.WORKING:
-			needs[Need.PURPOSE] = maxf(needs[Need.PURPOSE] - config.purpose_per_minute
-				* (1.0 + 0.5 * Traits.value(person.traits, Traits.Axis.AMBITION)) * minutes, 0.0)
+			needs[Need.PURPOSE] = maxf(needs[Need.PURPOSE] - config.purpose_per_minute * factor[2] * minutes, 0.0)
 	# Nothing threatens anyone yet (M5 on): the feeling of safety comes back.
 	needs[Need.SAFETY] = minf(needs[Need.SAFETY] + config.safety_recovery_per_minute * minutes, 1.0)
 

@@ -199,7 +199,8 @@ static func decide(person: PersonData, ctx: AiContext, current: StringName = &""
 		var bar := maxf(decision.score_of(current), commitment) + reluctance + HYSTERESIS
 		# Something else has come due (and has not been done yet): what they
 		# are at lets go of them more easily — the routine's other half.
-		if due[0] != &"" and due[0] != current and commitment < DUE_RELEASES_BELOW 				and int(person.activity_log.get(String(due[0]), -1000000000)) < int(due[1]):
+		if due[0] != &"" and due[0] != current and commitment < DUE_RELEASES_BELOW \
+				and int(person.activity_log.get(String(due[0]), -1000000000)) < int(due[1]):
 			bar = decision.score_of(current) + reluctance + HYSTERESIS * DUE_HYSTERESIS
 		var kept_ids: Array[StringName] = []
 		var kept := PackedFloat32Array()

@@ -134,9 +134,12 @@ func form_couple(a: PersonData, b: PersonData, now: int, new_id: int) -> int:
 	var home := roomiest_home(leaving, a.settlement_id)
 	_records[new_id] = {"home": home, "founded": now}
 	var old: Array[int] = [a.household_id, b.household_id]
+	var own := settlements.of_home(home) if settlements != null else null
 	for person: PersonData in [a, b] + along:
 		person.household_id = new_id
 		person.home_building_id = home
+		if own != null:
+			person.settlement_id = own.id # (a couple of two settlements lives in one)
 	for id in old:
 		_forget_if_empty(id)
 	return new_id

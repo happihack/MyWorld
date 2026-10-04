@@ -326,7 +326,7 @@ func has_company(person: PersonData, now: int = -1) -> bool:
 func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNumberGenerator) -> Variant:
 	var home: Variant = home_tile(person)
 	var center: Vector2i = home if home != null else person.position
-	var farthest := EXPLORE_CHILD_MAX if stage == PersonData.LifeStage.CHILD else EXPLORE_MAX
+	var farthest := EXPLORE_CHILD_MAX if stage == PersonData.LifeStage.CHILD else EXPLORE_MAX + scouting
 	var nearest := minf(EXPLORE_MIN, farthest * 0.5)
 	var fallback: Variant = null
 	for attempt in EXPLORE_TRIES:
@@ -358,6 +358,11 @@ func play_tile(person: PersonData, rng: RandomNumberGenerator) -> Variant:
 ## who set out knew the land): this one shares `other`'s record of it.
 func share_visited(other: Places) -> void:
 	_visited = other._visited
+
+
+## How much further than usual the grown explore (M12: a settlement that
+## wants to send people out, and knows of nowhere for them, scouts).
+var scouting := 0.0
 
 
 ## Remembers that someone of the band has been around `tile`.

@@ -121,6 +121,7 @@ var _move_day := -1_000_000
 ## The game day up to which the days' housekeeping (spoilage) is done.
 var _day := -1_000_000
 var _farmer_check_tick := -1_000_000
+var _stepped_tick := -1_000_000
 
 
 func _init() -> void:
@@ -605,6 +606,11 @@ func stock_up(now: int) -> void:
 func step(now: int) -> void:
 	if _props == null:
 		return
+	# (Stepped more often than the clock ticks — every frame, every half minute:
+	# once a tick is enough.)
+	if now == _stepped_tick:
+		return
+	_stepped_tick = now
 	_burn(now)
 	_flood(now)
 	var today := Config.time.day_index(now)
@@ -799,6 +805,9 @@ func _burn(now: int) -> void:
 			prop.stock = 0
 			_props.changed(prop.id)
 			fire_changed.emit(false)
+		return
+	# (Burning, and the next log not due yet: nothing to do — the common case.)
+	if prop.stock != 0 and _burn_tick >= 0 and now < _burn_tick and _burn_tick - now <= Config.time.MINUTES_PER_DAY:
 		return
 	# (In the cold it burns more.)
 	var minutes_per_log := maxi(roundi(Config.time.MINUTES_PER_DAY / (_config.fire_wood_per_day * cold_factor(now))), 1)

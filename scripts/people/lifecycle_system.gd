@@ -294,7 +294,13 @@ func _newcomers(now: int) -> void:
 	if room <= 0:
 		return
 	var lonely := lonely_one(now)
-	if lonely == null or rng.randf() >= config.newcomer_chance_per_day:
+	if lonely == null:
+		return
+	# (To a young camp's lonely they come more readily: it is to last, M12.)
+	var home_of_lonely := _settlement_of(lonely)
+	var boost := Config.migration.newcomer_boost if home_of_lonely != null and settlements != null and settlements.size() > 1 \
+		and home_of_lonely.member_count() < Config.migration.small_from else 1.0
+	if rng.randf() >= config.newcomer_chance_per_day * boost:
 		return
 	# (They come to where the lonely one lives.)
 	var own := settlements.of(lonely) if settlements != null else null
@@ -338,7 +344,8 @@ func lonely_one(now: int) -> PersonData:
 			continue
 		var someone := false
 		for other in everyone:
-			if other.sex != person.sex and other.partner_id == 0 and _grown(other, now) \
+			# (Only someone of their own settlement: a camp's lonely are lonely, M12.)
+			if other.settlement_id == person.settlement_id and other.sex != person.sex and other.partner_id == 0 and _grown(other, now) \
 					and absi(other.age_years(now, year) - person.age_years(now, year)) <= config.partner_most_years_apart \
 					and (relationships == null or not (relationships.is_family(person.id, other.id) or relationships.close_kin(person.id, other.id))):
 				someone = true

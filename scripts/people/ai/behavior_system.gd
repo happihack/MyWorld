@@ -86,6 +86,15 @@ var _last: Dictionary = {} # person id -> Brain.Decision
 var _outcomes: Dictionary = {} # person id -> Reactions.Outcome: how they took the last thing they noticed
 var _reacted: Array = [] # reactions not announced yet: [id, reaction, interpretation, stimulus, direct]
 var _ground_version := -1 # the pathfinder's version when everyone's footing was last looked at
+var _ground_tick := -1 # the tick the ground was last looked at
+## The body's upkeep (hunger, cold, health) is seen to every so many game
+## minutes, not at every turn: it changes slowly (person id -> minutes owed).
+const UPKEEP_MINUTES := 5.0
+var _upkeep: Dictionary = {}
+## Each person's needs factors, worked out once a day: person id -> [day, factors].
+var _decay_factors: Dictionary = {}
+var _day_tick := -1 # (the day, worked out once a tick)
+var _today := 0
 
 
 func _init() -> void:
@@ -440,20 +449,30 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 		person.needs = Needs.sanitized(person.needs, person.id)
 	var step_now := current_step(person)
 	var handler := _handler(step_now)
-	Needs.decay(person, minutes, Config.needs, ctx.stage_of(person),
+	var config := Config.needs
+	Needs.decay_by(person, minutes, config, _factors_of(person, config),
 		handler.needs_state(step_now) if handler != null else Needs.State.AWAKE)
-	# The ground changed (the water rose): whoever stands in water too deep steps out of it at once.
+	# The ground changed (the water rose): whoever stands in water too deep steps
+	# out of it at once. (Looked at once a tick, and whenever something changed.)
 	if ctx.pathfinder != null and ctx.world != null:
-		ctx.pathfinder.refresh_dirty()
-		if ctx.pathfinder.version != _ground_version:
-			_ground_version = ctx.pathfinder.version
-			_step_out_of_water()
-	Hardship.live(person, ctx, minutes)
-	Exposure.live(person, ctx, minutes)
-	Health.live(person, ctx, minutes)
+		var tick := ctx.now()
+		if tick != _ground_tick or ctx.pathfinder.dirty_count() > 0:
+			_ground_tick = tick
+			ctx.pathfinder.refresh_dirty()
+			if ctx.pathfinder.version != _ground_version:
+				_ground_version = ctx.pathfinder.version
+				_step_out_of_water()
+	var owed := float(_upkeep.get(person.id, 0.0)) + minutes
+	if owed >= UPKEEP_MINUTES:
+		_upkeep[person.id] = 0.0
+		Hardship.live(person, ctx, owed)
+		Exposure.live(person, ctx, owed)
+		Health.live(person, ctx, owed)
+	else:
+		_upkeep[person.id] = owed
 	# On the way to new land: nothing else takes their attention (M12.3).
 	if ctx.migration != null and not ctx.migration.journeys.is_empty() and ctx.migration.travelling(person.id):
-		_carry_on(person, minutes)
+		_carry_on(person, minutes, step_now, handler)
 		return
 	# Whatever they have noticed comes before everything else.
 	if not ctx.perceptions.is_empty() and _consider_perceptions(person):
@@ -483,7 +502,24 @@ func _live(person: PersonData, minutes: float, think_every: float) -> void:
 			_think(person, before)
 			if activity_of(person) != before:
 				return # something else now: it has been started
-	_carry_on(person, minutes)
+			_carry_on(person, minutes) # (what they do may have been planned anew)
+			return
+	_carry_on(person, minutes, step_now, handler)
+
+
+## A person's needs factors (see Needs.factors), worked out once a game day.
+func _factors_of(person: PersonData, config: NeedsConfig) -> PackedFloat32Array:
+	var tick := ctx.now()
+	if tick != _day_tick:
+		_day_tick = tick
+		_today = Config.time.day_index(tick)
+	var day := _today
+	var known: Variant = _decay_factors.get(person.id)
+	if known != null and int(known[0]) == day:
+		return known[1]
+	var factor := Needs.factors(person, config, ctx.stage_of(person))
+	_decay_factors[person.id] = [day, factor]
+	return factor
 
 
 ## Since this person last weighed everything up: has too little time passed
@@ -596,9 +632,10 @@ static func reaction_of(person: PersonData) -> StringName:
 
 ## Carries the current step on; moves to the next when it is done; decides
 ## anew when the plan is finished or has failed.
-func _carry_on(person: PersonData, minutes: float) -> void:
-	var step_now := current_step(person)
-	var handler := _handler(step_now)
+func _carry_on(person: PersonData, minutes: float, known_step: Variant = null, known_handler: ActionStep = null) -> void:
+	# (The step and its handler, when the caller has just looked them up.)
+	var step_now: Dictionary = known_step if known_step != null else current_step(person)
+	var handler := known_handler if known_step != null else _handler(step_now)
 	if handler == null:
 		return
 	if not is_same(_begun.get(person.id), step_now):
@@ -754,6 +791,8 @@ func _on_person_removed(person_id: int) -> void:
 	if ctx != null and ctx.day_log != null:
 		ctx.day_log.forget(person_id)
 	_begun.erase(person_id)
+	_upkeep.erase(person_id)
+	_decay_factors.erase(person_id)
 	_since_think.erase(person_id)
 	_since_weighed.erase(person_id)
 	_loudest_then.erase(person_id)

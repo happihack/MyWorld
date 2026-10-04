@@ -104,6 +104,9 @@ func test_what_drives_people_away() -> void:
 	assert_true(float(push["crowding"]) > 0.0, "the roofs are full (%s)" % push)
 	assert_true(float(push["adventure"]) > 0.0)
 	assert_eq(float(push["scarcity"]), 0.0)
+	assert_eq(float(push["size"]), 0.0, "not big yet")
+	_grow(Config.migration.big_from)
+	assert_eq(float(migration.pressure(first, session.clock.tick)["size"]), Config.migration.size, "big: it feels it")
 	# Hungry for days on end.
 	first.shortage = Settlement.Shortage.SHORT
 	first._low_since = session.clock.tick
@@ -130,6 +133,11 @@ func test_who_goes_and_where() -> void:
 	assert_true(going.has(group["leader"]))
 	# Only where someone has been.
 	assert_null(migration.destination(session.settlement), "nowhere explored far enough")
+	# Pressed to send people out with nowhere known: they scout further.
+	_knob(Config.migration, &"leave_from", 0.0)
+	session.clock.tick += 2 * DAY
+	migration.advance_to(session.clock.tick - Config.time.minute_of_day(session.clock.tick) + 11 * 60)
+	assert_eq(session.settlement.places().scouting, Config.migration.scout_further, "scouting")
 	_explore()
 	var to: Variant = migration.destination(session.settlement)
 	assert_not_null(to, "somewhere explored")
@@ -249,6 +257,81 @@ func test_a_settlement_nobody_is_left_at_is_abandoned() -> void:
 		session.kill_person(person.id, Lifecycle.CAUSE_OLD_AGE)
 	migration._abandon_empty()
 	assert_eq(session.settlements.size(), 1)
+
+
+func test_a_founding_group_is_two_households_at_least() -> void:
+	_grow(14)
+	var group := migration.choose_group(session.settlement, session.clock.tick)
+	assert_true((group["households"] as Array).size() >= Config.migration.households_least, "two households at least")
+	assert_true((group["members"] as Array).size() >= Config.migration.group_least)
+
+
+func test_followers_join_a_young_camp() -> void:
+	var own := _found()
+	var first := session.settlement
+	_grow(18)
+	assert_eq(migration.camp_to_join(first), own, "the young camp is near")
+	var before := own.member_count()
+	var journey := migration.depart_join(first, own, session.clock.tick)
+	assert_false(journey.is_empty())
+	assert_eq(str(journey["kind"]), "join")
+	var going: Array = journey["members"]
+	var minutes := 0
+	while not migration.journeys.is_empty() and minutes < Config.migration.longest_journey + 60:
+		_run(10)
+		minutes += 10
+	assert_eq(session.settlements.size(), 2, "no new settlement: they joined")
+	assert_eq(own.member_count(), before + going.size())
+	for id: int in going:
+		var person := session.people.get_person(id)
+		assert_eq(person.settlement_id, own.id)
+		assert_true(own.start_info().hut_ids.has(person.home_building_id), "under the camp's roof")
+	var moved := session.events.of_type(&"moved_to")
+	assert_has(EventText.text(moved[-1], session.people, session.events), "has gone to join %s" % own.display_name())
+
+
+func test_the_last_few_move_where_they_can_grow() -> void:
+	var own := _found()
+	var first := session.settlement
+	# The camp loses its people until it cannot grow.
+	var left := own.members()
+	while left.size() > 1:
+		session.kill_person(left[-1].id, Lifecycle.CAUSE_OLD_AGE)
+		left = own.members()
+	assert_false(migration.viable(own, session.clock.tick), "one alone cannot grow")
+	assert_true(migration.viable(first, session.clock.tick))
+	var last := left[0]
+	migration._leave_dwindling(session.clock.tick)
+	assert_eq(migration.journeys.size(), 1)
+	assert_true(bool(migration.journeys[0]["last"]))
+	var minutes := 0
+	while not migration.journeys.is_empty() and minutes < Config.migration.longest_journey + 60:
+		_run(10)
+		minutes += 10
+	assert_eq(last.settlement_id, first.id, "they live at the first now")
+	assert_true(first.start_info().hut_ids.has(last.home_building_id), "under its roof")
+	assert_has(EventText.text(session.events.of_type(&"moved_to")[-1], session.people, session.events),
+		"The last of %s have gone to live at the first camp" % own.display_name())
+	# Nobody is left: it is abandoned.
+	migration._abandon_empty()
+	assert_null(session.settlements.get_settlement(own.id))
+
+
+func test_a_camps_lonely_get_newcomers() -> void:
+	var own := _found()
+	# Someone of the camp without anyone there to pair with is lonely — whoever lives at the first.
+	var single: PersonData = null
+	for person in own.members():
+		if person.partner_id != 0:
+			var partner := session.people.get_person(person.partner_id)
+			partner.partner_id = 0
+			person.partner_id = 0
+			single = person
+			break
+	for person in own.members():
+		if person != single and person.sex != single.sex:
+			person.settlement_id = session.settlement.id # (only the first has a match for them)
+	assert_eq(session.lifecycle.lonely_one(session.clock.tick), single, "lonely at the camp")
 
 
 func test_tiers_and_the_fire_says_whose_it_is() -> void:
