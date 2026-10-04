@@ -230,6 +230,8 @@ func step(minutes: float) -> void:
 		ctx.migration.advance_to(ctx.now())
 	if ctx.trade != null:
 		ctx.trade.advance_to(ctx.now())
+	if ctx.governance != null:
+		ctx.governance.advance_to(ctx.now())
 	for person in ctx.people.all_people():
 		live(person, minutes)
 	announce()

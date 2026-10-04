@@ -103,6 +103,7 @@ func _ready() -> void:
 		world_view.show_other_fires(session.settlements.all().filter(func(own: Settlement) -> bool: return own != session.settlement))
 	light_others.call()
 	session.migration.founded.connect(func(_own: Settlement, _journey: Dictionary) -> void: light_others.call())
+	session.migration.abandoned.connect(func(_id: int, _name: String, _at: Vector2i) -> void: light_others.call())
 	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
 		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
 			ui_root.hints().complete(HintDirector.TOUCH))

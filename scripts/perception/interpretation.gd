@@ -106,6 +106,9 @@ static func scores(person: PersonData, stimulus: Stimulus, circumstances: Dictio
 		var score := float(table.interpretation_base.get(interpretation, 0.0))
 		# What people like me believe.
 		score += table.culture_prior(ctx.world_seed, person.settlement_id, interpretation) * prior_factor
+		# What our leader believes (M12.5).
+		if ctx.governance != null:
+			score += ctx.governance.belief(person.settlement_id, index) * Config.governance.belief_weight * prior_factor
 		# My nature.
 		var weights: Dictionary = table.interpretation_traits.get(interpretation, {})
 		for axis: int in weights:

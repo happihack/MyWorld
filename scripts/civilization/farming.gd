@@ -82,6 +82,7 @@ var _seed := 0
 var _day := -1_000_000
 var _crops: Array[PropData] = []
 var _crops_version := -1
+var _plot_cache: Dictionary = {} # settlement tile -> [props version, day, next plot]
 var _baseline: Dictionary = {} # tile -> the moisture the land holds by itself
 ## What is left over of a crop's growth after the whole points (crop id ->
 ## 0 … 1), so that hours of slow growth are not rounded away.
@@ -337,6 +338,19 @@ func suitable(tile: Vector2i) -> bool:
 func next_plot() -> Variant:
 	if _world == null or _start == null:
 		return null
+	# (A search of all the ground near the fire: asked at every job board's
+	# refresh in sowing time. The answer holds while the props and the day do.)
+	var key := _start.settlement_tile
+	var day := Config.time.day_index(last_settle_tick) if last_settle_tick > -1_000_000 else _day
+	var known: Variant = _plot_cache.get(key)
+	if typeof(known) == TYPE_ARRAY and int(known[0]) == _props.version and int(known[1]) == day:
+		return known[2]
+	var found: Variant = _find_plot()
+	_plot_cache[key] = [_props.version, day, found]
+	return found
+
+
+func _find_plot() -> Variant:
 	var existing := crops()
 	var best: Variant = null
 	var best_score := -INF

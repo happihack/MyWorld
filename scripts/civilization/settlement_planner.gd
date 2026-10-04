@@ -137,7 +137,11 @@ func homes_short() -> bool:
 	# A home two households share with no room left for a child.
 	if _households != null and _households.mover(0, true, _settlement.id) != 0:
 		return true
-	return places - living < _config.homes_spare_least
+	# (An ambitious leader plans homes with a place more to spare, M12.5.)
+	var spare := _config.homes_spare_least
+	if _settlement.leader_lean(Traits.Axis.AMBITION) >= Config.governance.ambition_homes_from:
+		spare += 1
+	return places - living < spare
 
 
 ## Are the stores overflowing, or has food been going bad (and no storehouse

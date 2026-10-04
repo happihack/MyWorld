@@ -74,6 +74,8 @@ const TYPE_PATH := &"path_worn"
 const TYPE_MIGRATION := &"migration"
 const TYPE_TRADE_ROUTE := &"trade_route"
 const TYPE_LEARNED := &"knowledge_learned"
+const TYPE_LEADERSHIP := &"leadership"
+const TYPE_ABANDONED := &"settlement_abandoned"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -641,6 +643,28 @@ func on_route_opened(record: Dictionary, from_name: String, to_name: String) -> 
 		return
 	_log.record(TYPE_TRADE_ROUTE, {"participants": [int(record["trader"])], "resource": str(record["resource"]),
 		"from": from_name, "place": to_name, "position": _place_of(int(record["trader"])), "settlement": int(record["from"])})
+
+
+## A settlement has nobody left: it is abandoned (M12.5).
+func on_abandoned(settlement_id: int, place: String, at: Vector2i) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_ABANDONED, {"place": place, "position": Places.middle_of(at), "settlement": settlement_id})
+
+
+## Someone leads a settlement now (M12.5): the first to, or after the one
+## before died or left, or in their place.
+func on_led(settlement_id: int, place: String, leader_id: int, was: int, why: StringName) -> void:
+	if not _writing():
+		return
+	var participants: Array = [leader_id]
+	if was != 0:
+		participants.append(was)
+	var causes: Array = []
+	if why == &"died":
+		causes = _latest_of(was, [TYPE_DIED])
+	_log.record(TYPE_LEADERSHIP, {"participants": participants, "kind": String(why), "place": place,
+		"position": _place_of(leader_id), "settlement": settlement_id}, causes)
 
 
 ## Someone has worked something out (M12.4: how to make good tools).

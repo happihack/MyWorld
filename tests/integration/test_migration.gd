@@ -226,6 +226,31 @@ func test_each_settlement_lives_on_its_own() -> void:
 	assert_true(session.settlements.debug_text().contains("camp"))
 
 
+func test_a_settlement_nobody_is_left_at_is_abandoned() -> void:
+	var own := _found()
+	var hut := own.start_info().hut_ids[0]
+	var fire := own.fire()
+	var p := own.planner.plan(session.clock.tick)
+	for person in own.members():
+		session.kill_person(person.id, Lifecycle.CAUSE_OLD_AGE)
+	assert_eq(own.member_count(), 0)
+	migration._abandon_empty()
+	assert_eq(session.settlements.size(), 1, "abandoned")
+	assert_null(session.settlements.get_settlement(own.id))
+	assert_eq(fire.stock, 0, "its fire is cold")
+	assert_true(session.construction.projects_of(own.id).is_empty(), "nothing is built there any more")
+	if not p.is_empty() and str(p["def"]) != "bridge":
+		assert_null(session.props.get_prop(int(p["site"])), "its site is gone")
+	assert_true(session.construction.abandoned_homes.has(hut), "its hut is nobody's: it will fall in")
+	var gone := session.events.of_type(&"settlement_abandoned")
+	assert_eq(EventText.text(gone[0], session.people, session.events), "Nobody is left at %s: it has been abandoned" % own.display_name())
+	# The first is never abandoned.
+	for person in session.settlement.members():
+		session.kill_person(person.id, Lifecycle.CAUSE_OLD_AGE)
+	migration._abandon_empty()
+	assert_eq(session.settlements.size(), 1)
+
+
 func test_tiers_and_the_fire_says_whose_it_is() -> void:
 	assert_eq(Settlements.tier_for(4), Settlements.Tier.CAMP)
 	assert_eq(Settlements.tier_for(10), Settlements.Tier.HAMLET)

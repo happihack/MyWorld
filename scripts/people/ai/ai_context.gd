@@ -87,6 +87,8 @@ var traffic: Traffic
 var migration: Migration
 ## Trade between settlements (M12.4; may be null).
 var trade: TradeSystem
+## Who leads each settlement (M12.5; may be null).
+var governance: Governance
 ## Where stone can be broken near a site: site -> [day, tile or null] (a day's memory).
 var rocky_ground: Dictionary = {}
 ## The things lying about (for coming upon what the player moved; may be null).

@@ -23,6 +23,15 @@ func add(settlement: Settlement) -> void:
 	_by_id[settlement.id] = settlement
 
 
+## Takes a settlement out of the world's (it is abandoned, M12.5).
+func remove(settlement: Settlement) -> void:
+	if settlement == null or not _by_id.has(settlement.id):
+		return
+	_list.erase(settlement)
+	_by_id.erase(settlement.id)
+	settlement.unbind()
+
+
 func clear() -> void:
 	for settlement in _list:
 		settlement.unbind()

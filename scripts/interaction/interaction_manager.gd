@@ -88,6 +88,8 @@ var construction: ConstructionSystem
 var traffic: Traffic
 ## The settlements, for the card of a fire (M12.3).
 var settlements: Settlements
+## Who leads them (M12.5).
+var governance: Governance
 var _people: PersonRegistry
 var _fauna: AnimalSystem
 var _weather: WeatherSystem
@@ -728,6 +730,8 @@ func inspect(target: Picker.Result) -> InspectReport:
 					report.settlement_tier = own.tier()
 					report.settlement_people = own.member_count()
 					report.known_for = String(own.specialty())
+					if governance != null and governance.leader_of(own.id) != 0 and _people != null:
+						report.leader_name = _people.name_of(governance.leader_of(own.id))
 					if own.trade != null:
 						var balance := own.trade.balance_of(own.id)
 						report.sends = balance[0]

@@ -35,6 +35,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	24: _v24_to_v25,
 	25: _v25_to_v26,
 	26: _v26_to_v27,
+	27: _v27_to_v28,
 }
 
 
@@ -355,6 +356,20 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 28 (M12.5) adds who leads each settlement. An older world's
+## leaders emerge on its first day.
+static func _v27_to_v28(data: Dictionary) -> Dictionary:
+	var world: Variant = data.get("world")
+	if typeof(world) != TYPE_DICTIONARY:
+		return data
+	var state: Variant = (world as Dictionary).get("world_state")
+	if typeof(state) != TYPE_DICTIONARY or (state as Dictionary).is_empty():
+		return data
+	if not (state as Dictionary).has("governance"):
+		(state as Dictionary)["governance"] = {}
 	return data
 
 

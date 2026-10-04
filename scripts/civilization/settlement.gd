@@ -88,6 +88,8 @@ var founders: Array[int] = []
 var founded_from := 0
 ## Trade between settlements (M12.4; may be null).
 var trade: TradeSystem
+## Who leads (M12.5; may be null).
+var governance: Governance
 ## What it has brought in of late: resource (String) -> units (fading day by day).
 var produced: Dictionary = {}
 ## What its people know how to do: what (String) -> tick it was worked out.
@@ -337,6 +339,11 @@ func _each_day(day: int) -> void:
 		if roll < Config.trade.toolmaking_chance:
 			learn(&"toolmaking", person.id, day * TimeConfig.MINUTES_PER_DAY)
 			return
+
+
+## A trait of its leader as it counts (−1 … +1; 0 without one) (M12.5).
+func leader_lean(axis: int) -> float:
+	return governance.lean(id, axis) if governance != null else 0.0
 
 
 ## Since when the stores have been low (-1: they are not).

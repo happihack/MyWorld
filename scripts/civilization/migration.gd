@@ -19,6 +19,8 @@ extends RefCounted
 signal set_out(journey: Dictionary)
 ## A new settlement has been founded at the end of a journey.
 signal founded(settlement: Settlement, journey: Dictionary)
+## A settlement founded since the first has nobody left: it is abandoned (M12.5).
+signal abandoned(settlement_id: int, name: String, at: Vector2i)
 
 const ACTIVITY := &"migrate"
 ## Hut places around a new fire, the nearest first.
@@ -49,6 +51,7 @@ var _next_id := 1
 ## For the soak: how many have set out, and settlements founded.
 var departures := 0
 var foundings := 0
+var abandonments := 0
 
 
 func bind(now: int, cfg: MigrationConfig = null) -> void:
@@ -82,6 +85,7 @@ func advance_to(now: int) -> void:
 	if today == _day or Config.time.minute_of_day(now) < 10 * 60:
 		return
 	_day = today
+	_abandon_empty()
 	for own in settlements.all().duplicate():
 		if settlements.size() + journeys.size() >= config.most_settlements:
 			return
@@ -409,6 +413,36 @@ func _first_shelter(fire: Vector2i) -> PropData:
 	return null
 
 
+## A settlement founded since the first with nobody left (and nobody on the
+## way there) is abandoned: its fire goes cold, what it was building is left
+## undone, its huts fall into ruin in time. (The first stays, even empty.)
+func _abandon_empty() -> void:
+	var construction: ConstructionSystem = null
+	for own: Settlement in settlements.all().duplicate():
+		if own == settlements.primary() or own.member_count() > 0:
+			continue
+		var waiting := false
+		for journey in journeys:
+			if Vector2i(journey["to"]) == own.start_info().settlement_tile:
+				waiting = true
+		if waiting:
+			continue
+		var fire := own.fire()
+		if fire != null and fire.stock != 0:
+			fire.stock = 0
+			props.touch(fire.id)
+		construction = own.construction
+		var homes: Array[int] = own.start_info().hut_ids.duplicate()
+		var name := own.display_name()
+		var at := own.start_info().settlement_tile
+		var id := own.id
+		if construction != null:
+			construction.abandon(id, homes)
+		settlements.remove(own)
+		abandonments += 1
+		abandoned.emit(id, name, at)
+
+
 ## Which way `to` lies from `from`, in words ("north", "south-east" …): -Y is north.
 static func direction(from: Vector2i, to: Vector2i) -> String:
 	var v := Vector2(to - from)
@@ -454,7 +488,7 @@ func _cause(causes: Array, type: StringName) -> void:
 
 
 func debug_text() -> String:
-	return "migration: %d set out, %d founded, %d under way" % [departures, foundings, journeys.size()]
+	return "migration: %d set out, %d founded, %d under way, %d abandoned" % [departures, foundings, journeys.size(), abandonments]
 
 
 # --- saving ---------------------------------------------------------------------------------------
@@ -464,7 +498,7 @@ func to_dict() -> Dictionary:
 	for id: int in _rested:
 		rested[str(id)] = _rested[id]
 	return {"journeys": journeys.duplicate(true), "rested": rested, "day": _day, "next_id": _next_id,
-		"departures": departures, "foundings": foundings}
+		"departures": departures, "foundings": foundings, "abandonments": abandonments}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -475,6 +509,7 @@ func from_dict(data: Dictionary) -> void:
 	_next_id = maxi(int(data.get("next_id", 1)), 1)
 	departures = maxi(int(data.get("departures", 0)), 0)
 	foundings = maxi(int(data.get("foundings", 0)), 0)
+	abandonments = maxi(int(data.get("abandonments", 0)), 0)
 	if typeof(data.get("rested")) == TYPE_DICTIONARY:
 		for key: Variant in data["rested"]:
 			_rested[int(str(key))] = int(data["rested"][key])

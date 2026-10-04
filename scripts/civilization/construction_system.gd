@@ -40,7 +40,11 @@ var _config: ConstructionConfig
 var _projects: Array[Dictionary] = []
 var _next_id := 1
 var _empty_since: Dictionary = {} # home id -> tick it was last lived in
+## The homes of settlements that have been abandoned (M12.5): nobody's, they fall into ruin in time.
+var abandoned_homes: Array[int] = []
 var _day := -1_000_000
+var _standing: Dictionary = {} # prop kind -> ids, while the props are as they were
+var _standing_version := -1
 
 
 func bind(props: PropRegistry, ids: IdAllocator, library: BuildingLibrary, start: WorldSetup.StartInfo,
@@ -112,10 +116,18 @@ func standing(prop_kind: int) -> Array[int]:
 	var out: Array[int] = []
 	if _props == null:
 		return out
+	# (Asked for often — every job board's refresh — and the props seldom change: kept until they do.)
+	if _standing_version != _props.version:
+		_standing_version = _props.version
+		_standing.clear()
+	if _standing.has(prop_kind):
+		out.assign(_standing[prop_kind])
+		return out
 	for prop in _props.all_props():
 		if prop.kind == prop_kind:
 			out.append(prop.id)
 	out.sort()
+	_standing[prop_kind] = out.duplicate()
 	return out
 
 
@@ -326,6 +338,7 @@ func advance_to(now: int) -> void:
 	var days := mini(today - _day, 30)
 	_day = today
 	var homes: Array[int] = settlements.all_homes() if settlements != null and settlements.size() > 0 else _start.hut_ids.duplicate()
+	homes.append_array(abandoned_homes)
 	for home_id: int in homes:
 		var home := _props.get_prop(home_id)
 		if home == null:
@@ -352,6 +365,7 @@ func _ruin(building: PropData, why: StringName) -> void:
 	if not going.is_empty():
 		_projects.erase(going)
 	_start.hut_ids.erase(building.id)
+	abandoned_homes.erase(building.id)
 	if settlements != null:
 		for own in settlements.all():
 			own.start_info().hut_ids.erase(building.id)
@@ -371,6 +385,19 @@ func _ruin(building: PropData, why: StringName) -> void:
 	ruined.emit(ruin.id, def.id if def != null else &"", why)
 
 
+## A settlement has been abandoned: what it was building is left undone (its
+## sites taken away), and its homes are nobody's — they fall into ruin in time.
+func abandon(settlement_id: int, homes: Array[int]) -> void:
+	for p in projects_of(settlement_id):
+		_projects.erase(p)
+		var site := _props.get_prop(int(p["site"])) if _props != null else null
+		if site != null and str(p["kind"]) == BUILD and site.kind == PropData.Kind.SITE:
+			_props.remove(site.id)
+	for id in homes:
+		if not abandoned_homes.has(id):
+			abandoned_homes.append(id)
+
+
 ## Materials as plain data: resource id (String) -> units.
 static func _units_of(materials: Dictionary) -> Dictionary:
 	var out := {}
@@ -385,7 +412,8 @@ func to_dict() -> Dictionary:
 	var empty := {}
 	for id: int in _empty_since:
 		empty[str(id)] = _empty_since[id]
-	return {"next_id": _next_id, "projects": _projects.duplicate(true), "empty_since": empty, "day": _day}
+	return {"next_id": _next_id, "projects": _projects.duplicate(true), "empty_since": empty, "day": _day,
+		"abandoned_homes": abandoned_homes.duplicate()}
 
 
 ## Returns how many saved projects were unusable (their site is gone, …).
@@ -409,6 +437,11 @@ func from_dict(data: Dictionary) -> int:
 					p[key] = {}
 			_projects.append(p)
 			_next_id = maxi(_next_id, int(p["id"]) + 1)
+	abandoned_homes.clear()
+	if typeof(data.get("abandoned_homes")) == TYPE_ARRAY:
+		for id: Variant in data["abandoned_homes"]:
+			if typeof(id) == TYPE_INT and _props != null and _props.get_prop(id) != null:
+				abandoned_homes.append(id)
 	if typeof(data.get("empty_since")) == TYPE_DICTIONARY:
 		for key: Variant in data["empty_since"]:
 			_empty_since[int(str(key))] = int(data["empty_since"][key])

@@ -122,7 +122,9 @@ func refresh(settlement: Settlement, now: int) -> void:
 			for project in settlement.construction.projects_of(settlement.id):
 				if str(project["def"]) == "hut":
 					pressing = maxf(pressing, Config.construction.homes_priority)
-			wanted.append([BUILD, &"", &"site", pressing, 0.0, 0.0])
+			# (An ambitious leader presses on with it, M12.5.)
+			pressing *= 1.0 + Config.governance.ambition_building * maxf(settlement.leader_lean(Traits.Axis.AMBITION), 0.0)
+			wanted.append([BUILD, &"", &"site", minf(pressing, 1.0), 0.0, 0.0])
 		if settlement.trade != null and settlement.trade.has_offer(settlement.id):
 			wanted.append([TRADE, &"", &"trade", Config.trade.trade_priority, 0.0, 0.0])
 		if settlement.workshop() != null and settlement.tools_wanted():

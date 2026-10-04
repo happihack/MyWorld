@@ -58,6 +58,8 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 				if report.settlement_name != "":
 					_add_row("Settlement", report.settlement_name.left(1).to_upper() + report.settlement_name.substr(1))
 					_add_row("Tier", "%s — %d people" % [Settlements.tier_name(report.settlement_tier as Settlements.Tier), report.settlement_people])
+					if report.leader_name != "":
+						_add_row("Led by", report.leader_name)
 					if report.known_for != "":
 						_add_row("Known for", UIText.resource_name(StringName(report.known_for)))
 					if report.sends != "" or report.gets != "":

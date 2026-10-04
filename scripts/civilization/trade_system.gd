@@ -220,7 +220,10 @@ func _is_food(resource: StringName) -> bool:
 func _food_kept(own: Settlement) -> int:
 	var berries := resources.get_def(&"berries") if resources != null else null
 	var nutrition := berries.nutrition if berries != null and berries.nutrition > 0.0 else 1.0
-	return ceili(own.food_need_per_day() * config.keep_food_days / nutrition)
+	var gov := Config.governance
+	var tilt := 1.0 + gov.caution_keep * maxf(-own.leader_lean(Traits.Axis.CURIOSITY), 0.0) \
+		- gov.generosity_keep * maxf(own.leader_lean(Traits.Axis.GENEROSITY), 0.0)
+	return ceili(own.food_need_per_day() * config.keep_food_days * maxf(tilt, 0.1) / nutrition)
 
 
 # --- saving ---------------------------------------------------------------------------------------

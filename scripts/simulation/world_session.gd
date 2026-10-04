@@ -69,6 +69,8 @@ var traffic: Traffic
 var migration: Migration
 ## Trade between settlements (M12.4).
 var trade: TradeSystem
+## Who leads each settlement (M12.5).
+var governance: Governance
 var buildings: BuildingLibrary
 ## Where the dead are laid (M10.3).
 var graves: Graves
@@ -145,6 +147,7 @@ var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
+var _saved_governance: Dictionary = {}
 var _powers_looked := -1_000_000 # the game hour the dry-crop look was last taken in
 var _saved_behavior: Dictionary = {} # likewise what the band knows, until behaviour is bound
 var _saved_memories: Dictionary = {} # likewise what everyone remembers
@@ -235,6 +238,13 @@ func _init() -> void:
 	migration.set_out.connect(func(journey: Dictionary) -> void:
 		chronicle.on_set_out(journey, settlements.get_settlement(int(journey["from"]))))
 	migration.founded.connect(chronicle.on_founded_by)
+	migration.abandoned.connect(func(id: int, name: String, at: Vector2i) -> void:
+		chronicle.on_abandoned(id, name, at)
+		_place_settlements())
+	governance = Governance.new()
+	governance.led.connect(func(settlement_id: int, leader_id: int, was: int, why: StringName) -> void:
+		var own := settlements.get_settlement(settlement_id)
+		chronicle.on_led(settlement_id, own.display_name() if own != null else "", leader_id, was, why))
 	trade = TradeSystem.new()
 	trade.route_opened.connect(func(record: Dictionary) -> void:
 		var from := settlements.get_settlement(int(record["from"]))
@@ -432,6 +442,7 @@ func load_from(data: Dictionary) -> bool:
 	_saved_settlements = []
 	_saved_migration = {}
 	_saved_trade = {}
+	_saved_governance = {}
 	_saved_farming = {}
 	_saved_animals = {}
 	_saved_events = {}
@@ -496,6 +507,8 @@ func load_from(data: Dictionary) -> bool:
 			_saved_migration = state["migration"]
 		if typeof((state as Dictionary).get("trade")) == TYPE_DICTIONARY:
 			_saved_trade = state["trade"]
+		if typeof((state as Dictionary).get("governance")) == TYPE_DICTIONARY:
+			_saved_governance = state["governance"]
 		if typeof((state as Dictionary).get("day_log")) == TYPE_DICTIONARY:
 			_saved_day_log = state["day_log"]
 		if typeof((state as Dictionary).get("observer")) == TYPE_DICTIONARY:
@@ -574,6 +587,7 @@ func to_dict() -> Dictionary:
 			"settlements": _settlements_to_save(),
 			"migration": migration.to_dict(),
 			"trade": trade.to_dict(),
+			"governance": governance.to_dict(),
 			"farming": farming.to_dict(),
 			"animals": fauna.to_dict(),
 			"events": events.to_dict(),
@@ -612,6 +626,7 @@ func shutdown() -> void:
 	settlements.clear()
 	settlement = null
 	trade.settlements = null
+	governance.settlements = null
 	migration.behavior = null # (the behaviour's context knows migration)
 	migration.add_settlement = Callable()
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
@@ -639,6 +654,7 @@ func _process(delta: float) -> void:
 		traffic.advance_to(clock.tick)
 		migration.advance_to(clock.tick)
 		trade.advance_to(clock.tick)
+		governance.advance_to(clock.tick)
 		fauna.advance_to(clock.tick)
 		stats.advance_to(clock.tick)
 
@@ -1105,6 +1121,17 @@ func _activate() -> void:
 	trade.settlements = settlements
 	trade.resources = resources
 	trade.pathfinder = pathfinder
+	governance.bind(clock.tick, Config.governance)
+	governance.settlements = settlements
+	governance.people = people
+	governance.relationships = relationships
+	governance.significance = significance
+	governance.from_dict(_saved_governance)
+	_saved_governance = {}
+	ai.governance = governance
+	interactions.governance = governance
+	for own in settlements.all():
+		own.governance = governance
 	ai.trade = trade
 	_apply_storehouses()
 	ai.construction = construction
@@ -1192,6 +1219,7 @@ func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dic
 	own.home_moved.connect(chronicle.on_home_moved)
 	own.learned.connect(chronicle.on_learned)
 	own.trade = trade
+	own.governance = governance
 	return own
 
 

@@ -43,6 +43,8 @@ var settlement_tier := 0
 var settlement_people := 0
 ## (M12.4) what it is known for, sends and gets most (resource ids, "" when none), knows how to do.
 var known_for := ""
+## (M12.5) who leads it ("": nobody).
+var leader_name := ""
 var sends := ""
 var gets := ""
 var knows: PackedStringArray = []
