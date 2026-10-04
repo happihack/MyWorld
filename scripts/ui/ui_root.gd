@@ -251,6 +251,9 @@ func open_menu() -> MainMenu:
 	menu.timeline_requested.connect(func() -> void:
 		_tick()
 		open_timeline())
+	menu.statistics_requested.connect(func() -> void:
+		_tick()
+		open_statistics())
 	menu.history_requested.connect(func() -> void:
 		_tick()
 		close_all_panels()
@@ -273,6 +276,27 @@ func open_timeline() -> TimelinePanel:
 		_tick()
 		event_chosen.emit(id))
 	return panel
+
+
+## The world's numbers (VS.2), in place of any other card.
+func open_statistics() -> StatsPanel:
+	var open := statistics()
+	if open != null:
+		return open
+	close_all_panels()
+	var panel := StatsPanel.new()
+	open_panel(panel)
+	panel.setup(_session)
+	_toasts.visible = false
+	panel.closed.connect(func() -> void: _toasts.visible = true)
+	return panel
+
+
+func statistics() -> StatsPanel:
+	for panel: UIPanel in _panels:
+		if panel is StatsPanel and not panel.is_closing():
+			return panel
+	return null
 
 
 func timeline() -> TimelinePanel:

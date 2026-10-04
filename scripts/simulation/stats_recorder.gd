@@ -1,12 +1,12 @@
 class_name StatsRecorder
 extends RefCounted
 ## The world's numbers, written down every game hour (bible §27.3; feeds
-## the statistics panel to come): how many people, what is in store, how
-## they are. A ring of samples: when it is full the oldest go. Saved with
+## the statistics panel, VS.2): how many people, what is in store and how
+## long the food lasts, how they are. A ring of samples: when it is full the oldest go. Saved with
 ## the world.
 
 const SERIES: Array[StringName] = [&"population", &"food", &"water", &"wood", &"stone", &"health", &"mood", &"temperature",
-	&"trees", &"grass"]
+	&"trees", &"grass", &"tools", &"food_days"]
 
 ## Asked for a sample: returns {series name -> float} (see WorldSession.sample_stats).
 var source := Callable()

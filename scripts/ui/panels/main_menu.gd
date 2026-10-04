@@ -1,12 +1,12 @@
 class_name MainMenu
 extends UIPanel
 ## The ☰ menu (bible §26.5), v0 (VS.1): a panel that slides in from the left,
-## with the sections there is something for — WORLD (Weather), PEOPLE
+## with the sections there is something for — WORLD (Weather, Statistics), PEOPLE
 ## (Individuals, Families, Relationships, Important People), HISTORY (Timeline:
 ## the recent events, a tap looks for them; Important People, Firsts), PLAYER
 ## (Interaction History, with its counts) and SETTINGS (Audio, Haptics, Motion
-## while motion controls are on, Save). Other sections (CIVILIZATION, Map,
-## Statistics…) stay hidden until their systems exist (the menu grows with the
+## while motion controls are on, Save). Other sections (CIVILIZATION, Map…)
+## stay hidden until their systems exist (the menu grows with the
 ## world). Each entry opens a page in the panel; Back goes a page back.
 
 ## Someone was picked (living: go to them; dead: read their grave).
@@ -15,6 +15,8 @@ signal person_chosen(person_id: int)
 signal motion_requested
 ## The timeline was asked for (M11.3).
 signal timeline_requested
+## The statistics were asked for (VS.2).
+signal statistics_requested
 ## The player's own history was asked for (M11.4).
 signal history_requested
 
@@ -156,6 +158,7 @@ func _show() -> void:
 			if _session != null and _session.weather != null:
 				_heading(MemoryText.translate("MENU_WORLD"))
 				_entry(MemoryText.translate("MENU_WEATHER"), func() -> void: open_page(PAGE_WEATHER))
+				_entry(MemoryText.translate("MENU_STATISTICS"), func() -> void: statistics_requested.emit())
 			_heading(MemoryText.translate("MENU_PEOPLE"))
 			_entry(MemoryText.translate("MENU_INDIVIDUALS"), func() -> void: open_page(PAGE_INDIVIDUALS))
 			_entry(MemoryText.translate("MENU_FAMILIES"), func() -> void: open_page(PAGE_FAMILIES))
