@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mechanics"
+domain = 3
+prerequisites = PackedStringArray("engineering", "iron_working")
+required_resources = PackedStringArray()
+knowledge_threshold = 70.0
+min_population = 100
+specialist_occupation = &""
+required_buildings = PackedStringArray()
+base_daily_chance = 0.002
+unlocks = {}
+era_weight = 2.0
+known_from_start = false
+own_rule = false
+implemented = false
+order = 20

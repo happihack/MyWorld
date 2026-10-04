@@ -8,11 +8,14 @@ extends RefCounted
 ## All fields are integers so generated props are bit-identical everywhere.
 
 ## (Saved by number: append, never reorder.)
-enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE }
+enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE }
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
-const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE]
+const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE,
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE]
 ## Solid: nobody walks through it.
-const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP]
+const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP,
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE]
 ## A building's full condition (see `condition`).
 const SOUND := 1000
 ## A bridge (M12.2) is built where it stands: posts (0), beams (1), then it
@@ -45,6 +48,10 @@ const PICK_BODY := {
 	Kind.WELL: [0.60, 0.40],
 	Kind.WORKSHOP: [0.90, 0.50],
 	Kind.BRIDGE: [0.36, 0.48],
+	Kind.KILN: [0.70, 0.44],
+	Kind.HERB_RACK: [0.70, 0.40],
+	Kind.RECORD_STONE: [0.80, 0.30],
+	Kind.STONE_CIRCLE: [0.60, 0.48],
 }
 
 var id: int = 0
@@ -156,7 +163,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

@@ -86,6 +86,10 @@ const CROP_GOLD := Color(0.90, 0.74, 0.28)
 const CROP_STRAW := Color(0.78, 0.68, 0.40)
 const CROP_DRY := Color(0.66, 0.56, 0.26)
 const CROP_DEAD := Color(0.42, 0.30, 0.18)
+## Fired clay (M16.3: kilns and pots).
+const CLAY := Color(0.70, 0.42, 0.28)
+const CLAY_DARK := Color(0.52, 0.30, 0.20)
+const HERB := Color(0.42, 0.60, 0.30)
 
 ## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
 const PILE_COLORS := {
@@ -122,6 +126,11 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.STOREHOUSE, 0)] = _storehouse()
 	_templates[_key(PropData.Kind.WELL, 0)] = _well()
 	_templates[_key(PropData.Kind.WORKSHOP, 0)] = _workshop()
+	_templates[_key(PropData.Kind.KILN, 0)] = _kiln()
+	_templates[_key(PropData.Kind.HERB_RACK, 0)] = _herb_rack()
+	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
+	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
+	_templates[_key(PropData.Kind.STONE_CIRCLE, 0)] = _stone_circle()
 	for stage in PropData.BRIDGE_DONE + 1:
 		_templates[_key(PropData.Kind.BRIDGE, stage)] = _bridge(stage)
 	# What is left of nodes that have given up what they had.
@@ -504,6 +513,78 @@ static func _workshop() -> Template:
 	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
 	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
 	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
+	return t
+
+
+## A kiln (M16.3, pottery): a clay dome with a dark mouth, its fire's
+## glow inside, and pots set out to cool beside it.
+static func _kiln() -> Template:
+	var t := Template.new()
+	var rings: Array = []
+	for level in 5:
+		var h := level * 0.11
+		rings.append(_ring(h, 0.30 * cos(level * 0.32), 8, 0.0))
+	for i in 4:
+		_band(t, rings[i], rings[i + 1], _rgba(CLAY_DARK if i == 0 else CLAY, 0.0), _rgba(CLAY, 0.0))
+	_fan(t, rings[4], Vector3(0, 0.50, 0), _rgba(CLAY, 0.0), _rgba(CLAY_DARK, 0.0))
+	var mouth := t.vertices.size()
+	_box(t, Vector3(0.27, 0.10, 0.0), Vector3(0.03, 0.08, 0.09), _rgba(FLAME, 0.0))
+	t.glow_from(mouth, 0.6)
+	_box(t, Vector3(0.0, 0.56, 0.0), Vector3(0.05, 0.06, 0.05), _rgba(CLAY_DARK, 0.0)) # the chimney
+	for spot: Vector3 in [Vector3(-0.30, 0.0, 0.26), Vector3(-0.16, 0.0, 0.34), Vector3(0.05, 0.0, 0.36)]:
+		var low := _ring(spot.y, 0.045, 6, 0.0)
+		var belly := _ring(spot.y + 0.07, 0.065, 6, 0.0)
+		var neck := _ring(spot.y + 0.13, 0.035, 6, 0.0)
+		for ring: Array[Vector3] in [low, belly, neck]:
+			for i in ring.size():
+				ring[i] += Vector3(spot.x, 0.0, spot.z)
+		_band(t, low, belly, _rgba(CLAY_DARK, 0.0), _rgba(CLAY, 0.0))
+		_band(t, belly, neck, _rgba(CLAY, 0.0), _rgba(CLAY_DARK, 0.0))
+	return t
+
+
+## A rack for drying herbs (M16.3, medicine): two posts, a pole, bundles hanging.
+static func _herb_rack() -> Template:
+	var t := Template.new()
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.32, 0.30, 0.0), Vector3(0.025, 0.30, 0.025), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.58, 0.0), Vector3(0.36, 0.018, 0.018), _rgba(TRUNK_DARK, 0.0))
+	for i in 5:
+		var x := -0.24 + i * 0.12
+		_box(t, Vector3(x, 0.47, 0.0), Vector3(0.035, 0.09, 0.035), _rgba(HERB if i % 2 == 0 else HERB.darkened(0.2), 0.3))
+	_box(t, Vector3(0.0, 0.08, 0.20), Vector3(0.14, 0.08, 0.08), _rgba(LOG, 0.0)) # a basket of what was picked
+	_box(t, Vector3(0.0, 0.165, 0.20), Vector3(0.12, 0.01, 0.06), _rgba(HERB, 0.0))
+	return t
+
+
+## A stone for keeping records (M16.3, writing): a standing slab with rows of
+## marks cut into it — and, once they can count (`tallies`), rows of tallies.
+static func _record_stone(tallies: bool) -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0.0, 0.04, 0.0), Vector3(0.24, 0.04, 0.16), _rgba(STONE_DARK, 0.0))
+	_box(t, Vector3(0.0, 0.42, 0.0), Vector3(0.18, 0.34, 0.06), _rgba(STONE, 0.0))
+	_box(t, Vector3(0.0, 0.78, 0.0), Vector3(0.15, 0.03, 0.055), _rgba(STONE, 0.0))
+	for row in 5:
+		var y := 0.66 - row * 0.1
+		for mark in 3 + (row % 2):
+			_box(t, Vector3(-0.11 + mark * 0.07, y, 0.062), Vector3(0.022, 0.012, 0.004), _rgba(STONE_DARK.darkened(0.3), 0.0))
+	if tallies:
+		for row in 3:
+			for mark in 5:
+				_box(t, Vector3(-0.12 + mark * 0.05, 0.62 - row * 0.15, -0.062), Vector3(0.006, 0.04, 0.004), _rgba(STONE_DARK.darkened(0.4), 0.0))
+	return t
+
+
+## A circle of standing stones (M16.3, astronomy): to watch where the sun
+## rises and the stars turn.
+static func _stone_circle() -> Template:
+	var t := Template.new()
+	for i in 7:
+		var angle := TAU * i / 7.0
+		var tall := 0.26 + 0.08 * float((i * 3) % 4) / 3.0
+		_box(t, Vector3(cos(angle) * 0.40, tall, sin(angle) * 0.40), Vector3(0.06, tall, 0.045),
+			_rgba(STONE if i % 2 == 0 else STONE_DARK, 0.0), -angle)
+	_box(t, Vector3(0.0, 0.03, 0.0), Vector3(0.12, 0.03, 0.12), _rgba(STONE_DARK, 0.0), 0.4) # the flat stone at its heart
 	return t
 
 

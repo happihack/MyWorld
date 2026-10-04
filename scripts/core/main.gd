@@ -190,6 +190,9 @@ func _ready() -> void:
 	debug_overlay.register_section(&"farming", func() -> String:
 		return session.farming.debug_text(session.clock.tick))
 	debug_overlay.register_section(&"knowledge", func() -> String: return session.learning.debug_text())
+	debug_overlay.register_section(&"technology", func() -> String: return session.technology.debug_text())
+	# Lamps by the doors at night, where they know how (M16.3).
+	world_view.lamps().source = lamp_places
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():
@@ -742,6 +745,22 @@ func _on_world_touched(_position: Vector2) -> void:
 	world_view.camera_rig().stop_motion()
 	ui_root.hints().note_touch()
 	_tap_closed_menu = ui_root.dismiss_transient_panels()
+
+
+## Where the lamps stand: by the door of every hut of a settlement that
+## knows how to make them (M16.3).
+func lamp_places() -> Array[Vector3]:
+	var out: Array[Vector3] = []
+	for own in session.settlements.all():
+		var fire := own.fire()
+		if not own.knows_how(&"lamps") or fire == null:
+			continue
+		for prop in session.props.all_props():
+			if prop.kind == PropData.Kind.HUT and Vector2(prop.tile - fire.tile).length() <= SettlementPlanner.NEAR_REACH:
+				var at := prop.position2d()
+				var base := Vector3(at.x, session.world.get_height(prop.tile) * session.world.height_step, at.y)
+				out.append(LampsView.door_of(base, prop.rotation_radians(), prop.scale()))
+	return out
 
 
 ## Someone was touched (VS.5): their body gives under the finger — and the

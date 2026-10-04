@@ -107,6 +107,9 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"workshop")
 	if not crossing(now).is_empty():
 		out.append(&"bridge")
+	for tag: String in LANDMARKS:
+		if landmark_wanted(tag):
+			out.append(StringName(tag))
 	return out
 
 
@@ -313,6 +316,22 @@ func storage_short(now: int) -> bool:
 func workshop_wanted() -> bool:
 	return _settlement.knows_how(&"toolmaking") and _settlement.member_count() >= Config.trade.workshop_from \
 		and standing_near(PropData.Kind.WORKSHOP).is_empty()
+
+
+## What knowing something calls for (M16.3): a kiln once they make pots, a
+## herb rack once they heal, a record stone once they write, a stone circle
+## once they watch the sky — one of each, once there are enough of them.
+const LANDMARKS := {"kiln": PropData.Kind.KILN, "herbs": PropData.Kind.HERB_RACK,
+	"records": PropData.Kind.RECORD_STONE, "observatory": PropData.Kind.STONE_CIRCLE}
+## How many must live here before such a thing is built.
+const LANDMARK_FROM := 6
+
+
+func landmark_wanted(tag: String) -> bool:
+	if _settlement.member_count() < LANDMARK_FROM or not standing_near(LANDMARKS[tag]).is_empty():
+		return false
+	var def := _construction.buildings.with_tag(tag)
+	return not def.is_empty() and def[0].tech != &"" and _settlement.knows_how(def[0].tech)
 
 
 ## Is water to drink far from the fire (and no well yet)?

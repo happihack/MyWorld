@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"animal_husbandry"
+domain = 2
+prerequisites = PackedStringArray("agriculture")
+required_resources = PackedStringArray("herd")
+knowledge_threshold = 40.0
+min_population = 15
+specialist_occupation = &"hunter"
+required_buildings = PackedStringArray()
+base_daily_chance = 0.006
+unlocks = {}
+era_weight = 1.5
+known_from_start = false
+own_rule = false
+implemented = false
+order = 13

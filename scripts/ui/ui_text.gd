@@ -15,6 +15,7 @@ const TERRAIN_NAMES := {
 	ChunkData.Terrain.RIVERBED: "Riverbed",
 	ChunkData.Terrain.MUD: "Mud",
 	ChunkData.Terrain.ASH: "Ash",
+	ChunkData.Terrain.PAVED: "Road",
 }
 
 const PROP_NAMES := {
@@ -31,6 +32,10 @@ const PROP_NAMES := {
 	PropData.Kind.WELL: "Well",
 	PropData.Kind.WORKSHOP: "Workshop",
 	PropData.Kind.BRIDGE: "Bridge",
+	PropData.Kind.KILN: "Kiln",
+	PropData.Kind.HERB_RACK: "Herb rack",
+	PropData.Kind.RECORD_STONE: "Record stone",
+	PropData.Kind.STONE_CIRCLE: "Stone circle",
 }
 
 const SPECIES_NAMES := {

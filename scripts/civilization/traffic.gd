@@ -8,10 +8,19 @@ extends RefCounted
 ## (Bridges are wanted where land near the fire is cut off by water — the
 ## settlement planner's crossing — not where a ford is waded: M12 follow-up.)
 ##
-## Roads proper (laid, not worn) come with technology (M18).
+## Roads proper — laid with stones, not worn — come with engineering (M16.3):
+## near the fire of a settlement that knows it, its paths are paved, for good.
 
 ## A tile has become a path (`path` true) or grown over again (false).
 signal worn(tile: Vector2i, path: bool)
+## A path has been paved (M16.3).
+signal paved(tile: Vector2i)
+
+## Where paths are paved: Callable() -> Array[Vector2i], the fires of the
+## settlements that know engineering; unset: none.
+var paving := Callable()
+## How near such a fire a path is paved (tiles).
+const PAVE_REACH := 12
 
 ## What a path may be worn into, and what it was before (to grow back to).
 const WEARS: Array[int] = [ChunkData.Terrain.GRASS, ChunkData.Terrain.DIRT]
@@ -26,6 +35,7 @@ var _day := -1_000_000
 ## For the debug overlay and the soak.
 var paths_worn := 0
 var paths_gone := 0
+var paths_paved := 0
 
 
 func bind(world: WorldData, props: PropRegistry, now: int, config: ConstructionConfig = null) -> void:
@@ -99,7 +109,16 @@ func advance_to(now: int) -> void:
 			_wear(tile)
 		elif _was.has(tile) and walked < _config.path_gone:
 			_grow_over(tile)
-	# (What has stopped being a path some other way — tilled, washed away.)
+	# Near those who know how, paths are laid with stones (and stay).
+	if paving.is_valid():
+		var fires: Array = paving.call()
+		if not fires.is_empty():
+			for tile: Vector2i in path_tiles():
+				if fires.any(func(fire: Vector2i) -> bool: return Vector2(tile - fire).length() <= PAVE_REACH):
+					_world.set_terrain(tile, ChunkData.Terrain.PAVED)
+					paths_paved += 1
+					paved.emit(tile)
+	# (What has stopped being a path some other way — tilled, washed away, paved.)
 	for tile: Vector2i in _was.keys():
 		if _world.get_terrain(tile) != ChunkData.Terrain.ROAD:
 			_was.erase(tile)
@@ -125,7 +144,7 @@ func _grow_over(tile: Vector2i) -> void:
 
 
 func debug_text() -> String:
-	return "traffic: %d tiles walked, %d paths (%d worn, %d grown over)" % [_level.size(), _was.size(), paths_worn, paths_gone]
+	return "traffic: %d tiles walked, %d paths (%d worn, %d grown over, %d paved)" % [_level.size(), _was.size(), paths_worn, paths_gone, paths_paved]
 
 
 # --- saving ---------------------------------------------------------------------------------------

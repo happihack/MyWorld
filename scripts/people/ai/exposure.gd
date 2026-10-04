@@ -122,6 +122,6 @@ static func live(person: PersonData, ctx: AiContext, minutes: float, config: Exp
 		condition["fed"] = true
 		ctx.ailments.append([person.id, COLD, false])
 	var well := float(condition.get("well", 1.0))
-	person.health = minf(person.health + needs.recover_health_per_day * minutes / day, maxf(well, person.health))
+	person.health = minf(person.health + needs.recover_health_per_day * Health.recovery(person) * minutes / day, maxf(well, person.health))
 	if person.health >= well - 0.0001 and float(condition["exposed"]) <= 0.0:
 		person.conditions.erase(condition)

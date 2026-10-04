@@ -26,6 +26,8 @@ var _lighting: WorldLighting
 var _day_night: DayNight
 var _weather_fx: WeatherFx
 var _tool_fx: ToolFx
+## Lamps by the doors at night, where they know how (M16.3).
+var _lamps: LampsView
 ## The ground has changed somewhere (a channel carved, a bank taken): the
 ## chunks it touches are drawn anew in the next frame.
 var _ground_dirty := false
@@ -122,6 +124,10 @@ func _ready() -> void:
 	_tool_fx = ToolFx.new()
 	add_child(_tool_fx)
 	_tool_fx.setup(_effects, _day_night)
+	_lamps = LampsView.new()
+	_lamps.name = "Lamps"
+	add_child(_lamps)
+	_lamps.setup(_day_night)
 	_rig.set_view_size(get_viewport().get_visible_rect().size)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_apply_camera_settings()
@@ -324,6 +330,10 @@ func people_view() -> PeopleView:
 ## What the player's powers look like (the rain cloud, a gust's dust).
 func tool_fx() -> ToolFx:
 	return _tool_fx
+
+
+func lamps() -> LampsView:
+	return _lamps
 
 
 ## Visual answers to touches (connect InteractionManager.responded to effects().play).

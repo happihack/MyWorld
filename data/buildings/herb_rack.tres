@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"herb_rack"
+prop_kind = 14
+materials = {
+&"wood": 6
+}
+labor = 90
+capacity = 0
+tags = PackedStringArray("herbs")
+tech = &"medicine"

@@ -27,6 +27,8 @@ var person_id := 0
 var stage: PersonData.LifeStage = PersonData.LifeStage.ADULT
 var age_years := -1
 var accessory: StringName = &""
+## In dyed cloth (PersonData.FLAG_DYED: their settlement weaves).
+var dyed := false
 ## 0 standing … 1 walking, as shown.
 var walk := 0.0
 
@@ -106,7 +108,8 @@ func dress(person: PersonData, now_tick: int, ticks_per_year: int, config: Peopl
 	var width := height * PersonMeshLibrary.BUILD * float(person.appearance.get("build", 1.0))
 	scale = Vector3(width, height, width)
 	_shadow.position.y = SHADOW_LIFT / height # the same lift off the ground for everyone
-	_body.set_instance_shader_parameter(&"cloth_color", PersonMeshLibrary.cloth(int(person.appearance.get("cloth", 0))))
+	dyed = person.has_flag(PersonData.FLAG_DYED)
+	_body.set_instance_shader_parameter(&"cloth_color", PersonMeshLibrary.cloth(int(person.appearance.get("cloth", 0)), dyed))
 	_body.set_instance_shader_parameter(&"skin_color", PersonMeshLibrary.skin(int(person.appearance.get("skin", 0))))
 	_body.set_instance_shader_parameter(&"hair_color", PersonMeshLibrary.hair(int(person.appearance.get("hair", 0)), stage))
 	_body.set_instance_shader_parameter(&"stoop", PersonMeshLibrary.stoop_for(stage))

@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"engineering"
+domain = 3
+prerequisites = PackedStringArray("mathematics")
+required_resources = PackedStringArray("stone")
+knowledge_threshold = 180.0
+min_population = 20
+specialist_occupation = &"builder"
+required_buildings = PackedStringArray()
+base_daily_chance = 0.0015
+unlocks = {
+"visuals": ["paved_roads"]
+}
+era_weight = 2.0
+known_from_start = false
+own_rule = false
+implemented = true
+order = 12

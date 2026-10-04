@@ -75,6 +75,8 @@ const TYPE_MIGRATION := &"migration"
 const TYPE_TRADE_ROUTE := &"trade_route"
 const TYPE_LEARNED := &"knowledge_learned"
 const TYPE_KNOWLEDGE_LOST := &"knowledge_lost"
+const TYPE_KNOWLEDGE_SPREAD := &"knowledge_spread"
+const TYPE_ERA := &"era_entered"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 const TYPE_MOVED_TO := &"moved_to"
@@ -693,6 +695,22 @@ func on_learned(person_id: int, what: StringName) -> void:
 		return
 	_log.record(TYPE_LEARNED, {"participants": [person_id], "kind": String(what), "position": _place_of(person_id),
 		"settlement": _settlement_id()})
+
+
+## How something is done came from another settlement (M16.2): with a load
+## carried, the one who carried it (`person_id`, 0: unknown) brought it along.
+func on_knowledge_spread(settlement_id: int, tech_id: StringName, person_id: int, from_name: String) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_KNOWLEDGE_SPREAD, {"participants": [person_id] if person_id != 0 else [], "kind": String(tech_id),
+		"place": from_name, "settlement": settlement_id})
+
+
+## The world has entered a phase it never had before (M16.3, bible §22.1): an age begins.
+func on_era(phase: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_ERA, {"kind": String(CivilizationPhase.NAMES[phase]), "settlement": _settlement_id()})
 
 
 ## Much of what a settlement knew of something went with someone who died (M16.1).

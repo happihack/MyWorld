@@ -27,6 +27,7 @@ const WEIGHT_BUSH := 1.5
 const WEIGHT_OBSTACLE := 7.0
 const TERRAIN_WEIGHT := {
 	ChunkData.Terrain.ROAD: 0.7,
+	ChunkData.Terrain.PAVED: 0.6,
 	ChunkData.Terrain.SAND: 1.2,
 	ChunkData.Terrain.ROCK: 1.15,
 	ChunkData.Terrain.MUD: 1.6,

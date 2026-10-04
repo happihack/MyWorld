@@ -325,7 +325,7 @@ func refresh(delta: float) -> void:
 				view = _pool.acquire(id) as PersonView
 				if view != null:
 					view.bind(person, now, year, Config.people, _occupations, feet)
-			elif ((_refreshes + id) & (DRESS_CHECK_FRAMES - 1)) == 0 					and (view.age_years != person.age_years(now, year) or view.accessory != _accessory_of(person)):
+			elif ((_refreshes + id) & (DRESS_CHECK_FRAMES - 1)) == 0 					and (view.age_years != person.age_years(now, year) or view.accessory != _accessory_of(person) or view.dyed != person.has_flag(PersonData.FLAG_DYED)):
 				view.dress(person, now, year, Config.people, _occupations)
 			if view != null:
 				view.advance(delta, feet, person.facing)

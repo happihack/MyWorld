@@ -140,7 +140,14 @@ var knowledge := FogOfKnowledge.new()
 ## What people know, in ten domains (M16.1; not to be confused with what the
 ## player knows of the box, above).
 var learning := Knowledge.new()
+## What a storehouse holds more, with pots (pottery) and with counting (mathematics).
+const POTTERY_ROOM := 1.5
+const COUNTED_ROOM := 1.25
 var _saved_learning: Dictionary = {}
+## What can be worked out, and what has been, where (M16.2; data/technologies).
+var technologies: TechnologyLibrary
+var technology := TechnologySystem.new()
+var _saved_technology: Dictionary = {}
 var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
@@ -271,6 +278,17 @@ func _init() -> void:
 		var from := settlements.get_settlement(int(record["from"]))
 		var to := settlements.get_settlement(int(record["to"]))
 		chronicle.on_route_opened(record, from.display_name() if from != null else "", to.display_name() if to != null else ""))
+	# What one settlement knows travels with its loads and its founders (M16.2).
+	trade.traded.connect(technology.on_traded)
+	technology.era_entered.connect(chronicle.on_era)
+	# Something new is known: what it changes, at once (M16.3; and see _make_settlement).
+	technology.spread.connect(func(_settlement_id: int, _tech: StringName, _person: int, _from: int) -> void:
+		_apply_storehouses()
+		technology.apply_effects())
+	migration.founded.connect(technology.on_founded)
+	technology.spread.connect(func(settlement_id: int, tech_id: StringName, person_id: int, from_id: int) -> void:
+		var from := settlements.get_settlement(from_id)
+		chronicle.on_knowledge_spread(settlement_id, tech_id, person_id, from.display_name() if from != null else ""))
 	construction.begun.connect(chronicle.on_building_begun)
 	construction.finished.connect(chronicle.on_building_built)
 	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
@@ -527,6 +545,7 @@ func load_from(data: Dictionary) -> bool:
 		if typeof((state as Dictionary).get("stats")) == TYPE_DICTIONARY:
 			_saved_stats = state["stats"]
 		_saved_learning = state["learning"] if typeof((state as Dictionary).get("learning")) == TYPE_DICTIONARY else {}
+		_saved_technology = state["technology"] if typeof((state as Dictionary).get("technology")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -631,6 +650,7 @@ func to_dict() -> Dictionary:
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
 			"learning": learning.to_dict(),
+			"technology": technology.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -728,6 +748,7 @@ func _process(delta: float) -> void:
 		simulation.advance(delta)
 		knowledge.advance_to(clock.tick)
 		learning.advance_to(clock.tick)
+		technology.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1160,6 +1181,12 @@ func _activate() -> void:
 		Log.warn(Log.Category.LOAD, "Some saved building projects were unusable and dropped", {"projects": unusable_projects})
 	_saved_construction = {}
 	traffic.bind(world, props, clock.tick, Config.construction)
+	traffic.paving = func() -> Array[Vector2i]:
+		var out: Array[Vector2i] = []
+		for own in settlements.all():
+			if own.knows_how(&"engineering") and own.fire() != null:
+				out.append(own.fire().tile)
+		return out
 	traffic.from_dict(_saved_traffic)
 	_saved_traffic = {}
 	movement.traffic = traffic
@@ -1212,6 +1239,17 @@ func _activate() -> void:
 	learning.bind(people, settlements, clock.tick)
 	learning.from_dict(_saved_learning)
 	_saved_learning = {}
+	if technologies == null:
+		technologies = TechnologyLibrary.load_from()
+		for problem in technologies.problems:
+			Log.warn(Log.Category.WORLD, "Technology definitions", {"problem": problem})
+	technology.world = world
+	technology.props = props
+	technology.buildings = buildings
+	technology.trade = trade
+	technology.bind(technologies, settlements, learning, clock.tick)
+	technology.from_dict(_saved_technology)
+	_saved_technology = {}
 	ai.governance = governance
 	interactions.governance = governance
 	for own in settlements.all():
@@ -1276,7 +1314,13 @@ func _apply_storehouses() -> void:
 	for own in settlements.all():
 		var stores := own.planner.standing_near(PropData.Kind.STOREHOUSE).size() if own.planner != null \
 			else construction.standing(PropData.Kind.STOREHOUSE).size()
-		own.stockpile.extra_room = stores * (def.capacity if def != null else 0)
+		var room := stores * (def.capacity if def != null else 0)
+		# Pots hold more than baskets; what is counted is packed tighter (M16.3).
+		if own.knows_how(&"pottery"):
+			room = roundi(room * POTTERY_ROOM)
+		if own.knows_how(&"mathematics"):
+			room = roundi(room * COUNTED_ROOM)
+		own.stockpile.extra_room = room
 
 
 ## A settlement around a fire: its stores, its jobs; told to the chronicle.
@@ -1304,6 +1348,10 @@ func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dic
 	own.flood_took.connect(chronicle.on_flood_took)
 	own.home_moved.connect(chronicle.on_home_moved)
 	own.learned.connect(chronicle.on_learned)
+	# Something new is known: what it changes, at once (M16.3).
+	own.learned.connect(func(_person_id: int, _what: StringName) -> void:
+		_apply_storehouses()
+		technology.apply_effects())
 	own.trade = trade
 	own.governance = governance
 	return own

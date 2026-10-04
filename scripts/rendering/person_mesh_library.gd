@@ -28,6 +28,12 @@ const CLOTH: Array[Color] = [
 	Color(0.80, 0.25, 0.20), Color(0.93, 0.66, 0.16), Color(0.22, 0.45, 0.78),
 	Color(0.58, 0.28, 0.66), Color(0.90, 0.44, 0.16), Color(0.92, 0.90, 0.82),
 ]
+## Woven and dyed (M16.3, weaving): madder, indigo, saffron, woad, a purple
+## from berries, a green from bark — deeper than undyed cloth.
+const CLOTH_DYED: Array[Color] = [
+	Color(0.62, 0.10, 0.16), Color(0.16, 0.20, 0.55), Color(0.86, 0.62, 0.06),
+	Color(0.10, 0.44, 0.44), Color(0.46, 0.16, 0.44), Color(0.22, 0.46, 0.20),
+]
 const ELDER_HAIR := Color(0.78, 0.78, 0.76)
 
 const WOOD := Color(0.42, 0.29, 0.18)
@@ -85,7 +91,9 @@ static func hair(index: int, stage: PersonData.LifeStage) -> Color:
 	return ELDER_HAIR if stage == PersonData.LifeStage.ELDER else HAIR[posmod(index, HAIR.size())]
 
 
-static func cloth(index: int) -> Color:
+static func cloth(index: int, dyed: bool = false) -> Color:
+	if dyed:
+		return CLOTH_DYED[posmod(index, CLOTH_DYED.size())]
 	return CLOTH[posmod(index, CLOTH.size())]
 
 

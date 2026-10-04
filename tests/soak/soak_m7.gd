@@ -114,6 +114,8 @@ func _run() -> void:
 			if i % 60 == 0:
 				s.stats.advance_to(s.clock.tick)
 				s.knowledge.advance_to(s.clock.tick)
+				s.learning.advance_to(s.clock.tick) # (M16: what people know, and what they work out)
+				s.technology.advance_to(s.clock.tick)
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
 				var food_days: float = s.settlement.days_of_food()
@@ -174,6 +176,8 @@ func _run() -> void:
 				_problem("day %d: no %s left" % [day, species])
 		if s.events.size() > config.events.max_events:
 			_problem("day %d: the event log holds %d events (%d at most)" % [day, s.events.size(), config.events.max_events])
+		if (day + 1) % days_per_year == 0:
+			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
 		if (day + 1) % days_per_season == 0 and not quiet:
 			print("SOAK year %d season %d  people %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f" % [
 				day / days_per_year + 1, (day % days_per_year) / days_per_season, alive, s.settlement.days_of_food(),
@@ -263,6 +267,10 @@ func _run() -> void:
 			own.stockpile.amount(&"tools"), own.tools_made])
 	print("SOAK %s  |  %s" % [s.trade.debug_text(), "; ".join(specialties)])
 	print("SOAK %s" % s.governance.debug_text())
+	print("SOAK %s" % s.learning.debug_text())
+	print("SOAK %s" % s.technology.debug_text())
+	for e in s.events.of_type(&"knowledge_learned") + s.events.of_type(&"knowledge_spread") + s.events.of_type(&"era_entered") + s.events.of_type(&"knowledge_lost"):
+		print("SOAK   year %d  %s %s (%s)" % [config.time.year_of(e.tick), e.type, str(e.text_params.get("kind", "")), str(e.text_params.get("place", ""))])
 	print("SOAK box: %d x %d tiles, unfolded %d times; regions found %d of %d, the edge %s" % [s.world.bounds.size.x, s.world.bounds.size.y,
 		s.unfolder.count, s.knowledge.discovered.size(), s.knowledge.regions.regions.size(), "reached" if s.knowledge.edge_reached else "not reached"])
 	for myth: Dictionary in s.culture.myths():

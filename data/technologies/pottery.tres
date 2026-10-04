@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"pottery"
+domain = 1
+prerequisites = PackedStringArray("fire")
+required_resources = PackedStringArray("clay")
+knowledge_threshold = 70.0
+min_population = 6
+specialist_occupation = &""
+required_buildings = PackedStringArray()
+base_daily_chance = 0.004
+unlocks = {
+"buildings": ["kiln"],
+"visuals": ["pots"],
+"actions": ["store_more"]
+}
+era_weight = 1.0
+known_from_start = false
+own_rule = false
+implemented = true
+order = 5

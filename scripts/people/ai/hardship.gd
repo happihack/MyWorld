@@ -53,7 +53,7 @@ static func live(person: PersonData, ctx: AiContext, minutes: float, config: Nee
 			condition["sick"] = false
 			return
 		var well := float(condition.get("well", 1.0))
-		person.health = minf(person.health + config.recover_health_per_day * minutes / day, maxf(well, person.health))
+		person.health = minf(person.health + config.recover_health_per_day * Health.recovery(person) * minutes / day, maxf(well, person.health))
 		if person.health >= well - 0.0001:
 			person.conditions.erase(condition)
 		return

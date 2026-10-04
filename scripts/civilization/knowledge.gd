@@ -38,16 +38,18 @@ const WORK := {
 	&"hunter": {Domain.NATURE: 0.45, Domain.CRAFT: 0.1},
 	&"builder": {Domain.CONSTRUCTION: 0.6, Domain.CRAFT: 0.2, Domain.MATHEMATICS: 0.05},
 	&"toolmaker": {Domain.CRAFT: 0.7},
-	&"trader": {Domain.SOCIAL: 0.35, Domain.MATHEMATICS: 0.25},
-	&"elder": {Domain.SOCIAL: 0.3, Domain.RECORD: 0.12},
+	&"trader": {Domain.SOCIAL: 0.35, Domain.MATHEMATICS: 0.25, Domain.RECORD: 0.1},
+	&"elder": {Domain.SOCIAL: 0.3, Domain.RECORD: 0.25},
 }
 ## The curious look about them: the land, and the sky at night (and elders
 ## have watched it longest). Points a day at the most curious.
 const CURIOUS_NATURE := 0.15
 const CURIOUS_SKY := 0.12
 const ELDER_SKY := 0.06
-## Everyone grown learns a little of living together, every day.
+## Everyone grown learns a little of living together, every day — and hears
+## the old stories told again (keeping records, before there is writing).
 const LIVING_TOGETHER := 0.05
+const STORIES := 0.03
 ## A child takes this share a day of what the most knowing of its household
 ## knows more than it does (by watching).
 const WATCHING := 0.015
@@ -216,6 +218,7 @@ func _learn_from_the_day(person: PersonData, stage: PersonData.LifeStage) -> voi
 	add(person, Domain.NATURE, CURIOUS_NATURE * curious * mind)
 	add(person, Domain.ASTRONOMY, (CURIOUS_SKY * curious + (ELDER_SKY if stage == PersonData.LifeStage.ELDER else 0.0)) * mind)
 	add(person, Domain.SOCIAL, LIVING_TOGETHER * mind)
+	add(person, Domain.RECORD, STORIES * mind)
 	if stage == PersonData.LifeStage.ELDER and not WORK.has(person.occupation_id):
 		for domain: int in WORK[&"elder"]:
 			add(person, domain, float(WORK[&"elder"][domain]) * mind)

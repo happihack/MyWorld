@@ -17,6 +17,7 @@ const ECONOMY := &"economy"
 const AGRICULTURE := &"agriculture"
 const GOVERNMENT := &"government"
 const BELIEFS := &"beliefs"
+const TECHNOLOGY := &"technology"
 const DISCOVERIES := &"discoveries"
 const SEEN := &"seen"
 const GRAPHICS := &"graphics"
@@ -69,6 +70,8 @@ static func sections(menu: MainMenu) -> Array:
 		civ.append(["MENU_AGRICULTURE", func() -> void: menu.open_page(AGRICULTURE)])
 	if _anyone_leads(s):
 		civ.append(["MENU_GOVERNMENT", func() -> void: menu.open_page(GOVERNMENT)])
+	if _beyond_the_beginning(s):
+		civ.append(["MENU_TECHNOLOGY", func() -> void: menu.open_page(TECHNOLOGY)])
 	if not beliefs(s).is_empty():
 		civ.append(["MENU_BELIEFS", func() -> void: menu.open_page(BELIEFS)])
 	out.append(["MENU_CIVILIZATION", civ])
@@ -154,6 +157,17 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 			menu.set_title(MemoryText.translate("MENU_ECONOMY"))
 			for text in economy_lines(s):
 				menu.add_line(text)
+		TECHNOLOGY:
+			menu.set_title(MemoryText.translate("MENU_TECHNOLOGY"))
+			var told := technology(s)
+			menu.add_line(told["age"])
+			menu.add_heading(MemoryText.translate("TECH_KNOWN"))
+			for text: String in told["known"]:
+				menu.add_line(text)
+			if not (told["close"] as PackedStringArray).is_empty():
+				menu.add_heading(MemoryText.translate("TECH_CLOSE"))
+				for text: String in told["close"]:
+					menu.add_line(text)
 		AGRICULTURE:
 			menu.set_title(MemoryText.translate("MENU_AGRICULTURE"))
 			for text in agriculture_lines(s):
@@ -472,6 +486,73 @@ static func discoveries(s: WorldSession) -> Array:
 		for e in s.events.of_type(type):
 			out.append([EventText.line(e, s.people, s.events), e.position if e.position != Vector2.INF else Vector2.INF])
 	return out
+
+
+## Does anyone know anything beyond what all knew from the start (or come close)?
+static func _beyond_the_beginning(s: WorldSession) -> bool:
+	if s.technology == null or s.technologies == null:
+		return false
+	for own in s.settlements.all():
+		for entry: Array in s.technology.known_by(own):
+			if not s.technologies.get_def(entry[0]).known_from_start:
+				return true
+		if not s.technology.close_to(own).is_empty():
+			return true
+	return false
+
+
+## The Technology page (M16.3): the age now; what is known, when, and who
+## worked it out (or where it came from), the oldest first; what they are
+## close to, vaguely. {"age": String, "known": PackedStringArray, "close": PackedStringArray}
+static func technology(s: WorldSession) -> Dictionary:
+	var out := {"age": "", "known": PackedStringArray(), "close": PackedStringArray()}
+	if s.technology == null or s.technologies == null:
+		return out
+	var known := PackedStringArray()
+	var hints := PackedStringArray()
+	out["age"] = MemoryText.translate("TECH_AGE").format({"age": MemoryText.translate("ERA_" + String(CivilizationPhase.NAMES[s.technology.phase_now]).to_upper())})
+	# Who worked what out, and what came from elsewhere (as history tells it).
+	var told := {}
+	for type: StringName in [&"knowledge_learned", &"knowledge_spread"]:
+		for e in s.events.of_type(type):
+			var kind := str(e.text_params.get("kind", ""))
+			if not told.has(kind):
+				told[kind] = e
+	var start := PackedStringArray()
+	var seen := {}
+	for own in s.settlements.all():
+		for entry: Array in s.technology.known_by(own):
+			var id: StringName = entry[0]
+			if seen.has(id):
+				continue
+			seen[id] = true
+			var def := s.technologies.get_def(id)
+			if def.known_from_start:
+				start.append(tech_name(id))
+				continue
+			var e: WorldEvent = told.get(String(id))
+			var who := s.people.name_of(e.participants[0]) if e != null and not e.participants.is_empty() else ""
+			var line := "TECH_KNOWN_LINE" if e == null or e.type == &"knowledge_learned" else "TECH_KNOWN_FROM"
+			known.append(MemoryText.translate(line).format({
+				"year": HistoryText.year_of(int(entry[1])), "tech": tech_name(id),
+				"name": who if who != "" else MemoryText.translate("EVENT_SOMEONE"), "place": str(e.text_params.get("place", "")) if e != null else ""}))
+	if not start.is_empty():
+		known.insert(0, MemoryText.translate("TECH_FROM_START").format({"techs": ", ".join(start)}))
+	out["known"] = known
+	var close := {}
+	for own in s.settlements.all():
+		for id in s.technology.close_to(own):
+			close[id] = true
+	for id: StringName in close:
+		var hint := "TECH_HINT_" + String(id).to_upper()
+		hints.append(MemoryText.translate(hint if MemoryText.has(hint) else "TECH_HINT"))
+	out["close"] = hints
+	return out
+
+
+static func tech_name(id: StringName) -> String:
+	var key := "TECH_" + String(id).to_upper()
+	return MemoryText.translate(key) if MemoryText.has(key) else String(id).capitalize()
 
 
 ## How much of the box the player has seen close up (0 … 1).

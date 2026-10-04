@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"advanced_science"
+domain = 9
+prerequisites = PackedStringArray("computing", "chemistry")
+required_resources = PackedStringArray()
+knowledge_threshold = 98.0
+min_population = 800
+specialist_occupation = &""
+required_buildings = PackedStringArray()
+base_daily_chance = 0.001
+unlocks = {}
+era_weight = 3.0
+known_from_start = false
+own_rule = false
+implemented = false
+order = 25

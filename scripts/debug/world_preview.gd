@@ -14,6 +14,7 @@ const TERRAIN_COLORS := {
 	ChunkData.Terrain.RIVERBED: Color(0.45, 0.42, 0.36),
 	ChunkData.Terrain.MUD: Color(0.38, 0.30, 0.22),
 	ChunkData.Terrain.ASH: Color(0.30, 0.30, 0.30),
+	ChunkData.Terrain.PAVED: Color(0.66, 0.64, 0.60),
 }
 const WATER_SHALLOW := Color(0.36, 0.66, 0.86)
 const WATER_DEEP := Color(0.13, 0.36, 0.66)

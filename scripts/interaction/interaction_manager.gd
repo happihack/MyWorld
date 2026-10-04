@@ -65,6 +65,10 @@ const _PROP_EFFECTS := {
 	PropData.Kind.WELL: InteractionResponse.ROCK_WOBBLE,
 	PropData.Kind.WORKSHOP: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.BRIDGE: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.KILN: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.HERB_RACK: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.RECORD_STONE: InteractionResponse.ROCK_WOBBLE,
+	PropData.Kind.STONE_CIRCLE: InteractionResponse.RUIN_HUM,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).

@@ -9,7 +9,7 @@ extends RefCounted
 ## Setters mark the chunk modified and dirty; the generator fills the arrays
 ## directly and then calls mark_pristine().
 
-enum Terrain { GRASS, DIRT, SAND, ROCK, SNOW, FARMLAND, ROAD, RIVERBED, MUD, ASH }
+enum Terrain { GRASS, DIRT, SAND, ROCK, SNOW, FARMLAND, ROAD, RIVERBED, MUD, ASH, PAVED }
 
 ## Per-tile flag bits (layer `flags`).
 const FLAG_SEEN_BY_PLAYER := 1 << 0

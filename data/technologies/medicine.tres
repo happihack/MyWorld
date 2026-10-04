@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"medicine"
+domain = 4
+prerequisites = PackedStringArray("foraging")
+required_resources = PackedStringArray("herbs")
+knowledge_threshold = 40.0
+min_population = 8
+specialist_occupation = &"forager"
+required_buildings = PackedStringArray()
+base_daily_chance = 0.003
+unlocks = {
+"buildings": ["herb_rack"],
+"actions": ["heal"]
+}
+era_weight = 1.0
+known_from_start = false
+own_rule = false
+implemented = true
+order = 7

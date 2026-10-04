@@ -90,7 +90,8 @@ func _run(minutes: int) -> void:
 
 func test_the_buildings_are_defined() -> void:
 	var library := session.buildings
-	assert_eq(library.ids(), [&"bridge", &"hut", &"storehouse", &"well", &"workshop"] as Array[StringName])
+	assert_eq(library.ids(), [&"bridge", &"herb_rack", &"hut", &"kiln", &"record_stone", &"stone_circle", &"storehouse", &"well",
+		&"workshop"] as Array[StringName], "(and what technology brings: M16.3)")
 	for id in library.ids():
 		var def := library.get_def(id)
 		assert_eq(def.validate(), PackedStringArray(), "%s is well formed" % id)

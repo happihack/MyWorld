@@ -44,6 +44,15 @@ static func fall_ill(person: PersonData, kind: StringName, now: int) -> bool:
 	return true
 
 
+## How much faster than by itself someone's health comes back: tended by
+## those who know which herbs heal (M16.3), half as fast again.
+const TENDED_RECOVERY := 1.5
+
+
+static func recovery(person: PersonData) -> float:
+	return TENDED_RECOVERY if person.has_flag(PersonData.FLAG_TENDED) else 1.0
+
+
 static func illness_of(person: PersonData) -> Dictionary:
 	return Hardship.condition_of(person, ILLNESS)
 
@@ -107,7 +116,7 @@ static func live(person: PersonData, ctx: AiContext, minutes: float, config: Lif
 	if bool(condition.get("fed", false)):
 		# It has passed: their health comes back, and then it is over.
 		var well := float(condition.get("well", 1.0))
-		person.health = minf(person.health + needs.recover_health_per_day * minutes / day, maxf(well, person.health))
+		person.health = minf(person.health + needs.recover_health_per_day * recovery(person) * minutes / day, maxf(well, person.health))
 		if person.health >= well - 0.0001:
 			person.conditions.erase(condition)
 		return

@@ -14,6 +14,7 @@ extends ConfigBase
 	Color(0.52, 0.47, 0.38), # RIVERBED
 	Color(0.40, 0.32, 0.24), # MUD
 	Color(0.30, 0.30, 0.30), # ASH
+	Color(0.58, 0.56, 0.53), # PAVED (laid stones: engineering, M16.3)
 ]
 @export var side_colors: Array[Color] = [
 	Color(0.50, 0.38, 0.26), # GRASS (soil under the turf)
@@ -26,6 +27,7 @@ extends ConfigBase
 	Color(0.43, 0.39, 0.32), # RIVERBED
 	Color(0.33, 0.26, 0.20), # MUD
 	Color(0.24, 0.24, 0.24), # ASH
+	Color(0.45, 0.44, 0.42), # PAVED
 ]
 ## Grass with little growing on it goes towards this colour: by
 ## `sparse_strength` where nothing grows, not at all from `lush_from`

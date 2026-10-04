@@ -16,6 +16,10 @@ const FLAG_TOUCHED_BY_PLAYER := 1 << 2
 const FLAG_QUARANTINED := 1 << 3
 ## Inside a building (asleep at home): there, but not to be seen.
 const FLAG_INDOORS := 1 << 4
+## Of a settlement that knows which herbs heal (M16.3: they recover faster).
+const FLAG_TENDED := 1 << 5
+## Of a settlement that weaves and dyes its cloth (M16.3: deeper colours).
+const FLAG_DYED := 1 << 6
 
 ## How someone holds themselves while doing something (what the view shows).
 ## (Plans store poses by number: append, never reorder.)

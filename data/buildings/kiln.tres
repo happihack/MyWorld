@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"kiln"
+prop_kind = 13
+materials = {
+&"stone": 6,
+&"wood": 8
+}
+labor = 180
+capacity = 0
+tags = PackedStringArray("kiln")
+tech = &"pottery"
