@@ -1,10 +1,12 @@
 class_name MainMenu
 extends UIPanel
-## The ☰ menu (bible §26.5), v0: a panel that slides in from the left, with
-## the sections there is something for — PEOPLE (Individuals, Families,
-## Relationships, Important People), HISTORY (Important People, Firsts) and
-## SETTINGS (Motion, while motion controls are on). Other
-## sections stay hidden until their systems exist (the menu grows with the
+## The ☰ menu (bible §26.5), v0 (VS.1): a panel that slides in from the left,
+## with the sections there is something for — WORLD (Weather), PEOPLE
+## (Individuals, Families, Relationships, Important People), HISTORY (Timeline:
+## the recent events, a tap looks for them; Important People, Firsts), PLAYER
+## (Interaction History, with its counts) and SETTINGS (Audio, Haptics, Motion
+## while motion controls are on, Save). Other sections (CIVILIZATION, Map,
+## Statistics…) stay hidden until their systems exist (the menu grows with the
 ## world). Each entry opens a page in the panel; Back goes a page back.
 
 ## Someone was picked (living: go to them; dead: read their grave).
@@ -24,6 +26,16 @@ const PAGE_RELATIONSHIPS := &"relationships"
 const PAGE_RELATIONS_OF := &"relations_of"
 const PAGE_IMPORTANT := &"important"
 const PAGE_FIRSTS := &"firsts"
+const PAGE_WEATHER := &"weather"
+const PAGE_AUDIO := &"audio"
+const PAGE_HAPTICS := &"haptics"
+const PAGE_SAVE := &"save"
+
+## The volumes on the Audio page, and how far a step moves them.
+const VOLUMES: Array[StringName] = [&"audio/master", &"audio/ambience", &"audio/sfx", &"audio/ui"]
+const VOLUME_STEP := 0.1
+## How many days back the Weather page tells of rain.
+const RAIN_DAYS := 7
 
 const EDGE_MARGIN := 24.0
 const TOP := 40.0
@@ -141,6 +153,9 @@ func _show() -> void:
 	match StringName(entry[0]):
 		PAGE_ROOT:
 			_title.text = MemoryText.translate("MENU_TITLE")
+			if _session != null and _session.weather != null:
+				_heading(MemoryText.translate("MENU_WORLD"))
+				_entry(MemoryText.translate("MENU_WEATHER"), func() -> void: open_page(PAGE_WEATHER))
 			_heading(MemoryText.translate("MENU_PEOPLE"))
 			_entry(MemoryText.translate("MENU_INDIVIDUALS"), func() -> void: open_page(PAGE_INDIVIDUALS))
 			_entry(MemoryText.translate("MENU_FAMILIES"), func() -> void: open_page(PAGE_FAMILIES))
@@ -152,9 +167,34 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_FIRSTS"), func() -> void: open_page(PAGE_FIRSTS))
 			_heading(MemoryText.translate("MENU_PLAYER"))
 			_entry(MemoryText.translate("MENU_INTERACTIONS"), func() -> void: history_requested.emit())
+			_heading(MemoryText.translate("MENU_SETTINGS"))
+			_entry(MemoryText.translate("MENU_AUDIO"), func() -> void: open_page(PAGE_AUDIO))
+			_entry(MemoryText.translate("MENU_HAPTICS"), func() -> void: open_page(PAGE_HAPTICS))
 			if SensorManager.feature_enabled():
-				_heading(MemoryText.translate("MENU_SETTINGS"))
 				_entry(MemoryText.translate("MENU_MOTION"), func() -> void: motion_requested.emit())
+			_entry(MemoryText.translate("MENU_SAVE"), func() -> void: open_page(PAGE_SAVE))
+		PAGE_WEATHER:
+			_title.text = MemoryText.translate("MENU_WEATHER")
+			for text in weather_lines(_session):
+				_line(text)
+		PAGE_AUDIO:
+			_title.text = MemoryText.translate("MENU_AUDIO")
+			_toggle(&"audio/muted", "MENU_SOUND", true)
+			for key in VOLUMES:
+				_volume(key)
+		PAGE_HAPTICS:
+			_title.text = MemoryText.translate("MENU_HAPTICS")
+			_toggle(&"haptics/enabled", "MENU_VIBRATION")
+			_small(MemoryText.translate("MENU_VIBRATION_ABOUT"))
+		PAGE_SAVE:
+			_title.text = MemoryText.translate("MENU_SAVE")
+			_line(saved_text(SaveManager.last_save_info, int(Time.get_unix_time_from_system())))
+			_small(MemoryText.translate("MENU_SAVED_ABOUT").format({"minutes": roundi(Config.save.autosave_interval_s / 60.0)}))
+			_entry(MemoryText.translate("MENU_SAVE_NOW"), func() -> void:
+				AudioManager.play_ui(&"ui_tap")
+				if _session != null:
+					SaveManager.save_world(_session, &"menu")
+				_show())
 		PAGE_INDIVIDUALS:
 			_title.text = MemoryText.translate("MENU_INDIVIDUALS")
 			for row: Array in individuals(_session):
@@ -203,6 +243,44 @@ func _show() -> void:
 			for row: Array in rows:
 				var other: int = row[0]
 				_entry(row[1], func() -> void: person_chosen.emit(other))
+
+
+## What the Weather page says: the date, the sky now, what is going on
+## (a drought, a cold snap, frozen ground) and the rain of the last days.
+static func weather_lines(session: WorldSession) -> PackedStringArray:
+	var out := PackedStringArray()
+	var weather := session.weather
+	var clock := session.clock
+	out.append(clock.format_date(false))
+	out.append(MemoryText.translate("MENU_WEATHER_NOW").format({"weather": UIText.weather_line(weather.state,
+		weather.temperature(clock.tick))}))
+	for condition in weather.conditions():
+		out.append(MemoryText.translate("MENU_CONDITION_" + String(condition).to_upper()))
+	if weather.is_frozen():
+		out.append(MemoryText.translate("MENU_FROZEN"))
+	var today := clock.day()
+	var days := mini(RAIN_DAYS, today + 1)
+	var rainy := 0
+	for back_days in days:
+		if weather.rain_on(today - back_days):
+			rainy += 1
+	out.append(MemoryText.translate("MENU_RAIN_DAYS").format({"rainy": rainy, "days": days}) if rainy > 0
+		else MemoryText.translate("MENU_NO_RAIN").format({"days": days}))
+	return out
+
+
+## When the world was last saved, in words: "Saved just now", "Saved 3 minutes ago".
+static func saved_text(info: Dictionary, now_unix: int) -> String:
+	if info.has("error"):
+		return MemoryText.translate("MENU_SAVE_FAILED")
+	if not info.has("unix"):
+		return MemoryText.translate("MENU_NOT_SAVED")
+	var ago := maxi(now_unix - int(info["unix"]), 0)
+	if ago < 60:
+		return MemoryText.translate("MENU_SAVED_NOW")
+	if ago < 3600:
+		return MemoryText.translate("MENU_SAVED_MINUTES").format({"count": ago / 60})
+	return MemoryText.translate("MENU_SAVED_HOURS").format({"count": ago / 3600})
 
 
 ## The Important People, living and dead, the most significant first:
@@ -320,6 +398,43 @@ func _line(text: String) -> void:
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_list.add_child(label)
+
+
+## A setting that is on or off, as a button that says which: "Sound: on".
+## `inverted`: the setting says the opposite (muted is sound off).
+func _toggle(key: StringName, text_key: String, inverted: bool = false) -> void:
+	var on := bool(Settings.get_value(key)) != inverted
+	_entry(MemoryText.translate("MENU_SETTING").format({"name": MemoryText.translate(text_key),
+		"value": MemoryText.translate("MOTION_ON" if on else "MOTION_OFF")}), func() -> void:
+		Settings.set_value(key, not bool(Settings.get_value(key)))
+		AudioManager.play_ui(&"ui_tap")
+		_show())
+
+
+## A volume, with − and + either side: "Ambience   80%".
+func _volume(key: StringName) -> void:
+	var row := HBoxContainer.new()
+	var label := Label.new()
+	label.text = MemoryText.translate("MENU_" + String(key).replace("/", "_").to_upper())
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(label)
+	var value := Label.new()
+	value.text = "%d%%" % roundi(float(Settings.get_value(key)) * 100.0)
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.custom_minimum_size = Vector2(120.0, 0.0)
+	for by: float in [-VOLUME_STEP, VOLUME_STEP]:
+		var button := Button.new()
+		button.text = "−" if by < 0.0 else "+"
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(UITheme.TOUCH_TARGET * 0.7, UITheme.TOUCH_TARGET * 0.7)
+		button.pressed.connect(func() -> void:
+			Settings.set_value(key, snappedf(clampf(float(Settings.get_value(key)) + by, 0.0, 1.0), VOLUME_STEP))
+			AudioManager.play_ui(&"ui_tap")
+			_show())
+		row.add_child(button)
+		if by < 0.0:
+			row.add_child(value)
+	_list.add_child(row)
 
 
 func _entry(text: String, pressed: Callable) -> void:

@@ -126,11 +126,12 @@ func test_the_menu() -> void:
 	assert_eq(menu.page(), MainMenu.PAGE_ROOT)
 	assert_true(menu.texts().has("PEOPLE"))
 	assert_true(menu.texts().has("Individuals"))
-	assert_false(menu.texts().has("SETTINGS"), "motion is on hold: nothing to set")
-	assert_false(menu.texts().has("WORLD") or menu.texts().has("CIVILIZATION"), "what is not there yet is hidden")
+	assert_true(menu.texts().has("SETTINGS"), "since VS.1: Audio, Haptics, Save")
+	assert_true(menu.texts().has("WORLD"), "since VS.1: Weather")
+	assert_false(menu.texts().has("CIVILIZATION"), "what is not there yet is hidden")
 	assert_true(menu.texts().has("HISTORY"), "since M11.2: Important People, Firsts")
 	# Individuals: everyone living; a tap goes to them (and the menu closes).
-	menu.entries()[0].pressed.emit()
+	_entry_named(menu, "Individuals").pressed.emit()
 	await wait_frames(1)
 	assert_eq(menu.page(), MainMenu.PAGE_INDIVIDUALS)
 	assert_eq(menu.entries().size(), session.people.size())
@@ -240,3 +241,10 @@ func test_the_toasts_wait_while_the_menu_is_open() -> void:
 	ui.close_all_panels()
 	await wait_frames(1)
 	assert_true(ui.toasts().visible)
+
+
+func _entry_named(menu: MainMenu, text: String) -> Button:
+	for entry in menu.entries():
+		if entry.text == text:
+			return entry
+	return null

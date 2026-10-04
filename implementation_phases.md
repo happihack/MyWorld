@@ -1559,8 +1559,16 @@ All six sub-phases are done (M9.1–M9.6): the weather and its sky; the seasons;
 ### Slice content checklist (from the plan)
 16–32 world tiles (use 32×32) · water · trees · rocks · one tiny settlement · 5–10 inhabitants · simple homes · food · basic needs · day/night · basic weather · touch interaction · moveable rock · water disturbance · tilt · one simple disaster (earthquake) · individual inspection · follow mode · simple memories · basic statistics · hamburger menu · save/load.
 
-### VS.1 Hamburger menu v0 (subset of M14)
-- [ ] `scenes/ui/hamburger_menu.tscn`: sliding panel; sections WORLD (Weather), PEOPLE (Individuals list → locate/select), HISTORY (Recent events list, tappable Locate), PLAYER (Interaction history, basic counters), SETTINGS (Audio, Haptics, Motion, Save). Hidden entries for future systems.
+### VS.1 Hamburger menu v0 (subset of M14) — ✅ DONE (2026-10-03)
+- [x] **The ☰ menu** (`scripts/ui/panels/main_menu.gd`, begun in M10.1: slides in from the left, as tall as what it lists, Back a page back) **now has every v0 section, in the bible's order:**
+  - **WORLD → Weather** (new): the date, the sky now ("Now: Clear · 1°"), what is going on (a drought, a heat wave, a bitter cold, frozen ground), and the rain of the last seven days ("Rain fell on 3 of the last 7 days").
+  - **PEOPLE** (M10.1, M11.2): Individuals (a tap goes to them: selected, the camera there), Families, Relationships, Important People.
+  - **HISTORY** (M11.2–M11.3): the **Timeline** is the recent-events list — the latest first, a tap looks for the event (where it happened, or whom it concerned) — and Important People, Firsts.
+  - **PLAYER** (M11.4): **Interaction History**, with its counts (for reflection, not score).
+  - **SETTINGS** (new, always shown): **Audio** (sound on/off; all sound, the world around, effects, buttons: − 100% +, a tenth a step), **Haptics** (vibration on/off), **Motion** (only while motion controls are on: they are on hold, M8), **Save** ("Saved just now" / "Saved 3 min ago" / "The last save failed"; "The world saves itself every 2 minutes, and whenever you leave it."; **Save now**).
+  - **Hidden until their systems exist:** CIVILIZATION, Map (M13.3), Statistics (VS.2), the rest of M14's tree.
+- **Deviations:** the menu is built in code (`MainMenu`, like the other panels since M10.1), not `scenes/ui/hamburger_menu.tscn`; Continue / New World / Backup / Reset under Save are VS.3's. With five sections the first page scrolls on a phone held upright (Save is just below).
+- **Verified:** `test_hamburger_menu` (4): `test_the_sections_of_the_menu` (all five, in order; every v0 entry; CIVILIZATION, Map, Statistics hidden; Timeline and Interaction History open), `test_the_weather_page` (the date, the sky now, the rain; a drought and frozen ground in words), `test_audio_and_haptics` (sound off silences the Master bus and on again; a volume a step down and never above full; vibration off stops the pulses), `test_the_save_page` (Save now writes the world: "Saved just now"; the words for minutes, hours, never, a failed save). Changed: `test_the_menu` (SETTINGS and WORLD are there now). **Full suite: 1232 passed, 0 failed** (the band's day 0.734 ms a game minute). Desktop screenshots, Mobile and Compatibility (`C:/tmp/vs1/`): the menu, Weather, Audio, Haptics, Save.
 
 ### VS.2 Statistics v0 (subset of M15)
 - [ ] Panel with population, food days-of-stock, water, wood, stone, average health, mood, weather now; sparkline per stat from `StatsRecorder`.
