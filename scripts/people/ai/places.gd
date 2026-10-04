@@ -396,6 +396,11 @@ func set_visited_cells(cells: Array) -> void:
 
 
 func _cell(tile: Vector2i) -> Vector2i:
+	return cell_of(tile)
+
+
+## The square (of VISIT_CELL tiles) `tile` is in.
+static func cell_of(tile: Vector2i) -> Vector2i:
 	return Vector2i(floori(float(tile.x) / VISIT_CELL), floori(float(tile.y) / VISIT_CELL))
 
 

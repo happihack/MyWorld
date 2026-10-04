@@ -13,6 +13,9 @@ extends Node
 ## Emitted by shutdown() while the world is still active, so listeners (e.g.
 ## SaveManager) can persist it on every orderly exit path.
 signal about_to_close
+## The box has unfolded (M13.2): the walls stand at `new_bounds` now (they
+## stood at `old_bounds`). Everything of the world was opened again for it.
+signal unfolded(old_bounds: Rect2i, new_bounds: Rect2i)
 
 const FORMAT_KEYS: PackedStringArray = ["world_id", "world_seed", "created_unix", "clock", "ids", "rng"]
 const DEFAULT_TEMPLATE_ID := &"river_valley"
@@ -132,6 +135,12 @@ var events: EventLog
 var chronicle: Chronicler
 ## The world's numbers, hour by hour.
 var stats: StatsRecorder
+## When the box unfolds (M13.2).
+var unfolder := BoxUnfolder.new()
+## It is time to unfold: done at the next step (not inside the clock's own signal).
+var unfold_pending := false
+## The size of a new world's box (tiles; 0: Config.world.initial_world_tiles).
+var _start_size := 0
 ## Makes time pass for all of that, in turns and within a budget.
 var simulation: SimulationManager
 var _saved_water: Dictionary = {} # the water's books from a save, until the water is bound
@@ -365,9 +374,12 @@ func _init() -> void:
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
 ## until the world is livable; an explicit seed is always used as given.
-func create_new(seed_value: int = 0) -> void:
+func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	if is_active:
 		shutdown()
+	_start_size = size_tiles
+	unfolder = BoxUnfolder.new()
+	unfold_pending = false
 	created_unix = int(Time.get_unix_time_from_system())
 	clock = GameClock.new(Config.time)
 	template_id = DEFAULT_TEMPLATE_ID
@@ -501,6 +513,10 @@ func load_from(data: Dictionary) -> bool:
 			_saved_chronicle = state["chronicle"]
 		if typeof((state as Dictionary).get("stats")) == TYPE_DICTIONARY:
 			_saved_stats = state["stats"]
+		unfolder = BoxUnfolder.new()
+		unfold_pending = false
+		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
+			unfolder.from_dict(state["unfolder"])
 		if typeof((state as Dictionary).get("animals")) == TYPE_DICTIONARY:
 			_saved_animals = state["animals"]
 		if typeof((state as Dictionary).get("farming")) == TYPE_DICTIONARY:
@@ -599,6 +615,7 @@ func to_dict() -> Dictionary:
 			"events": events.to_dict(),
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
+			"unfolder": unfolder.to_dict(),
 			"weather": weather.to_dict(),
 			"hydrology": hydrology.to_dict(),
 			"powers": powers.to_dict(),
@@ -639,6 +656,40 @@ func shutdown() -> void:
 	EventBus.world_unloaded.emit()
 
 
+## Unfolds the box if it is time (checked once a day; done here, between
+## steps). Returns whether it did. (The soak calls it too.)
+func unfold_if_due() -> bool:
+	if not unfold_pending:
+		return false
+	unfold_pending = false
+	return unfold()
+
+
+## The box unfolds (M13.2, bible §8.6): a ring of chunks all round, the walls
+## moved out, and history says so ("The edge of the world has moved"). The
+## world is written down and opened again as it now is — every part of it
+## the size of the new box, the new land as the generator makes it (its trees,
+## rocks and water as everywhere else). False if it is as large as it may be.
+func unfold() -> bool:
+	if not is_active:
+		return false
+	var old := world.bounds
+	var grown := old.grow(world.chunk_size)
+	if grown.size.x > Config.world.max_world_tiles or grown.size.y > Config.world.max_world_tiles:
+		return false
+	unfolder.note(clock.tick)
+	var at := Vector2(start.settlement_tile) + Vector2(0.5, 0.5) if start != null else Vector2.INF
+	events.record(&"edge_moved", {"from": old.size.x, "to": grown.size.x, "position": at})
+	world.bounds = grown
+	var data := to_dict()
+	if not load_from(data):
+		Log.error(Log.Category.WORLD, "The box could not unfold", {"from": old, "to": grown})
+		return false
+	Log.info(Log.Category.WORLD, "The box unfolded", {"from": old.size, "to": grown.size})
+	unfolded.emit(old, grown)
+	return true
+
+
 ## Freeing the session always closes the world cleanly.
 func _exit_tree() -> void:
 	shutdown()
@@ -646,6 +697,7 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	if is_active:
+		unfold_if_due()
 		simulation.advance(delta)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
@@ -757,7 +809,8 @@ func sample_stats() -> Dictionary:
 func _build_new_world(setup_ids: IdAllocator) -> void:
 	var started := Time.get_ticks_msec()
 	var template := _load_template(template_id)
-	world = WorldData.create_centered(Config.world.initial_world_tiles, Config.world.chunk_size, Config.world.height_step)
+	var size := _start_size if _start_size > 0 else Config.world.initial_world_tiles
+	world = WorldData.create_centered(size, Config.world.chunk_size, Config.world.height_step)
 	generator = WorldGenerator.new(world_seed, template, Config.world)
 	world.set_generator(generator)
 	spatial = SpatialIndex.new(SpatialIndex.FINE_CELL_TILES)
@@ -1186,6 +1239,8 @@ func _apply_pause() -> void:
 
 func _on_day_started(day: int) -> void:
 	EventBus.day_started.emit(day)
+	if not unfold_pending and unfolder.due(world, settlements, people.size(), clock.tick):
+		unfold_pending = true
 
 
 func _on_season_changed(season: int, year: int) -> void:

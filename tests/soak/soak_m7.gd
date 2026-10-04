@@ -74,8 +74,15 @@ func _run() -> void:
 	var changed: Dictionary = {}
 	for person in s.people.all_people():
 		changed[person.id] = 0
-	s.behavior.activity_changed.connect(func(person_id: int, _activity: StringName) -> void:
-		changed[person_id] = s.clock.tick)
+	var watch := func() -> void:
+		s.behavior.activity_changed.connect(func(person_id: int, _activity: StringName) -> void:
+			changed[person_id] = s.clock.tick)
+	watch.call()
+	# (The box unfolds: the world is opened again — its behaviour too. Watched anew, everyone fresh.)
+	s.unfolded.connect(func(_old: Rect2i, _new: Rect2i) -> void:
+		watch.call()
+		for person in s.people.all_people():
+			changed[person.id] = s.clock.tick)
 	var hungriest := 1.0
 	var fewest: int = people_at_start
 	var most: int = people_at_start
@@ -101,6 +108,7 @@ func _run() -> void:
 			s.behavior.step(1.0)
 			s.pathfinder.serve(1000000)
 			s.movement.step(1.0)
+			s.unfold_if_due() # (M13.2: the box may unfold)
 			if s.nodes.due(s.clock.tick):
 				s.nodes.settle(s.clock.tick)
 			if i % 60 == 0:
@@ -254,6 +262,7 @@ func _run() -> void:
 			own.stockpile.amount(&"tools"), own.tools_made])
 	print("SOAK %s  |  %s" % [s.trade.debug_text(), "; ".join(specialties)])
 	print("SOAK %s" % s.governance.debug_text())
+	print("SOAK box: %d x %d tiles, unfolded %d times" % [s.world.bounds.size.x, s.world.bounds.size.y, s.unfolder.count])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

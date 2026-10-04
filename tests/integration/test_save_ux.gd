@@ -136,11 +136,11 @@ func test_a_new_world_and_back_to_the_first() -> void:
 	var menu := await _save_page(main)
 	assert_false(menu.texts().has("Continue another world"), "only one world")
 	await _press(menu, "New world")
-	assert_eq(menu.page(), MainMenu.PAGE_CONFIRM, "asked first")
+	assert_eq(menu.page(), MainMenu.PAGE_NEW_WORLD, "asked first (and how large a box)")
 	await _press(menu, "Cancel")
 	assert_eq(menu.page(), MainMenu.PAGE_SAVE)
 	await _press(menu, "New world")
-	await _press(menu, "Yes, a new world")
+	await _press(menu, "A box 64 tiles across (as usual)")
 	main = await _after_switch()
 	var second_id: String = (main.get_node("WorldSession") as WorldSession).world_id
 	assert_ne(second_id, first_id)

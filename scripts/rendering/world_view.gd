@@ -46,6 +46,11 @@ var _chunk_order: Array[Vector2i] = []
 var _water_cursor := 0
 var _water_wait := 0
 
+## The walls moving out after the box unfolded (M13.2): from, seconds, how far.
+var _unfold_from := Rect2i()
+var _unfold_seconds := 0.0
+var _unfold_time := 0.0
+
 ## Frames between two water mesh rebuilds.
 const WATER_REBUILD_EVERY_FRAMES := 3
 
@@ -390,7 +395,36 @@ func refresh_dirty_props() -> int:
 	return rebuilt
 
 
+## The box has unfolded: its walls move out from `from` to where they stand
+## now, over `seconds` (at once with reduced motion).
+func animate_unfold(from: Rect2i, seconds: float) -> void:
+	if _world == null:
+		return
+	_unfold_from = from
+	_unfold_seconds = 0.0 if _rig.reduced_motion else seconds
+	_unfold_time = 0.0
+	_step_unfold(0.0)
+
+
+func is_unfolding() -> bool:
+	return _unfold_from.has_area()
+
+
+func _step_unfold(delta: float) -> void:
+	_unfold_time += delta
+	var t := 1.0 if _unfold_seconds <= 0.0 else smoothstep(0.0, 1.0, _unfold_time / _unfold_seconds)
+	var to := _world.bounds
+	var start := Vector2(_unfold_from.position).lerp(Vector2(to.position), t)
+	var end := Vector2(_unfold_from.end).lerp(Vector2(to.end), t)
+	var walls := Rect2i(Vector2i(roundi(start.x), roundi(start.y)), Vector2i(roundi(end.x - start.x), roundi(end.y - start.y)))
+	_frame.build(walls, _frame.box_height)
+	if t >= 1.0:
+		_unfold_from = Rect2i()
+
+
 func _process(_delta: float) -> void:
+	if _unfold_from.has_area():
+		_step_unfold(_delta)
 	# Ground that has changed is drawn anew (several tiles in one frame: once).
 	if _ground_dirty:
 		_ground_dirty = false

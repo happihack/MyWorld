@@ -38,6 +38,9 @@ const PAGE_SAVE := &"save"
 const PAGE_WORLDS := &"worlds"
 const PAGE_BACKUPS := &"backups"
 const PAGE_CONFIRM := &"confirm"
+const PAGE_NEW_WORLD := &"new_world"
+## The boxes a new world can begin in (tiles across; M13.2 — the first is the usual).
+const NEW_WORLD_SIZES: Array[int] = [64, 128, 256]
 
 ## The volumes on the Audio page, and how far a step moves them.
 const VOLUMES: Array[StringName] = [&"audio/master", &"audio/ambience", &"audio/sfx", &"audio/ui"]
@@ -208,13 +211,21 @@ func _show() -> void:
 				_show())
 			if not other_worlds(_session).is_empty():
 				_entry(MemoryText.translate("MENU_CONTINUE"), func() -> void: open_page(PAGE_WORLDS))
-			_entry(MemoryText.translate("MENU_NEW_WORLD"), func() -> void:
-				ask(MemoryText.translate("MENU_NEW_WORLD_ASK"), MemoryText.translate("MENU_NEW_WORLD_YES"), func() -> void:
-					world_requested.emit({"kind": "new"}, false)))
+			_entry(MemoryText.translate("MENU_NEW_WORLD"), func() -> void: open_page(PAGE_NEW_WORLD))
 			_entry(MemoryText.translate("MENU_BACKUPS"), func() -> void: open_page(PAGE_BACKUPS))
 			_entry(MemoryText.translate("MENU_RESET"), func() -> void:
 				ask(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
 					world_requested.emit({"kind": "new"}, true)))
+		PAGE_NEW_WORLD:
+			_title.text = MemoryText.translate("MENU_NEW_WORLD")
+			_line(MemoryText.translate("MENU_NEW_WORLD_ASK"))
+			for tiles in NEW_WORLD_SIZES:
+				var size := tiles
+				var key := "MENU_BOX_USUAL" if size == NEW_WORLD_SIZES[0] else "MENU_BOX_LARGER"
+				_entry(MemoryText.translate(key).format({"tiles": size}), func() -> void:
+					AudioManager.play_ui(&"ui_tap")
+					world_requested.emit({"kind": "new", "size": size}, false))
+			_entry(MemoryText.translate("MENU_NO"), func() -> void: back())
 		PAGE_WORLDS:
 			_title.text = MemoryText.translate("MENU_CONTINUE")
 			var now_unix := int(Time.get_unix_time_from_system())

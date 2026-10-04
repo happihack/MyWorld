@@ -51,6 +51,9 @@ var _last_voice_msec := 0
 ## The file the world came from when it was not its world.sav (its save was
 ## unusable: brought back from a backup), "" otherwise.
 var restored_from := ""
+## The box has just unfolded (M13.2): where its walls stood before (an empty
+## rect otherwise). The walls move out from there as the world is shown.
+var unfolded_from := Rect2i()
 ## The first opening of the box (VS.4; null once it is over, or if it was seen).
 var intro: BoxIntro
 ## Whom the first opening comes down to (chosen when the camera starts down).
@@ -127,6 +130,9 @@ func _ready() -> void:
 		world_view.show_other_fires(session.settlements.all().filter(func(own: Settlement) -> bool: return own != session.settlement))
 	light_others.call()
 	session.migration.founded.connect(func(_own: Settlement, _journey: Dictionary) -> void: light_others.call())
+	# The box unfolds (M13.2): the world is opened again at its new size, and shown so.
+	session.unfolded.connect(func(old: Rect2i, _new: Rect2i) -> void:
+		switch_world({"kind": "world", "world_id": session.world_id, "unfolded_from": old}))
 	session.migration.abandoned.connect(func(_id: int, _name: String, _at: Vector2i) -> void: light_others.call())
 	session.interactions.responded.connect(func(response: InteractionResponse) -> void:
 		if response != null and response.person_id != 0 and response.effect == InteractionResponse.PERSON_TOUCH:
@@ -625,6 +631,18 @@ func _on_gesture(gesture: Gesture) -> void:
 ## close enough that dragging explores. With reduced motion the view simply
 ## starts there.
 func _begin_opening() -> void:
+	if unfolded_from.has_area():
+		# The box has unfolded: the whole box, its walls moving out, and history's word for it.
+		world_view.camera_rig().frame_box(false)
+		world_view.animate_unfold(unfolded_from, Config.world.unfold_seconds)
+		var moved := session.events.of_type(&"edge_moved")
+		if not moved.is_empty():
+			var notice := Notice.new()
+			notice.kind = &"edge_moved"
+			notice.text = EventText.text(moved[-1], session.people, session.events)
+			notice.priority = 0.95
+			NotificationManager.offer_notice(notice)
+		return
 	if session.start == null or session.start.campfire_id == 0:
 		return
 	if Config.interaction.first_opening and not ui_root.hints().is_completed(HintDirector.INTRO):
@@ -844,7 +862,7 @@ func _open_world() -> void:
 	var plan := SaveManager.take_open_next()
 	match String(plan.get("kind", "")):
 		"new":
-			session.create_new()
+			session.create_new(0, int(plan.get("size", 0)))
 			SaveManager.save_world(session, &"new_world")
 			return
 		"loaded": # a backup gone back to: it is the world now (and what was is a backup)
@@ -856,6 +874,8 @@ func _open_world() -> void:
 			var other := SaveManager.load_world(String(plan.get("world_id", "")))
 			if other.ok and session.load_from(other.world):
 				restored_from = other.source if other.source != SaveManager.SAVE_FILE else ""
+				if typeof(plan.get("unfolded_from")) == TYPE_RECT2I:
+					unfolded_from = plan["unfolded_from"]
 				return
 	# Newest first; skip worlds that cannot be loaded (e.g. corrupt with a
 	# misleadingly recent header) instead of abandoning continuity.
