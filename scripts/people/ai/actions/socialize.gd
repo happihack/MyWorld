@@ -35,7 +35,7 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 
 func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float) -> Status:
 	var partner := ctx.people.get_person(int(step.get("partner", 0)))
-	if partner == null or partner.has_flag(PersonData.FLAG_INDOORS) \
+	if partner == null or partner.has_flag(PersonData.FLAG_INDOORS) or partner.pose == PersonData.Pose.SLEEP \
 			or partner.world2d().distance_to(person.world2d()) > EARSHOT:
 		# They left (or went to bed): what was said was said.
 		return Status.DONE if may_end_early(step) else Status.FAILED

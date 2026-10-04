@@ -9,6 +9,7 @@ shader_type spatial;
 render_mode blend_mix, cull_back, depth_draw_opaque, specular_schlick_ggx;
 
 #include "res://assets/shaders/clouds.gdshaderinc"
+#include "res://assets/shaders/fog.gdshaderinc"
 
 uniform vec3 shallow_color : source_color = vec3(0.40, 0.74, 0.86);
 uniform vec3 deep_color : source_color = vec3(0.13, 0.40, 0.68);
@@ -28,11 +29,13 @@ uniform vec3 ice_color : source_color = vec3(0.80, 0.89, 0.95);
 varying float v_depth;
 varying float v_shore;
 varying float v_cloud;
+varying float v_known;
 
 void vertex() {
 	v_depth = COLOR.r;
 	v_shore = COLOR.g;
 	v_cloud = cloud_light(UV, TIME);
+	v_known = fog_known(UV);
 	float t = TIME * wave_speed;
 	float wave = sin(UV.x * 1.7 + t * 1.3) + sin(UV.y * 2.1 - t);
 	// Open water bobs gently; the shoreline stays put so it never lifts off the bank.
@@ -60,7 +63,7 @@ void fragment() {
 
 	// Ice: pale, dull, and it hides what is under it.
 	color = mix(color, ice_color, ice * 0.9);
-	ALBEDO = color * v_cloud;
+	ALBEDO = fog_apply(color * v_cloud, v_known);
 	ROUGHNESS = mix(0.18, 0.55, ice);
 	SPECULAR = 0.5;
 	METALLIC = 0.0;

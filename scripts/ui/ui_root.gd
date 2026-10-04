@@ -280,6 +280,11 @@ func open_menu() -> MainMenu:
 	menu.map_requested.connect(func() -> void:
 		_tick()
 		open_map())
+	menu.place_chosen.connect(func(world_xz: Vector2) -> void:
+		_tick()
+		menu.close()
+		if camera_mover.is_valid():
+			camera_mover.call(world_xz, true))
 	menu.world_requested.connect(func(plan: Dictionary, erase_this: bool) -> void:
 		menu.close()
 		world_requested.emit(plan, erase_this))

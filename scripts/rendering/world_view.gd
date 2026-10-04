@@ -51,6 +51,16 @@ var _unfold_from := Rect2i()
 var _unfold_seconds := 0.0
 var _unfold_time := 0.0
 
+## What is known of the box (M13.4): a texel a tile, drawn into the shaders'
+## fog (land nobody knows dimmed and greyed).
+var _knowledge: FogOfKnowledge
+var _fog_image: Image
+var _fog_texture: ImageTexture
+var _fog_dirty: Dictionary = {} # chunk coord -> true
+var _seen_in := 0.0
+## The player's look about is noted this often (seconds).
+const SEEN_EVERY := 0.5
+
 ## Frames between two water mesh rebuilds.
 const WATER_REBUILD_EVERY_FRAMES := 3
 
@@ -406,6 +416,75 @@ func animate_unfold(from: Rect2i, seconds: float) -> void:
 	_step_unfold(0.0)
 
 
+## Shows what is known of the box (call after show_world).
+func show_knowledge(knowledge: FogOfKnowledge) -> void:
+	_knowledge = knowledge
+	if _world == null or knowledge == null:
+		return
+	var b := _world.bounds
+	_fog_image = Image.create(b.size.x, b.size.y, false, Image.FORMAT_L8)
+	for y in b.size.y:
+		for x in b.size.x:
+			_fog_image.set_pixel(x, y, Color.WHITE if knowledge.is_known(b.position + Vector2i(x, y)) else Color.BLACK)
+	_fog_texture = ImageTexture.create_from_image(_fog_image)
+	for material: ShaderMaterial in [_terrain_material, _prop_material, _water_material]:
+		material.set_shader_parameter(&"fog_map", _fog_texture)
+		material.set_shader_parameter(&"fog_rect", Vector4(b.position.x, b.position.y, b.size.x, b.size.y))
+		material.set_shader_parameter(&"fog_strength", Config.world.fog_strength)
+	knowledge.changed.connect(_on_knowledge_changed)
+
+
+## How known a tile is in the fog texture (1 known, 0 not; for tests).
+func fog_at(tile: Vector2i) -> float:
+	if _fog_image == null:
+		return 1.0
+	return _fog_image.get_pixelv(tile - _world.bounds.position).r
+
+
+func _on_knowledge_changed(coords: Array[Vector2i]) -> void:
+	for coord in coords:
+		_fog_dirty[coord] = true
+
+
+## Draws again the fog of chunks whose knowledge changed; notes what the
+## camera shows close up as seen by the player.
+func _step_fog(delta: float) -> void:
+	if _knowledge == null or _fog_image == null:
+		return
+	_seen_in -= delta
+	if _seen_in <= 0.0:
+		_seen_in = SEEN_EVERY
+		if _rig.distance() <= Config.world.seen_from:
+			var rect := _seen_rect()
+			if rect.has_area():
+				_knowledge.mark_seen(rect)
+	if _fog_dirty.is_empty():
+		return
+	var b := _world.bounds
+	for coord: Vector2i in _fog_dirty:
+		var area := WorldCoords.chunk_rect(coord, _world.chunk_size).intersection(b)
+		for y in range(area.position.y, area.end.y):
+			for x in range(area.position.x, area.end.x):
+				var tile := Vector2i(x, y)
+				_fog_image.set_pixelv(tile - b.position, Color.WHITE if _knowledge.is_known(tile) else Color.BLACK)
+	_fog_dirty.clear()
+	_fog_texture.update(_fog_image)
+
+
+## The ground the camera shows, as tiles (empty when it cannot tell).
+func _seen_rect() -> Rect2i:
+	var screen := _rig.view_size()
+	var low := Vector2(INF, INF)
+	var high := Vector2(-INF, -INF)
+	for corner in [Vector2.ZERO, Vector2(screen.x, 0.0), screen, Vector2(0.0, screen.y)]:
+		var at: Variant = _rig.screen_to_ground(corner)
+		if at == null:
+			return Rect2i()
+		low = Vector2(minf(low.x, (at as Vector3).x), minf(low.y, (at as Vector3).z))
+		high = Vector2(maxf(high.x, (at as Vector3).x), maxf(high.y, (at as Vector3).z))
+	return Rect2i(Vector2i(floori(low.x), floori(low.y)), Vector2i(ceili(high.x - low.x), ceili(high.y - low.y)))
+
+
 func is_unfolding() -> bool:
 	return _unfold_from.has_area()
 
@@ -425,6 +504,7 @@ func _step_unfold(delta: float) -> void:
 func _process(_delta: float) -> void:
 	if _unfold_from.has_area():
 		_step_unfold(_delta)
+	_step_fog(_delta)
 	# Ground that has changed is drawn anew (several tiles in one frame: once).
 	if _ground_dirty:
 		_ground_dirty = false

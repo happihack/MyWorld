@@ -39,6 +39,7 @@ func _init() -> void:
 	name = "Minimap"
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # (a tile a pixel, crisp)
+	clip_contents = true # (the camera's outline stays on the map)
 	add_to_group(InputRouter.UI_BLOCKER_GROUP)
 	_fold = Button.new()
 	_fold.name = "Fold"

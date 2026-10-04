@@ -55,7 +55,8 @@ func note(person_id: int, tick: int, kind: String, detail: String = "", other: i
 	# What they had only just turned to did not come to anything.
 	if not log.is_empty():
 		var last: Array = log[-1]
-		if tick - int(last[TICK]) < BRIEF_MINUTES and not MOMENTS.has(str(last[KIND])) and kind != LIFE and not _same(last, kind, detail, other):
+		# (A moment between two people — a word, a lesson — does not undo it.)
+		if tick - int(last[TICK]) < BRIEF_MINUTES and not MOMENTS.has(str(last[KIND])) and kind != LIFE and kind != "social" and not _same(last, kind, detail, other):
 			log.pop_back()
 	if kind == WAKE and not log.is_empty() and str((log[-1] as Array)[KIND]) == WAKE 			and tick - int((log[-1] as Array)[TICK]) < WAKING_MINUTES:
 		return false

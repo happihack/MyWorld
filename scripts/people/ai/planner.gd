@@ -132,6 +132,10 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var parent := ctx.places.parent_about(person)
 			if parent == null:
 				return []
+			# (Not far from home: a child does not follow an explorer to the frontier, M13.4.)
+			var home: Variant = ctx.places.home_tile(person)
+			if home != null and Vector2(parent.position - (home as Vector2i)).length() > Places.EXPLORE_CHILD_MAX + 2.0:
+				return []
 			var walk := WalkToStep.make(_beside(parent.position, person.position, ctx), person.sub_tile_offset)
 			walk["toward"] = parent.id
 			return [walk, SocializeStep.make(parent.id, snappedf(rng.randf_range(25.0, 50.0), 1.0))]

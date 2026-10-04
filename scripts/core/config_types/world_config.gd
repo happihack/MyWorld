@@ -22,6 +22,12 @@ extends ConfigBase
 ## How long the walls take to move outward (real seconds).
 @export_range(0.1, 10.0, 0.1) var unfold_seconds: float = 3.0
 
+@export_group("Fog of knowledge")
+## How much land nobody knows is dimmed and greyed (0: not at all).
+@export_range(0.0, 1.0, 0.01) var fog_strength: float = 0.6
+## The camera shows the player what it looks at from this close (tiles).
+@export_range(4.0, 200.0, 1.0) var seen_from: float = 30.0
+
 
 func validate() -> PackedStringArray:
 	var p := PackedStringArray()

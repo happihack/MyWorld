@@ -19,6 +19,8 @@ signal timeline_requested
 signal statistics_requested
 ## The map was asked for (M13.3).
 signal map_requested
+## A place was chosen (a region, M13.4): the camera goes there.
+signal place_chosen(world_xz: Vector2)
 ## Another world is to be opened (VS.3): `plan` as SaveManager.open_next;
 ## `erase_this`: this world is erased first (Reset).
 signal world_requested(plan: Dictionary, erase_this: bool)
@@ -41,6 +43,7 @@ const PAGE_WORLDS := &"worlds"
 const PAGE_BACKUPS := &"backups"
 const PAGE_CONFIRM := &"confirm"
 const PAGE_NEW_WORLD := &"new_world"
+const PAGE_REGIONS := &"regions"
 ## The boxes a new world can begin in (tiles across; M13.2 — the first is the usual).
 const NEW_WORLD_SIZES: Array[int] = [64, 128, 256]
 
@@ -171,6 +174,8 @@ func _show() -> void:
 			if _session != null and _session.weather != null:
 				_heading(MemoryText.translate("MENU_WORLD"))
 				_entry(MemoryText.translate("MENU_MAP"), func() -> void: map_requested.emit())
+				if _session.knowledge != null and not _session.knowledge.found_regions().is_empty():
+					_entry(MemoryText.translate("MENU_REGIONS"), func() -> void: open_page(PAGE_REGIONS))
 				_entry(MemoryText.translate("MENU_WEATHER"), func() -> void: open_page(PAGE_WEATHER))
 				_entry(MemoryText.translate("MENU_STATISTICS"), func() -> void: statistics_requested.emit())
 			_heading(MemoryText.translate("MENU_PEOPLE"))
@@ -219,6 +224,11 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_RESET"), func() -> void:
 				ask(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
 					world_requested.emit({"kind": "new"}, true)))
+		PAGE_REGIONS:
+			_title.text = MemoryText.translate("MENU_REGIONS")
+			for row: Array in regions(_session):
+				var at: Vector2 = row[1]
+				_entry(row[0], func() -> void: place_chosen.emit(at))
 		PAGE_NEW_WORLD:
 			_title.text = MemoryText.translate("MENU_NEW_WORLD")
 			_line(MemoryText.translate("MENU_NEW_WORLD_ASK"))
@@ -333,6 +343,18 @@ static func weather_lines(session: WorldSession) -> PackedStringArray:
 			rainy += 1
 	out.append(MemoryText.translate("MENU_RAIN_DAYS").format({"rainy": rainy, "days": days}) if rainy > 0
 		else MemoryText.translate("MENU_NO_RAIN").format({"days": days}))
+	return out
+
+
+## The regions the world has found, the largest first: [[text, centre], …]
+## ("the eastern hills · 40% explored").
+static func regions(session: WorldSession) -> Array:
+	var out: Array = []
+	if session == null or session.knowledge == null:
+		return out
+	for region in session.knowledge.found_regions():
+		out.append([MemoryText.translate("MENU_REGION_ROW").format({"name": region.name.substr(0, 1).to_upper() + region.name.substr(1),
+			"explored": roundi(session.knowledge.explored_share(region) * 100.0)}), region.centre])
 	return out
 
 

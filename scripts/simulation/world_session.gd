@@ -137,6 +137,9 @@ var chronicle: Chronicler
 var stats: StatsRecorder
 ## When the box unfolds (M13.2).
 var unfolder := BoxUnfolder.new()
+## What is known of the box: seen, explored, mapped; its regions (M13.4).
+var knowledge := FogOfKnowledge.new()
+var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
 ## The size of a new world's box (tiles; 0: Config.world.initial_world_tiles).
@@ -517,6 +520,7 @@ func load_from(data: Dictionary) -> bool:
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
 			unfolder.from_dict(state["unfolder"])
+		_saved_knowledge = state["knowledge"] if typeof((state as Dictionary).get("knowledge")) == TYPE_DICTIONARY else {}
 		if typeof((state as Dictionary).get("animals")) == TYPE_DICTIONARY:
 			_saved_animals = state["animals"]
 		if typeof((state as Dictionary).get("farming")) == TYPE_DICTIONARY:
@@ -616,6 +620,7 @@ func to_dict() -> Dictionary:
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
 			"unfolder": unfolder.to_dict(),
+			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
 			"hydrology": hydrology.to_dict(),
 			"powers": powers.to_dict(),
@@ -654,6 +659,16 @@ func shutdown() -> void:
 	migration.add_settlement = Callable()
 	Log.info(Log.Category.WORLD, "World closed", {"world_id": world_id})
 	EventBus.world_unloaded.emit()
+
+
+## Someone has found a region nobody had seen (M13.4): history says so.
+func _on_region_found(person_id: int, region_id: int) -> void:
+	var region := knowledge.regions.get_region(region_id)
+	if region == null:
+		return
+	var person := people.get_person(person_id)
+	events.record(&"region_found", {"participants": [person_id], "place": region.name, "position": region.centre,
+		"settlement": person.settlement_id if person != null else 0})
 
 
 ## Unfolds the box if it is time (checked once a day; done here, between
@@ -699,6 +714,7 @@ func _process(delta: float) -> void:
 	if is_active:
 		unfold_if_due()
 		simulation.advance(delta)
+		knowledge.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1096,6 +1112,20 @@ func _activate() -> void:
 	_saved_events = {}
 	_saved_chronicle = {}
 	_saved_stats = {}
+	# What is known of the box (M13.4): the land about home from the start.
+	knowledge = FogOfKnowledge.new()
+	knowledge.bind(world, people)
+	knowledge.from_dict(_saved_knowledge)
+	knowledge.settle()
+	_saved_knowledge = {}
+	if start != null:
+		knowledge.know_home(start.settlement_tile)
+	knowledge.found.connect(_on_region_found)
+	knowledge.at_the_edge.connect(func(person_id: int, _tile: Vector2i) -> void:
+		var person := people.get_person(person_id)
+		var own := settlements.of(person) if person != null else null
+		if own != null:
+			own.learn(&"the_edge", person_id, clock.tick))
 	ai.settlement = settlement
 	ai.rng = rng.stream(&"ai")
 	ai.story_rng = rng.stream(&"stories")

@@ -113,6 +113,7 @@ func _run() -> void:
 				s.nodes.settle(s.clock.tick)
 			if i % 60 == 0:
 				s.stats.advance_to(s.clock.tick)
+				s.knowledge.advance_to(s.clock.tick)
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
 				var food_days: float = s.settlement.days_of_food()
@@ -262,7 +263,8 @@ func _run() -> void:
 			own.stockpile.amount(&"tools"), own.tools_made])
 	print("SOAK %s  |  %s" % [s.trade.debug_text(), "; ".join(specialties)])
 	print("SOAK %s" % s.governance.debug_text())
-	print("SOAK box: %d x %d tiles, unfolded %d times" % [s.world.bounds.size.x, s.world.bounds.size.y, s.unfolder.count])
+	print("SOAK box: %d x %d tiles, unfolded %d times; regions found %d of %d, the edge %s" % [s.world.bounds.size.x, s.world.bounds.size.y,
+		s.unfolder.count, s.knowledge.discovered.size(), s.knowledge.regions.regions.size(), "reached" if s.knowledge.edge_reached else "not reached"])
 	for myth: Dictionary in s.culture.myths():
 		print("SOAK   myth %s: %s/%s %s, %d believers, formed day %d" % [myth["id"], myth["subject"], myth["agent"], myth["sentiment"],
 			int(myth["believers"]), int(myth["formed"]) / 1440])

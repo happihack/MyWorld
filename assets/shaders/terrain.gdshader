@@ -4,6 +4,7 @@ shader_type spatial;
 render_mode world_vertex_coords, cull_back;
 
 #include "res://assets/shaders/clouds.gdshaderinc"
+#include "res://assets/shaders/fog.gdshaderinc"
 
 // How wet the ground is from rain (0..1): wet earth is darker.
 uniform float wetness : hint_range(0.0, 1.0) = 0.0;
@@ -32,7 +33,7 @@ void vertex() {
 		color = pow(color, vec3(2.2));
 	}
 	color *= mix(vec3(1.0), vec3(0.74, 0.78, 0.84), wetness);
-	v_color = color * cloud_light(VERTEX.xz, TIME);
+	v_color = fog_apply(color * cloud_light(VERTEX.xz, TIME), fog_known(VERTEX.xz));
 }
 
 void fragment() {

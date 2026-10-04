@@ -72,6 +72,7 @@ func _ready() -> void:
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
 	world_view.show_weather(session.weather, session.clock)
+	world_view.show_knowledge(session.knowledge)
 	# The minimap and the map (M13.3): where they send the camera, whom they mark.
 	ui_root.camera_mover = func(world_xz: Vector2, animate: bool) -> void:
 		follow.pause()

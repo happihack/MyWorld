@@ -3,14 +3,12 @@ extends RefCounted
 ## The world seen from above (M13.3; built on the debug WorldPreview): one
 ## pixel per tile — the ground's colour by its kind and height, the water's
 ## by its depth — with what nobody of the world has explored dimmed (bible
-## §8.7: unknown land is dimmed, never black). Drawn chunk by chunk: a chunk
-## whose ground, water or exploring changed is drawn again, a few each frame.
+## §8.7: unknown land is dimmed, never black; the world's knowledge, M13.4:
+## FogOfKnowledge). Drawn chunk by chunk: a chunk whose ground, water or
+## knowledge changed is drawn again, a few each frame.
 
 ## Chunks drawn again per refresh() call (the first drawing is spread out so).
 const CHUNKS_PER_REFRESH := 12
-## What has been seen from where someone has been: this many of Places'
-## squares all round (bible §8.7: visited *or seen*).
-const SEEN_CELLS := 2
 ## What nobody has explored keeps this much of its colour, greyed.
 const UNKNOWN_KEEP := 0.45
 const UNKNOWN_GREY := 0.6
@@ -26,8 +24,6 @@ var texture: ImageTexture
 var _world: WorldData
 var _session: WorldSession
 var _dirty: Dictionary = {} # chunk coord -> true
-var _explored: Dictionary = {} # Places cell -> true (all settlements')
-var _explored_count := -1
 var _max_level := 15
 
 
@@ -41,7 +37,10 @@ func bind(session: WorldSession) -> void:
 	image = Image.create(size.x, size.y, false, Image.FORMAT_RGB8)
 	image.fill(Color(0.1, 0.1, 0.1))
 	texture = ImageTexture.create_from_image(image)
-	_read_explored()
+	if session.knowledge != null:
+		session.knowledge.changed.connect(func(coords: Array[Vector2i]) -> void:
+			for coord in coords:
+				_dirty[coord] = true)
 	mark_all()
 
 
@@ -67,7 +66,6 @@ func pending() -> int:
 func refresh(most: int = CHUNKS_PER_REFRESH) -> int:
 	if _world == null:
 		return 0
-	_read_explored()
 	var done := 0
 	for coord: Vector2i in _dirty.keys():
 		if done >= most:
@@ -106,9 +104,9 @@ func tile_color(tile: Vector2i) -> Color:
 	return color
 
 
-## Has anyone of the world been here (or seen it, close by)?
+## Has anyone of the world been here (or seen it from where they were)?
 func is_explored(tile: Vector2i) -> bool:
-	return _explored.has(Places.cell_of(tile))
+	return _session == null or _session.knowledge == null or _session.knowledge.is_explored(tile)
 
 
 ## The pixel of a tile (image coordinates).
@@ -127,27 +125,3 @@ func _draw_chunk(coord: Vector2i) -> void:
 		for x in range(rect.position.x, rect.end.x):
 			var tile := Vector2i(x, y)
 			image.set_pixelv(pixel_of(tile), tile_color(tile))
-
-
-## What has been explored, all settlements' together; chunks newly explored
-## are drawn again.
-func _read_explored() -> void:
-	if _session == null:
-		return
-	var count := 0
-	for own in _session.settlements.all():
-		if own.places() != null:
-			count += own.places().visited_count()
-	if count == _explored_count:
-		return
-	_explored_count = count
-	for own in _session.settlements.all():
-		if own.places() == null:
-			continue
-		for visited in own.places().visited_cells():
-			for dy in range(-SEEN_CELLS, SEEN_CELLS + 1):
-				for dx in range(-SEEN_CELLS, SEEN_CELLS + 1):
-					var cell: Vector2i = visited + Vector2i(dx, dy)
-					if not _explored.has(cell):
-						_explored[cell] = true
-						mark_tile(cell * Places.VISIT_CELL)

@@ -11,6 +11,7 @@ shader_type spatial;
 render_mode world_vertex_coords, cull_back;
 
 #include "res://assets/shaders/clouds.gdshaderinc"
+#include "res://assets/shaders/fog.gdshaderinc"
 
 uniform float sway_amplitude = 0.055;
 uniform float sway_speed = 1.3;
@@ -100,6 +101,7 @@ void vertex() {
 		v_color = pow(srgb, vec3(2.2));
 	}
 	v_color *= cloud_light(VERTEX.xz, TIME);
+	v_color = fog_apply(v_color, fog_known(VERTEX.xz));
 }
 
 void fragment() {

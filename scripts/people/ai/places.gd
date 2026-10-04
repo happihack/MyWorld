@@ -20,6 +20,8 @@ const EXPLORE_CHILD_MAX := 8.0
 const EXPLORE_TRIES := 10
 ## The world is remembered as visited in squares of this many tiles.
 const VISIT_CELL := 4
+## How much further than EXPLORE_MAX the most adventurous explore (tiles).
+const ADVENTURE_REACH := 12.0
 
 var _world: WorldData
 var _props: PropRegistry
@@ -327,6 +329,11 @@ func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNu
 	var home: Variant = home_tile(person)
 	var center: Vector2i = home if home != null else person.position
 	var farthest := EXPLORE_CHILD_MAX if stage == PersonData.LifeStage.CHILD else EXPLORE_MAX + scouting
+	# The adventurous go further (M13.4: to the frontier, and some to the Edge) —
+	# setting out in the morning, to be back by dark (with any child who keeps them company).
+	var morning := clock == null or Config.time.minute_of_day(clock.tick) < 12 * 60
+	if stage != PersonData.LifeStage.CHILD and morning:
+		farthest += ADVENTURE_REACH * clampf(Traits.value(person.traits, Traits.Axis.ADVENTURE), 0.0, 1.0)
 	var nearest := minf(EXPLORE_MIN, farthest * 0.5)
 	var fallback: Variant = null
 	for attempt in EXPLORE_TRIES:

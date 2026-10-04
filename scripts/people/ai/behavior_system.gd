@@ -415,12 +415,12 @@ func _note_change(person: PersonData, activity: StringName, steps: Array, reason
 		return # (sleeping on)
 	if was_asleep:
 		ctx.day_log.note(person.id, now, DayLog.WAKE)
-	if activity == ACTIVITY_REACT or activity == ACTIVITY_CALLED:
-		return
 	if to_bed:
-		# (Going home at night is going to bed.)
+		# (Going home at night is going to bed — called to it or not.)
 		var hour := ctx.clock.hour() if ctx.clock != null else 12.0
 		ctx.day_log.note(person.id, now, "sleep", "" if SleepStep.is_bedtime_for(person, hour) else "nap")
+		return
+	if activity == ACTIVITY_REACT or activity == ACTIVITY_CALLED:
 		return
 	if activity == &"go_home" and reason == Brain.REASON_UNWELL:
 		detail = "unwell" # (home to rest, hurt or ill)
