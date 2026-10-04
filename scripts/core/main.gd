@@ -115,6 +115,11 @@ func _ready() -> void:
 		debug_overlay.register_section(&"motion", func() -> String: return SensorManager.debug_text())
 	# What happens in the world is told as it happens (and shown where).
 	NotificationManager.bind(session.events, session.people)
+	# Settings that act at once (M14): notices on or off; frames a second at most.
+	_apply_settings()
+	Settings.setting_changed.connect(func(key: StringName, _value: Variant) -> void:
+		if key == &"notifications/toasts" or key == &"graphics/fps_cap":
+			_apply_settings())
 	NotificationManager.quiet = follow.is_following()
 	# (A save that could not be read is told once the notices are bound: binding clears them.)
 	if restored_from != "":
@@ -853,6 +858,11 @@ func look_at_place(place: Vector2) -> void:
 	var tile := Vector2i(floori(place.x), floori(place.y))
 	var height := session.world.get_height(tile) * session.world.height_step if session.world.is_in_bounds(tile) else 0.0
 	rig.focus_on(Vector3(place.x, height, place.y), minf(rig.distance(), Config.camera.home_distance))
+
+
+func _apply_settings() -> void:
+	NotificationManager.enabled = bool(Settings.get_value(&"notifications/toasts"))
+	Engine.max_fps = int(Settings.get_value(&"graphics/fps_cap"))
 
 
 ## Glides the camera home: the largest settlement (M13.5; or frames the box

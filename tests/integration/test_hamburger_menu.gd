@@ -47,7 +47,8 @@ func test_the_sections_of_the_menu() -> void:
 	assert_eq(order, sorted, "in the bible's order")
 	for entry in ["Map", "Weather", "Statistics", "Individuals", "Timeline", "Interaction History", "Audio", "Haptics", "Save"]:
 		assert_true(said.has(entry), entry)
-	assert_false(said.has("CIVILIZATION"), "not there yet: hidden")
+	assert_true(said.has("CIVILIZATION"), "since M14: Settlements, Buildings")
+	assert_false(said.has("Technology") or said.has("Wars") or said.has("Historical Eras"), "not there yet: hidden")
 	# HISTORY's events: the timeline, whose events a tap looks for.
 	_entry_named(menu, "Timeline").pressed.emit()
 	await wait_frames(2)

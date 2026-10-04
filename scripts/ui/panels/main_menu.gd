@@ -15,6 +15,8 @@ signal person_chosen(person_id: int)
 signal motion_requested
 ## The timeline was asked for (M11.3).
 signal timeline_requested
+## The timeline was asked for, through one filter (M14: Major Events, Disasters).
+signal timeline_filter_requested(filter: StringName)
 ## The statistics were asked for (VS.2).
 signal statistics_requested
 ## The map was asked for (M13.3).
@@ -75,6 +77,14 @@ var _confirm: Array = []
 ## The Locate page's search, and what it found.
 var _search: LineEdit
 var _query := ""
+## Individuals (M14): the search, the order and whom it shows.
+var _people_search: LineEdit
+var _people_query := ""
+var _people_sort: StringName = &"name"
+var _people_stage: StringName = &"all"
+var _people_rows: VBoxContainer
+## Sections folded away on the first page (kept while the game runs).
+static var _folded: Dictionary = {}
 
 
 func _init() -> void:
@@ -153,22 +163,35 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	# As tall as what it lists (no more of the world covered than needs be), scrolling beyond.
-	var tallest := view.y - TOP - EDGE_MARGIN - 300.0
+	# Held upright: as tall as what it lists (no more of the world covered than
+	# needs be), scrolling beyond. Turned on its side (M14): a panel down the
+	# side, never covering more than half the world.
+	var landscape := view.x > view.y
+	var tallest := view.y - TOP - EDGE_MARGIN - (EDGE_MARGIN if landscape else 300.0)
 	_scroll.custom_minimum_size.y = 0.0
 	var rest := get_combined_minimum_size().y
 	_scroll.custom_minimum_size.y = clampf(_list.get_combined_minimum_size().y, 0.0, maxf(tallest - rest, 120.0))
-	custom_minimum_size = Vector2(clampf(view.x * 0.82, 300.0, MAX_WIDTH), 0.0)
+	if landscape:
+		_scroll.custom_minimum_size.y = maxf(tallest - rest, 120.0)
+	custom_minimum_size = Vector2(panel_width(view), 0.0)
 	reset_size()
 	position.y = TOP
 	if _slide == null or not _slide.is_running():
 		position.x = EDGE_MARGIN
 
 
+## How wide the panel is on a screen of `view` (M14: down the side, at most
+## half the world covered, when the screen is on its side).
+static func panel_width(view: Vector2) -> float:
+	return clampf(view.x * (0.45 if view.x > view.y else 0.82), 300.0, MAX_WIDTH)
+
+
 # --- the pages --------------------------------------------------------------------------------------
 
 func _show() -> void:
+	# (Out of the list at once: the new page's names must not meet the old one's.)
 	for child in _list.get_children():
+		_list.remove_child(child)
 		child.queue_free()
 	_scroll.scroll_vertical = 0
 	var entry: Array = _stack[-1]
@@ -177,31 +200,30 @@ func _show() -> void:
 	match StringName(entry[0]):
 		PAGE_ROOT:
 			_title.text = MemoryText.translate("MENU_TITLE")
-			if _session != null and _session.weather != null:
-				_heading(MemoryText.translate("MENU_WORLD"))
-				_entry(MemoryText.translate("MENU_LOCATE"), func() -> void: open_page(PAGE_LOCATE))
-				_entry(MemoryText.translate("MENU_MAP"), func() -> void: map_requested.emit())
-				if _session.knowledge != null and not _session.knowledge.found_regions().is_empty():
-					_entry(MemoryText.translate("MENU_REGIONS"), func() -> void: open_page(PAGE_REGIONS))
-				_entry(MemoryText.translate("MENU_WEATHER"), func() -> void: open_page(PAGE_WEATHER))
-				_entry(MemoryText.translate("MENU_STATISTICS"), func() -> void: statistics_requested.emit())
-			_heading(MemoryText.translate("MENU_PEOPLE"))
-			_entry(MemoryText.translate("MENU_INDIVIDUALS"), func() -> void: open_page(PAGE_INDIVIDUALS))
-			_entry(MemoryText.translate("MENU_FAMILIES"), func() -> void: open_page(PAGE_FAMILIES))
-			_entry(MemoryText.translate("MENU_RELATIONSHIPS"), func() -> void: open_page(PAGE_RELATIONSHIPS))
-			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
-			_heading(MemoryText.translate("MENU_HISTORY"))
-			_entry(MemoryText.translate("MENU_TIMELINE"), func() -> void: timeline_requested.emit())
-			_entry(MemoryText.translate("MENU_IMPORTANT"), func() -> void: open_page(PAGE_IMPORTANT))
-			_entry(MemoryText.translate("MENU_FIRSTS"), func() -> void: open_page(PAGE_FIRSTS))
-			_heading(MemoryText.translate("MENU_PLAYER"))
-			_entry(MemoryText.translate("MENU_INTERACTIONS"), func() -> void: history_requested.emit())
-			_heading(MemoryText.translate("MENU_SETTINGS"))
-			_entry(MemoryText.translate("MENU_AUDIO"), func() -> void: open_page(PAGE_AUDIO))
-			_entry(MemoryText.translate("MENU_HAPTICS"), func() -> void: open_page(PAGE_HAPTICS))
-			if SensorManager.feature_enabled():
-				_entry(MemoryText.translate("MENU_MOTION"), func() -> void: motion_requested.emit())
-			_entry(MemoryText.translate("MENU_SAVE"), func() -> void: open_page(PAGE_SAVE))
+			if _session == null:
+				return
+			# The sections (M14, bible §26.5): what each holds now; a tap on a
+			# heading folds it away (or opens it again).
+			for section: Array in MenuPages.sections(self):
+				var key: String = section[0]
+				var folded := bool(_folded.get(key, false))
+				var header := Button.new()
+				header.name = "Section_" + key
+				header.text = MemoryText.translate(key) + (" ▸" if folded else "")
+				header.flat = true
+				header.alignment = HORIZONTAL_ALIGNMENT_LEFT
+				header.focus_mode = Control.FOCUS_NONE
+				header.theme_type_variation = UITheme.DIM
+				header.add_theme_color_override(&"font_color", UITheme.INK_DIM)
+				header.pressed.connect(func() -> void:
+					_folded[key] = not bool(_folded.get(key, false))
+					AudioManager.play_ui(&"ui_tap")
+					_show())
+				_list.add_child(header)
+				if folded:
+					continue
+				for item: Array in section[1]:
+					_entry(MemoryText.translate(item[0]), item[1])
 		PAGE_WEATHER:
 			_title.text = MemoryText.translate("MENU_WEATHER")
 			for text in weather_lines(_session):
@@ -293,9 +315,32 @@ func _show() -> void:
 			_entry(MemoryText.translate("MENU_NO"), func() -> void: back())
 		PAGE_INDIVIDUALS:
 			_title.text = MemoryText.translate("MENU_INDIVIDUALS")
-			for row: Array in individuals(_session):
-				var id: int = row[0]
-				_entry(row[1], func() -> void: person_chosen.emit(id))
+			# Search, order and who (M14).
+			_people_search = LineEdit.new()
+			_people_search.placeholder_text = MemoryText.translate("PEOPLE_SEARCH")
+			_people_search.text = _people_query
+			_people_search.clear_button_enabled = true
+			_people_search.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.6)
+			_people_search.text_changed.connect(func(text: String) -> void:
+				_people_query = text
+				_fill_individuals())
+			_list.add_child(_people_search)
+			var sorts: Array = []
+			for sort in MenuPages.SORTS:
+				sorts.append([MemoryText.translate("SORT_" + String(sort).to_upper()), sort])
+			add_chips(sorts, _people_sort, func(value: Variant) -> void:
+				_people_sort = value
+				_fill_individuals())
+			var stages: Array = []
+			for stage in MenuPages.STAGES:
+				stages.append([MemoryText.translate("STAGE_" + String(stage).to_upper()), stage])
+			add_chips(stages, _people_stage, func(value: Variant) -> void:
+				_people_stage = value
+				_fill_individuals())
+			_people_rows = VBoxContainer.new()
+			_people_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_list.add_child(_people_rows)
+			_fill_individuals()
 		PAGE_FAMILIES:
 			_title.text = MemoryText.translate("MENU_FAMILIES")
 			for root in FamilyTree.families(_session):
@@ -339,7 +384,9 @@ func _show() -> void:
 			for row: Array in rows:
 				var other: int = row[0]
 				_entry(row[1], func() -> void: person_chosen.emit(other))
-
+		_:
+			if not MenuPages.build(self, StringName(entry[0]), entry):
+				_line(MemoryText.translate("MENU_NOTHING_RECORDED"))
 
 ## What the Weather page says: the date, the sky now, what is going on
 ## (a drought, a cold snap, frozen ground) and the rain of the last days.
@@ -525,16 +572,49 @@ static func important(session: WorldSession) -> Array:
 	return out
 
 
-## Everyone living, by name: [[id, "Ama · 34 · Forager"], …].
-static func individuals(session: WorldSession) -> Array:
+## The people the Individuals page lists now (its search, order and whom).
+func _fill_individuals() -> void:
+	for child in _people_rows.get_children():
+		child.queue_free()
+	var rows := individuals(_session, _people_query, _people_sort, _people_stage)
+	for row: Array in rows:
+		var id: int = row[0]
+		var button := _make_entry(row[1], func() -> void: person_chosen.emit(id))
+		_people_rows.add_child(button)
+	if rows.is_empty():
+		var empty := Label.new()
+		empty.text = MemoryText.translate("MENU_NOBODY_YET")
+		_people_rows.add_child(empty)
+	_settling = 3
+
+
+## Everyone living, by name: [[id, "Ama · 34 · Forager"], …] — found by
+## `query` (any case), in the order `sort` ("name", "age": the oldest first,
+## "work"), only those of `stage` ("all", "children", "adults", "elders").
+static func individuals(session: WorldSession, query: String = "", sort: StringName = &"name", stage: StringName = &"all") -> Array:
 	var everyone := session.people.all_people()
-	everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool:
-		return a.given_name < b.given_name or (a.given_name == b.given_name and a.id < b.id))
+	match sort:
+		&"age":
+			everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool:
+				return a.birth_tick < b.birth_tick or (a.birth_tick == b.birth_tick and a.id < b.id))
+		&"work":
+			everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool:
+				return String(a.occupation_id) < String(b.occupation_id) or (a.occupation_id == b.occupation_id and a.given_name < b.given_name))
+		_:
+			everyone.sort_custom(func(a: PersonData, b: PersonData) -> bool:
+				return a.given_name < b.given_name or (a.given_name == b.given_name and a.id < b.id))
 	var out: Array = []
 	var year := Config.time.ticks_per_year()
+	var wanted := query.strip_edges().to_lower()
+	var stages := {&"children": PersonData.LifeStage.CHILD, &"adults": PersonData.LifeStage.ADULT, &"elders": PersonData.LifeStage.ELDER}
 	for person in everyone:
-		var stage := person.life_stage(session.clock.tick, year, Config.people)
-		var work := UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage)
+		var stage_now := person.life_stage(session.clock.tick, year, Config.people)
+		var grouped := PersonData.LifeStage.CHILD if stage_now == PersonData.LifeStage.ADOLESCENT else stage_now
+		if stages.has(stage) and grouped != stages[stage]:
+			continue
+		if wanted != "" and not person.full_name().to_lower().contains(wanted):
+			continue
+		var work := UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage_now)
 		out.append([person.id, MemoryText.translate("MENU_PERSON").format({"name": person.full_name(),
 			"age": person.age_years(session.clock.tick, year), "work": work})])
 	return out
@@ -663,7 +743,94 @@ func _volume(key: StringName) -> void:
 	_list.add_child(row)
 
 
+# --- building blocks for the pages (MenuPages) -------------------------------------------------------
+
+func session() -> WorldSession:
+	return _session
+
+
+func set_title(text: String) -> void:
+	_title.text = text
+
+
+func add_heading(text: String) -> void:
+	_heading(text)
+
+
+func add_line(text: String) -> void:
+	_line(text)
+
+
+func add_small(text: String) -> void:
+	_small(text)
+
+
+func add_entry(text: String, pressed: Callable) -> void:
+	_entry(text, pressed)
+
+
+func add_toggle(key: StringName, text_key: String, inverted: bool = false) -> void:
+	_toggle(key, text_key, inverted)
+
+
+## A row of chips, one of them chosen: `options` [[label, value], …]; a tap
+## chooses one (`picked.call(value)`) and the page is drawn again.
+func add_chips(options: Array, chosen: Variant, picked: Callable) -> HFlowContainer:
+	var row := HFlowContainer.new()
+	for option: Array in options:
+		var chip := Button.new()
+		chip.text = option[0]
+		chip.toggle_mode = true
+		chip.button_pressed = option[1] == chosen
+		chip.focus_mode = Control.FOCUS_NONE
+		chip.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.55)
+		var value: Variant = option[1]
+		chip.pressed.connect(func() -> void:
+			AudioManager.play_ui(&"ui_tap")
+			picked.call(value)
+			for other in row.get_children():
+				(other as Button).set_pressed_no_signal(other == chip))
+		row.add_child(chip)
+	_list.add_child(row)
+	return row
+
+
+## A card within the page: a title, its lines, and Locate when it has a place.
+func add_detail(title: String, lines: PackedStringArray, at: Vector2) -> PanelContainer:
+	var card := PanelContainer.new()
+	var box := VBoxContainer.new()
+	card.add_child(box)
+	var head := HBoxContainer.new()
+	box.add_child(head)
+	var name := Label.new()
+	name.text = title
+	name.theme_type_variation = UITheme.TITLE
+	name.add_theme_font_size_override(&"font_size", UITheme.FONT_BODY)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(name)
+	if at.is_finite():
+		var locate := Button.new()
+		locate.name = "Locate"
+		locate.text = MemoryText.translate("LOCATE")
+		locate.focus_mode = Control.FOCUS_NONE
+		locate.pressed.connect(func() -> void: place_chosen.emit(at))
+		head.add_child(locate)
+	for text in lines:
+		var label := Label.new()
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.theme_type_variation = UITheme.DIM
+		label.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
+		box.add_child(label)
+	_list.add_child(card)
+	return card
+
+
 func _entry(text: String, pressed: Callable) -> void:
+	_list.add_child(_make_entry(text, pressed))
+
+
+func _make_entry(text: String, pressed: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -673,7 +840,7 @@ func _entry(text: String, pressed: Callable) -> void:
 	button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.pressed.connect(pressed)
-	_list.add_child(button)
+	return button
 
 
 # --- for tests --------------------------------------------------------------------------------------
@@ -685,9 +852,13 @@ func title_text() -> String:
 ## The page's entries (buttons) and lines (labels), in order.
 func entries() -> Array[Button]:
 	var out: Array[Button] = []
-	for child in _list.get_children():
-		if child is Button and not child.is_queued_for_deletion():
-			out.append(child)
+	var holders: Array = [_list]
+	if page() == PAGE_INDIVIDUALS and is_instance_valid(_people_rows):
+		holders = [_people_rows]
+	for holder: Node in holders:
+		for child in holder.get_children():
+			if child is Button and not child.is_queued_for_deletion() and not String(child.name).begins_with("Section_"):
+				out.append(child)
 	return out
 
 

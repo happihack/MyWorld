@@ -37,6 +37,8 @@ const DEFAULTS := {
 	## The minimap open (true) or folded to a button (M13.3).
 	&"ui/minimap_open": true,
 	&"notifications/system_enabled": false,
+	## Notices (toasts) of what happens in the world (M14).
+	&"notifications/toasts": true,
 	## First-time hints whose action the player has already done, as a
 	## comma-separated list of hint ids (HintDirector).
 	&"ftue/completed": "",

@@ -274,6 +274,9 @@ func open_menu() -> MainMenu:
 	menu.timeline_requested.connect(func() -> void:
 		_tick()
 		open_timeline())
+	menu.timeline_filter_requested.connect(func(filter: StringName) -> void:
+		_tick()
+		open_timeline().set_filter(filter))
 	menu.statistics_requested.connect(func() -> void:
 		_tick()
 		open_statistics())
