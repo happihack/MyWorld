@@ -74,6 +74,7 @@ const TYPE_PATH := &"path_worn"
 const TYPE_MIGRATION := &"migration"
 const TYPE_TRADE_ROUTE := &"trade_route"
 const TYPE_LEARNED := &"knowledge_learned"
+const TYPE_KNOWLEDGE_LOST := &"knowledge_lost"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 const TYPE_MOVED_TO := &"moved_to"
@@ -692,6 +693,14 @@ func on_learned(person_id: int, what: StringName) -> void:
 		return
 	_log.record(TYPE_LEARNED, {"participants": [person_id], "kind": String(what), "position": _place_of(person_id),
 		"settlement": _settlement_id()})
+
+
+## Much of what a settlement knew of something went with someone who died (M16.1).
+func on_knowledge_lost(settlement_id: int, person_id: int, domain: int, _share: float) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_KNOWLEDGE_LOST, {"participants": [person_id], "kind": String(Knowledge.NAMES[domain]),
+		"position": _place_of(person_id), "settlement": settlement_id})
 
 
 ## Feet have worn a path (M12.2): history notes the first.

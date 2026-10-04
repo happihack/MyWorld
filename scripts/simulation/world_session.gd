@@ -137,6 +137,10 @@ var stats: StatsRecorder
 var unfolder := BoxUnfolder.new()
 ## What is known of the box: seen, explored, mapped; its regions (M13.4).
 var knowledge := FogOfKnowledge.new()
+## What people know, in ten domains (M16.1; not to be confused with what the
+## player knows of the box, above).
+var learning := Knowledge.new()
+var _saved_learning: Dictionary = {}
 var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
@@ -256,6 +260,7 @@ func _init() -> void:
 		chronicle.on_joining(journey, from.display_name() if from != null else "", to.display_name() if to != null else ""))
 	migration.abandoned.connect(func(id: int, name: String, at: Vector2i) -> void:
 		chronicle.on_abandoned(id, name, at)
+		learning.forget_settlement(id)
 		_place_settlements())
 	governance = Governance.new()
 	governance.led.connect(func(settlement_id: int, leader_id: int, was: int, why: StringName) -> void:
@@ -300,11 +305,17 @@ func _init() -> void:
 	households = Households.new()
 	lifecycle = Lifecycle.new()
 	lifecycle.born.connect(chronicle.on_born)
+	learning.lost.connect(chronicle.on_knowledge_lost)
+	# What goes wrong teaches (M16.1).
+	events.recorded.connect(learning.on_event)
 	lifecycle.died.connect(func(person_id: int, cause: StringName, causes: Array) -> void:
 		var obituary := chronicle.on_died(person_id, cause, causes)
 		var record := archive.get_record(person_id)
 		if obituary != null and record != null:
 			record.obituary_event = obituary.id)
+	# What only the dying knew goes with them (they are still counted here).
+	lifecycle.died.connect(func(person_id: int, _cause: StringName, _causes: Array) -> void:
+		learning.on_dying(person_id))
 	lifecycle.partnered.connect(chronicle.on_partnered)
 	lifecycle.came_of_age.connect(chronicle.on_came_of_age)
 	lifecycle.injured.connect(chronicle.on_injured)
@@ -341,6 +352,7 @@ func _init() -> void:
 	behavior = BehaviorSystem.new()
 	perception = PerceptionSystem.new()
 	memories = MemoryStore.new()
+	memories.remembered.connect(learning.on_remembered)
 	interactions.stimulus_emitted.connect(perception.emit)
 	# What the player does startles the animals near it.
 	interactions.stimulus_emitted.connect(func(stimulus: Stimulus) -> void:
@@ -514,6 +526,7 @@ func load_from(data: Dictionary) -> bool:
 			_saved_chronicle = state["chronicle"]
 		if typeof((state as Dictionary).get("stats")) == TYPE_DICTIONARY:
 			_saved_stats = state["stats"]
+		_saved_learning = state["learning"] if typeof((state as Dictionary).get("learning")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -617,6 +630,7 @@ func to_dict() -> Dictionary:
 			"events": events.to_dict(),
 			"chronicle": chronicle.to_dict(),
 			"stats": stats.to_dict(),
+			"learning": learning.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -713,6 +727,7 @@ func _process(delta: float) -> void:
 		unfold_if_due()
 		simulation.advance(delta)
 		knowledge.advance_to(clock.tick)
+		learning.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1194,6 +1209,9 @@ func _activate() -> void:
 	governance.significance = significance
 	governance.from_dict(_saved_governance)
 	_saved_governance = {}
+	learning.bind(people, settlements, clock.tick)
+	learning.from_dict(_saved_learning)
+	_saved_learning = {}
 	ai.governance = governance
 	interactions.governance = governance
 	for own in settlements.all():

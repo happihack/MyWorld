@@ -189,6 +189,7 @@ func _ready() -> void:
 		return "%s\n%s\n%s" % [session.events.debug_text(3), NotificationManager.debug_text(), session.stats.debug_text()])
 	debug_overlay.register_section(&"farming", func() -> String:
 		return session.farming.debug_text(session.clock.tick))
+	debug_overlay.register_section(&"knowledge", func() -> String: return session.learning.debug_text())
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():
