@@ -51,6 +51,16 @@ var _last_voice_msec := 0
 ## The file the world came from when it was not its world.sav (its save was
 ## unusable: brought back from a backup), "" otherwise.
 var restored_from := ""
+## The first opening of the box (VS.4; null once it is over, or if it was seen).
+var intro: BoxIntro
+## Whom the first opening comes down to (chosen when the camera starts down).
+var _intro_person := 0
+## The touch that skipped the first opening does nothing else (until it lifts).
+var _swallowing_touch := false
+## How long the ☰ glows at the first event (seconds).
+const MENU_GLOW_SECONDS := 8.0
+## A tilt at least this strong (of the sensors' 0…1) counts as moving the world, for the hints.
+const TILT_NOTICED := 0.25
 
 
 func _ready() -> void:
@@ -66,6 +76,9 @@ func _ready() -> void:
 	input_router.gesture_recognized.connect(debug_overlay.on_gesture)
 	input_router.touch_began.connect(_on_world_touched)
 	input_router.touch_ended.connect(tools.touch_ended)
+	input_router.touch_ended.connect(func(_position: Vector2) -> void:
+		if _swallowing_touch: # (after the gesture of that same lift, if any)
+			set_deferred(&"_swallowing_touch", false))
 	session.loose_system.landed.connect(_on_object_landed)
 	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
@@ -120,6 +133,12 @@ func _ready() -> void:
 			ui_root.hints().complete(HintDirector.TOUCH))
 	session.interactions.responded.connect(TouchFeedback.play)
 	AudioManager.start_ambience()
+	# The first event: the ☰ glows once (there is something to read in it).
+	if not ui_root.hints().is_completed(HintDirector.MENU_GLOW):
+		session.events.recorded.connect(_on_first_event)
+	SensorManager.tilt_changed.connect(func(tilt: Vector2) -> void:
+		if tilt.length() >= TILT_NOTICED:
+			ui_root.hints().note_tilt())
 	_begin_opening()
 	ui_root.home_pressed.connect(go_home)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
@@ -525,6 +544,8 @@ func _on_power_revealed(id: StringName) -> void:
 ## taps and presses are answered: the view says what is under the finger, the
 ## tool and the session's InteractionManager decide what that means.
 func _on_gesture(gesture: Gesture) -> void:
+	if _swallowing_touch:
+		return
 	if tools.handle_gesture(gesture):
 		ui_root.hints().note_touch() # busy, but carrying a rock is not exploring
 		return
@@ -606,11 +627,69 @@ func _on_gesture(gesture: Gesture) -> void:
 func _begin_opening() -> void:
 	if session.start == null or session.start.campfire_id == 0:
 		return
+	if Config.interaction.first_opening and not ui_root.hints().is_completed(HintDirector.INTRO):
+		_play_intro()
+		return
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):
 		var tile := session.start.settlement_tile
 		world_view.camera_rig().focus_on(Vector3(tile.x + 0.5, 0.0, tile.y + 0.5), Config.camera.home_distance, false)
 		return
 	get_tree().create_timer(OPENING_HOLD_SECONDS).timeout.connect(_opening_glide)
+
+
+## The first opening (bible §26.1): the box opens and the camera comes down
+## to someone walking. Once on this device; a touch skips it.
+func _play_intro() -> void:
+	intro = BoxIntro.new()
+	intro.name = "BoxIntro"
+	add_child(intro)
+	intro.finished.connect(func() -> void:
+		_player_has_touched = false
+		intro.queue_free()
+		intro = null)
+	var figures: Array[Node3D] = [world_view.people_view(), world_view.animals_view()]
+	intro.play(world_view.camera_rig(), world_view.box_frame(), ui_root.hints(), _intro_target,
+		bool(Settings.get_value(&"accessibility/reduced_motion")), ui_root, figures)
+
+
+## Where the one the first opening comes down to stands now: someone walking
+## (a grown-up if there is one), chosen when it is first asked.
+func _intro_target() -> Vector3:
+	var person := session.people.get_person(_intro_person)
+	if person == null:
+		_intro_person = someone_walking()
+		person = session.people.get_person(_intro_person)
+	if person == null:
+		var tile := session.start.settlement_tile
+		return Vector3(tile.x + 0.5, session.world.get_height(tile) * session.world.height_step, tile.y + 0.5)
+	return world_view.people_view().ground_position(person)
+
+
+## Someone on their way somewhere, a grown-up first, nearest the fire first;
+## anyone if nobody walks (0 if there is nobody).
+func someone_walking() -> int:
+	var best := 0
+	var best_score := INF
+	var fire := Vector2(session.start.settlement_tile)
+	var year := Config.time.ticks_per_year()
+	for person in session.people.all_people():
+		var score := Vector2(person.position).distance_to(fire)
+		if not session.movement.is_walking(person.id):
+			score += 1000.0
+		if person.life_stage(session.clock.tick, year, Config.people) != PersonData.LifeStage.ADULT:
+			score += 100.0
+		if score < best_score:
+			best_score = score
+			best = person.id
+	return best
+
+
+func _on_first_event(_event: WorldEvent) -> void:
+	session.events.recorded.disconnect(_on_first_event)
+	if ui_root.hints().is_completed(HintDirector.MENU_GLOW):
+		return
+	ui_root.menu_button().glow(MENU_GLOW_SECONDS)
+	ui_root.hints().done_now(HintDirector.MENU_GLOW)
 
 
 func _opening_glide() -> void:
@@ -621,6 +700,10 @@ func _opening_glide() -> void:
 
 
 func _on_world_touched(_position: Vector2) -> void:
+	if intro != null and intro.is_running():
+		intro.skip()
+		_swallowing_touch = true # (it only ends the opening: what it would have touched has moved)
+		return
 	_player_has_touched = true
 	world_view.camera_rig().stop_motion()
 	ui_root.hints().note_touch()

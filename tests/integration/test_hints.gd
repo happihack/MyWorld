@@ -228,7 +228,8 @@ func test_follow_hint_belongs_to_a_persons_card() -> void:
 	assert_eq(director.current(), &"")
 	director.advance(60.0)
 	assert_eq(director.current(), &"")
-	assert_eq(director.completed().size(), HintDirector.ORDER.size(), "everything learnt: silence from now on")
+	for hint in [HintDirector.DRAG, HintDirector.TOUCH, HintDirector.HOLD, HintDirector.FOLLOW]:
+		assert_true(director.is_completed(hint), "everything learnt: silence from now on (%s)" % hint)
 
 
 func test_with_a_card_open_only_its_own_hint_shows() -> void:
@@ -359,5 +360,5 @@ func test_every_hint_has_text_in_the_quiet_style() -> void:
 		assert_false(text.is_empty(), String(hint))
 		assert_true(text.ends_with("."), "a calm full stop")
 		assert_false(text.contains("!"), "never exclamation-heavy (bible §26.3)")
-		assert_true(text.length() <= 30, "short")
+		assert_true(text.length() <= 45, "short (the bible's longest: 'Something changed when you moved the world.')")
 	assert_eq(UIText.hint(&"unknown"), "")

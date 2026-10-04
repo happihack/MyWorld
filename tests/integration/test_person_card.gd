@@ -791,7 +791,8 @@ func test_the_hints_lead_to_touching_holding_and_following() -> void:
 	_gesture(Gesture.Type.LONG_PRESS, _screen_of(person))
 	await wait_frames(2)
 	assert_true(hints.is_completed(HintDirector.HOLD))
-	assert_eq(hints.completed().size(), HintDirector.ORDER.size())
+	for hint in [HintDirector.DRAG, HintDirector.TOUCH, HintDirector.HOLD, HintDirector.FOLLOW]:
+		assert_true(hints.is_completed(hint), "the first four learnt (%s)" % hint)
 	# With the journal or an inspect card open there are no hints at all.
 	Settings.reset_to_defaults()
 	ui.close_all_panels()

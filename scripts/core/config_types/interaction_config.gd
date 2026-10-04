@@ -35,6 +35,9 @@ extends ConfigBase
 @export_range(0.5, 60.0, 0.5) var hint_idle_seconds: float = 5.0
 ## Idle seconds before a follow-up hint appears once it has become relevant.
 @export_range(0.5, 60.0, 0.5) var hint_follow_up_seconds: float = 2.5
+## The first launch opens the box (BoxIntro, VS.4). (The test runner turns it
+## off: tests of other things start as a later launch does.)
+@export var first_opening := true
 
 
 func validate() -> PackedStringArray:

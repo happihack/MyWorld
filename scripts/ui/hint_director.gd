@@ -4,11 +4,18 @@ extends Node
 ## time, only when it is relevant, and only until the player has done the thing
 ## once — after that it never comes back on this device.
 ##
+##   "Something lives inside."       as the first opening ends (BoxIntro), until the first touch
 ##   "Drag to explore."              after a few idle seconds, until the first pan
 ##   "Try touching someone."         once the player has panned and someone is in view,
 ##                                   until the first touch of a person
 ##   "Hold to learn more."           after the first touch of the world, until the first long press
 ##   "Follow them to see their day." while a person's card is open, until the first follow
+##   "Something changed when you moved the world."  once, after the first tilt (motion on)
+##   "Try tilting the box."          after ~3 minutes of play, until the first tilt (motion on)
+##
+## Not a line but a glow: the ☰ glows softly once at the first event (Main,
+## MENU_GLOW). Nothing waits on the first discovery yet: there are none to
+## make (mysteries come later).
 ##
 ## One at a time, in that order — but a hint that makes no sense right now
 ## (nobody in view to touch) does not hold up the next. A player who does
@@ -20,8 +27,17 @@ const DRAG := &"drag"
 const TOUCH := &"touch_person"
 const HOLD := &"hold"
 const FOLLOW := &"follow"
+const INSIDE := &"inside"
+const MOVED := &"moved"
+const TILT := &"tilt"
+## Not hints, but done once and remembered with them: the first opening of
+## the box (BoxIntro), and the ☰'s glow at the first event.
+const INTRO := &"intro"
+const MENU_GLOW := &"menu_glow"
 ## Hints in the order they are offered.
-const ORDER: Array[StringName] = [DRAG, TOUCH, HOLD, FOLLOW]
+const ORDER: Array[StringName] = [INSIDE, DRAG, TOUCH, HOLD, FOLLOW, MOVED, TILT]
+## "Try tilting the box." after this much play (seconds).
+const TILT_AFTER_SECONDS := 180.0
 const SETTING := &"ftue/completed"
 
 var _label: HintLabel
@@ -34,6 +50,16 @@ var _person_in_view := false
 ## A person's card is open (and nothing else is).
 var _person_card_open := false
 var _current: StringName = &""
+## The first opening is on: no hints until it is over.
+var _intro_running := false
+## The first opening has ended this session: "Something lives inside." is due.
+var _inside_due := false
+## The world was moved (tilted) and that has not been remarked on yet.
+var _moved := false
+## Seconds of play (no panel open) this session.
+var _played := 0.0
+## Are motion controls on? (Their hints only then; tests set it.)
+var motion_enabled: Callable = func() -> bool: return SensorManager.feature_enabled()
 
 
 func _init(label: HintLabel = null) -> void:
@@ -46,14 +72,42 @@ func _process(delta: float) -> void:
 
 # --- what the player does -----------------------------------------------------------------
 
-## A finger landed on the world: the player is not idle.
+## A finger landed on the world: the player is not idle (and has answered
+## "Something lives inside.").
 func note_touch() -> void:
 	_idle = 0.0
+	_moved = false
+	if _inside_due:
+		complete(INSIDE)
+
+
+## The first opening has ended: its line is due.
+func offer_inside() -> void:
+	_inside_due = not is_completed(INSIDE)
+	_idle = 0.0
+
+
+func set_intro_running(running: bool) -> void:
+	_intro_running = running
+	if running:
+		_hide()
+
+
+## The player moved the world (a tilt past the dead zone).
+func note_tilt() -> void:
+	if not bool(motion_enabled.call()):
+		return
+	_idle = 0.0
+	if not is_completed(TILT):
+		complete(TILT)
+	if not is_completed(MOVED) and not _suppressed:
+		_moved = true
 
 
 ## Hook for InputRouter.gesture_recognized.
 func note_gesture(gesture: Gesture) -> void:
 	_idle = 0.0
+	_moved = false
 	match gesture.type:
 		Gesture.Type.DRAG, Gesture.Type.TWO_FINGER_DRAG:
 			complete(DRAG)
@@ -90,9 +144,10 @@ func set_suppressed(suppressed: bool) -> void:
 
 ## Advances idle time. Called every frame; tests call it directly.
 func advance(delta: float) -> void:
-	if _suppressed:
+	if _suppressed or _intro_running:
 		return
 	_idle += delta
+	_played += delta
 	if _current != &"":
 		# Shown, and no longer to the point (the person walked off, a card opened)?
 		if not _relevant(_current):
@@ -104,6 +159,8 @@ func advance(delta: float) -> void:
 		if _label != null:
 			_label.show_text(UIText.hint(next))
 		Log.debug(Log.Category.UI, "Hint shown", {"hint": next})
+		if next == MOVED: # (said once: a remark, not something to do; it stays until they next touch)
+			done_now(MOVED)
 
 
 # --- state --------------------------------------------------------------------------------
@@ -121,6 +178,15 @@ func completed() -> PackedStringArray:
 	return String(Settings.get_value(SETTING)).split(",", false)
 
 
+## Remembers a hint as done without taking it off the screen.
+func done_now(hint: StringName) -> void:
+	if is_completed(hint):
+		return
+	var done := completed()
+	done.append(String(hint))
+	Settings.set_value(SETTING, ",".join(done))
+
+
 ## Marks a hint's action as done: the hint goes away and never returns.
 func complete(hint: StringName) -> void:
 	if _current == hint:
@@ -136,19 +202,28 @@ func complete(hint: StringName) -> void:
 
 ## The first hint that is still needed and makes sense right now.
 func _next_hint() -> StringName:
+	var holding_first := false
 	for hint in ORDER:
 		if is_completed(hint):
 			continue
+		if hint == FOLLOW and holding_first:
+			continue # (a card is opened by holding: that comes first)
 		if _relevant(hint):
 			return hint
 		if hint == HOLD and not _person_card_open:
-			return &"" # nothing to hold yet, and nothing later makes sense before it
+			holding_first = true # nothing to hold yet
 	return &""
 
 
 ## Does a hint make sense as things are?
 func _relevant(hint: StringName) -> bool:
 	match hint:
+		INSIDE:
+			return _inside_due and not _person_card_open
+		MOVED:
+			return _moved and bool(motion_enabled.call())
+		TILT:
+			return _played >= TILT_AFTER_SECONDS and bool(motion_enabled.call()) and not _person_card_open
 		DRAG:
 			return not _person_card_open
 		TOUCH:
@@ -162,7 +237,12 @@ func _relevant(hint: StringName) -> bool:
 
 
 func _delay_for(hint: StringName) -> float:
-	return Config.interaction.hint_idle_seconds if hint == DRAG else Config.interaction.hint_follow_up_seconds
+	match hint:
+		INSIDE, MOVED:
+			return 0.0
+		DRAG:
+			return Config.interaction.hint_idle_seconds
+	return Config.interaction.hint_follow_up_seconds
 
 
 func _hide() -> void:

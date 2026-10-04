@@ -165,6 +165,9 @@ const HINTS := {
 	&"touch_person": "Try touching someone.",
 	&"hold": "Hold to learn more.",
 	&"follow": "Follow them to see their day.",
+	&"inside": "Something lives inside.",
+	&"moved": "Something changed when you moved the world.",
+	&"tilt": "Try tilting the box.",
 }
 
 

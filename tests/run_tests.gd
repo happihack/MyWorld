@@ -260,6 +260,7 @@ func _isolate_environment() -> void:
 	var save_root := _run_dir.path_join("saves")
 	DirAccess.make_dir_recursive_absolute(save_root)
 	root.get_node("Config").save.save_root = save_root
+	root.get_node("Config").interaction.first_opening = false # (test_first_opening turns it on)
 	root.get_node("Settings").use_path(_run_dir.path_join("settings.cfg"))
 
 

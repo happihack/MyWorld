@@ -36,6 +36,13 @@ var thickness := 1.4
 var _wood: MeshInstance3D
 var _brass: MeshInstance3D
 var _glass: MeshInstance3D
+## The lid (VS.4): only seen at the first opening, swinging up on its far
+## hinge (set_lid_open); hidden otherwise.
+var _lid: Node3D
+var _lid_mesh: MeshInstance3D
+## How far the lid swings when fully open (degrees).
+const LID_OPEN_DEGREES := 112.0
+const LID_THICKNESS := 0.7
 
 
 func _init() -> void:
@@ -43,6 +50,14 @@ func _init() -> void:
 	_brass = _make_instance("Brass", _solid_material(0.35, 0.65))
 	_glass = _make_instance("Glass", _glass_material())
 	_glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_lid = Node3D.new()
+	_lid.name = "Lid"
+	add_child(_lid)
+	_lid_mesh = MeshInstance3D.new()
+	_lid_mesh.name = "LidMesh"
+	_lid_mesh.material_override = _solid_material(0.7, 0.0)
+	_lid.add_child(_lid_mesh)
+	_lid.visible = false
 
 
 ## Builds the frame around `world_bounds` (tiles); posts rise to `height`.
@@ -91,6 +106,31 @@ func build(world_bounds: Rect2i, height: float) -> void:
 	glass.quad(Vector3(x0 - p, g0, z0), Vector3(x0 - p, g0, z1), Vector3(x0 - p, g1, z1), Vector3(x0 - p, g1, z0), GLASS_BASE, GLASS)
 	glass.quad(Vector3(x1 + p, g0, z0), Vector3(x1 + p, g0, z1), Vector3(x1 + p, g1, z1), Vector3(x1 + p, g1, z0), GLASS_BASE, GLASS)
 	_glass.mesh = glass.to_mesh()
+
+	# --- the lid: a wooden slab over the whole box, a brass handle at the front,
+	# hinged along the far (north) rail.
+	var reach := p + rail
+	var depth := (z1 + reach) - (z0 - reach)
+	var lid := _Builder.new()
+	lid.box(Vector3(x0 - reach, 0.0, 0.0), Vector3(x1 + reach, LID_THICKNESS, depth), WOOD_DARK, WOOD_LIGHT)
+	lid.box(Vector3(x0 - reach + t, LID_THICKNESS, t), Vector3(x1 + reach - t, LID_THICKNESS + 0.25, depth - t), WOOD, WOOD)
+	var middle := (x0 + x1) * 0.5
+	lid.box(Vector3(middle - t * 1.5, LID_THICKNESS * 0.2, depth), Vector3(middle + t * 1.5, LID_THICKNESS * 0.8, depth + t * 0.6),
+		BRASS, BRASS)
+	_lid_mesh.mesh = lid.to_mesh()
+	_lid.position = Vector3(0.0, top, z0 - reach)
+	_lid.rotation.x = 0.0 # (hidden until an opening shows it)
+
+
+## The lid shown, open by `amount` (0 closed … 1 swung up past upright,
+## away from the camera's usual side); `amount` < 0 hides it.
+func set_lid_open(amount: float) -> void:
+	_lid.visible = amount >= 0.0
+	_lid.rotation.x = -deg_to_rad(LID_OPEN_DEGREES * clampf(amount, 0.0, 1.0))
+
+
+func lid() -> Node3D:
+	return _lid
 
 
 static func glass_opacity(srgb_blending: bool) -> float:

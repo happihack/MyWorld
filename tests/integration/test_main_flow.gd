@@ -375,6 +375,7 @@ func test_touches_are_heard_and_felt() -> void:
 
 
 func test_opening_shows_the_box_then_descends_to_the_settlement() -> void:
+	Settings.set_value(&"ftue/completed", "intro") # (a later launch: the first opening was seen)
 	var main := await _load_main_on_known_world()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()
 	var session: WorldSession = main.get_node("WorldSession")
@@ -398,6 +399,7 @@ func test_opening_shows_the_box_then_descends_to_the_settlement() -> void:
 
 
 func test_opening_glide_is_the_players_to_cancel() -> void:
+	Settings.set_value(&"ftue/completed", "intro")
 	var main := await _load_main_on_known_world()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()
 	_touch(0, Vector2(540, 900), true) # the player touches the world first
@@ -414,6 +416,7 @@ func test_opening_with_reduced_motion_starts_at_the_settlement() -> void:
 	first.queue_free()
 	await wait_frames(2)
 	Settings.set_value(&"accessibility/reduced_motion", true)
+	Settings.set_value(&"ftue/completed", "intro")
 	var main := await _load_main()
 	var rig: CameraRig = main.get_node("WorldView").camera_rig()
 	assert_near(rig.distance(), Config.camera.home_distance, 0.1, "no glide: already there")
