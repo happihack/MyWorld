@@ -72,6 +72,14 @@ func _ready() -> void:
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
 	world_view.show_weather(session.weather, session.clock)
+	# The minimap and the map (M13.3): where they send the camera, whom they mark.
+	ui_root.camera_mover = func(world_xz: Vector2, animate: bool) -> void:
+		follow.pause()
+		var rig := world_view.camera_rig()
+		# (Closer than the whole box: framed, the camera cannot move about.)
+		rig.focus_on(Vector3(world_xz.x, 0.0, world_xz.y), minf(rig.distance(), Config.camera.home_distance), animate)
+	ui_root.minimap().selected = func() -> int: return _selected_id
+	ui_root.minimap().bind(session, world_view.camera_rig())
 	SaveManager.attach(session)
 	ui_root.bind_session(session)
 	_setup_tools()

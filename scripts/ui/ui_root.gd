@@ -57,6 +57,10 @@ var _tool_bar: ToolBar
 var _pins: PinList
 var _follow_banner: FollowBanner
 var _journal_button: JournalButton
+## The minimap (M13.3): bottom right, above the journal.
+var _minimap: Minimap
+## Where the camera is asked to go (Main): Callable(world_xz: Vector2, animate: bool).
+var camera_mover: Callable
 var _speed_control: SpeedControl
 var _toasts: ToastStack
 var _menu_button: MenuButtonRound
@@ -105,6 +109,23 @@ func _ready() -> void:
 	_journal_button.pressed.connect(func() -> void:
 		_tick()
 		toggle_history())
+	# The minimap: above the journal, its corner kept as it folds.
+	_minimap = Minimap.new()
+	_minimap.anchor_left = 1.0
+	_minimap.anchor_right = 1.0
+	_minimap.anchor_top = 1.0
+	_minimap.anchor_bottom = 1.0
+	_minimap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_minimap.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_minimap.offset_right = _home_button.offset_right
+	_minimap.offset_bottom = _journal_button.offset_top - 24.0
+	_minimap.offset_left = _minimap.offset_right - Minimap.SIDE
+	_minimap.offset_top = _minimap.offset_bottom - Minimap.SIDE
+	add_child(_minimap)
+	move_child(_minimap, _panel_layer.get_index())
+	_minimap.move_camera = func(world_xz: Vector2, animate: bool) -> void:
+		if camera_mover.is_valid():
+			camera_mover.call(world_xz, animate)
 	# The clock and the speed of the world: top right.
 	_speed_control = SpeedControl.new()
 	add_child(_speed_control)
@@ -256,6 +277,9 @@ func open_menu() -> MainMenu:
 	menu.statistics_requested.connect(func() -> void:
 		_tick()
 		open_statistics())
+	menu.map_requested.connect(func() -> void:
+		_tick()
+		open_map())
 	menu.world_requested.connect(func(plan: Dictionary, erase_this: bool) -> void:
 		menu.close()
 		world_requested.emit(plan, erase_this))
@@ -454,6 +478,32 @@ func speed_selector() -> SpeedSelector:
 
 
 ## The button that opens the player's history.
+func minimap() -> Minimap:
+	return _minimap
+
+
+## The map (M13.3), in place of any other card.
+func open_map() -> MapPanel:
+	for panel: UIPanel in _panels:
+		if panel is MapPanel and not panel.is_closing():
+			return panel
+	close_all_panels()
+	var panel := MapPanel.new()
+	panel.move_camera = camera_mover
+	open_panel(panel)
+	panel.setup(_session)
+	_toasts.visible = false
+	panel.closed.connect(func() -> void: _toasts.visible = true)
+	return panel
+
+
+func map_panel() -> MapPanel:
+	for panel: UIPanel in _panels:
+		if panel is MapPanel and not panel.is_closing():
+			return panel
+	return null
+
+
 func journal_button() -> JournalButton:
 	return _journal_button
 

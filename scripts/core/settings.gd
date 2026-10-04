@@ -34,6 +34,8 @@ const DEFAULTS := {
 	&"graphics/fps_cap": 60,
 	&"gameplay/gentle_hands": true,
 	&"camera/twist_rotate": false,
+	## The minimap open (true) or folded to a button (M13.3).
+	&"ui/minimap_open": true,
 	&"notifications/system_enabled": false,
 	## First-time hints whose action the player has already done, as a
 	## comma-separated list of hint ids (HintDirector).

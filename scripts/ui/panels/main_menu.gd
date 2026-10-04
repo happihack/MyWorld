@@ -17,6 +17,8 @@ signal motion_requested
 signal timeline_requested
 ## The statistics were asked for (VS.2).
 signal statistics_requested
+## The map was asked for (M13.3).
+signal map_requested
 ## Another world is to be opened (VS.3): `plan` as SaveManager.open_next;
 ## `erase_this`: this world is erased first (Reset).
 signal world_requested(plan: Dictionary, erase_this: bool)
@@ -168,6 +170,7 @@ func _show() -> void:
 			_title.text = MemoryText.translate("MENU_TITLE")
 			if _session != null and _session.weather != null:
 				_heading(MemoryText.translate("MENU_WORLD"))
+				_entry(MemoryText.translate("MENU_MAP"), func() -> void: map_requested.emit())
 				_entry(MemoryText.translate("MENU_WEATHER"), func() -> void: open_page(PAGE_WEATHER))
 				_entry(MemoryText.translate("MENU_STATISTICS"), func() -> void: statistics_requested.emit())
 			_heading(MemoryText.translate("MENU_PEOPLE"))
