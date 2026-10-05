@@ -70,6 +70,8 @@ var props: PropRegistry
 var _people: PersonRegistry
 var _clock: GameClock
 var _occupations: OccupationLibrary
+## The colours someone's culture wears: Callable(person) -> int (M17.1); unset: 0.
+var palette_source := Callable()
 var _rig: CameraRig
 var _pool: EntityViewPool
 var _body_material: ShaderMaterial
@@ -324,8 +326,10 @@ func refresh(delta: float) -> void:
 			if view == null:
 				view = _pool.acquire(id) as PersonView
 				if view != null:
+					view.palette = _palette_of(person)
 					view.bind(person, now, year, Config.people, _occupations, feet)
-			elif ((_refreshes + id) & (DRESS_CHECK_FRAMES - 1)) == 0 					and (view.age_years != person.age_years(now, year) or view.accessory != _accessory_of(person) or view.dyed != person.has_flag(PersonData.FLAG_DYED)):
+			elif ((_refreshes + id) & (DRESS_CHECK_FRAMES - 1)) == 0 					and (view.age_years != person.age_years(now, year) or view.accessory != _accessory_of(person) or view.dyed != person.has_flag(PersonData.FLAG_DYED) or view.palette != _palette_of(person)):
+				view.palette = _palette_of(person)
 				view.dress(person, now, year, Config.people, _occupations)
 			if view != null:
 				view.advance(delta, feet, person.facing)
@@ -448,6 +452,10 @@ func debug_text() -> String:
 
 func _prepare_view(view: Node3D) -> void:
 	(view as PersonView).setup(_body_material, _accessory_material, _shadow_material)
+
+
+func _palette_of(person: PersonData) -> int:
+	return int(palette_source.call(person)) if palette_source.is_valid() else 0
 
 
 func _accessory_of(person: PersonData) -> StringName:

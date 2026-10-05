@@ -89,6 +89,8 @@ var migration: Migration
 var trade: TradeSystem
 ## Who leads each settlement (M12.5; may be null).
 var governance: Governance
+## What makes each settlement's people theirs: traditions, festivals (M17.1).
+var cultures: CultureSystem
 ## Where stone can be broken near a site: site -> [day, tile or null] (a day's memory).
 var rocky_ground: Dictionary = {}
 ## The things lying about (for coming upon what the player moved; may be null).

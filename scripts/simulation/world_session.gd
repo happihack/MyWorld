@@ -148,6 +148,9 @@ var _saved_learning: Dictionary = {}
 var technologies: TechnologyLibrary
 var technology := TechnologySystem.new()
 var _saved_technology: Dictionary = {}
+## What makes each settlement's people theirs: profiles, traditions, festivals (M17.1).
+var cultures := CultureSystem.new()
+var _saved_cultures: Dictionary = {}
 var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
@@ -268,6 +271,7 @@ func _init() -> void:
 	migration.abandoned.connect(func(id: int, name: String, at: Vector2i) -> void:
 		chronicle.on_abandoned(id, name, at)
 		learning.forget_settlement(id)
+		cultures.forget_settlement(id)
 		_place_settlements())
 	governance = Governance.new()
 	governance.led.connect(func(settlement_id: int, leader_id: int, was: int, why: StringName) -> void:
@@ -280,6 +284,14 @@ func _init() -> void:
 		chronicle.on_route_opened(record, from.display_name() if from != null else "", to.display_name() if to != null else ""))
 	# What one settlement knows travels with its loads and its founders (M16.2).
 	trade.traded.connect(technology.on_traded)
+	# Traditions and festivals (M17.1).
+	cultures.tradition_formed.connect(chronicle.on_tradition)
+	cultures.tradition_faded.connect(chronicle.on_tradition_faded)
+	cultures.festival.connect(chronicle.on_festival)
+	migration.founded.connect(cultures.on_founded)
+	weather.condition_changed.connect(func(condition: StringName, active: bool) -> void:
+		if is_active:
+			cultures.on_condition(condition, active, clock.tick))
 	technology.era_entered.connect(chronicle.on_era)
 	# Something new is known: what it changes, at once (M16.3; and see _make_settlement).
 	technology.spread.connect(func(_settlement_id: int, _tech: StringName, _person: int, _from: int) -> void:
@@ -546,6 +558,7 @@ func load_from(data: Dictionary) -> bool:
 			_saved_stats = state["stats"]
 		_saved_learning = state["learning"] if typeof((state as Dictionary).get("learning")) == TYPE_DICTIONARY else {}
 		_saved_technology = state["technology"] if typeof((state as Dictionary).get("technology")) == TYPE_DICTIONARY else {}
+		_saved_cultures = state["cultures"] if typeof((state as Dictionary).get("cultures")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -651,6 +664,7 @@ func to_dict() -> Dictionary:
 			"stats": stats.to_dict(),
 			"learning": learning.to_dict(),
 			"technology": technology.to_dict(),
+			"cultures": cultures.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -749,6 +763,7 @@ func _process(delta: float) -> void:
 		knowledge.advance_to(clock.tick)
 		learning.advance_to(clock.tick)
 		technology.advance_to(clock.tick)
+		cultures.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1106,6 +1121,9 @@ func _activate() -> void:
 		Log.warn(Log.Category.LOAD, "Some saved events were unusable and skipped", {"events": lost_events})
 	chronicle.listening = true
 	chronicle.bind(events, people, props, loose, resources, settlement, farming, Config.events)
+	chronicle.settlement_names = func(id: int) -> String:
+		var own := settlements.get_settlement(id)
+		return own.display_name() if own != null else ""
 	chronicle.from_dict(_saved_chronicle)
 	if bool(_saved_chronicle.get("adopt", false)):
 		chronicle.adopt()
@@ -1250,6 +1268,11 @@ func _activate() -> void:
 	technology.bind(technologies, settlements, learning, clock.tick)
 	technology.from_dict(_saved_technology)
 	_saved_technology = {}
+	cultures.bind(settlements, culture, events, world_seed, clock.tick)
+	cultures.from_dict(_saved_cultures)
+	_saved_cultures = {}
+	ai.cultures = cultures
+	construction.style_of = func(settlement_id: int) -> int: return cultures.architecture_of(settlements.get_settlement(settlement_id))
 	ai.governance = governance
 	interactions.governance = governance
 	for own in settlements.all():

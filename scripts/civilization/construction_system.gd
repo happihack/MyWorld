@@ -30,6 +30,9 @@ const FRAME := 1
 const FRAME_FROM := 0.4
 
 var buildings: BuildingLibrary
+## How a settlement roofs its homes: Callable(settlement id) -> int (the hut's
+## variant, CultureSystem.architecture_of); unset: the band's way.
+var style_of := Callable()
 ## Every settlement (M12.3; null: only the first). Each project is of one.
 var settlements: Settlements
 var _props: PropRegistry
@@ -272,6 +275,9 @@ func _finish(p: Dictionary, now: int) -> void:
 		building.kind = def.prop_kind as PropData.Kind
 		building.tile = tile
 		building.rotation_step = 0
+		# Homes are roofed as their settlement roofs them (M17.1).
+		if def.has_tag("home") and style_of.is_valid():
+			building.variant = int(style_of.call(settlement_of(p)))
 		if not _props.add(building):
 			return
 	var own := _start_of(p)

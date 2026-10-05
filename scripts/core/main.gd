@@ -193,6 +193,10 @@ func _ready() -> void:
 	debug_overlay.register_section(&"technology", func() -> String: return session.technology.debug_text())
 	# Lamps by the doors at night, where they know how (M16.3).
 	world_view.lamps().source = lamp_places
+	# Each culture wears its own colours (M17.1).
+	world_view.people_view().palette_source = func(person: PersonData) -> int:
+		return session.cultures.palette_of(session.settlements.of(person))
+	debug_overlay.register_section(&"cultures", func() -> String: return session.cultures.debug_text())
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():

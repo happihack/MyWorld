@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ActivityDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/ai/activity_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"celebrate"
+base = 0.1
+need_weights = {
+"social": 0.6
+}
+trait_weights = {
+"SOCIABILITY": 0.5
+}
+hours = PackedFloat32Array(0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.5, 0.8, 1.0, 1.0, 1.0, 1.0, 0.6, 0.2)
+requires = Array[StringName]([&"festival"])
+repeat_after_minutes = 0.0

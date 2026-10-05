@@ -133,6 +133,7 @@ const ACTIVITY_NAMES := {
 	&"tag_along": "Tagging along",
 	&"go_home": "Resting at home",
 	&"visit_grave": "At a grave",
+	&"celebrate": "Celebrating",
 	&"called": "Answering a call",
 	&"idle": "Standing about",
 }

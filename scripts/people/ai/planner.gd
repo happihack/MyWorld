@@ -4,7 +4,7 @@ extends RefCounted
 ## each plain data (see ActionStep). An empty list means it cannot be done
 ## right now — nothing to eat, nowhere to sleep, nobody to talk to.
 
-const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent", &"grave"]
+const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent", &"grave", &"festival"]
 ## Where on the storage tile someone stands to put things down (the piles
 ## lie around its middle).
 const STORE_STAND := Vector2(0.5, 0.88)
@@ -29,6 +29,8 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 			return ctx.places.parent_about(person) != null
 		&"grave":
 			return not ctx.places.grave_to_visit(person).is_empty()
+		&"festival":
+			return ctx.cultures != null and not ctx.cultures.festival_now(person.settlement_id, ctx.now()).is_empty()
 	return false
 
 
@@ -116,6 +118,15 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				steps.append(WalkToStep.make(ctx.places.storage_tile(yields), STORE_STAND))
 				steps.append(StoreStep.make())
 			return steps
+		&"celebrate":
+			# A festival (M17.1): to the fire, to dance and sing with everyone.
+			var fire := ctx.settlement.fire() if ctx.settlement != null else null
+			if fire == null:
+				return []
+			var at := fire.position2d()
+			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)),
+				ReactStep.make(PersonData.Pose.JUMP, &"note", snappedf(rng.randf_range(30.0, 60.0), 1.0), at),
+				ReactStep.make(PersonData.Pose.WAVE, &"note", snappedf(rng.randf_range(15.0, 30.0), 1.0), at)]
 		&"socialize":
 			var partner := ctx.places.company(person, rng)
 			if partner == null:

@@ -80,6 +80,10 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 	if params.has("epithet"):
 		var epithet := str(params["epithet"])
 		params["epithet"] = MemoryText.translate(epithet if MemoryText.has(epithet) else "EPITHET_UNKNOWN")
+	if params.has("tradition"):
+		var tradition := str(params["tradition"])
+		params["tradition"] = MemoryText.translate(tradition) if MemoryText.has(tradition) else tradition
+		params["Tradition"] = MemoryText.capitalized(str(params["tradition"]))
 	if params.has("building"):
 		var key := "BUILDING_" + str(params["building"]).to_upper()
 		params["building"] = MemoryText.translate(key) if MemoryText.has(key) else str(params["building"])

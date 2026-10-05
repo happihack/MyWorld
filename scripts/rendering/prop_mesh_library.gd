@@ -90,6 +90,11 @@ const CROP_DEAD := Color(0.42, 0.30, 0.18)
 const CLAY := Color(0.70, 0.42, 0.28)
 const CLAY_DARK := Color(0.52, 0.30, 0.20)
 const HERB := Color(0.42, 0.60, 0.30)
+## Roofs of other cultures (M17.1): reeds, grey-green; hides, dark and low.
+const REEDS := Color(0.62, 0.64, 0.46)
+const REEDS_DARK := Color(0.44, 0.47, 0.32)
+const HIDE := Color(0.50, 0.36, 0.26)
+const HIDE_DARK := Color(0.36, 0.25, 0.18)
 
 ## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
 const PILE_COLORS := {
@@ -118,6 +123,9 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.BUSH, 0)] = _bush(0.26, 0.26)
 	_templates[_key(PropData.Kind.BUSH, 1)] = _bush(0.22, 0.31)
 	_templates[_key(PropData.Kind.HUT, 0)] = _hut()
+	# How other cultures roof their homes (M17.1): reeds, and hides.
+	_templates[_key(PropData.Kind.HUT, 1)] = _hut(REEDS, REEDS_DARK)
+	_templates[_key(PropData.Kind.HUT, 2)] = _hut(HIDE, HIDE_DARK, 0.42)
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
 	_templates[_key(PropData.Kind.GRAVE, 0)] = _grave()
@@ -406,7 +414,7 @@ static func _bush(radius: float, height: float, berries: int = 4) -> Template:
 	return t
 
 
-static func _hut() -> Template:
+static func _hut(roof_color: Color = THATCH, roof_dark: Color = THATCH_DARK, roof_height: float = 0.52) -> Template:
 	var t := Template.new()
 	var wall_h := 0.42
 	var r := 0.40
@@ -415,8 +423,8 @@ static func _hut() -> Template:
 	_band(t, base, eaves, _rgba(WALL_DARK, 0.0), _rgba(WALL, 0.0))
 	# Thatched cone roof with a generous overhang.
 	var roof := _ring(wall_h - 0.04, r * 1.28, 8, 0.5)
-	_fan(t, roof, Vector3(0, wall_h + 0.52, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
-	_fan(t, roof, Vector3(0, wall_h, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
+	_fan(t, roof, Vector3(0, wall_h + roof_height, 0), _rgba(roof_dark, 0.0), _rgba(roof_color, 0.0))
+	_fan(t, roof, Vector3(0, wall_h, 0), _rgba(roof_dark.darkened(0.3), 0.0), _rgba(roof_dark.darkened(0.3), 0.0), true)
 	# Doorway facing +X (PropData rotation turns it toward the fire), and a
 	# small window to one side: dark by day, lit from within at night.
 	var openings := t.vertices.size()

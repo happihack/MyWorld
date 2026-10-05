@@ -29,7 +29,9 @@ const ROUTINE_PULL := 0.25
 ## score it was begun with no longer counts, and this share of the hysteresis.
 const DUE_HYSTERESIS := 0.5
 ## What is done out of doors (bad weather takes from its worth; from work less).
-const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along"]
+const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along", &"celebrate"]
+## A festival draws everyone (M17.1).
+const FESTIVAL_PULL := 1.6
 ## What a baby (younger than LifeConfig.infant_years) does: stay with its
 ## parent, eat, drink, sleep — and nothing else.
 const INFANT_DOES: Array[StringName] = [&"tag_along", &"eat", &"drink", &"sleep", &"go_home"]
@@ -141,6 +143,9 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 	# Someone grieving goes to the grave.
 	if def.id == &"visit_grave" and ctx.lifecycle != null:
 		total += Config.life.visit_grave_weight * ctx.lifecycle.grief_of(person, ctx.now())
+	# A festival: everyone comes (the requirement says one is on).
+	if def.id == &"celebrate":
+		total += FESTIVAL_PULL
 	# A baby keeps to its parent, wherever they are.
 	if infant and def.id == &"tag_along":
 		total += INFANT_FOLLOW

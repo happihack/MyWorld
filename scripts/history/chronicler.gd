@@ -77,6 +77,9 @@ const TYPE_LEARNED := &"knowledge_learned"
 const TYPE_KNOWLEDGE_LOST := &"knowledge_lost"
 const TYPE_KNOWLEDGE_SPREAD := &"knowledge_spread"
 const TYPE_ERA := &"era_entered"
+const TYPE_TRADITION := &"tradition_formed"
+const TYPE_TRADITION_FADED := &"tradition_faded"
+const TYPE_FESTIVAL := &"festival"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 const TYPE_MOVED_TO := &"moved_to"
@@ -704,6 +707,38 @@ func on_knowledge_spread(settlement_id: int, tech_id: StringName, person_id: int
 		return
 	_log.record(TYPE_KNOWLEDGE_SPREAD, {"participants": [person_id] if person_id != 0 else [], "kind": String(tech_id),
 		"place": from_name, "settlement": settlement_id})
+
+
+## A settlement has begun to keep a tradition (M17.1): one that began with
+## the player's doing says so.
+func on_tradition(tradition: Dictionary) -> void:
+	if not _writing():
+		return
+	var name := str(tradition["name"]).trim_prefix("TRADITION_").to_lower()
+	_log.record(TYPE_TRADITION, {"kind": name + ("_player" if bool(tradition["player"]) else ""), "tradition": str(tradition["name"]),
+		"place": _settlement_name(int(tradition["settlement"])), "settlement": int(tradition["settlement"])})
+
+
+func on_tradition_faded(tradition: Dictionary) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_TRADITION_FADED, {"tradition": str(tradition["name"]), "place": _settlement_name(int(tradition["settlement"])),
+		"settlement": int(tradition["settlement"])})
+
+
+## A settlement's name: Callable(settlement id) -> String (set by the session).
+var settlement_names := Callable()
+
+
+func _settlement_name(settlement_id: int) -> String:
+	return str(settlement_names.call(settlement_id)) if settlement_names.is_valid() else ""
+
+
+## A festival begins (M17.1): "The harvest festival begins at dusk in Ama's camp".
+func on_festival(settlement_id: int, tradition: Dictionary) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_FESTIVAL, {"tradition": str(tradition["name"]), "place": _settlement_name(settlement_id), "settlement": settlement_id})
 
 
 ## The world has entered a phase it never had before (M16.3, bible §22.1): an age begins.

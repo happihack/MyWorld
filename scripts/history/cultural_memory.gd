@@ -97,6 +97,25 @@ func days_lived(settlement_id: int, subject: StringName, interpretation: StringN
 	return (_days.get(_key(settlement_id, subject, interpretation), PackedInt32Array()) as PackedInt32Array).size()
 
 
+## In how many different seasons (of the days kept) its people lived through it (M17.1).
+func seasons_lived(settlement_id: int, subject: StringName, interpretation: StringName) -> int:
+	var seasons := {}
+	for day in _days.get(_key(settlement_id, subject, interpretation), PackedInt32Array()):
+		seasons[floori(float(day) / Config.time.days_per_season)] = true
+	return seasons.size()
+
+
+## The first day (of those kept) its people lived through it (-1: never).
+func first_day_lived(settlement_id: int, subject: StringName, interpretation: StringName) -> int:
+	var days: PackedInt32Array = _days.get(_key(settlement_id, subject, interpretation), PackedInt32Array())
+	return days[0] if not days.is_empty() else -1
+
+
+## What everyone remembers (the store it counts from).
+func memory_store() -> MemoryStore:
+	return _memories
+
+
 func debug_text() -> String:
 	var parts := PackedStringArray()
 	for entry: Dictionary in _entries.values():

@@ -126,7 +126,7 @@ func _until(person: PersonData, activity: StringName, limit: float = 600.0) -> b
 func test_the_activities_are_defined_in_data() -> void:
 	var library := session.activities
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"drink", &"eat", &"explore", &"go_home", &"play", &"sleep", &"socialize", &"tag_along", &"visit_grave", &"work"] as Array[StringName])
+	assert_eq(library.ids(), [&"celebrate", &"drink", &"eat", &"explore", &"go_home", &"play", &"sleep", &"socialize", &"tag_along", &"visit_grave", &"work"] as Array[StringName])
 	_set_hour(10.0)
 	var person := _adult()
 	# (Someone they grieve, with a grave to go to.)
