@@ -55,6 +55,17 @@ func advance(real_delta: float) -> int:
 	return ticks
 
 
+## Jumps to `target` at once (M20: the time the player was away, lived in
+## day-steps), telling of the days, seasons and years that began on the way.
+func jump_to(target: int) -> void:
+	if target <= tick:
+		return
+	var before := tick
+	tick = target
+	_accumulator = 0.0
+	_announce(before, tick)
+
+
 ## Tells the world about the days, seasons and years that began between two ticks.
 func _announce(before: int, after: int) -> void:
 	var first := _config.day_index(before) + 1

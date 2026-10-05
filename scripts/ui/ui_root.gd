@@ -207,6 +207,35 @@ func close_top_panel() -> bool:
 	return true
 
 
+## "The box is settling…" (M20): over everything while the time away is lived.
+func open_settling() -> SettlingOverlay:
+	var overlay := SettlingOverlay.new()
+	open_panel(overlay)
+	return overlay
+
+
+## WHILE YOU WERE GONE (M20): what happened in the box while the player was away.
+func open_while_you_were_gone(summary: Dictionary) -> WhileYouWereGone:
+	var card := WhileYouWereGone.new()
+	card.setup(summary)
+	open_panel(card)
+	AudioManager.play_ui(&"chime")
+	card.locate_requested.connect(func(at: Vector2) -> void:
+		_tick()
+		locate_requested.emit(at))
+	card.timeline_requested.connect(func() -> void:
+		_tick()
+		open_timeline.call_deferred())
+	return card
+
+
+func while_you_were_gone() -> WhileYouWereGone:
+	for panel: UIPanel in _panels:
+		if panel is WhileYouWereGone and not panel.is_closing():
+			return panel
+	return null
+
+
 ## The next milestone waiting, on its card — unless one is open already, or the
 ## game is in the background (it waits for the player's return).
 func show_next_milestone() -> MilestoneCard:

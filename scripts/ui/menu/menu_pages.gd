@@ -261,6 +261,9 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 				speeds.append([MemoryText.translate("SPEED_%d" % i), i])
 			menu.add_chips(speeds, s.clock.speed_index, func(value: Variant) -> void: s.clock.set_speed(int(value)))
 			menu.add_small(MemoryText.translate("SPEED_ABOUT"))
+			# While the player is away (M20): the world goes on — or rests.
+			menu.add_toggle(&"gameplay/world_rests", "SPEED_WORLD_RESTS")
+			menu.add_small(MemoryText.translate("SPEED_WORLD_RESTS_ABOUT"))
 		ACCESSIBILITY:
 			menu.set_title(MemoryText.translate("MENU_ACCESSIBILITY"))
 			menu.add_toggle(&"accessibility/reduced_motion", "ACCESS_REDUCED_MOTION")

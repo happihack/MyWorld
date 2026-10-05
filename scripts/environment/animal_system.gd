@@ -205,6 +205,16 @@ func advance_to(now: int) -> void:
 		_end_journeys(now, true)
 
 
+## Only the days, up to `now` (M20: while the player is away the herds are
+## born, grow old and die, and the fish come back — nobody watches them graze).
+func skip_to(now: int) -> void:
+	if registry == null or species == null or now <= last_tick:
+		return
+	last_tick = now
+	_days(now)
+	_end_journeys(now, true)
+
+
 ## Something startling happened at `at` (the player's hand, a falling tree):
 ## animals within `radius` run from it.
 func startle(at: Vector2, radius: float, now: int) -> int:

@@ -56,6 +56,19 @@ const HEAVY_JOLT_SPEED := 3.0
 ## The file the world came from when it was not its world.sav (its save was
 ## unusable: brought back from a backup), "" otherwise.
 var restored_from := ""
+## When the world opened at launch was saved (unix seconds; 0: a new world) —
+## the time away is from then (M20).
+var _saved_unix := 0
+## When the game went into the background (unix seconds; 0: it has not).
+var _paused_unix := 0
+## What happened while the player was away (M20), to be told once the world is on screen.
+var _away: Dictionary = {}
+## Living the time away (one catch-up at a time).
+var _catching_up := false
+## Shorter absences are not lived (a quick look away; tests reopening a world).
+const CATCH_UP_FROM_SECONDS := 60
+## How much of a frame the catch-up may take (microseconds).
+const CATCH_UP_SLICE_USEC := 20000
 ## The box has just unfolded (M13.2): where its walls stood before (an empty
 ## rect otherwise). The walls move out from there as the world is shown.
 var unfolded_from := Rect2i()
@@ -73,6 +86,9 @@ const TILT_NOTICED := 0.25
 
 func _ready() -> void:
 	_open_world()
+	# The time away, lived before the world is shown (M20).
+	catch_up(OfflineSimulator.seconds_away(_saved_unix, int(Time.get_unix_time_from_system()),
+		int(Settings.get_value(&"time/last_seen_unix"))))
 	world_view.show_world(session.world, session.props, session.start, session.loose)
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
@@ -590,6 +606,15 @@ func _setup_tools() -> void:
 		bar.set_current(tools.current_id()))
 	session.powers.revealed.connect(_on_power_revealed)
 	EventBus.app_paused.connect(tools.cancel)
+	# Away in the background (M20): the time it was away is lived on return.
+	EventBus.app_paused.connect(func() -> void:
+		_paused_unix = int(Time.get_unix_time_from_system())
+		_note_seen())
+	EventBus.app_resumed.connect(func() -> void:
+		if _paused_unix > 0:
+			catch_up(OfflineSimulator.seconds_away(_paused_unix, int(Time.get_unix_time_from_system()),
+				int(Settings.get_value(&"time/last_seen_unix"))))
+		_paused_unix = 0)
 
 
 ## One of the player's powers has shown itself: its tool is in the bar (it
@@ -984,6 +1009,7 @@ func _open_world() -> void:
 			var other := SaveManager.load_world(String(plan.get("world_id", "")))
 			if other.ok and session.load_from(other.world):
 				restored_from = other.source if other.source != SaveManager.SAVE_FILE else ""
+				_saved_unix = int(other.header.get("saved_unix", 0))
 				if typeof(plan.get("unfolded_from")) == TYPE_RECT2I:
 					unfolded_from = plan["unfolded_from"]
 				return
@@ -993,10 +1019,63 @@ func _open_world() -> void:
 		var loaded := SaveManager.load_world(world_id)
 		if loaded.ok and session.load_from(loaded.world):
 			restored_from = loaded.source if loaded.source != SaveManager.SAVE_FILE else ""
+			_saved_unix = int(loaded.header.get("saved_unix", 0))
 			return
 		Log.error(Log.Category.LOAD, "Could not continue world; trying older", {"world_id": world_id})
 	session.create_new()
 	SaveManager.save_world(session, &"new_world") # persist immediately
+
+
+## The world goes on while the player is away (M20, bible §9.4): `seconds`
+## of real time away, lived in day-steps (at Normal speed, capped — D-09) —
+## unless the player has the world rest. It is lived a frame's worth at a time
+## behind "The box is settling…"; what happened is told once it is done
+## (WHILE YOU WERE GONE), if it is worth telling. Returns what happened ({}: nothing lived).
+func catch_up(seconds: int) -> Dictionary:
+	_note_seen()
+	if seconds < CATCH_UP_FROM_SECONDS or not session.is_active or _catching_up 			or bool(Settings.get_value(&"gameplay/world_rests")):
+		return {}
+	var minutes := OfflineSimulator.game_minutes_for(float(seconds))
+	if minutes <= 0:
+		return {}
+	_catching_up = true
+	var started := Time.get_ticks_msec()
+	var simulator := OfflineSimulator.new(session)
+	simulator.begin(minutes)
+	session.set_process(false) # (the clock is the simulator's meanwhile)
+	var overlay := ui_root.open_settling()
+	while not simulator.step(CATCH_UP_SLICE_USEC):
+		if overlay != null:
+			overlay.show_progress(simulator.progress(), session.clock.format_date(false))
+		await get_tree().process_frame
+		if not is_inside_tree():
+			break
+	var summary := simulator.finish()
+	if overlay != null:
+		overlay.close()
+	session.set_process(true)
+	_catching_up = false
+	Log.info(Log.Category.WORLD, "The time away lived", {"seconds": seconds, "game_days": summary.get("days", 0),
+		"ms": Time.get_ticks_msec() - started})
+	SaveManager.save_world(session, &"caught_up")
+	if seconds >= OfflineSimulator.TELL_FROM_SECONDS and WhileYouWereGone.worth_telling(summary):
+		_away = summary
+		_tell_away.call_deferred()
+	return summary
+
+
+func _tell_away() -> void:
+	if _away.is_empty() or not is_inside_tree():
+		return
+	ui_root.open_while_you_were_gone(_away)
+	_away = {}
+
+
+## The latest time the game has seen (a clock set back is not time away).
+func _note_seen() -> void:
+	var now := int(Time.get_unix_time_from_system())
+	if now > int(Settings.get_value(&"time/last_seen_unix")):
+		Settings.set_value(&"time/last_seen_unix", now)
 
 
 ## Opens another world (VS.3): this one is saved first — or, with

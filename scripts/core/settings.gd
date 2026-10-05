@@ -33,6 +33,11 @@ const DEFAULTS := {
 	&"graphics/quality": "auto",
 	&"graphics/fps_cap": 60,
 	&"gameplay/gentle_hands": true,
+	## The world rests while the player is away (M20; bible §35.5): off — it goes on.
+	&"gameplay/world_rests": false,
+	## The latest time (unix seconds) the game has seen: a clock set back before
+	## it is not taken for time away (M20).
+	&"time/last_seen_unix": 0,
 	&"camera/twist_rotate": false,
 	## The minimap open (true) or folded to a button (M13.3).
 	&"ui/minimap_open": true,
