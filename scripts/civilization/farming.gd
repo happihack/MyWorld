@@ -318,7 +318,7 @@ func suitable(tile: Vector2i) -> bool:
 	var terrain := _world.get_terrain(tile)
 	if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT and terrain != ChunkData.Terrain.FARMLAND:
 		return false
-	if _world.get_water(tile) > 0.0 or _props.has_prop_at(tile):
+	if _world.get_water(tile) > 0.0 or _props.has_prop_at(tile) or Graves.on_plot(_props, tile):
 		return false
 	if _pathfinder != null and not _pathfinder.can_stand(tile):
 		return false

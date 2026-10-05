@@ -7,7 +7,8 @@ extends UIPanel
 ## (Interaction History, with its counts) and SETTINGS (Audio, Haptics, Motion
 ## while motion controls are on, Save). Other sections (CIVILIZATION, Map…)
 ## stay hidden until their systems exist (the menu grows with the
-## world). Each entry opens a page in the panel; Back goes a page back.
+## world). The first page is an accordion: the sections' headings, one open at
+## a time. Each entry opens a page in the panel; Back goes a page back.
 
 ## Someone was picked (living: go to them; dead: read their grave).
 signal person_chosen(person_id: int)
@@ -62,6 +63,8 @@ const EDGE_MARGIN := 24.0
 const TOP := 40.0
 const MAX_WIDTH := 820.0
 const SLIDE_SECONDS := 0.18
+## How far a section's entries are set in under its heading.
+const SECTION_INDENT := 56.0
 
 var _session: WorldSession
 var _stack: Array = [] # [page, argument, second argument]
@@ -83,8 +86,10 @@ var _people_query := ""
 var _people_sort: StringName = &"name"
 var _people_stage: StringName = &"all"
 var _people_rows: VBoxContainer
-## Sections folded away on the first page (kept while the game runs).
-static var _folded: Dictionary = {}
+## The section open on the first page ("": none; kept while the game runs).
+static var _open_section := ""
+## A section just opened: scrolled to the top of the list once it is laid out.
+var _reveal := ""
 
 
 func _init() -> void:
@@ -111,6 +116,8 @@ func _init() -> void:
 	_scroll = ScrollContainer.new()
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# (A finger dragged over the entries scrolls them; a tap that wobbles a little is still a tap.)
+	_scroll.scroll_deadzone = int(UITheme.TOUCH_TARGET * 0.15)
 	content.add_child(_scroll)
 	_list = VBoxContainer.new()
 	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -132,6 +139,11 @@ func _process(_delta: float) -> void:
 	if _settling > 0:
 		_settling -= 1
 		layout()
+		if _settling == 0 and _reveal != "":
+			var header := _list.get_node_or_null("Section_" + _reveal) as Control
+			_reveal = ""
+			if header != null:
+				_scroll.scroll_vertical = int(header.position.y)
 
 
 func setup(session: WorldSession) -> void:
@@ -202,28 +214,53 @@ func _show() -> void:
 			_title.text = MemoryText.translate("MENU_TITLE")
 			if _session == null:
 				return
-			# The sections (M14, bible §26.5): what each holds now; a tap on a
-			# heading folds it away (or opens it again).
+			# The sections (M14, bible §26.5), as an accordion: a heading each;
+			# a tap opens what it holds (and closes the one that was open).
 			for section: Array in MenuPages.sections(self):
 				var key: String = section[0]
-				var folded := bool(_folded.get(key, false))
+				var open := _open_section == key
 				var header := Button.new()
 				header.name = "Section_" + key
-				header.text = MemoryText.translate(key) + (" ▸" if folded else "")
-				header.flat = true
+				header.text = MemoryText.translate(key)
 				header.alignment = HORIZONTAL_ALIGNMENT_LEFT
 				header.focus_mode = Control.FOCUS_NONE
-				header.theme_type_variation = UITheme.DIM
-				header.add_theme_color_override(&"font_color", UITheme.INK_DIM)
+				header.mouse_filter = Control.MOUSE_FILTER_PASS # (a drag on it scrolls the list)
+				header.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
+				header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				var chevron := Label.new()
+				chevron.name = "Chevron"
+				chevron.text = "−" if open else "+"
+				chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+				chevron.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				chevron.add_theme_font_size_override(&"font_size", UITheme.FONT_TITLE)
+				chevron.add_theme_color_override(&"font_color", UITheme.INK_DIM)
+				chevron.anchor_left = 1.0
+				chevron.anchor_right = 1.0
+				chevron.anchor_bottom = 1.0
+				chevron.offset_left = -UITheme.TOUCH_TARGET * 0.6
+				chevron.offset_right = -16.0
+				header.add_child(chevron)
 				header.pressed.connect(func() -> void:
-					_folded[key] = not bool(_folded.get(key, false))
+					_open_section = "" if _open_section == key else key
+					_reveal = _open_section
 					AudioManager.play_ui(&"ui_tap")
 					_show())
 				_list.add_child(header)
-				if folded:
-					continue
+				var body := VBoxContainer.new()
+				body.name = "Body_" + key
+				body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				body.mouse_filter = Control.MOUSE_FILTER_PASS
+				body.visible = open
+				_list.add_child(body)
 				for item: Array in section[1]:
-					_entry(MemoryText.translate(item[0]), item[1])
+					var inner := _make_entry(MemoryText.translate(item[0]), item[1])
+					# (Set in under its heading.)
+					for state: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed", &"disabled"]:
+						var style := inner.get_theme_stylebox(state).duplicate() as StyleBox
+						style.content_margin_left += SECTION_INDENT
+						inner.add_theme_stylebox_override(state, style)
+					body.add_child(inner)
 		PAGE_WEATHER:
 			_title.text = MemoryText.translate("MENU_WEATHER")
 			for text in weather_lines(_session):
@@ -850,6 +887,7 @@ func _make_entry(text: String, pressed: Callable) -> Button:
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.mouse_filter = Control.MOUSE_FILTER_PASS # (a drag on it scrolls the list)
 	button.pressed.connect(pressed)
 	return button
 
@@ -860,7 +898,8 @@ func title_text() -> String:
 	return _title.text
 
 
-## The page's entries (buttons) and lines (labels), in order.
+## The page's entries (buttons), in order — on the first page, those of every
+## section, open or not (as if its heading had been tapped).
 func entries() -> Array[Button]:
 	var out: Array[Button] = []
 	var holders: Array = [_list]
@@ -868,21 +907,45 @@ func entries() -> Array[Button]:
 		holders = [_people_rows]
 	for holder: Node in holders:
 		for child in holder.get_children():
-			if child is Button and not child.is_queued_for_deletion() and not String(child.name).begins_with("Section_"):
+			if child.is_queued_for_deletion():
+				continue
+			if child is VBoxContainer and String(child.name).begins_with("Body_"):
+				for inner in child.get_children():
+					if inner is Button:
+						out.append(inner)
+			elif child is Button and not String(child.name).begins_with("Section_"):
 				out.append(child)
 	return out
 
 
+## What the page shows, in order (buttons and lines; on the first page, the
+## headings and what the open section holds).
 func texts() -> PackedStringArray:
 	var out := PackedStringArray()
 	for child in _list.get_children():
 		if child.is_queued_for_deletion():
 			continue
-		if child is Button:
+		if child is VBoxContainer and String(child.name).begins_with("Body_"):
+			if (child as Control).visible:
+				for inner in child.get_children():
+					if inner is Button:
+						out.append((inner as Button).text)
+		elif child is Button:
 			out.append((child as Button).text)
 		elif child is Label:
 			out.append((child as Label).text)
 	return out
+
+
+## Opens a section of the first page (as a tap on its heading would; "" closes it).
+func open_section(key: String) -> void:
+	_open_section = key
+	if page() == PAGE_ROOT:
+		_show()
+
+
+func open_section_key() -> String:
+	return _open_section
 
 
 func tree() -> FamilyTree:

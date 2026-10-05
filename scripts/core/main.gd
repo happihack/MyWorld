@@ -450,6 +450,14 @@ func _person_in(target: Picker.Result) -> int:
 	return 0
 
 
+## The cemetery under the finger (0: none).
+func _cemetery_in(target: Picker.Result) -> int:
+	if target == null or target.kind != Picker.Kind.ENTITY:
+		return 0
+	var prop := session.props.get_prop(target.entity_id)
+	return prop.id if prop != null and prop.kind == PropData.Kind.CEMETERY else 0
+
+
 ## Touches a person as a finger on them would.
 func _touch_person(person_id: int) -> void:
 	var person := session.people.get_person(person_id)
@@ -610,6 +618,12 @@ func _on_gesture(gesture: Gesture) -> void:
 				if tools.current_id() == HandTool.ID:
 					_note_pick(target, tools.tap(target))
 				select_person(tapped)
+				world_view.pick_highlight().clear()
+				return
+			# A tap on a cemetery reads it: who lies there.
+			var cemetery := _cemetery_in(target)
+			if cemetery != 0 and (tools.current_id() == HandTool.ID or tools.current_id() == ObserveTool.ID):
+				ui_root.open_cemetery(session, cemetery)
 				world_view.pick_highlight().clear()
 				return
 			var response := tools.tap(target)
@@ -827,6 +841,10 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 		InteractionManager.ACTION_REMOVE:
 			_note_pick(target, session.interactions.uproot(target, tools.current_id()))
 		InteractionManager.ACTION_READ, InteractionManager.ACTION_VIEW_FAMILY:
+			var resting := session.props.get_prop(target.entity_id) if target != null else null
+			if resting != null and resting.kind == PropData.Kind.CEMETERY:
+				ui_root.open_cemetery(session, resting.id)
+				return
 			var record := session.archive.buried_in(target.entity_id) if target != null else null
 			if record != null:
 				ui_root.open_grave(session, record.id, action == InteractionManager.ACTION_VIEW_FAMILY)

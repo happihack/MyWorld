@@ -30,6 +30,7 @@ const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
 const PERSON_CARD := preload("res://scenes/ui/person_card.tscn")
 const HISTORY_CARD := preload("res://scenes/ui/panels/history_card.tscn")
 const GRAVE_CARD := preload("res://scenes/ui/panels/grave_card.tscn")
+const CEMETERY_CARD := preload("res://scenes/ui/panels/cemetery_card.tscn")
 const TIMELINE := preload("res://scenes/ui/panels/timeline.tscn")
 const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 const CALIBRATION := preload("res://scenes/ui/calibration.tscn")
@@ -561,7 +562,7 @@ func open_grave(session: WorldSession, person_id: int, family_first: bool = fals
 	if session == null or session.archive.get_record(person_id) == null:
 		return null
 	for panel: UIPanel in _panels.duplicate():
-		if panel is InspectCard or panel is PersonCard or panel is HistoryCard or panel is GraveCard:
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard or panel is GraveCard or panel is CemeteryCard:
 			panel.close()
 	var card: GraveCard = GRAVE_CARD.instantiate()
 	card.setup(session, person_id, family_first)
@@ -576,6 +577,32 @@ func open_grave(session: WorldSession, person_id: int, family_first: bool = fals
 		_tick()
 		locate_requested.emit(at))
 	return card
+
+
+## Shows a cemetery: who lies there (each can be read). Replaces a card that is already open.
+func open_cemetery(session: WorldSession, cemetery_id: int) -> CemeteryCard:
+	if session == null or CemeteryCard.facts(session, cemetery_id).is_empty():
+		return null
+	for panel: UIPanel in _panels.duplicate():
+		if panel is InspectCard or panel is PersonCard or panel is HistoryCard or panel is GraveCard or panel is CemeteryCard:
+			panel.close()
+	var card: CemeteryCard = CEMETERY_CARD.instantiate()
+	card.setup(session, cemetery_id)
+	open_panel(card)
+	card.person_chosen.connect(func(id: int) -> void:
+		_tick()
+		person_chosen.emit(id))
+	card.locate_requested.connect(func(at: Vector2) -> void:
+		_tick()
+		locate_requested.emit(at))
+	return card
+
+
+func cemetery_card() -> CemeteryCard:
+	for panel: UIPanel in _panels:
+		if panel is CemeteryCard and not panel.is_closing():
+			return panel
+	return null
 
 
 func grave_card() -> GraveCard:

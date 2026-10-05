@@ -37,6 +37,7 @@ const PROP_NAMES := {
 	PropData.Kind.RECORD_STONE: "Record stone",
 	PropData.Kind.STONE_CIRCLE: "Stone circle",
 	PropData.Kind.SHRINE: "Shrine",
+	PropData.Kind.CEMETERY: "Cemetery",
 }
 
 const SPECIES_NAMES := {

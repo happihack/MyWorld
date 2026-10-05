@@ -107,13 +107,8 @@ func layout() -> void:
 ##   name, years: String; life, deeds, memories: PackedStringArray;
 ##   family: Array of [person id, relation, name, living (bool)].
 static func facts(session: WorldSession, record: HistoricalPerson) -> Dictionary:
-	var year_ticks := Config.time.ticks_per_year()
-	var born := HistoryText.year_of(record.birth_tick)
-	var died := HistoryText.year_of(record.death_tick)
 	var life := PackedStringArray()
-	var cause_key := "GRAVE_CAUSE_" + String(record.cause).to_upper()
-	life.append(MemoryText.translate(cause_key if MemoryText.has(cause_key) else "GRAVE_CAUSE").format(
-		{"age": record.age_years(year_ticks)}))
+	life.append(cause_line(record))
 	if record.occupation_id != &"":
 		life.append(MemoryText.translate("GRAVE_WORK").format({"work": UIText.occupation_name(record.occupation_id)}))
 	var deeds := PackedStringArray()
@@ -126,14 +121,26 @@ static func facts(session: WorldSession, record: HistoricalPerson) -> Dictionary
 		memories.append(MemoryText.capitalized(MemoryText.text(memory, session.people)))
 	return {
 		"name": record.full_name(),
-		# (Born before the world began: the band's own.)
-		"years": MemoryText.translate("GRAVE_YEARS" if record.birth_tick >= 0 else "GRAVE_YEARS_BEFORE").format(
-			{"born": born, "died": died}),
+		"years": years_line(record),
 		"life": life,
 		"deeds": deeds,
 		"memories": memories,
 		"family": family_of(session, record.id),
 	}
+
+
+## When they lived ("Year 3 – Year 41").
+static func years_line(record: HistoricalPerson) -> String:
+	# (Born before the world began: the band's own.)
+	return MemoryText.translate("GRAVE_YEARS" if record.birth_tick >= 0 else "GRAVE_YEARS_BEFORE").format(
+		{"born": HistoryText.year_of(record.birth_tick), "died": HistoryText.year_of(record.death_tick)})
+
+
+## What they died of, and at what age.
+static func cause_line(record: HistoricalPerson) -> String:
+	var cause_key := "GRAVE_CAUSE_" + String(record.cause).to_upper()
+	return MemoryText.translate(cause_key if MemoryText.has(cause_key) else "GRAVE_CAUSE").format(
+		{"age": record.age_years(Config.time.ticks_per_year())})
 
 
 ## Someone's family, living or dead: parents, partner, children, brothers

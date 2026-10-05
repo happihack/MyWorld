@@ -352,9 +352,7 @@ func shrine_site() -> Variant:
 	if faith == null or fire == null:
 		return null
 	var myth := faith.shrine_myth(_settlement)
-	var graves: Array[Vector2i] = []
-	for id in _construction.standing(PropData.Kind.GRAVE):
-		graves.append(_settlement.props().get_prop(id).tile)
+	var graves := _resting_tiles()
 	var best: Variant = null
 	var best_distance := INF
 	for place: Variant in myth.get("places", []):
@@ -409,10 +407,7 @@ func site_for(_def: BuildingDef) -> Variant:
 	var fire := _settlement.fire()
 	if fire == null or _world == null:
 		return null
-	var graves := _construction.standing(PropData.Kind.GRAVE)
-	var grave_tiles: Array[Vector2i] = []
-	for id in graves:
-		grave_tiles.append(_settlement.props().get_prop(id).tile)
+	var grave_tiles := _resting_tiles()
 	var taken := {}
 	for person in _people.all_people():
 		taken[person.position] = true
@@ -434,6 +429,15 @@ func site_for(_def: BuildingDef) -> Variant:
 				best_cost = cost
 				best = tile
 	return best
+
+
+## Where the dead lie: cemeteries (and an older save's graves) — built not too near.
+func _resting_tiles() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for kind: int in [PropData.Kind.CEMETERY, PropData.Kind.GRAVE]:
+		for id in _construction.standing(kind):
+			out.append(_settlement.props().get_prop(id).tile)
+	return out
 
 
 func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:

@@ -6,7 +6,7 @@ extends RefCounted
 ## outlives people.
 
 var _records: Dictionary = {} # id -> HistoricalPerson
-var _graves: Dictionary = {} # grave (prop) id -> person id
+var _graves: Dictionary = {} # grave or cemetery (prop) id -> Array of person ids, in the order laid there
 
 
 func clear() -> void:
@@ -18,12 +18,36 @@ func add(record: HistoricalPerson) -> void:
 	if record != null and record.id > 0:
 		_records[record.id] = record
 		if record.grave_id > 0:
-			_graves[record.grave_id] = record.id
+			_lay(record.grave_id, record.id)
 
 
-## Whoever lies in this grave (null: nobody known).
+## Whoever lies in this grave (null: nobody known) — the first laid there, in a cemetery.
 func buried_in(grave_id: int) -> HistoricalPerson:
-	return _records.get(int(_graves.get(grave_id, 0)))
+	var ids: Array = _graves.get(grave_id, [])
+	return _records.get(int(ids[0])) if not ids.is_empty() else null
+
+
+## Everyone laid in this grave or cemetery, the first laid first.
+func all_buried_in(grave_id: int) -> Array[HistoricalPerson]:
+	var out: Array[HistoricalPerson] = []
+	for id: int in _graves.get(grave_id, []):
+		var record: HistoricalPerson = _records.get(id)
+		if record != null:
+			out.append(record)
+	return out
+
+
+## How many lie there.
+func buried_count(grave_id: int) -> int:
+	return (_graves.get(grave_id, []) as Array).size()
+
+
+func _lay(grave_id: int, person_id: int) -> void:
+	if not _graves.has(grave_id):
+		_graves[grave_id] = []
+	var ids: Array = _graves[grave_id]
+	if not ids.has(person_id):
+		ids.append(person_id)
 
 
 ## Their grave is (now) this prop at this tile.
@@ -31,11 +55,14 @@ func set_grave(person_id: int, grave_id: int, tile: Vector2i) -> void:
 	var record: HistoricalPerson = _records.get(person_id)
 	if record == null:
 		return
-	_graves.erase(record.grave_id)
+	var ids: Array = _graves.get(record.grave_id, [])
+	ids.erase(person_id)
+	if ids.is_empty():
+		_graves.erase(record.grave_id)
 	record.grave_id = grave_id
 	record.grave_tile = tile
 	if grave_id > 0:
-		_graves[grave_id] = person_id
+		_lay(grave_id, person_id)
 
 
 func get_record(id: int) -> HistoricalPerson:

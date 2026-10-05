@@ -70,6 +70,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.RECORD_STONE: InteractionResponse.ROCK_WOBBLE,
 	PropData.Kind.STONE_CIRCLE: InteractionResponse.RUIN_HUM,
 	PropData.Kind.SHRINE: InteractionResponse.RUIN_HUM,
+	PropData.Kind.CEMETERY: InteractionResponse.DUST,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -664,10 +665,13 @@ func actions_for(target: Picker.Result) -> Array[StringName]:
 	var actions: Array[StringName] = []
 	if target == null or not target.is_hit() or _world == null:
 		return actions
-	# A grave is read, not touched (bible §26.6).
-	if target.kind == Picker.Kind.ENTITY and _props != null and _props.get_prop(target.entity_id) != null \
-			and _props.get_prop(target.entity_id).kind == PropData.Kind.GRAVE:
+	# A grave is read, not touched (bible §26.6); so is a cemetery: who lies there.
+	var resting := _props.get_prop(target.entity_id) if target.kind == Picker.Kind.ENTITY and _props != null else null
+	if resting != null and resting.kind == PropData.Kind.GRAVE:
 		actions.append_array([ACTION_READ, ACTION_VIEW_FAMILY, ACTION_FOCUS])
+		return actions
+	if resting != null and resting.kind == PropData.Kind.CEMETERY:
+		actions.append_array([ACTION_READ, ACTION_FOCUS])
 		return actions
 	actions.append(ACTION_INSPECT)
 	actions.append(ACTION_TOUCH)

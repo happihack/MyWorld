@@ -97,33 +97,51 @@ func test_graves() -> void:
 	var fire := session.start.settlement_tile
 	session.kill_person(people[0].id, Lifecycle.CAUSE_ILLNESS)
 	var first := session.archive.get_record(people[0].id)
-	assert_ne(first.grave_id, 0, "laid in a grave")
-	var grave := session.props.get_prop(first.grave_id)
-	assert_not_null(grave)
-	assert_eq(grave.kind, PropData.Kind.GRAVE)
-	assert_eq(grave.tile, first.grave_tile)
-	var distance := maxi(absi(grave.tile.x - fire.x), absi(grave.tile.y - fire.y))
+	assert_ne(first.grave_id, 0, "laid in the cemetery")
+	var cemetery := session.props.get_prop(first.grave_id)
+	assert_not_null(cemetery)
+	assert_eq(cemetery.kind, PropData.Kind.CEMETERY)
+	assert_eq(cemetery.tile, first.grave_tile)
+	assert_eq(cemetery.variant, 1, "a headstone for her")
+	var distance := maxi(absi(cemetery.tile.x - fire.x), absi(cemetery.tile.y - fire.y))
 	assert_true(distance >= Graves.NEAREST and distance <= Graves.FURTHEST, "a little way from the fire (%d)" % distance)
-	assert_true(session.pathfinder.can_stand(grave.tile), "people can walk past a grave")
-	assert_true(session.archive.buried_in(grave.id) == first)
-	# The next one beside it, a tile apart.
+	assert_true(session.pathfinder.can_stand(cemetery.tile), "people can walk into a cemetery")
+	assert_true(session.archive.buried_in(cemetery.id) == first)
+	assert_true(Graves.on_plot(session.props, cemetery.tile + Vector2i(1, 1)), "its plot")
+	assert_false(session.farming.suitable(cemetery.tile + Vector2i(1, 0)), "no field on it")
+	# The next is laid in the same cemetery: one place for all the dead.
 	session.kill_person(people[1].id, Lifecycle.CAUSE_ILLNESS)
-	var second := session.props.get_prop(session.archive.get_record(people[1].id).grave_id)
-	assert_not_null(second)
-	var apart := second.tile - grave.tile
-	assert_true(apart.length() <= 3.0, "the burial ground (%s)" % apart)
-	assert_true(absi(apart.x) + absi(apart.y) > 1, "not on the tile next to it")
-	assert_eq(session.graves.all_graves().size(), 2)
-	# A grave is read: long press offers Read and View family.
+	assert_eq(session.archive.get_record(people[1].id).grave_id, cemetery.id)
+	assert_eq(session.graves.all_graves(), [cemetery.id] as Array[int])
+	assert_eq(session.graves.laid_count(), 2)
+	assert_eq(cemetery.variant, 2, "another headstone")
+	assert_eq(session.archive.all_buried_in(cemetery.id).map(func(r: HistoricalPerson) -> int: return r.id),
+		[people[0].id, people[1].id])
+	# A cemetery is read: long press offers Read; the card lists the dead, the last laid first.
 	var target := Picker.Result.new()
 	target.kind = Picker.Kind.ENTITY
-	target.entity_id = grave.id
-	target.tile = grave.tile
+	target.entity_id = cemetery.id
+	target.tile = cemetery.tile
 	target.direct = true
 	assert_eq(session.interactions.actions_for(target),
-		[InteractionManager.ACTION_READ, InteractionManager.ACTION_VIEW_FAMILY, InteractionManager.ACTION_FOCUS] as Array[StringName])
-	assert_eq(UIText.prop_name(PropData.Kind.GRAVE), "Grave")
-	# Graves are kept with the world.
+		[InteractionManager.ACTION_READ, InteractionManager.ACTION_FOCUS] as Array[StringName])
+	assert_eq(UIText.prop_name(PropData.Kind.CEMETERY), "Cemetery")
+	var said := CemeteryCard.facts(session, cemetery.id)
+	assert_eq(said["title"], "Cemetery of %s" % session.settlement.display_name())
+	assert_eq(said["count"], "2 laid to rest")
+	assert_eq((said["dead"] as Array).map(func(row: Array) -> int: return row[0]), [people[1].id, people[0].id])
+	assert_has(str(said["dead"][0][2]), "Died of an illness")
+	var card := UIRoot.CEMETERY_CARD.instantiate() as CemeteryCard
+	card.setup(session, cemetery.id)
+	add_child(card)
+	await wait_frames(1)
+	assert_eq(card.dead_buttons().size(), 2)
+	var chosen: Array = []
+	card.person_chosen.connect(func(id: int) -> void: chosen.append(id))
+	card.dead_buttons()[1].pressed.emit()
+	assert_eq(chosen, [people[0].id], "each can be read in turn")
+	card.queue_free()
+	# Cemeteries are kept with the world.
 	assert_true(SaveManager.save_world(session, &"test"))
 	var loaded := SaveManager.load_world(session.world_id)
 	assert_true(loaded.ok, loaded.error)
@@ -131,10 +149,10 @@ func test_graves() -> void:
 	add_child(again)
 	assert_true(again.load_from(loaded.world))
 	again.set_process(false)
-	var kept := again.props.get_prop(grave.id)
+	var kept := again.props.get_prop(cemetery.id)
 	assert_not_null(kept)
-	assert_eq([kept.kind, kept.tile], [PropData.Kind.GRAVE, grave.tile])
-	assert_eq(again.archive.buried_in(grave.id).id, people[0].id)
+	assert_eq([kept.kind, kept.tile, kept.variant], [PropData.Kind.CEMETERY, cemetery.tile, 2])
+	assert_eq(again.archive.all_buried_in(cemetery.id).size(), 2)
 	again.queue_free()
 
 
@@ -298,21 +316,50 @@ func test_version_21_save_loads() -> void:
 	assert_eq(odd.accomplishments, PackedInt64Array([3]))
 
 
-func test_a_full_burial_ground_does_not_leave_the_dead_unburied() -> void:
-	# Centuries of dead (300-year soaks: the ground filled up and the rest went unburied).
+## Someone in the archive (as if they had died).
+func _dead(id: int, name: String) -> HistoricalPerson:
+	var record := HistoricalPerson.new()
+	record.id = id
+	record.given_name = name
+	record.death_tick = session.clock.tick
+	session.archive.add(record)
+	return record
+
+
+func test_the_dead_of_centuries_lie_in_one_cemetery() -> void:
+	# (300-year soaks: a grave each filled the ground and the rest went unburied.)
 	var graves := session.graves
-	var laid := 0
-	var tiles := {}
-	for n in 140:
-		var tile: Variant = graves.site()
-		if tile == null:
-			break
+	var first := 0
+	for n in 300:
+		var record := _dead(900000 + n, "Dead%d" % n)
+		var id := graves.bury(record.id)
+		assert_ne(id, 0, "laid to rest (%d)" % n)
+		if first == 0:
+			first = id
+		assert_eq(id, first, "in the one cemetery")
+	assert_eq(graves.cemeteries().size(), 1)
+	assert_eq(session.archive.buried_count(first), 300)
+	assert_eq(session.props.get_prop(first).variant, Graves.MOST_STONES, "its headstones, as many as it shows")
+	assert_eq((CemeteryCard.facts(session, first)["dead"] as Array).size(), 300, "and all of them listed")
+
+
+func test_an_older_saves_graves_are_gathered_into_a_cemetery() -> void:
+	var fire := session.start.settlement_tile
+	var old: Array[int] = []
+	for n in 3:
+		var record := _dead(800000 + n, "Old%d" % n)
 		var grave := PropData.new()
 		grave.id = session.ids.next_id()
 		grave.kind = PropData.Kind.GRAVE
-		grave.tile = tile
+		grave.tile = fire + Vector2i(8 + n * 2, 8)
 		assert_true(session.props.add(grave))
-		assert_false(tiles.has(tile), "a grave of its own")
-		tiles[tile] = true
-		laid += 1
-	assert_eq(laid, 140, "room for the dead of centuries (closer together, then a second ground)")
+		session.archive.set_grave(record.id, grave.id, grave.tile)
+		old.append(grave.id)
+	assert_eq(session.graves.gather_old(), 3)
+	for id in old:
+		assert_null(session.props.get_prop(id), "the single graves are gone")
+	var cemeteries := session.graves.cemeteries()
+	assert_eq(cemeteries.size(), 1)
+	assert_eq(session.archive.all_buried_in(cemeteries[0]).size(), 3, "all gathered into one cemetery")
+	assert_eq(session.archive.get_record(800001).grave_tile, session.props.get_prop(cemeteries[0]).tile)
+	assert_eq(session.graves.gather_old(), 0, "once")

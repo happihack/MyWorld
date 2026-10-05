@@ -76,23 +76,32 @@ func test_menu_visibility_rules() -> void:
 	for now in ["MENU_ECONOMY", "MENU_AGRICULTURE", "MENU_GOVERNMENT", "MENU_BELIEFS", "MENU_DISASTERS", "MENU_DISCOVERIES", "MENU_DEBUG"]:
 		assert_has(shown, now)
 	assert_false(shown.has("MENU_MOTION"), "motion stays on hold")
-	# A section folds away, and opens again.
+	# An accordion: the headings, closed; a tap opens one (and closes the other).
+	menu.open_section("")
 	menu.open_page(MainMenu.PAGE_ROOT)
 	await wait_frames(1)
-	var people_before := menu.texts().has("Population")
-	for child in menu.find_children("Section_MENU_PEOPLE", "Button", true, false):
-		if not child.is_queued_for_deletion():
-			(child as Button).pressed.emit()
-			break
+	assert_true(menu.texts().has("PEOPLE") and not menu.texts().has("Population"), "closed at first")
+	_heading(menu, "MENU_PEOPLE").pressed.emit()
 	await wait_frames(1)
-	assert_true(people_before and not menu.texts().has("Population"), "folded")
-	assert_true(menu.texts().has("PEOPLE ▸"))
-	for child in menu.find_children("Section_MENU_PEOPLE", "Button", true, false):
-		if not child.is_queued_for_deletion():
-			(child as Button).pressed.emit()
-			break
+	assert_true(menu.texts().has("Population"), "opened")
+	assert_eq((_heading(menu, "MENU_PEOPLE").get_node("Chevron") as Label).text, "−")
+	_heading(menu, "MENU_WORLD").pressed.emit()
 	await wait_frames(1)
-	assert_true(menu.texts().has("Population"), "open again")
+	assert_true(menu.texts().has("Map") and not menu.texts().has("Population"), "one open at a time")
+	_heading(menu, "MENU_WORLD").pressed.emit()
+	await wait_frames(1)
+	assert_false(menu.texts().has("Map"), "closed again")
+	assert_eq(menu.open_section_key(), "")
+	# A drag over the entries scrolls the list.
+	for button in menu.entries():
+		assert_eq(button.mouse_filter, Control.MOUSE_FILTER_PASS)
+
+
+func _heading(menu: MainMenu, key: String) -> Button:
+	for child in menu.find_children("Section_" + key, "Button", true, false):
+		if not child.is_queued_for_deletion():
+			return child
+	return null
 
 
 func test_every_page_opens_on_a_large_world() -> void:

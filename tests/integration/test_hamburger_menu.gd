@@ -45,10 +45,13 @@ func test_the_sections_of_the_menu() -> void:
 	var sorted := order.duplicate()
 	sorted.sort()
 	assert_eq(order, sorted, "in the bible's order")
+	var held := PackedStringArray()
+	for button in menu.entries():
+		held.append(button.text)
 	for entry in ["Map", "Weather", "Statistics", "Individuals", "Timeline", "Interaction History", "Audio", "Haptics", "Save"]:
-		assert_true(said.has(entry), entry)
+		assert_true(held.has(entry), entry)
 	assert_true(said.has("CIVILIZATION"), "since M14: Settlements, Buildings")
-	assert_false(said.has("Technology") or said.has("Wars") or said.has("Historical Eras"), "not there yet: hidden")
+	assert_false(held.has("Technology") or held.has("Wars") or held.has("Historical Eras"), "not there yet: hidden")
 	# HISTORY's events: the timeline, whose events a tap looks for.
 	_entry_named(menu, "Timeline").pressed.emit()
 	await wait_frames(2)

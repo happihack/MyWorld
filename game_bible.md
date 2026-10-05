@@ -734,7 +734,7 @@ Death never simply removes an entity. The person moves from the live registry to
 
 `name, birth/death year, age, cause, family links, occupation(s), accomplishments (events they were principal in), top memories, significance, burial location`
 
-Graves are physical, tappable places. A person who lived 80 years, founded a village and was touched by the Presence 20 times may become a **historical figure** and later a **myth**.
+Graves are physical, tappable places: each settlement lays its dead in **one cemetery**, a fenced plot near its fire whose card lists everyone who lies there (each can be read in turn). A person who lived 80 years, founded a village and was touched by the Presence 20 times may become a **historical figure** and later a **myth**.
 
 ---
 

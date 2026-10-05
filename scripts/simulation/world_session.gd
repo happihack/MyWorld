@@ -1272,6 +1272,10 @@ func _activate() -> void:
 	lifecycle.start = start
 	lifecycle.events = events
 	graves.bind(props, world, pathfinder, start, ids, archive, loose)
+	# (An older save's graves, one each: gathered into cemeteries.)
+	var gathered := graves.gather_old()
+	if gathered > 0:
+		Log.info(Log.Category.LOAD, "Graves gathered into cemeteries", {"graves": gathered})
 	lifecycle.graves = graves if start != null and start.campfire_id != 0 else null
 	ai.lifecycle = lifecycle
 	# What settlements remember together, as saved.

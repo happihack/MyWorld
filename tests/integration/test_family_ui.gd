@@ -125,7 +125,7 @@ func test_the_menu() -> void:
 	assert_not_null(menu)
 	assert_eq(menu.page(), MainMenu.PAGE_ROOT)
 	assert_true(menu.texts().has("PEOPLE"))
-	assert_true(menu.texts().has("Individuals"))
+	assert_true(menu.entries().any(func(b: Button) -> bool: return b.text == "Individuals"))
 	assert_true(menu.texts().has("SETTINGS"), "since VS.1: Audio, Haptics, Save")
 	assert_true(menu.texts().has("WORLD"), "since VS.1: Weather")
 	assert_false(menu.texts().has("Technology") or menu.texts().has("Wars"), "what is not there yet is hidden")

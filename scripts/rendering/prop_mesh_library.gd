@@ -129,6 +129,8 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
 	_templates[_key(PropData.Kind.GRAVE, 0)] = _grave()
+	for stones in Graves.MOST_STONES + 1:
+		_templates[_key(PropData.Kind.CEMETERY, stones)] = _cemetery(stones)
 	_templates[_key(PropData.Kind.SITE, ConstructionSystem.STAKES)] = _site_stakes()
 	_templates[_key(PropData.Kind.SITE, ConstructionSystem.FRAME)] = _site_frame()
 	_templates[_key(PropData.Kind.STOREHOUSE, 0)] = _storehouse()
@@ -645,6 +647,32 @@ static func _grave() -> Template:
 	_box(t, Vector3(0, 0.075, 0.05), Vector3(0.11, 0.03, 0.22), _rgba(SOIL_DARK.lightened(0.12), 0.0), 0.0)
 	_box(t, Vector3(0, 0.17, -0.30), Vector3(0.10, 0.17, 0.035), _rgba(STONE, 0.0), 0.0)
 	_box(t, Vector3(0, 0.345, -0.30), Vector3(0.07, 0.015, 0.03), _rgba(STONE_DARK, 0.0), 0.0)
+	return t
+
+
+## A cemetery: a fenced plot (its gate to the south), a headstone and a mound
+## for each of the dead laid there, up to `stones`, filling row by row.
+static func _cemetery(stones: int) -> Template:
+	var t := Template.new()
+	var edge := 1.3
+	_box(t, Vector3(0, 0.01, 0), Vector3(edge, 0.01, edge), _rgba(SOIL_DARK.lightened(0.25), 0.0), 0.0)
+	# Posts at the corners and between; two rails on each side, a gap for the gate.
+	for i in 5:
+		var along := -edge + edge * 0.5 * i
+		for post: Vector3 in [Vector3(along, 0, -edge), Vector3(along, 0, edge), Vector3(-edge, 0, along), Vector3(edge, 0, along)]:
+			if post.z == edge and absf(post.x) < 0.01:
+				continue
+			_box(t, post + Vector3(0, 0.17, 0), Vector3(0.03, 0.17, 0.03), _rgba(TRUNK_DARK, 0.0), 0.0)
+	for rail_y: float in [0.13, 0.26]:
+		_box(t, Vector3(0, rail_y, -edge), Vector3(edge, 0.012, 0.015), _rgba(TRUNK, 0.0), 0.0)
+		_box(t, Vector3(-edge, rail_y, 0), Vector3(0.015, 0.012, edge), _rgba(TRUNK, 0.0), 0.0)
+		_box(t, Vector3(edge, rail_y, 0), Vector3(0.015, 0.012, edge), _rgba(TRUNK, 0.0), 0.0)
+		for side: float in [-1.0, 1.0]:
+			_box(t, Vector3(side * edge * 0.6, rail_y, edge), Vector3(edge * 0.4 - 0.08, 0.012, 0.015), _rgba(TRUNK, 0.0), 0.0)
+	for n in stones:
+		var at := Vector3(-0.72 + 0.72 * (n % 3), 0.0, -0.80 + 0.72 * floorf(n / 3.0))
+		_box(t, at + Vector3(0, 0.03, 0.14), Vector3(0.11, 0.03, 0.18), _rgba(SOIL_DARK, 0.0), 0.0)
+		_box(t, at + Vector3(0, 0.13, -0.08), Vector3(0.08, 0.13, 0.03), _rgba(STONE if n % 2 == 0 else STONE_DARK, 0.0), 0.0)
 	return t
 
 

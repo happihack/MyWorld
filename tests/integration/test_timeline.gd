@@ -153,7 +153,7 @@ func test_the_timeline_in_the_game() -> void:
 	# ☰ → HISTORY → Timeline.
 	var menu := ui.open_menu()
 	await wait_frames(1)
-	assert_true(menu.texts().has("Timeline"))
+	assert_true(menu.entries().any(func(b: Button) -> bool: return b.text == "Timeline"))
 	for entry in menu.entries():
 		if entry.text == "Timeline":
 			entry.pressed.emit()
