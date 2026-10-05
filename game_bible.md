@@ -87,7 +87,7 @@ The player is an **unknown force** outside a physical box. Not a god, not a mayo
 | First 10 seconds | "This is a tiny world." | Diorama visuals, ambient motion, a box frame |
 | First minute | "This world is actually alive." | Someone walking home, smoke, birds — things the player didn't cause |
 | First touch | "They noticed me." | A person reacts individually to a tap |
-| First tilt | "I'm physically affecting this world." | Water sloshes, pebbles slide, people stumble and look up |
+| ~~First tilt~~ (dropped, D-15) | "I'm physically affecting this world." | *(Now carried by the touch tools: water disturbed, rain from a clear sky, a gust, a rock carried and dropped.)* |
 | First return | "What happened while I was gone?" | *While You Were Gone* summary + one intriguing hook |
 | Days in | "That person remembers what I did." | Memories resurface in behaviour and text |
 | Weeks in | "They've made a story out of me." | Myths, names, rituals built around the player's interventions |
@@ -241,8 +241,8 @@ A bible needs a consistent hidden truth so that clues and mysteries never contra
 |---|---|
 | Tap / touch | A pressure from nowhere, a warmth, a shadow, a "touch of the presence" |
 | Drag an object | An object moving by itself |
-| Tilt the phone | The entire world leans; water runs "uphill" relative to the land; a gravity anomaly |
-| Shake the phone | Tremors, earthquakes |
+| ~~Tilt the phone~~ (dropped, D-15) | — |
+| Shake the phone (on hold, D-15) | Tremors, earthquakes |
 | Rain / wind tools | Weather appearing from a clear sky, wind without source |
 | Pinch / pan / follow | *Nothing* — the camera is invisible to inhabitants (the player's gaze is undetectable… until late-game science finds ways to infer it; see §20.6) |
 
@@ -857,7 +857,7 @@ No natural-language AI. A **Concept registry** (objects, events, player interact
 - Each culture has a **phonology** (syllable inventory, seeded) used to generate names and words.
 - A concept gets a **word** when it is encountered often enough to need one (frequency threshold in the cultural pool).
 - Words are **inherited** by children, **borrowed** through trade/migration, and **drift** between separated settlements.
-- The UI shows words with **glosses**: *"Velun (the Rainbringer)"*, *"Karo-tesh (the Leaning)"* for world tilts, *"the Edge"* for the box wall.
+- The UI shows words with **glosses**: *"Velun (the Rainbringer)"*, *"the Edge"* for the box wall.
 - Place names come from the lexicon + landmarks: "Northwatch", "River Town", generated as `[lexicon word]` or translated gloss.
 
 ---
@@ -877,7 +877,7 @@ Investigation = travel to site, observe, record, compare with archive, run **cor
 | Correlation (in-world) | What it secretly reveals |
 |---|---|
 | Anomalies cluster at certain times of day | **The player's real play schedule** ("The phenomena occur mostly in the evening") |
-| Tilts always affect the entire world at once | A single external force — not local |
+| ~~Tilts always affect the entire world at once~~ (dropped, D-15) | ~~A single external force~~ — now: several independent patterns, each held with confidence (M18) |
 | Rain from clear skies after droughts | A responsive agent |
 | Objects move only where people are watching | The observer "looks" where it acts |
 | Water always flows back; nothing leaves the Edge | Enclosure |
@@ -888,7 +888,7 @@ These generate notifications like: *"Scientists noticed a strange correlation be
 
 1. **Anomaly noticed** — first recorded unexplained event.
 2. **Pattern** — a scholar proposes the anomalies are connected.
-3. **External force hypothesis** — tilts prove a world-scale force.
+3. **External force hypothesis** — independent patterns, held with confidence, point to a single force outside the world (tilts dropped, D-15).
 4. **Edge expeditions** — explorers reach and study the wall; impossible geometry.
 5. **The Sky's Ceiling** — high observations reveal structure above.
 6. **The Edge Moved** — observed during a box unfolding (if it happens).
@@ -1013,8 +1013,8 @@ Voice/text input only as an optional, clearly-permissioned late feature (microph
 | **Two-finger drag** | Alternate pan; optional twist = rotate view (yaw) | |
 | **Double tap** | Context: on entity → focus; on empty → zoom in step | |
 | **Swipe** (fast drag) | Context: swipe through water (ripples/push), push loose objects, swipe across terrain to inspect, swipe timeline | Distinguished from pan by velocity + tool |
-| **Tilt** | Tilt the world (gravity bias) | Motion controls enabled only |
-| **Shake** | Tremor/earthquake by intensity class | Cooldowns |
+| ~~**Tilt**~~ | Dropped (D-15) | — |
+| **Shake** | Tremor/earthquake by intensity class — on hold (D-15), with the disasters | Cooldowns |
 | **Rotate phone** | Portrait ↔ landscape layout; (later, optional) gyroscope twist → swirling wind | |
 
 Everything must be usable by touch alone. Desktop development uses **mouse emulation** (left = touch, wheel = pinch, right-drag = two-finger, keyboard = virtual tilt/shake) but the game never assumes a mouse.
@@ -1054,14 +1054,20 @@ People are tiny. Tapping must feel precise:
 - **No currency / mana / energy.** Major interventions require **deliberate input** (a sustained gesture, strong shake, or a confirm hold) to prevent accidents, and **short physical cooldowns** (seconds) so one motion can't destroy the simulation. See D-08.
 - **Optional protective setting:** "Gentle hands" — disables Major interventions (default ON for the first session, OFF once the player discovers EARTH).
 
-### 23.5 Tilt [CANON]
+### 23.5 Tilt [DROPPED 2026-10-04, D-15]
+
+> **Dropped** (owner's decision): tilting the phone does not move the world. What follows is kept for the record only. Water pooling, sloshing and "the Leaning" come about without it, or not at all.
+
 
 - Read smoothed gravity (`Input.get_gravity()` preferred; fall back to low-passed `Input.get_accelerometer()`), subtract the **calibrated baseline**, apply **dead zone** (default 4°), clamp (default 25°), smooth (low-pass).
 - Visual: the **whole box** rotates slightly with the device (the camera stays with the viewer), selling the physicality.
 - Simulation: tilt produces a **gravity bias vector** fed to water flow and loose-object sliding; people stumble, grab things, look up; anomaly recorded ("the Leaning").
 - Sustained tilt pools water on the low side → potential flood (a Moderate/Major consequence, deliberately caused).
 
-### 23.6 Shake [CANON]
+### 23.6 Shake [ON HOLD, D-15]
+
+> **On hold**: a violent shake causing an earthquake is still wanted, to be designed together with the other disasters (not yet planned). The pipeline and table below are the earlier design, kept as a starting point.
+
 
 Not raw spikes. Pipeline: linear acceleration (accelerometer − gravity) → high-pass → magnitude → peak detection → **direction reversal counting** within a window (default 600 ms) → classify by peak magnitude + reversals + duration:
 
@@ -1072,7 +1078,10 @@ Not raw spikes. Pipeline: linear acceleration (accelerometer − gravity) → hi
 | STRONG | Earthquake (minor): damage chance, injuries possible | 20 s |
 | EXTREME | Earthquake (major): buildings collapse, terrain changes, historical event | 60 s (and requires Gentle hands OFF) |
 
-### 23.7 Sensor settings & calibration [CANON]
+### 23.7 Sensor settings & calibration [ON HOLD, D-15]
+
+> With tilting dropped, only what a shake would need is kept in mind here (shake sensitivity, enable/disable); calibration served tilt.
+
 
 Settings: tilt sensitivity, shake sensitivity, rotation sensitivity, enable/disable motion controls, recalibrate, reduced motion.
 Calibration flow: *"Place your phone flat."* → *"Hold still."* (samples ~1.5 s, rejects if variance too high) → *"Calibration complete."* Also supports calibrating in the current comfortable holding angle ("Use current angle as level").
@@ -1169,8 +1178,8 @@ Hints appear only when relevant and only until the player performs the action on
 | After first pan, a person on screen | "Try touching someone." |
 | After first touch | "Hold to learn more." |
 | After opening person card | "Follow them to see their day." |
-| After motion detected while menu closed (motion enabled) | "Something changed when you moved the world." |
-| After ~3 minutes, motion enabled | "Try tilting the box." |
+| ~~After motion detected (motion enabled)~~ | ~~"Something changed when you moved the world."~~ (dropped with tilting, D-15) |
+| ~~After ~3 minutes, motion enabled~~ | ~~"Try tilting the box."~~ (dropped, D-15) |
 | First event logged | (the ☰ icon glows softly once) |
 | First discovery | "Something is buried here…" (diegetic, not instructional) |
 
@@ -1484,6 +1493,7 @@ Data structures (events with causes, memories with structured params, lexicon) a
 | D-11 | Traits as bipolar axes | PROPOSED | Compact, gradient personalities covering all spec traits | Boolean trait tags |
 | D-12 | Save skeleton + debug overlay + test runner from **M0**, hardened later (M22/M23) | CANON-ADJUSTMENT | Vertical slice needs save/load; debugging needed from day 1 | Build at M22/M23 as listed |
 | D-13 | Chunked data model from **M1**; streaming at M13 | CANON-ADJUSTMENT | Spec demands chunk architecture from the start | Flat array now, refactor later (forbidden: core rewrite) |
+| D-15 | **Tilting dropped.** The phone's tilt does not move the world. **Shake → earthquake is kept as an idea, on hold**, to be designed with the disasters (several are planned; not yet designed). | **CONFIRMED 2026-10-04 (owner)** | People hold their phones at all angles; tilting flips the screen between portrait and landscape and fights the player's grip — too hard to make feel right | Tilt as a toggleable option (rejected: same problems when on) |
 | D-14 | Event causality (`causes[]`) recorded from the **first** event system (M7) | CANON-ADJUSTMENT | Story engine (M19) depends on it | Infer causes later (unreliable) |
 
 ---
