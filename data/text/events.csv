@@ -215,3 +215,8 @@ EVENT_TRADITION_FORMED_HIGH_WATER_PLAYER,"{place} has begun to keep {tradition} 
 EVENT_TRADITION_FORMED_STORM_VIGIL_PLAYER,"{place} has begun to keep {tradition} — it began with something nobody could explain"
 EVENT_TRADITION_FORMED_HARVEST_PLAYER,"{place} has begun to keep {tradition} — it began with something nobody could explain"
 EVENT_TRADITION_FORMED_BRIDGE_PLAYER,"{place} has begun to keep {tradition} — it began with something nobody could explain"
+EVENT_FAITH_FOUNDED,"{name} has begun to speak for {epithet}"
+EVENT_MYTH_SPREAD,"The tale of {epithet} has reached {place}"
+EVENT_SCHISM,"{place} is divided over {what}: some say it is {belief}, others {other_belief}"
+BUILDING_SHRINE,"shrine"
+EVENT_RENAMED,"{Old} came to be called {new}"

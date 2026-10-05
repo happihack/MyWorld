@@ -191,3 +191,28 @@ func test_homes_are_roofed_their_settlements_way() -> void:
 	assert_eq(hut.kind, PropData.Kind.HUT)
 	assert_eq(hut.variant, 2, "hide roofs")
 	assert_eq(calls, [own.id])
+
+
+func test_everyone_comes_to_the_festival() -> void:
+	var own := session.settlement
+	session.events.record(&"first_farm", {"settlement": own.id})
+	cultures.look_for_traditions(session.clock.tick)
+	var day: int = cultures.tradition_of(own.id, &"first_farm")["day"]
+	var dusk := (day - 1) * TimeConfig.MINUTES_PER_DAY + roundi((18.0 - Config.time.start_hour) * 60.0)
+	session.clock.tick = dusk - 10
+	cultures.advance_to(dusk - TimeConfig.MINUTES_PER_DAY)
+	var behavior := session.behavior
+	var most := 0
+	for minute in 90:
+		var seconds := 1.0 * Config.time.real_seconds_per_game_minute
+		while seconds > 0.000001:
+			var piece := minf(seconds, Config.time.max_frame_delta_s)
+			session.clock.advance(piece)
+			seconds -= piece
+		cultures.advance_to(session.clock.tick)
+		behavior.step(1.0)
+		session.pathfinder.serve(1_000_000)
+		session.movement.step(1.0)
+		var at := own.members().filter(func(p: PersonData) -> bool: return BehaviorSystem.activity_of(p) == &"celebrate").size()
+		most = maxi(most, at)
+	assert_true(most * 2 >= own.member_count(), "most of them come (%d of %d)" % [most, own.member_count()])

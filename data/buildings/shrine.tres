@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"shrine"
+prop_kind = 17
+materials = {
+&"stone": 6,
+&"wood": 4
+}
+labor = 140
+capacity = 0
+tags = PackedStringArray("shrine")
+tech = &""

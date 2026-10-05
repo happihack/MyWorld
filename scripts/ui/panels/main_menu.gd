@@ -492,9 +492,20 @@ static func regions(session: WorldSession) -> Array:
 	if session == null or session.knowledge == null:
 		return out
 	for region in session.knowledge.found_regions():
-		out.append([MemoryText.translate("MENU_REGION_ROW").format({"name": region.name.substr(0, 1).to_upper() + region.name.substr(1),
+		out.append([MemoryText.translate("MENU_REGION_ROW").format({"name": region_name(session, region),
 			"explored": roundi(session.knowledge.explored_share(region) * 100.0)}), region.centre])
 	return out
+
+
+## A region's name — in the home settlement's word for its kind, if it has
+## one: "Tiravel (the river)" (M17.3).
+static func region_name(session: WorldSession, region: Regions.Region) -> String:
+	var name := region.name.substr(0, 1).to_upper() + region.name.substr(1)
+	var home := session.settlements.home() if session.settlements != null else null
+	if session.lexicon == null or home == null:
+		return name
+	var said := session.lexicon.word(home.id, [&"river", &"hills", &"valley"][region.kind])
+	return MemoryText.translate("WORD_GLOSS").format({"word": said, "gloss": region.name}) if said != "" else name
 
 
 ## Asks before something that cannot simply be taken back (a page of its own).

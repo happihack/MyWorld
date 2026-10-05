@@ -13,6 +13,11 @@ extends RefCounted
 ##   <KEY>
 
 
+## A myth's name in its settlement's words, with its gloss (M17.3): Callable(settlement id,
+## subject) -> String ("": they have no word for it). Set by the session.
+static var glossary := Callable()
+
+
 ## What an event says. `people`: to name whom it concerned; `log`: to look
 ## up what caused it (both may be null).
 static func text(event: WorldEvent, people: PersonRegistry = null, log: EventLog = null) -> String:
@@ -77,9 +82,17 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 	if params.has("interpretation") and str(params["interpretation"]) != "":
 		var belief_key := "MEMBELIEF_" + str(params["interpretation"]).to_upper()
 		params["belief"] = MemoryText.translate(belief_key if MemoryText.has(belief_key) else "MEMBELIEF_NATURAL")
+	if params.has("other") and event.type == &"schism":
+		var other_key := "MEMBELIEF_" + str(params["other"]).to_upper()
+		params["other_belief"] = MemoryText.translate(other_key if MemoryText.has(other_key) else "MEMBELIEF_NATURAL")
 	if params.has("epithet"):
 		var epithet := str(params["epithet"])
 		params["epithet"] = MemoryText.translate(epithet if MemoryText.has(epithet) else "EPITHET_UNKNOWN")
+		# In their own words, if they have one: "Velun (the Rainbringer)".
+		if glossary.is_valid() and params.has("subject"):
+			var said := str(glossary.call(event.settlement_id, StringName(str(params["subject"]))))
+			if said != "":
+				params["epithet"] = said
 	if params.has("tradition"):
 		var tradition := str(params["tradition"])
 		params["tradition"] = MemoryText.translate(tradition) if MemoryText.has(tradition) else tradition

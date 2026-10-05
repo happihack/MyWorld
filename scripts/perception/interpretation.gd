@@ -125,6 +125,9 @@ static func scores(person: PersonData, stimulus: Stimulus, circumstances: Dictio
 		var context: Dictionary = table.interpretation_context.get(interpretation, {})
 		for feature: StringName in context:
 			score += float(context[feature]) * float(circumstances.get(feature, 0.0))
+		# What my people believe, all told (M17.2).
+		if ctx.cultures != null:
+			score += ctx.cultures.belief_share(person.settlement_id, index) * CultureSystem.BELIEF_WEIGHT * prior_factor
 		# What my people remember of the like of it, together (M11.1).
 		if ctx.culture != null:
 			var kind := stimulus.about if stimulus.type == Stimulus.TOLD and stimulus.about != &"" else stimulus.type

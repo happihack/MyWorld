@@ -58,6 +58,8 @@ const FESTIVAL_HOURS := 3.0
 ## How many looks there are (roofs, cloth).
 const ARCHITECTURES := 3
 const PALETTES := 6
+## How much what a settlement as a whole believes leans how its people take things (M17.2).
+const BELIEF_WEIGHT := 0.6
 const SUPERNATURAL: Array[StringName] = [ReactionTable.SPIRIT, ReactionTable.DEITY, ReactionTable.ANCESTOR,
 	ReactionTable.UNKNOWN_INTELLIGENCE, ReactionTable.MULTIPLE_ENTITIES]
 
@@ -135,7 +137,23 @@ func profile_of(own: Settlement) -> Dictionary:
 		"palette": palette_of(own),
 		"traditions": mine,
 		"myths": myths,
+		"beliefs": _shares(beliefs, all),
 	}
+
+
+static func _shares(beliefs: PackedFloat32Array, all: float) -> PackedFloat32Array:
+	var out := beliefs.duplicate()
+	for i in out.size():
+		out[i] = out[i] / all if all > 0.0 else 0.0
+	return out
+
+
+## The share of a settlement's belief that what happens is the interpretation
+## `index`'s (ReactionTable.INTERPRETATIONS) — as last worked out (0: unknown).
+func belief_share(settlement_id: int, index: int) -> float:
+	var profile: Dictionary = profiles.get(settlement_id, {})
+	var shares: Variant = profile.get("beliefs")
+	return float(shares[index]) if typeof(shares) == TYPE_PACKED_FLOAT32_ARRAY and index < (shares as PackedFloat32Array).size() else 0.0
 
 
 ## How a settlement thatches its roofs (0 … ARCHITECTURES - 1): its own,
@@ -170,9 +188,9 @@ func advance_to(now: int) -> void:
 func each_day(now: int) -> void:
 	if settlements == null:
 		return
-	if Config.time.day_of_year(now) == 1 or profiles.is_empty():
-		for own in settlements.all():
-			profiles[own.id] = profile_of(own)
+	# (Cheap: worked out daily, as belief feeds how things are taken — M17.2.)
+	for own in settlements.all():
+		profiles[own.id] = profile_of(own)
 	look_for_traditions(now)
 
 

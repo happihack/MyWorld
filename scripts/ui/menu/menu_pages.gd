@@ -18,6 +18,7 @@ const AGRICULTURE := &"agriculture"
 const GOVERNMENT := &"government"
 const BELIEFS := &"beliefs"
 const TECHNOLOGY := &"technology"
+const CULTURE := &"culture"
 const DISCOVERIES := &"discoveries"
 const SEEN := &"seen"
 const GRAPHICS := &"graphics"
@@ -72,6 +73,7 @@ static func sections(menu: MainMenu) -> Array:
 		civ.append(["MENU_GOVERNMENT", func() -> void: menu.open_page(GOVERNMENT)])
 	if _beyond_the_beginning(s):
 		civ.append(["MENU_TECHNOLOGY", func() -> void: menu.open_page(TECHNOLOGY)])
+	civ.append(["MENU_CULTURE", func() -> void: menu.open_page(CULTURE)])
 	if not beliefs(s).is_empty():
 		civ.append(["MENU_BELIEFS", func() -> void: menu.open_page(BELIEFS)])
 	out.append(["MENU_CIVILIZATION", civ])
@@ -179,8 +181,16 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 			for row: Array in government(s):
 				var id: int = row[0]
 				menu.add_entry(row[1], func() -> void: menu.person_chosen.emit(id))
+		CULTURE:
+			menu.set_title(MemoryText.translate("MENU_CULTURE"))
+			for own in s.settlements.all():
+				menu.add_detail(own.display_name(), culture_lines(s, own), Vector2.INF)
 		BELIEFS:
 			menu.set_title(MemoryText.translate("MENU_BELIEFS"))
+			for own in s.settlements.all():
+				var held := faith_lines(s, own)
+				if not held.is_empty():
+					menu.add_detail(own.display_name(), held, Vector2.INF)
 			for text in beliefs(s):
 				menu.add_small(text)
 			if beliefs(s).is_empty():
@@ -473,9 +483,67 @@ static func government(s: WorldSession) -> Array:
 ## What the world has come to believe: its shared memories and myths, in words.
 static func beliefs(s: WorldSession) -> PackedStringArray:
 	var out := PackedStringArray()
-	for type: StringName in [&"myth_formed", &"cultural_memory"]:
+	for type: StringName in [&"myth_formed", &"cultural_memory", &"faith_founded", &"schism", &"myth_spread"]:
 		for e in s.events.of_type(type):
 			out.append(EventText.line(e, s.people, s.events))
+	return out
+
+
+## A settlement's culture in words (M17.1): what it values, what it makes of
+## the Presence, its traditions and its look.
+static func culture_lines(s: WorldSession, own: Settlement) -> PackedStringArray:
+	var out := PackedStringArray()
+	if s.cultures == null:
+		return out
+	var profile := s.cultures.profile_of(own)
+	for value: Array in [["innovation", "CULT_INNOVATION", "CULT_TRADITION"], ["collectivism", "CULT_COMMUNITY", "CULT_SELF"],
+			["piety", "CULT_PIETY", "CULT_SKEPTICISM"]]:
+		var lean := float(profile[value[0]])
+		if absf(lean) >= 0.15:
+			out.append(MemoryText.translate(value[1] if lean > 0.0 else value[2]))
+	if StringName(profile["presence"]) != &"":
+		var belief_key := "MEMBELIEF_" + String(profile["presence"]).to_upper()
+		out.append(MemoryText.translate("CULT_PRESENCE").format({"belief": MemoryText.translate(belief_key if MemoryText.has(belief_key) else "MEMBELIEF_NATURAL"),
+			"share": roundi(float(profile["presence_share"]) * 100.0)}))
+	for tradition in s.cultures.traditions_of(own.id):
+		var day := int(tradition["day"])
+		var when := MemoryText.translate("CULT_WHEN_DROUGHT") if String(tradition["when"]) == "drought" else \
+			MemoryText.translate("CULT_WHEN_DAY").format({"day": (day - 1) % Config.time.days_per_season + 1,
+				"season": MemoryText.translate("SEASON_%d" % ((day - 1) / Config.time.days_per_season)).to_lower()})
+		var line := MemoryText.translate("CULT_TRADITION_LINE").format({"tradition": MemoryText.capitalized(MemoryText.translate(str(tradition["name"]))), "when": when})
+		if bool(tradition["player"]):
+			line += MemoryText.translate("CULT_FROM_YOU")
+		out.append(line)
+	out.append(MemoryText.translate("CULT_ROOFS_%d" % int(profile["architecture"])))
+	if s.lexicon != null:
+		var said := PackedStringArray()
+		for concept: StringName in Lexicon.CONCEPTS:
+			if concept != &"home" and s.lexicon.word(own.id, concept) != "":
+				said.append(s.lexicon.gloss(own.id, concept))
+		if not said.is_empty():
+			out.append(MemoryText.translate("CULT_WORDS").format({"words": ", ".join(said)}))
+	return out
+
+
+## What a settlement believes (M17.2): its myths, who speaks for them, how many
+## believe, their sacred places and shrine.
+static func faith_lines(s: WorldSession, own: Settlement) -> PackedStringArray:
+	var out := PackedStringArray()
+	if s.faith == null:
+		return out
+	for myth in s.faith.myths_of(own.id):
+		var epithet := MemoryText.translate(str(myth["epithet"])) if MemoryText.has(str(myth["epithet"])) else MemoryText.translate("EPITHET_UNKNOWN")
+		if s.lexicon != null:
+			var concept := Lexicon.concept_of_myth(StringName(str(myth["subject"])))
+			if concept != &"" and s.lexicon.word(own.id, concept) != "":
+				epithet = s.lexicon.gloss(own.id, concept)
+		var founder := int(s.faith.founders.get(int(myth["id"]), 0))
+		out.append(MemoryText.translate("FAITH_MYTH").format({"epithet": MemoryText.capitalized(epithet), "believers": int(myth["believers"]),
+			"places": (myth.get("places", []) as Array).size()}))
+		if founder != 0:
+			out.append(MemoryText.translate("FAITH_FOUNDER").format({"name": s.people.name_of(founder)}))
+	if own.planner != null and not own.planner.standing_near(PropData.Kind.SHRINE).is_empty():
+		out.append(MemoryText.translate("FAITH_SHRINE"))
 	return out
 
 

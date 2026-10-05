@@ -84,6 +84,19 @@ func myths() -> Array[Dictionary]:
 	return _myths
 
 
+## A myth taken up by a settlement (carried along by founders or with loads,
+## M17.2): theirs now, believed anew there. Returns it.
+func adopt(myth: Dictionary, settlement_id: int) -> Dictionary:
+	var copy: Dictionary = myth.duplicate(true)
+	copy["id"] = _next_myth
+	_next_myth += 1
+	copy["settlement"] = settlement_id
+	copy["believers"] = int(myth.get("believers", 0)) if int(myth.get("settlement", 0)) == settlement_id else 0
+	copy["from"] = int(myth.get("settlement", 0))
+	_myths.append(copy)
+	return copy
+
+
 ## The myth of a settlement about `subject` taken as `agent` ({}: none).
 func myth_of(settlement_id: int, subject: StringName, agent: StringName) -> Dictionary:
 	for myth in _myths:

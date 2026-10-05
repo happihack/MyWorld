@@ -151,6 +151,12 @@ var _saved_technology: Dictionary = {}
 ## What makes each settlement's people theirs: profiles, traditions, festivals (M17.1).
 var cultures := CultureSystem.new()
 var _saved_cultures: Dictionary = {}
+## What becomes of myths: sacred places, founders, shrines, schisms (M17.2).
+var faith := MythSystem.new()
+var _saved_faith: Dictionary = {}
+## Each settlement's words, in its own sounds (M17.3).
+var lexicon := Lexicon.new()
+var _saved_lexicon: Dictionary = {}
 var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
@@ -272,6 +278,7 @@ func _init() -> void:
 		chronicle.on_abandoned(id, name, at)
 		learning.forget_settlement(id)
 		cultures.forget_settlement(id)
+		lexicon.forget_settlement(id)
 		_place_settlements())
 	governance = Governance.new()
 	governance.led.connect(func(settlement_id: int, leader_id: int, was: int, why: StringName) -> void:
@@ -289,6 +296,17 @@ func _init() -> void:
 	cultures.tradition_faded.connect(chronicle.on_tradition_faded)
 	cultures.festival.connect(chronicle.on_festival)
 	migration.founded.connect(cultures.on_founded)
+	# Myths: hallowed, spoken for, carried, split (M17.2).
+	culture.myth_formed.connect(faith.on_myth)
+	migration.founded.connect(faith.on_founded)
+	trade.traded.connect(faith.on_traded)
+	faith.founded.connect(chronicle.on_faith_founded)
+	faith.spread.connect(func(myth: Dictionary, _from: int) -> void: chronicle.on_myth_spread(myth))
+	faith.schism.connect(chronicle.on_schism)
+	# Words: coined, inherited, borrowed; a settlement named in its own (M17.3).
+	migration.founded.connect(lexicon.on_founded)
+	trade.traded.connect(lexicon.on_traded)
+	lexicon.renamed.connect(chronicle.on_renamed)
 	weather.condition_changed.connect(func(condition: StringName, active: bool) -> void:
 		if is_active:
 			cultures.on_condition(condition, active, clock.tick))
@@ -559,6 +577,8 @@ func load_from(data: Dictionary) -> bool:
 		_saved_learning = state["learning"] if typeof((state as Dictionary).get("learning")) == TYPE_DICTIONARY else {}
 		_saved_technology = state["technology"] if typeof((state as Dictionary).get("technology")) == TYPE_DICTIONARY else {}
 		_saved_cultures = state["cultures"] if typeof((state as Dictionary).get("cultures")) == TYPE_DICTIONARY else {}
+		_saved_faith = state["faith"] if typeof((state as Dictionary).get("faith")) == TYPE_DICTIONARY else {}
+		_saved_lexicon = state["lexicon"] if typeof((state as Dictionary).get("lexicon")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -665,6 +685,8 @@ func to_dict() -> Dictionary:
 			"learning": learning.to_dict(),
 			"technology": technology.to_dict(),
 			"cultures": cultures.to_dict(),
+			"faith": faith.to_dict(),
+			"lexicon": lexicon.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -764,6 +786,8 @@ func _process(delta: float) -> void:
 		learning.advance_to(clock.tick)
 		technology.advance_to(clock.tick)
 		cultures.advance_to(clock.tick)
+		faith.advance_to(clock.tick)
+		lexicon.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1271,6 +1295,28 @@ func _activate() -> void:
 	cultures.bind(settlements, culture, events, world_seed, clock.tick)
 	cultures.from_dict(_saved_cultures)
 	_saved_cultures = {}
+	faith.bind(culture, settlements, people, world, clock.tick)
+	faith.significance = significance
+	faith.from_dict(_saved_faith)
+	_saved_faith = {}
+	lexicon.bind(settlements, culture, world_seed, clock.tick)
+	lexicon.from_dict(_saved_lexicon)
+	_saved_lexicon = {}
+	lexicon.edge_known = func() -> bool: return knowledge != null and knowledge.edge_reached
+	lexicon.regions_of = func(_own: Settlement) -> Array[String]:
+		var kinds: Array[String] = []
+		if knowledge != null:
+			for region in knowledge.found_regions():
+				var kind: String = ["water", "hills", "lowland"][region.kind]
+				if not kinds.has(kind):
+					kinds.append(kind)
+		return kinds
+	EventText.glossary = func(settlement_id: int, subject: StringName) -> String:
+		var concept := Lexicon.concept_of_myth(subject)
+		return lexicon.gloss(settlement_id, concept) if concept != &"" and lexicon.word(settlement_id, concept) != "" else ""
+	for own in settlements.all():
+		if own.planner != null:
+			own.planner.faith = faith
 	ai.cultures = cultures
 	construction.style_of = func(settlement_id: int) -> int: return cultures.architecture_of(settlements.get_settlement(settlement_id))
 	ai.governance = governance
@@ -1407,6 +1453,7 @@ func add_settlement(info: WorldSetup.StartInfo, saved: Dictionary = {}, saved_pl
 	var own := _make_settlement(info, its_places, saved)
 	own.construction = construction
 	own.planner = SettlementPlanner.new()
+	own.planner.faith = faith
 	own.planner.bind(own, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
 	own.planner.from_dict(saved_planner)
 	settlements.add(own)

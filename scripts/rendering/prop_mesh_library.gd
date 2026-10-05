@@ -139,6 +139,7 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
 	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
 	_templates[_key(PropData.Kind.STONE_CIRCLE, 0)] = _stone_circle()
+	_templates[_key(PropData.Kind.SHRINE, 0)] = _shrine()
 	for stage in PropData.BRIDGE_DONE + 1:
 		_templates[_key(PropData.Kind.BRIDGE, stage)] = _bridge(stage)
 	# What is left of nodes that have given up what they had.
@@ -593,6 +594,22 @@ static func _stone_circle() -> Template:
 		_box(t, Vector3(cos(angle) * 0.40, tall, sin(angle) * 0.40), Vector3(0.06, tall, 0.045),
 			_rgba(STONE if i % 2 == 0 else STONE_DARK, 0.0), -angle)
 	_box(t, Vector3(0.0, 0.03, 0.0), Vector3(0.12, 0.03, 0.12), _rgba(STONE_DARK, 0.0), 0.4) # the flat stone at its heart
+	return t
+
+
+## A shrine (M17.2): a small roofed stone at a sacred place, offerings before it.
+static func _shrine() -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0.0, 0.05, 0.0), Vector3(0.26, 0.05, 0.22), _rgba(STONE_DARK, 0.0))
+	_box(t, Vector3(0.0, 0.28, -0.04), Vector3(0.10, 0.18, 0.08), _rgba(STONE, 0.0))
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.20, 0.30, -0.04), Vector3(0.022, 0.25, 0.022), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.58, -0.04), Vector3(0.28, 0.02, 0.16), _rgba(THATCH_DARK, 0.0))
+	var glow := t.vertices.size()
+	_box(t, Vector3(0.0, 0.16, 0.10), Vector3(0.025, 0.04, 0.025), _rgba(FLAME_HOT, 0.0)) # a small flame
+	t.glow_from(glow, 0.7)
+	for x: float in [-0.12, 0.13]:
+		_box(t, Vector3(x, 0.13, 0.12), Vector3(0.03, 0.03, 0.03), _rgba(BERRY if x < 0.0 else CLAY, 0.0)) # offerings
 	return t
 
 

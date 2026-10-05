@@ -117,6 +117,8 @@ func _run() -> void:
 				s.learning.advance_to(s.clock.tick) # (M16: what people know, and what they work out)
 				s.technology.advance_to(s.clock.tick)
 				s.cultures.advance_to(s.clock.tick) # (M17: traditions, festivals)
+				s.faith.advance_to(s.clock.tick)
+				s.lexicon.advance_to(s.clock.tick)
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
 				var food_days: float = s.settlement.days_of_food()
@@ -271,7 +273,9 @@ func _run() -> void:
 	print("SOAK %s" % s.learning.debug_text())
 	print("SOAK %s" % s.technology.debug_text())
 	print("SOAK %s" % s.cultures.debug_text())
-	for e in s.events.of_type(&"knowledge_learned") + s.events.of_type(&"knowledge_spread") + s.events.of_type(&"era_entered") + s.events.of_type(&"knowledge_lost") + s.events.of_type(&"tradition_formed") + s.events.of_type(&"tradition_faded"):
+	print("SOAK %s" % s.faith.debug_text())
+	print("SOAK %s" % s.lexicon.debug_text())
+	for e in s.events.of_type(&"knowledge_learned") + s.events.of_type(&"knowledge_spread") + s.events.of_type(&"era_entered") + s.events.of_type(&"knowledge_lost") + s.events.of_type(&"tradition_formed") + s.events.of_type(&"tradition_faded") + s.events.of_type(&"renamed") + s.events.of_type(&"faith_founded") + s.events.of_type(&"schism") + s.events.of_type(&"myth_spread"):
 		print("SOAK   year %d  %s %s (%s)" % [config.time.year_of(e.tick), e.type, str(e.text_params.get("kind", "")), str(e.text_params.get("place", ""))])
 	print("SOAK box: %d x %d tiles, unfolded %d times; regions found %d of %d, the edge %s" % [s.world.bounds.size.x, s.world.bounds.size.y,
 		s.unfolder.count, s.knowledge.discovered.size(), s.knowledge.regions.regions.size(), "reached" if s.knowledge.edge_reached else "not reached"])

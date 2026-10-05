@@ -80,6 +80,10 @@ const TYPE_ERA := &"era_entered"
 const TYPE_TRADITION := &"tradition_formed"
 const TYPE_TRADITION_FADED := &"tradition_faded"
 const TYPE_FESTIVAL := &"festival"
+const TYPE_FAITH := &"faith_founded"
+const TYPE_MYTH_SPREAD := &"myth_spread"
+const TYPE_SCHISM := &"schism"
+const TYPE_RENAMED := &"renamed"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 const TYPE_MOVED_TO := &"moved_to"
@@ -724,6 +728,37 @@ func on_tradition_faded(tradition: Dictionary) -> void:
 		return
 	_log.record(TYPE_TRADITION_FADED, {"tradition": str(tradition["name"]), "place": _settlement_name(int(tradition["settlement"])),
 		"settlement": int(tradition["settlement"])})
+
+
+## Someone has begun to speak for a myth (M17.2): its founder.
+func on_faith_founded(myth: Dictionary, person_id: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_FAITH, {"participants": [person_id], "subject": str(myth["subject"]), "interpretation": str(myth["agent"]),
+		"epithet": str(myth["epithet"]), "place": _settlement_name(int(myth["settlement"])), "settlement": int(myth["settlement"])})
+
+
+## A myth has been carried to another settlement with a load (M17.2).
+func on_myth_spread(myth: Dictionary) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_MYTH_SPREAD, {"subject": str(myth["subject"]), "interpretation": str(myth["agent"]), "epithet": str(myth["epithet"]),
+		"place": _settlement_name(int(myth["settlement"])), "settlement": int(myth["settlement"])})
+
+
+## A settlement is divided over what something is (M17.2).
+func on_schism(settlement_id: int, subject: StringName, agents: Array) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_SCHISM, {"subject": String(subject), "interpretation": str(agents[0]), "other": str(agents[1]),
+		"place": _settlement_name(settlement_id), "settlement": settlement_id})
+
+
+## A settlement has come to go by its own word for its place (M17.3).
+func on_renamed(settlement_id: int, old_name: String, new_name: String) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_RENAMED, {"Old": MemoryText.capitalized(old_name), "new": new_name, "settlement": settlement_id})
 
 
 ## A settlement's name: Callable(settlement id) -> String (set by the session).

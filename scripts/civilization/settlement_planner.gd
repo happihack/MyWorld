@@ -25,6 +25,8 @@ var _construction: ConstructionSystem
 var _people: PersonRegistry
 var _households: Households
 var _traffic: Traffic
+## What its people believe together (M17.2: a shrine for a myth many hold).
+var faith: MythSystem
 ## What is further than this from the fire is not this settlement's to build or keep.
 const NEAR_REACH := 16.0
 var _world: WorldData
@@ -87,7 +89,7 @@ func plan(now: int) -> Dictionary:
 					continue # (built, or going up)
 				return _construction.start(def[0].id, tile, now, int(across["turn"]), _settlement.id)
 			continue
-		var site: Variant = site_for(def[0])
+		var site: Variant = shrine_site() if need == &"shrine" else site_for(def[0])
 		if site == null:
 			continue
 		return _construction.start(def[0].id, site, now, 0, _settlement.id)
@@ -110,6 +112,8 @@ func needs(now: int) -> Array[StringName]:
 	for tag: String in LANDMARKS:
 		if landmark_wanted(tag):
 			out.append(StringName(tag))
+	if shrine_wanted():
+		out.append(&"shrine")
 	return out
 
 
@@ -332,6 +336,41 @@ func landmark_wanted(tag: String) -> bool:
 		return false
 	var def := _construction.buildings.with_tag(tag)
 	return not def.is_empty() and def[0].tech != &"" and _settlement.knows_how(def[0].tech)
+
+
+## Does a myth many of its people hold call for a shrine (and none stands)? (M17.2)
+func shrine_wanted() -> bool:
+	return faith != null and _settlement.member_count() >= LANDMARK_FROM \
+		and not faith.shrine_myth(_settlement).is_empty() and standing_near(PropData.Kind.SHRINE).is_empty()
+
+
+## Where the shrine goes: buildable ground by a sacred place of its myth (the
+## nearest of them to the fire, within reach) — or, if there is none, where
+## anything else would go.
+func shrine_site() -> Variant:
+	var fire := _settlement.fire()
+	if faith == null or fire == null:
+		return null
+	var myth := faith.shrine_myth(_settlement)
+	var graves: Array[Vector2i] = []
+	for id in _construction.standing(PropData.Kind.GRAVE):
+		graves.append(_settlement.props().get_prop(id).tile)
+	var best: Variant = null
+	var best_distance := INF
+	for place: Variant in myth.get("places", []):
+		if typeof(place) != TYPE_VECTOR2:
+			continue
+		var sacred := WorldCoords.world2d_to_tile(place)
+		if Vector2(sacred - fire.tile).length() > NEAR_REACH:
+			continue
+		for dy in range(-2, 3):
+			for dx in range(-2, 3):
+				var tile := sacred + Vector2i(dx, dy)
+				var distance := Vector2(dx, dy).length() + Vector2(tile - fire.tile).length() * 0.05
+				if distance < best_distance and _buildable(tile, graves):
+					best = tile
+					best_distance = distance
+	return best if best != null else site_for(_construction.buildings.get_def(&"shrine"))
 
 
 ## Is water to drink far from the fire (and no well yet)?
