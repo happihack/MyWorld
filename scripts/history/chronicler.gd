@@ -84,6 +84,9 @@ const TYPE_FAITH := &"faith_founded"
 const TYPE_MYTH_SPREAD := &"myth_spread"
 const TYPE_SCHISM := &"schism"
 const TYPE_RENAMED := &"renamed"
+const TYPE_HYPOTHESIS := &"hypothesis"
+const TYPE_BOX_RESEARCH := &"box_research"
+const TYPE_CLUE := &"mystery_clue"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 const TYPE_MOVED_TO := &"moved_to"
@@ -759,6 +762,31 @@ func on_renamed(settlement_id: int, old_name: String, new_name: String) -> void:
 	if not _writing():
 		return
 	_log.record(TYPE_RENAMED, {"Old": MemoryText.capitalized(old_name), "new": new_name, "settlement": settlement_id})
+
+
+## Scholars have written up a hypothesis (M18): what they think, never the truth.
+func on_hypothesis(hypothesis: Dictionary) -> void:
+	if not _writing():
+		return
+	var params: Dictionary = hypothesis.get("params", {})
+	_log.record(TYPE_HYPOTHESIS, {"participants": [int(hypothesis["by"])], "kind": str(hypothesis["kind"]),
+		"part": str(params.get("part", "")), "place": _settlement_name(int(hypothesis["settlement"])), "settlement": int(hypothesis["settlement"])})
+
+
+## A step of the box research (M18; a negative stage: the expedition is back).
+func on_box_research(stage: int, settlement_id: int, person_id: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_BOX_RESEARCH, {"participants": [person_id] if person_id != 0 else [], "kind": ("back_%d" % -stage) if stage < 0 else "stage_%d" % stage,
+		"place": _settlement_name(settlement_id), "settlement": settlement_id})
+
+
+## A clue of a seeded mystery has been found (M18).
+func on_clue(mystery: StringName, step: int, person_id: int, at: Vector2, weight: float) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_CLUE, {"participants": [person_id] if person_id != 0 else [], "kind": "%s_%d" % [mystery, step],
+		"position": at, "significance": weight, "settlement": _settlement_id()})
 
 
 ## A settlement's name: Callable(settlement id) -> String (set by the session).

@@ -304,6 +304,17 @@ func ensure_trader(now: int) -> PersonData:
 	return _take_up(&"trader", Config.trade.trader_from, now)
 
 
+## Once it knows natural philosophy, and has nobody looking into the
+## unexplained: the one it suits best becomes its scientist (M18).
+func ensure_scientist(now: int) -> PersonData:
+	if occupations == null or not occupations.has_def(&"scientist") or not knows_how(&"natural_philosophy"):
+		return null
+	for person in members():
+		if person.occupation_id == &"scientist":
+			return null
+	return _take_up(&"scientist", 3, now)
+
+
 ## Someone makes tools, once there is a workshop and tools are wanted.
 func ensure_toolmaker(now: int) -> PersonData:
 	if occupations == null or not occupations.has_def(&"toolmaker") or workshop() == null or not tools_wanted():
@@ -635,6 +646,7 @@ func step(now: int) -> void:
 		ensure_builder(now)
 		ensure_trader(now)
 		ensure_toolmaker(now)
+		ensure_scientist(now)
 		_refresh_tools()
 		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MysteryDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/science/mystery_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"recurring_anomaly"
+placement = "spot"
+steps = Array[PackedStringArray]([PackedStringArray("visited"), PackedStringArray("seen:4"), PackedStringArray("seen:6", "scholar")])
+significance = 0.6

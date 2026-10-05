@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MysteryDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/science/mystery_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"strange_artifact"
+placement = "buried"
+steps = Array[PackedStringArray]([PackedStringArray("exposed"), PackedStringArray("exposed", "scholar"), PackedStringArray("exposed", "known:mathematics")])
+significance = 0.7

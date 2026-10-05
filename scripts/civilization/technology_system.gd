@@ -102,9 +102,16 @@ func apply_effects() -> void:
 	for own in settlements.all():
 		var tended := own.knows_how(&"medicine")
 		var dyed := own.knows_how(&"weaving")
+		var thinkers: Array[String] = []
+		for gate: String in ["natural_philosophy", "scientific_method"]:
+			if own.knows_how(StringName(gate)):
+				thinkers.append(gate)
 		for person in own.members():
 			person.set_flag(PersonData.FLAG_TENDED, tended)
 			person.set_flag(PersonData.FLAG_DYED, dyed)
+			# (What they can now think things are: PHYSICS, EXPERIMENT — M18.)
+			for gate in thinkers:
+				person.knowledge[gate] = true
 		if own.knows_how(&"mathematics") and props != null and own.fire() != null:
 			for prop in props.all_props():
 				if prop.kind == PropData.Kind.RECORD_STONE and prop.variant == 0 \

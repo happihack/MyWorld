@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MysteryDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/science/mystery_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"ancient_structure"
+placement = "stones"
+steps = Array[PackedStringArray]([PackedStringArray("visited"), PackedStringArray("visited", "known:astronomy"), PackedStringArray("visited", "known:astronomy", "edge")])
+significance = 0.7

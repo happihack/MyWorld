@@ -19,6 +19,7 @@ const GOVERNMENT := &"government"
 const BELIEFS := &"beliefs"
 const TECHNOLOGY := &"technology"
 const CULTURE := &"culture"
+const BOX_KNOWLEDGE := &"box_knowledge"
 const DISCOVERIES := &"discoveries"
 const SEEN := &"seen"
 const GRAPHICS := &"graphics"
@@ -91,6 +92,8 @@ static func sections(menu: MainMenu) -> Array:
 	var player: Array = []
 	player.append(["MENU_INTERACTIONS", func() -> void: menu.history_requested.emit()])
 	player.append(["MENU_STATISTICS", func() -> void: menu.statistics_requested.emit()])
+	if s.anomaly_archive != null and not s.anomaly_archive.anomalies.is_empty():
+		player.append(["MENU_BOX_KNOWLEDGE", func() -> void: menu.open_page(BOX_KNOWLEDGE)])
 	if s.knowledge != null:
 		player.append(["MENU_SEEN", func() -> void: menu.open_page(SEEN)])
 	out.append(["MENU_PLAYER", player])
@@ -181,6 +184,19 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 			for row: Array in government(s):
 				var id: int = row[0]
 				menu.add_entry(row[1], func() -> void: menu.person_chosen.emit(id))
+		BOX_KNOWLEDGE:
+			menu.set_title(MemoryText.translate("MENU_BOX_KNOWLEDGE"))
+			var told := box_knowledge(s)
+			for text: String in told["state"]:
+				menu.add_line(text)
+			if not (told["hypotheses"] as PackedStringArray).is_empty():
+				menu.add_heading(MemoryText.translate("BOX_HYPOTHESES"))
+				for text: String in told["hypotheses"]:
+					menu.add_line(text)
+			if not (told["clues"] as PackedStringArray).is_empty():
+				menu.add_heading(MemoryText.translate("BOX_CLUES"))
+				for text: String in told["clues"]:
+					menu.add_small(text)
 		CULTURE:
 			menu.set_title(MemoryText.translate("MENU_CULTURE"))
 			for own in s.settlements.all():
@@ -487,6 +503,33 @@ static func beliefs(s: WorldSession) -> PackedStringArray:
 		for e in s.events.of_type(type):
 			out.append(EventText.line(e, s.people, s.events))
 	return out
+
+
+## The Box Knowledge page (M18): what the civilization thinks of the
+## unexplained — never the truth. {"state", "hypotheses", "clues": PackedStringArray}.
+static func box_knowledge(s: WorldSession) -> Dictionary:
+	var state := PackedStringArray()
+	var hypotheses := PackedStringArray()
+	var clues := PackedStringArray()
+	if s.science != null:
+		state.append(MemoryText.translate("BOX_STAGE_%d" % int(s.science.stage)))
+	if s.anomaly_archive != null:
+		var written := s.anomaly_archive.anomalies.filter(func(a: Dictionary) -> bool: return bool(a["written"])).size()
+		state.append(MemoryText.translate("BOX_ANOMALIES").format({"count": s.anomaly_archive.anomalies.size(), "written": written}))
+	if s.science != null:
+		var best := {}
+		for h in s.science.hypotheses:
+			if not best.has(str(h["kind"])) or float(h["confidence"]) > float(best[str(h["kind"])]["confidence"]):
+				best[str(h["kind"])] = h
+		for kind: String in best:
+			var h: Dictionary = best[kind]
+			var part := str((h.get("params", {}) as Dictionary).get("part", ""))
+			hypotheses.append(MemoryText.translate("BOX_HYP_" + kind.to_upper()).format({
+				"sure": MemoryText.translate(ScienceSystem.confidence_word(float(h["confidence"]))),
+				"part": MemoryText.translate("PART_" + part.to_upper()) if part != "" else ""}))
+	for e in s.events.of_type(&"mystery_clue"):
+		clues.append(EventText.line(e, s.people, s.events))
+	return {"state": state, "hypotheses": hypotheses, "clues": clues}
 
 
 ## A settlement's culture in words (M17.1): what it values, what it makes of

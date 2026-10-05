@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="OccupationDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/occupation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"scientist"
+life_stages = Array[int]([2, 3])
+starting_share = 0.0
+trait_weights = {
+"CURIOSITY": 0.7,
+"INTELLIGENCE": 0.5
+}
+accessory = &"scroll"
+work_target = &"investigate"
+placeholder = false
+routine = PackedStringArray("06:00 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "21:00 go_home", "21:30 sleep")

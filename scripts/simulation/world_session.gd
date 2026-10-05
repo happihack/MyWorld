@@ -157,6 +157,13 @@ var _saved_faith: Dictionary = {}
 ## Each settlement's words, in its own sounds (M17.3).
 var lexicon := Lexicon.new()
 var _saved_lexicon: Dictionary = {}
+## The unexplained, recorded; scholars looking into it; the seeded mysteries (M18).
+var anomaly_archive := AnomalyArchive.new()
+var science := ScienceSystem.new()
+var mysteries := MysterySystem.new()
+var _saved_archive_m18: Dictionary = {}
+var _saved_science: Dictionary = {}
+var _saved_mysteries: Dictionary = {}
 var _saved_knowledge: Dictionary = {}
 ## It is time to unfold: done at the next step (not inside the clock's own signal).
 var unfold_pending := false
@@ -307,6 +314,14 @@ func _init() -> void:
 	migration.founded.connect(lexicon.on_founded)
 	trade.traded.connect(lexicon.on_traded)
 	lexicon.renamed.connect(chronicle.on_renamed)
+	# Science and the mysteries (M18).
+	science.hypothesis_formed.connect(chronicle.on_hypothesis)
+	science.stage_reached.connect(chronicle.on_box_research)
+	mysteries.clue_found.connect(func(id: StringName, step: int, person_id: int) -> void:
+		var def := mysteries.get_def(id)
+		var entry: Dictionary = mysteries.placed.get(id, {})
+		chronicle.on_clue(id, step, person_id, Vector2(entry.get("tile", Vector2i.ZERO)) + Vector2(0.5, 0.5),
+			def.significance if def != null else 0.6))
 	weather.condition_changed.connect(func(condition: StringName, active: bool) -> void:
 		if is_active:
 			cultures.on_condition(condition, active, clock.tick))
@@ -407,6 +422,9 @@ func _init() -> void:
 		if stimulus != null and clock != null:
 			fauna.startle(stimulus.position, maxf(stimulus.radius, STARTLE_RADIUS), clock.tick))
 	perception.noticed.connect(behavior.notice)
+	interactions.stimulus_emitted.connect(func(stimulus: Stimulus) -> void:
+		if is_active and perception.last == stimulus:
+			anomaly_archive.on_stimulus(stimulus, perception.last_noticed, clock.tick))
 	interactions.intervention_applied.connect(chronicle.on_intervention)
 	interactions.intervention_applied.connect(func(iv: Intervention) -> void:
 		if iv != null and iv.applied and iv.type == Intervention.TOUCH and iv.subject == &"water":
@@ -579,6 +597,9 @@ func load_from(data: Dictionary) -> bool:
 		_saved_cultures = state["cultures"] if typeof((state as Dictionary).get("cultures")) == TYPE_DICTIONARY else {}
 		_saved_faith = state["faith"] if typeof((state as Dictionary).get("faith")) == TYPE_DICTIONARY else {}
 		_saved_lexicon = state["lexicon"] if typeof((state as Dictionary).get("lexicon")) == TYPE_DICTIONARY else {}
+		_saved_archive_m18 = state["anomalies"] if typeof((state as Dictionary).get("anomalies")) == TYPE_DICTIONARY else {}
+		_saved_science = state["science"] if typeof((state as Dictionary).get("science")) == TYPE_DICTIONARY else {}
+		_saved_mysteries = state["mysteries"] if typeof((state as Dictionary).get("mysteries")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -687,6 +708,9 @@ func to_dict() -> Dictionary:
 			"cultures": cultures.to_dict(),
 			"faith": faith.to_dict(),
 			"lexicon": lexicon.to_dict(),
+			"anomalies": anomaly_archive.to_dict(),
+			"science": science.to_dict(),
+			"mysteries": mysteries.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -788,6 +812,9 @@ func _process(delta: float) -> void:
 		cultures.advance_to(clock.tick)
 		faith.advance_to(clock.tick)
 		lexicon.advance_to(clock.tick)
+		anomaly_archive.advance_to(clock.tick)
+		science.advance_to(clock.tick)
+		mysteries.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1311,6 +1338,23 @@ func _activate() -> void:
 				if not kinds.has(kind):
 					kinds.append(kind)
 		return kinds
+	anomaly_archive.bind(settlements, weather, clock.tick)
+	anomaly_archive.from_dict(_saved_archive_m18)
+	_saved_archive_m18 = {}
+	ai.archive = anomaly_archive
+	science.bind(anomaly_archive, settlements, clock.tick)
+	science.from_dict(_saved_science)
+	_saved_science = {}
+	science.edge_known = func() -> bool: return knowledge != null and knowledge.edge_reached
+	if mysteries.defs.is_empty():
+		mysteries.load_defs()
+	mysteries.bind(world, props, people, settlements, events, ids, world_seed, clock.tick)
+	mysteries.from_dict(_saved_mysteries)
+	_saved_mysteries = {}
+	mysteries.has_scholar = func(own: Settlement) -> bool: return science.investigator(own)[0] != null
+	mysteries.edge_known = science.edge_known
+	if start != null:
+		mysteries.place_all(start.settlement_tile)
 	EventText.glossary = func(settlement_id: int, subject: StringName) -> String:
 		var concept := Lexicon.concept_of_myth(subject)
 		return lexicon.gloss(settlement_id, concept) if concept != &"" and lexicon.word(settlement_id, concept) != "" else ""

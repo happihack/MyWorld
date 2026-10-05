@@ -118,6 +118,7 @@ const OCCUPATION_NAMES := {
 	&"hunter": "Hunter",
 	&"trader": "Trader",
 	&"toolmaker": "Toolmaker",
+	&"scientist": "Scientist",
 	&"child": "Child",
 	&"elder": "Elder",
 }

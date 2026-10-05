@@ -55,12 +55,13 @@ func test_untouched_world_saves_only_the_start() -> void:
 	assert_eq(state["template_id"], "river_valley")
 	assert_eq(state["generator_version"], WorldGenerator.GENERATOR_VERSION)
 	assert_eq((state["world"]["chunks"] as Array).size(), 0, "no chunk differs from the generator")
-	assert_eq((state["props"]["added"] as Array).size(), 5, "campfire + 3 huts + ruin")
+	assert_eq((state["props"]["added"] as Array).size(), 7, "campfire + 3 huts + ruin + the standing stones of two mysteries (M18)")
 	assert_eq(state["start"]["settlement_tile"], s.start.settlement_tile)
 	SaveManager.save_world(s, &"test")
 	# (What is saved of a pristine world: its people, the piles it began with, its animals.)
 	# (… and, since M12.3–M12.4, the empty books of migration and trade.)
-	assert_true(SaveManager.last_save_info["bytes"] < 6500, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
+	# (… and, since M18, the seeded mysteries and their stones.)
+	assert_true(SaveManager.last_save_info["bytes"] < 7200, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
 
 
 func test_reload_reproduces_the_world_exactly() -> void:

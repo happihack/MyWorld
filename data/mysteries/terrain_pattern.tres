@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MysteryDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/science/mystery_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"terrain_pattern"
+placement = "none"
+steps = Array[PackedStringArray]([PackedStringArray("building:stone_circle"), PackedStringArray("building:stone_circle", "known:mathematics"), PackedStringArray("building:stone_circle", "known:mathematics", "scholar")])
+significance = 0.7

@@ -91,6 +91,8 @@ var trade: TradeSystem
 var governance: Governance
 ## What makes each settlement's people theirs: traditions, festivals (M17.1).
 var cultures: CultureSystem
+## What is known of the unexplained (M18: the scientists go to look).
+var archive: AnomalyArchive
 ## Where stone can be broken near a site: site -> [day, tile or null] (a day's memory).
 var rocky_ground: Dictionary = {}
 ## The things lying about (for coming upon what the player moved; may be null).

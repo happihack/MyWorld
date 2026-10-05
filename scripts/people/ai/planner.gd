@@ -34,6 +34,24 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 	return false
 
 
+## A scientist's day (M18): to where something unexplained happened (one of
+## their settlement's anomalies), to look closely, and to write down what they saw.
+static func _investigate(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.archive == null:
+		return []
+	var known := ctx.archive.of(person.settlement_id)
+	if known.is_empty():
+		return []
+	var anomaly: Dictionary = known[ctx.rng.randi_range(0, known.size() - 1)]
+	var at: Vector2 = anomaly["position"]
+	var spot := ctx.pathfinder.standable_near(WorldCoords.world2d_to_tile(at), 1, 3)
+	if spot.is_empty():
+		return []
+	return [WalkToStep.make(spot[0], person.sub_tile_offset),
+		ReactStep.make(PersonData.Pose.CROUCH, &"question", snappedf(ctx.rng.randf_range(40.0, 70.0), 1.0), at),
+		ReactStep.make(PersonData.Pose.IDLE, &"note", snappedf(ctx.rng.randf_range(15.0, 30.0), 1.0), at)]
+
+
 ## The steps of `activity` for `person`, or [] if it cannot be done now.
 static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Array:
 	var rng := ctx.rng
@@ -87,7 +105,7 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				target = &"site"
 			# The field: whatever it needs most right now. With nothing to do
 			# there, a farmer turns to what else they do.
-			if target == &"field" or target == &"game" or target == &"site" or target == &"trade" or target == &"workshop":
+			if target == &"field" or target == &"game" or target == &"site" or target == &"trade" or target == &"workshop" or target == &"investigate":
 				var own_work: Array
 				match target:
 					&"field":
@@ -98,6 +116,8 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 						own_work = _trade_work(person, ctx)
 					&"workshop":
 						own_work = _craft_work(person, ctx)
+					&"investigate":
+						own_work = _investigate(person, ctx)
 					_:
 						own_work = _build_work(person, ctx)
 				if not own_work.is_empty():

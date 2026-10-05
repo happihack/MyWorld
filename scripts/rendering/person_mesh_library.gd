@@ -40,8 +40,9 @@ const WOOD := Color(0.42, 0.29, 0.18)
 const WICKER := Color(0.74, 0.58, 0.28)
 const WICKER_DARK := Color(0.55, 0.42, 0.20)
 const STONE := Color(0.56, 0.56, 0.58)
+const PARCHMENT := Color(0.90, 0.84, 0.66)
 
-const ACCESSORIES: Array[StringName] = [&"staff", &"basket", &"axe", &"hoe", &"spear"]
+const ACCESSORIES: Array[StringName] = [&"staff", &"basket", &"axe", &"hoe", &"spear", &"scroll"]
 
 # Mask colours for the body mesh: COLOR.rgb = cloth / skin / hair, COLOR.a = shade.
 const _TUNIC := Color(1, 0, 0, 1.0)
@@ -229,6 +230,9 @@ static func _build_accessory(kind: StringName) -> ArrayMesh:
 		&"spear": # held upright in the right hand, taller than its bearer
 			PropMeshLibrary._box(t, Vector3(0.12, 0.56, 0.27), Vector3(0.012, 0.56, 0.012), _plain(WOOD))
 			PropMeshLibrary._box(t, Vector3(0.12, 1.15, 0.27), Vector3(0.02, 0.05, 0.02), _plain(STONE))
+		&"scroll": # a scholar's roll of written leaves, held in the right hand (M18)
+			PropMeshLibrary._box(t, Vector3(0.14, 0.42, 0.24), Vector3(0.022, 0.09, 0.022), _plain(PARCHMENT))
+			PropMeshLibrary._box(t, Vector3(0.14, 0.42, 0.24), Vector3(0.026, 0.012, 0.026), _plain(WOOD))
 		&"axe": # carried over the right shoulder
 			PropMeshLibrary._box(t, Vector3(-0.02, 0.675, 0.20), Vector3(0.20, 0.014, 0.014), _plain(WOOD))
 			PropMeshLibrary._box(t, Vector3(-0.19, 0.695, 0.20), Vector3(0.03, 0.06, 0.02), _plain(STONE))
