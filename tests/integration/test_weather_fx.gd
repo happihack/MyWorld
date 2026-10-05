@@ -290,7 +290,8 @@ func test_wind_and_sound_and_words() -> void:
 	assert_true(AudioManager.rain_ambience_player().volume_db < heavy)
 	weather.wind_speed = 1.0
 	fx.snap()
-	assert_near(AudioManager.ambience_player().volume_db, quiet + config.wind_gain_db, 0.01)
+	assert_near(quiet, AudioManager.SILENT_DB, 0.01, "still air: no wind heard")
+	assert_near(AudioManager.ambience_player().volume_db, Config.feedback.wind_volume_db + config.wind_gain_db, 0.01, "a gale: heard")
 	_sky(&"snow")
 	assert_false(AudioManager.rain_ambience_player().playing, "snow falls without a sound")
 	# The weather line under the clock.

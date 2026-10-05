@@ -155,8 +155,23 @@ func start_ambience() -> void:
 	if stream == null:
 		return
 	_ambience.stream = stream
-	_ambience.volume_db = Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * _wind
+	_ambience.volume_db = wind_db(_wind)
 	_ambience.play()
+
+
+## How loud the wind is heard at `wind` (0 … 1): not at all on a still day
+## (owner: a constant hiss "like the ocean" under everything), coming in as it
+## blows, as loud as ever in a real wind.
+const WIND_HEARD_FROM := 0.15
+const WIND_HEARD_FULL := 0.6
+const SILENT_DB := -80.0
+
+
+static func wind_db(wind: float) -> float:
+	var heard := smoothstep(WIND_HEARD_FROM, WIND_HEARD_FULL, wind)
+	if heard <= 0.0:
+		return SILENT_DB
+	return maxf(Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * wind + linear_to_db(heard), SILENT_DB)
 
 
 func stop_ambience() -> void:
@@ -197,7 +212,7 @@ func set_weather(rain: float, wind: float) -> void:
 	_rain = maxf(_weather_rain, _made_rain)
 	_wind = clampf(wind, 0.0, 1.0)
 	if _ambience.playing:
-		_ambience.volume_db = Config.feedback.wind_volume_db + Config.weather_fx.wind_gain_db * _wind
+		_ambience.volume_db = wind_db(_wind)
 	if not _ready_to_play or not _ambience_wanted or _rain < 0.02:
 		if _rain_ambience.playing:
 			_rain_ambience.stop()
