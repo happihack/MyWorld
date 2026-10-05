@@ -88,6 +88,20 @@ func refresh() -> void:
 		_counts.add_child(value_label)
 	for child in _list.get_children():
 		child.queue_free()
+	# Where it led, in the end: the stories the player's doing is in (M19.3).
+	if _session.stories != null:
+		var theirs := _session.stories.of_the_player()
+		if not theirs.is_empty():
+			var heading := Label.new()
+			heading.text = MemoryText.translate("HIST_STORIES")
+			heading.theme_type_variation = UITheme.DIM
+			_list.add_child(heading)
+			for n in range(theirs.size() - 1, maxi(theirs.size() - 4, -1), -1):
+				var told := Label.new()
+				told.text = _session.stories.line(theirs[n])
+				told.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				told.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
+				_list.add_child(told)
 	var groups := groups_of(history, MAX_SHOWN)
 	if groups.is_empty():
 		var none := Label.new()

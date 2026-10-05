@@ -161,6 +161,12 @@ var _saved_lexicon: Dictionary = {}
 var anomaly_archive := AnomalyArchive.new()
 var science := ScienceSystem.new()
 var mysteries := MysterySystem.new()
+## Disputes, raids, wars, revolutions (M19.1).
+var conflicts := ConflictSystem.new()
+var _saved_conflicts: Dictionary = {}
+## The stories history tells (M19.2–19.3).
+var stories := StoryEngine.new()
+var _saved_stories: Dictionary = {}
 var _saved_archive_m18: Dictionary = {}
 var _saved_science: Dictionary = {}
 var _saved_mysteries: Dictionary = {}
@@ -286,6 +292,7 @@ func _init() -> void:
 		learning.forget_settlement(id)
 		cultures.forget_settlement(id)
 		lexicon.forget_settlement(id)
+		conflicts.forget_settlement(id)
 		_place_settlements())
 	governance = Governance.new()
 	governance.led.connect(func(settlement_id: int, leader_id: int, was: int, why: StringName) -> void:
@@ -314,6 +321,33 @@ func _init() -> void:
 	migration.founded.connect(lexicon.on_founded)
 	trade.traded.connect(lexicon.on_traded)
 	lexicon.renamed.connect(chronicle.on_renamed)
+	# Strife (M19.1): each step told, with what caused it; the next step names it.
+	conflicts.dispute.connect(func(a: int, b: int, causes: Array) -> void:
+		var e := chronicle.on_conflict(&"dispute", a, b, [], causes)
+		if e != null:
+			conflicts.note_event(a, b, "dispute", e.id))
+	conflicts.raided.connect(func(raider: int, victim: int, units: int, leader: int, causes: Array) -> void:
+		var e := chronicle.on_conflict(&"raid", raider, victim, [leader] if leader != 0 else [], causes, {"units": units})
+		if e != null:
+			conflicts.note_event(raider, victim, "raid", e.id))
+	conflicts.war_begun.connect(func(a: int, b: int, causes: Array) -> void:
+		var e := chronicle.on_conflict(&"war_begun", a, b, [], causes)
+		if e != null:
+			conflicts.note_event(a, b, "war", e.id))
+	conflicts.battle.connect(func(a: int, b: int, fallen: Array, heroes: Array) -> void:
+		var war := int((conflicts.pair(a, b)["war"] as Dictionary).get("event", 0))
+		var e := chronicle.on_conflict(&"battle", a, b, heroes, [war] if war > 0 else [], {"fallen": fallen.size()})
+		if e != null:
+			conflicts.note_event(a, b, "battle", e.id))
+	conflicts.peace.connect(func(a: int, b: int, fallen: int) -> void:
+		var war := chronicle.latest_between(&"war_begun", a, b)
+		chronicle.on_conflict(&"peace", a, b, [], [war] if war > 0 else [], {"fallen": fallen}))
+	conflicts.revolution.connect(func(id: int, deposed_id: int) -> void:
+		chronicle.on_conflict(&"revolution", id, id, [deposed_id], []))
+	# Stories (M19.2): looked for yearly, and soon after anything momentous.
+	events.recorded.connect(stories.on_recorded)
+	stories.reinterpreted.connect(func(story: Dictionary, historian_id: int) -> void:
+		chronicle.on_reinterpreted(stories.name_of(story), historian_id, int(story["events"][0])))
 	# Science and the mysteries (M18).
 	science.hypothesis_formed.connect(chronicle.on_hypothesis)
 	science.stage_reached.connect(chronicle.on_box_research)
@@ -600,6 +634,8 @@ func load_from(data: Dictionary) -> bool:
 		_saved_archive_m18 = state["anomalies"] if typeof((state as Dictionary).get("anomalies")) == TYPE_DICTIONARY else {}
 		_saved_science = state["science"] if typeof((state as Dictionary).get("science")) == TYPE_DICTIONARY else {}
 		_saved_mysteries = state["mysteries"] if typeof((state as Dictionary).get("mysteries")) == TYPE_DICTIONARY else {}
+		_saved_conflicts = state["conflicts"] if typeof((state as Dictionary).get("conflicts")) == TYPE_DICTIONARY else {}
+		_saved_stories = state["stories"] if typeof((state as Dictionary).get("stories")) == TYPE_DICTIONARY else {}
 		unfolder = BoxUnfolder.new()
 		unfold_pending = false
 		if typeof((state as Dictionary).get("unfolder")) == TYPE_DICTIONARY:
@@ -711,6 +747,8 @@ func to_dict() -> Dictionary:
 			"anomalies": anomaly_archive.to_dict(),
 			"science": science.to_dict(),
 			"mysteries": mysteries.to_dict(),
+			"conflicts": conflicts.to_dict(),
+			"stories": stories.to_dict(),
 			"unfolder": unfolder.to_dict(),
 			"knowledge": knowledge.to_dict(),
 			"weather": weather.to_dict(),
@@ -815,6 +853,8 @@ func _process(delta: float) -> void:
 		anomaly_archive.advance_to(clock.tick)
 		science.advance_to(clock.tick)
 		mysteries.advance_to(clock.tick)
+		conflicts.advance_to(clock.tick)
+		stories.advance_to(clock.tick)
 		weather.advance_to(clock.tick)
 		soil.advance_to(clock.tick)
 		_look_for_powers()
@@ -1355,6 +1395,30 @@ func _activate() -> void:
 	mysteries.edge_known = science.edge_known
 	if start != null:
 		mysteries.place_all(start.settlement_tile)
+	conflicts.bind(settlements, governance, cultures, lexicon, trade, clock.tick)
+	conflicts.from_dict(_saved_conflicts)
+	_saved_conflicts = {}
+	stories.bind(events, people, clock.tick)
+	stories.from_dict(_saved_stories)
+	_saved_stories = {}
+	stories.significance = significance
+	stories.historian = func() -> int:
+		for own in settlements.all():
+			if own.knows_how(&"writing"):
+				var who: Array = science.investigator(own)
+				if who[0] != null:
+					return (who[0] as PersonData).id
+		return 0
+	conflicts.kill = func(person_id: int, cause: StringName, causes: Array) -> void:
+		var person := people.get_person(person_id)
+		if person != null:
+			lifecycle.die(person, cause, clock.tick, causes)
+	conflicts.shortage_event = func(settlement_id: int) -> int:
+		var found := events.of_type(&"food_shortage")
+		for n in range(found.size() - 1, -1, -1):
+			if found[n].settlement_id == settlement_id or (settlement_id == (settlement.id if settlement != null else 0) and found[n].settlement_id == 0):
+				return found[n].id
+		return 0
 	EventText.glossary = func(settlement_id: int, subject: StringName) -> String:
 		var concept := Lexicon.concept_of_myth(subject)
 		return lexicon.gloss(settlement_id, concept) if concept != &"" and lexicon.word(settlement_id, concept) != "" else ""

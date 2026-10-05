@@ -20,6 +20,7 @@ const BELIEFS := &"beliefs"
 const TECHNOLOGY := &"technology"
 const CULTURE := &"culture"
 const BOX_KNOWLEDGE := &"box_knowledge"
+const STORIES := &"stories"
 const DISCOVERIES := &"discoveries"
 const SEEN := &"seen"
 const GRAPHICS := &"graphics"
@@ -86,6 +87,8 @@ static func sections(menu: MainMenu) -> Array:
 		history.append(["MENU_DISCOVERIES", func() -> void: menu.open_page(DISCOVERIES)])
 	if _any_event(s, func(e: WorldEvent) -> bool: return TimelineModel.passes(e, TimelineModel.FILTER_DISASTERS)):
 		history.append(["MENU_DISASTERS", func() -> void: menu.timeline_filter_requested.emit(TimelineModel.FILTER_DISASTERS)])
+	if s.stories != null and (not s.stories.stories.is_empty() or s.events.count_of(&"era_entered") > 0):
+		history.append(["MENU_STORIES", func() -> void: menu.open_page(STORIES)])
 	history.append(["MENU_IMPORTANT", func() -> void: menu.open_page(MainMenu.PAGE_IMPORTANT)])
 	history.append(["MENU_FIRSTS", func() -> void: menu.open_page(MainMenu.PAGE_FIRSTS)])
 	out.append(["MENU_HISTORY", history])
@@ -184,6 +187,18 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 			for row: Array in government(s):
 				var id: int = row[0]
 				menu.add_entry(row[1], func() -> void: menu.person_chosen.emit(id))
+		STORIES:
+			menu.set_title(MemoryText.translate("MENU_STORIES"))
+			var eras := s.events.of_type(&"era_entered")
+			if not eras.is_empty():
+				menu.add_heading(MemoryText.translate("STORIES_ERAS"))
+				for e in eras:
+					menu.add_line(EventText.line(e, s.people, s.events))
+			menu.add_heading(MemoryText.translate("STORIES_TOLD"))
+			if s.stories.stories.is_empty():
+				menu.add_line(MemoryText.translate("MENU_NOTHING_RECORDED"))
+			for n in range(s.stories.stories.size() - 1, -1, -1):
+				menu.add_line(s.stories.line(s.stories.stories[n]))
 		BOX_KNOWLEDGE:
 			menu.set_title(MemoryText.translate("MENU_BOX_KNOWLEDGE"))
 			var told := box_knowledge(s)

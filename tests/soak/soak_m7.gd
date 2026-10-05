@@ -122,6 +122,8 @@ func _run() -> void:
 				s.anomaly_archive.advance_to(s.clock.tick) # (M18)
 				s.science.advance_to(s.clock.tick)
 				s.mysteries.advance_to(s.clock.tick)
+				s.conflicts.advance_to(s.clock.tick) # (M19)
+				s.stories.advance_to(s.clock.tick)
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
 				var food_days: float = s.settlement.days_of_food()
@@ -279,6 +281,9 @@ func _run() -> void:
 	print("SOAK %s" % s.faith.debug_text())
 	print("SOAK %s" % s.lexicon.debug_text())
 	print("SOAK %s  |  %s  |  %s" % [s.anomaly_archive.debug_text(), s.science.debug_text(), s.mysteries.debug_text()])
+	print("SOAK %s  |  %s" % [s.conflicts.debug_text(), s.stories.debug_text()])
+	for story: Dictionary in s.stories.stories:
+		print("SOAK   story (%d events, score %.1f): %s" % [(story["events"] as Array).size(), float(story["score"]), s.stories.line(story)])
 	for e in s.events.of_type(&"knowledge_learned") + s.events.of_type(&"knowledge_spread") + s.events.of_type(&"era_entered") + s.events.of_type(&"knowledge_lost") + s.events.of_type(&"tradition_formed") + s.events.of_type(&"tradition_faded") + s.events.of_type(&"renamed") + s.events.of_type(&"faith_founded") + s.events.of_type(&"schism") + s.events.of_type(&"myth_spread") + s.events.of_type(&"mystery_clue") + s.events.of_type(&"hypothesis") + s.events.of_type(&"box_research"):
 		print("SOAK   year %d  %s %s (%s)" % [config.time.year_of(e.tick), e.type, str(e.text_params.get("kind", "")), str(e.text_params.get("place", ""))])
 	print("SOAK box: %d x %d tiles, unfolded %d times; regions found %d of %d, the edge %s" % [s.world.bounds.size.x, s.world.bounds.size.y,

@@ -193,7 +193,8 @@ static func part_of_day(hour: int) -> String:
 
 func _form(own: Settlement, by: PersonData, kind: int, confidence: float, evidence: int, params: Dictionary, now: int) -> void:
 	var hypothesis := {"id": _next, "kind": String(KIND_NAMES[kind]), "settlement": own.id, "by": by.id, "formed": now,
-		"confidence": confidence, "evidence": evidence, "params": params, "published": own.knows_how(&"writing")}
+		"confidence": confidence, "evidence": evidence, "params": params, "published": own.knows_how(&"writing"),
+		"acts": _acts(own)}
 	_next += 1
 	hypotheses.append(hypothesis)
 	# What is written up moves those who can think in such terms (natural philosophy).
@@ -205,6 +206,16 @@ func _form(own: Settlement, by: PersonData, kind: int, confidence: float, eviden
 				beliefs[physics] = minf(beliefs[physics] + PHYSICS_NUDGE, 1.0)
 	if bool(hypothesis["published"]):
 		hypothesis_formed.emit(hypothesis)
+
+
+## The player's acts the latest of a settlement's anomalies were (for the history's causes).
+func _acts(own: Settlement) -> Array:
+	var out: Array = []
+	var known := archive.of(own.id)
+	for n in range(known.size() - 1, maxi(known.size() - 4, -1), -1):
+		if int(known[n]["intervention"]) != 0:
+			out.append(int(known[n]["intervention"]))
+	return out
 
 
 func hypothesis_of(settlement_id: int, kind: int) -> Dictionary:

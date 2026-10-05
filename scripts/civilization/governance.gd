@@ -28,6 +28,10 @@ var _day := -1_000_000
 var _now := 0
 ## For the soak: changes of leader, by why.
 var changes: Dictionary = {}
+## Who was overthrown, and may not lead again before: settlement id -> [person id, tick] (M19.1).
+var deposed: Dictionary = {}
+## How long the overthrown may not lead again (game years).
+const DEPOSED_YEARS := 10
 
 
 func bind(now: int, cfg: GovernanceConfig = null) -> void:
@@ -87,6 +91,17 @@ func weigh_all(now: int) -> void:
 			_beliefs.erase(id)
 
 
+## Its people have risen against their leader (M19.1): someone else leads,
+## and the one overthrown may not again for years.
+func depose(settlement_id: int, now: int) -> void:
+	var was := leader_of(settlement_id)
+	var own := settlements.get_settlement(settlement_id) if settlements != null else null
+	if was == 0 or own == null:
+		return
+	deposed[settlement_id] = [was, now + DEPOSED_YEARS * Config.time.ticks_per_year()]
+	weigh(own, now)
+
+
 ## Weighs who leads `own` now (and records any change).
 func weigh(own: Settlement, now: int = -1) -> void:
 	if now >= 0:
@@ -117,6 +132,8 @@ func weigh(own: Settlement, now: int = -1) -> void:
 		why = &"first"
 	elif current == null:
 		why = &"died"
+	elif deposed.has(own.id) and int(deposed[own.id][0]) == was and not scores.has(was):
+		why = &"overthrown"
 	elif current.settlement_id != own.id or not scores.has(was):
 		why = &"left"
 	elif best.id != was and best_score > float(scores[was]) + config.challenge_margin:
@@ -160,6 +177,10 @@ func standing(person: PersonData, own: Settlement, members: Array[PersonData] = 
 
 ## Someone grown (not a child, not someone on their way to new land).
 func _can_lead(person: PersonData) -> bool:
+	for id: int in deposed:
+		var entry: Array = deposed[id]
+		if int(entry[0]) == person.id and _now < int(entry[1]):
+			return false
 	var stage := person.life_stage(_now, Config.time.ticks_per_year(), Config.people)
 	return stage == PersonData.LifeStage.ADULT or stage == PersonData.LifeStage.ELDER
 
@@ -177,7 +198,10 @@ func to_dict() -> Dictionary:
 	var leaders := {}
 	for id: int in _leaders:
 		leaders[str(id)] = _leaders[id]
-	return {"leaders": leaders, "day": _day, "now": _now, "changes": changes.duplicate()}
+	var out := {}
+	for id: int in deposed:
+		out[str(id)] = (deposed[id] as Array).duplicate()
+	return {"leaders": leaders, "day": _day, "now": _now, "changes": changes.duplicate(), "deposed": out}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -195,6 +219,12 @@ func from_dict(data: Dictionary) -> void:
 			var person := people.get_person(leader) if people != null else null
 			if person != null:
 				_beliefs[id] = Interpretation.beliefs_of(person)
+	deposed.clear()
+	if typeof(data.get("deposed")) == TYPE_DICTIONARY:
+		for key: Variant in data["deposed"]:
+			var entry: Variant = data["deposed"][key]
+			if typeof(entry) == TYPE_ARRAY and (entry as Array).size() == 2:
+				deposed[int(str(key))] = [int(entry[0]), int(entry[1])]
 	changes.clear()
 	if typeof(data.get("changes")) == TYPE_DICTIONARY:
 		for key: Variant in data["changes"]:

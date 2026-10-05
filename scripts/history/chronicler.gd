@@ -84,6 +84,7 @@ const TYPE_FAITH := &"faith_founded"
 const TYPE_MYTH_SPREAD := &"myth_spread"
 const TYPE_SCHISM := &"schism"
 const TYPE_RENAMED := &"renamed"
+const TYPE_REINTERPRETED := &"reinterpreted"
 const TYPE_HYPOTHESIS := &"hypothesis"
 const TYPE_BOX_RESEARCH := &"box_research"
 const TYPE_CLUE := &"mystery_clue"
@@ -722,8 +723,20 @@ func on_tradition(tradition: Dictionary) -> void:
 	if not _writing():
 		return
 	var name := str(tradition["name"]).trim_prefix("TRADITION_").to_lower()
+	var causes: Array = []
+	var act := player_event_of(int(tradition.get("intervention", 0)))
+	if act != 0:
+		causes.append(act)
+	var source := str(tradition["source"]).split(":")
+	for event in _log.of_type(StringName(source[0])):
+		if source.size() < 2 or str(event.text_params.get("building", "")) == source[1]:
+			causes.append(event.id)
+			break
+	for event in _log.of_type(TYPE_CULTURE):
+		if str(event.text_params.get("subject", "")) == str(tradition["source"]):
+			causes.append(event.id)
 	_log.record(TYPE_TRADITION, {"kind": name + ("_player" if bool(tradition["player"]) else ""), "tradition": str(tradition["name"]),
-		"place": _settlement_name(int(tradition["settlement"])), "settlement": int(tradition["settlement"])})
+		"place": _settlement_name(int(tradition["settlement"])), "settlement": int(tradition["settlement"])}, causes)
 
 
 func on_tradition_faded(tradition: Dictionary) -> void:
@@ -737,8 +750,12 @@ func on_tradition_faded(tradition: Dictionary) -> void:
 func on_faith_founded(myth: Dictionary, person_id: int) -> void:
 	if not _writing():
 		return
+	var causes: Array = []
+	for event in _log.of_type(TYPE_MYTH):
+		if str(event.text_params.get("subject", "")) == str(myth["subject"]) and str(event.text_params.get("interpretation", "")) == str(myth["agent"]):
+			causes = [event.id]
 	_log.record(TYPE_FAITH, {"participants": [person_id], "subject": str(myth["subject"]), "interpretation": str(myth["agent"]),
-		"epithet": str(myth["epithet"]), "place": _settlement_name(int(myth["settlement"])), "settlement": int(myth["settlement"])})
+		"epithet": str(myth["epithet"]), "place": _settlement_name(int(myth["settlement"])), "settlement": int(myth["settlement"])}, causes)
 
 
 ## A myth has been carried to another settlement with a load (M17.2).
@@ -764,13 +781,47 @@ func on_renamed(settlement_id: int, old_name: String, new_name: String) -> void:
 	_log.record(TYPE_RENAMED, {"Old": MemoryText.capitalized(old_name), "new": new_name, "settlement": settlement_id})
 
 
+## A step of strife between two settlements (M19.1): `type` dispute, raid,
+## war_begun, battle, peace, revolution (a = b: within one). Returns the event.
+func on_conflict(type: StringName, a: int, b: int, participants: Array, causes: Array, extra: Dictionary = {}) -> WorldEvent:
+	if not _writing():
+		return null
+	var params := {"participants": participants, "place": _settlement_name(a), "other_place": _settlement_name(b), "settlement": a,
+		"a": a, "b": b}
+	params.merge(extra)
+	return _log.record(type, params, causes)
+
+
+## A historian has explained an old story anew (M19.3).
+func on_reinterpreted(story_name: String, historian_id: int, about: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_REINTERPRETED, {"participants": [historian_id], "story": story_name, "settlement": _settlement_id()},
+		[about] if about > 0 else [])
+
+
+## The latest event of a type between two settlements (its id; 0: none).
+func latest_between(type: StringName, a: int, b: int) -> int:
+	var found := _log.of_type(type)
+	for n in range(found.size() - 1, -1, -1):
+		var p := found[n].text_params
+		if (int(p.get("a", -1)) == a and int(p.get("b", -1)) == b) or (int(p.get("a", -1)) == b and int(p.get("b", -1)) == a):
+			return found[n].id
+	return 0
+
+
 ## Scholars have written up a hypothesis (M18): what they think, never the truth.
 func on_hypothesis(hypothesis: Dictionary) -> void:
 	if not _writing():
 		return
 	var params: Dictionary = hypothesis.get("params", {})
+	var causes: Array = []
+	for act: Variant in hypothesis.get("acts", []):
+		var id := player_event_of(int(act))
+		if id != 0 and not causes.has(id):
+			causes.append(id)
 	_log.record(TYPE_HYPOTHESIS, {"participants": [int(hypothesis["by"])], "kind": str(hypothesis["kind"]),
-		"part": str(params.get("part", "")), "place": _settlement_name(int(hypothesis["settlement"])), "settlement": int(hypothesis["settlement"])})
+		"part": str(params.get("part", "")), "place": _settlement_name(int(hypothesis["settlement"])), "settlement": int(hypothesis["settlement"])}, causes)
 
 
 ## A step of the box research (M18; a negative stage: the expedition is back).
@@ -785,8 +836,13 @@ func on_box_research(stage: int, settlement_id: int, person_id: int) -> void:
 func on_clue(mystery: StringName, step: int, person_id: int, at: Vector2, weight: float) -> void:
 	if not _writing():
 		return
+	var causes: Array = []
+	if step > 0:
+		for event in _log.of_type(TYPE_CLUE):
+			if str(event.text_params.get("kind", "")) == "%s_%d" % [mystery, step - 1]:
+				causes = [event.id]
 	_log.record(TYPE_CLUE, {"participants": [person_id] if person_id != 0 else [], "kind": "%s_%d" % [mystery, step],
-		"position": at, "significance": weight, "settlement": _settlement_id()})
+		"position": at, "significance": weight, "settlement": _settlement_id()}, causes)
 
 
 ## A settlement's name: Callable(settlement id) -> String (set by the session).
@@ -816,7 +872,7 @@ func on_knowledge_lost(settlement_id: int, person_id: int, domain: int, _share: 
 	if not _writing():
 		return
 	_log.record(TYPE_KNOWLEDGE_LOST, {"participants": [person_id], "kind": String(Knowledge.NAMES[domain]),
-		"position": _place_of(person_id), "settlement": settlement_id})
+		"position": _place_of(person_id), "settlement": settlement_id}, _latest_of(person_id, [TYPE_DIED]))
 
 
 ## Feet have worn a path (M12.2): history notes the first.
@@ -831,6 +887,17 @@ func on_arrived(person_id: int) -> void:
 	if not _writing():
 		return
 	_log.record(TYPE_ARRIVED, {"participants": [person_id], "position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+## The event that told of the player's act `intervention_id` (0: none, or long gone).
+func player_event_of(intervention_id: int) -> int:
+	if intervention_id == 0:
+		return 0
+	var found := _log.of_type(TYPE_PLAYER)
+	for n in range(found.size() - 1, -1, -1):
+		if int(found[n].text_params.get("intervention", 0)) == intervention_id:
+			return found[n].id
+	return 0
 
 
 ## The latest event of any of `types` that involves the person (as a list of causes).

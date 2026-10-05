@@ -197,6 +197,15 @@ func _ready() -> void:
 	world_view.people_view().palette_source = func(person: PersonData) -> int:
 		return session.cultures.palette_of(session.settlements.of(person))
 	debug_overlay.register_section(&"cultures", func() -> String: return session.cultures.debug_text())
+	debug_overlay.register_section(&"stories", func() -> String:
+		return "%s  |  %s" % [session.stories.debug_text(), session.conflicts.debug_text()])
+	# A story is told (M19.3): the player hears it.
+	session.stories.told.connect(func(story: Dictionary) -> void:
+		var notice := Notice.new()
+		notice.kind = &"story"
+		notice.text = session.stories.summary(story)
+		notice.priority = 0.55
+		NotificationManager.offer_notice(notice))
 	debug_overlay.register_section(&"resources", func() -> String:
 		var carried := 0
 		for person: PersonData in session.people.all_people():
