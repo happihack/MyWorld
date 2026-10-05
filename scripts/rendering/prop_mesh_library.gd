@@ -129,6 +129,8 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.CAMPFIRE, 0)] = _campfire()
 	_templates[_key(PropData.Kind.RUIN, 0)] = _ruin()
 	_templates[_key(PropData.Kind.GRAVE, 0)] = _grave()
+	for boat in PropData.Boat.size():
+		_templates[_key(PropData.Kind.LANDING, boat)] = _landing(boat)
 	for stones in Graves.MOST_STONES + 1:
 		_templates[_key(PropData.Kind.CEMETERY, stones)] = _cemetery(stones)
 	_templates[_key(PropData.Kind.SITE, ConstructionSystem.STAKES)] = _site_stakes()
@@ -647,6 +649,36 @@ static func _grave() -> Template:
 	_box(t, Vector3(0, 0.075, 0.05), Vector3(0.11, 0.03, 0.22), _rgba(SOIL_DARK.lightened(0.12), 0.0), 0.0)
 	_box(t, Vector3(0, 0.17, -0.30), Vector3(0.10, 0.17, 0.035), _rgba(STONE, 0.0), 0.0)
 	_box(t, Vector3(0, 0.345, -0.30), Vector3(0.07, 0.015, 0.03), _rgba(STONE_DARK, 0.0), 0.0)
+	return t
+
+
+## A landing (M19.5): a short jetty of planks out over the water (towards -Z,
+## turned by the prop's rotation), on two posts — and the boat moored beside
+## it, as the settlement has come to build them: a raft of lashed logs, a
+## dugout canoe, a boat of planks, a boat with a mast and sail.
+static func _landing(boat: int) -> Template:
+	var t := Template.new()
+	for z: float in [0.25, -0.05, -0.35]:
+		_box(t, Vector3(0.0, 0.10, z), Vector3(0.20, 0.025, 0.13), _rgba(TRUNK if int(z * 20.0) % 2 == 0 else TRUNK_DARK, 0.0), 0.0)
+	for x: float in [-0.17, 0.17]:
+		_box(t, Vector3(x, 0.07, -0.42), Vector3(0.025, 0.07, 0.025), _rgba(TRUNK_DARK, 0.0), 0.0)
+	match boat:
+		PropData.Boat.RAFT:
+			for i in 4:
+				_box(t, Vector3(0.36 + i * 0.07, 0.04, -0.15), Vector3(0.032, 0.03, 0.22), _rgba(TRUNK if i % 2 == 0 else TRUNK_DARK, 0.0), 0.0)
+			_box(t, Vector3(0.46, 0.08, -0.15), Vector3(0.14, 0.012, 0.02), _rgba(WALL_DARK, 0.0), 0.0) # the lashing
+		PropData.Boat.CANOE:
+			_box(t, Vector3(0.40, 0.05, -0.12), Vector3(0.07, 0.045, 0.30), _rgba(TRUNK, 0.0), 0.0)
+			_box(t, Vector3(0.40, 0.085, -0.12), Vector3(0.045, 0.012, 0.26), _rgba(TRUNK_DARK.darkened(0.3), 0.0), 0.0) # hollowed
+			_box(t, Vector3(0.40, 0.10, 0.10), Vector3(0.01, 0.012, 0.16), _rgba(WALL, 0.0), 0.35) # a paddle laid across
+		PropData.Boat.PLANK_BOAT, PropData.Boat.SAIL:
+			_box(t, Vector3(0.42, 0.06, -0.12), Vector3(0.11, 0.06, 0.34), _rgba(WALL_DARK, 0.0), 0.0)
+			_box(t, Vector3(0.42, 0.10, -0.12), Vector3(0.085, 0.02, 0.30), _rgba(TRUNK_DARK, 0.0), 0.0)
+			for z: float in [-0.30, -0.12, 0.06]:
+				_box(t, Vector3(0.42, 0.125, z), Vector3(0.10, 0.008, 0.02), _rgba(WALL, 0.0), 0.0) # the thwarts
+			if boat == PropData.Boat.SAIL:
+				_box(t, Vector3(0.42, 0.42, -0.14), Vector3(0.012, 0.30, 0.012), _rgba(TRUNK, 0.0), 0.0) # the mast
+				_box(t, Vector3(0.42, 0.45, -0.06), Vector3(0.006, 0.20, 0.08), _rgba(WALL.lightened(0.3), 0.0), 0.0) # the sail
 	return t
 
 

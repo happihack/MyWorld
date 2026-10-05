@@ -71,6 +71,16 @@ func _build(def_id: StringName) -> PropData:
 	return session.props.prop_at(tile)
 
 
+## Someone grown, a builder now.
+func _builder() -> PersonData:
+	for person in session.people.all_people():
+		if session.behavior.ctx.stage_of(person) == PersonData.LifeStage.ADULT:
+			person.occupation_id = &"builder"
+			person.carrying_amount = 0
+			return person
+	return null
+
+
 ## The world runs for `minutes` game minutes, as in the soak.
 func _run(minutes: int) -> void:
 	var minute := Config.time.real_seconds_per_game_minute
@@ -90,7 +100,7 @@ func _run(minutes: int) -> void:
 
 func test_the_buildings_are_defined() -> void:
 	var library := session.buildings
-	assert_eq(library.ids(), [&"bridge", &"herb_rack", &"hut", &"kiln", &"record_stone", &"shrine", &"stone_circle", &"storehouse", &"well",
+	assert_eq(library.ids(), [&"bridge", &"herb_rack", &"hut", &"kiln", &"landing", &"record_stone", &"shrine", &"stone_circle", &"storehouse", &"well",
 		&"workshop"] as Array[StringName], "(and what technology brings: M16.3)")
 	for id in library.ids():
 		var def := library.get_def(id)
@@ -241,7 +251,7 @@ func test_building_damage_repair() -> void:
 	var hut := _build(&"hut")
 	construction.damage(hut.id, Config.construction.storm_damage, &"storm", session.clock.tick)
 	assert_eq(hut.condition, PropData.SOUND - Config.construction.storm_damage)
-	assert_true(construction.projects().is_empty(), "a little wear is not mended yet")
+	assert_true(construction.projects().is_empty(), "a little wear (a storm's) is not mended yet")
 	construction.damage(hut.id, Config.construction.flood_damage, &"flood", session.clock.tick)
 	var p := construction.project_at(hut.id)
 	assert_false(p.is_empty(), "now it is")
@@ -279,6 +289,57 @@ func test_building_damage_repair() -> void:
 	_build(&"hut")
 	for person in living:
 		assert_true(session.start.hut_ids.has(person.home_building_id), "%s has a roof again" % person.given_name)
+
+
+func test_builders_mend_what_is_worn_and_the_card_says_how_far() -> void:
+	# A lived-in home, weathered (not damaged by any one thing): mended within the day.
+	var home := session.props.get_prop(session.start.hut_ids[0])
+	assert_false(session.people.living_in(home.id).is_empty())
+	home.condition = Config.construction.repair_from - 50
+	construction.advance_to(session.clock.tick + 1440)
+	var p := construction.project_at(home.id)
+	assert_eq(str(p.get("kind", "")), ConstructionSystem.REPAIR, "a repair for the builders")
+	# … which a builder works at like any building (the materials brought).
+	for resource: StringName in construction.still_needed(p):
+		construction.deliver(p, resource, int(construction.still_needed(p)[resource]))
+	session.settlement.jobs.refresh(session.settlement, session.clock.tick)
+	var builder := _builder()
+	var at_it := false
+	for n in 30: # (the job board's dice: other work may be chosen now and then)
+		for step: Dictionary in Planner.plan(&"work", builder, session.behavior.ctx):
+			at_it = at_it or int(step.get("project", 0)) == int(p["id"])
+	assert_true(at_it, "a builder sees to it")
+	# The card: its condition, and how far the mending has got.
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = home.id
+	target.tile = home.tile
+	var card := UIRoot.INSPECT_CARD.instantiate() as InspectCard
+	add_child(card)
+	card.setup(session.interactions.inspect(target))
+	await wait_frames(1)
+	assert_eq(card.rows()["Being repaired"], "0%")
+	assert_false(card.rows().has("Moisture"), "a building does not care how damp the ground is")
+	card.queue_free()
+	# A home abandoned is left to fall, not mended.
+	var empty := _build(&"hut")
+	construction.abandoned_homes.append(empty.id)
+	empty.condition = Config.construction.repair_from - 50
+	construction.advance_to(session.clock.tick + 3 * DAY)
+	assert_true(construction.project_at(empty.id).is_empty(), "nobody mends a home left behind")
+	# A site going up: its completion.
+	var site := construction.start(&"storehouse", planner.site_for(session.buildings.get_def(&"storehouse")), session.clock.tick)
+	assert_false(site.is_empty())
+	target.entity_id = int(site["site"])
+	target.tile = site["tile"]
+	var site_card := UIRoot.INSPECT_CARD.instantiate() as InspectCard
+	add_child(site_card)
+	site_card.setup(session.interactions.inspect(target))
+	await wait_frames(1)
+	assert_eq(site_card.rows()["Completion"], "0%")
+	assert_eq(site_card.rows()["Going up"], "Storehouse")
+	assert_false(site_card.rows().has("Moisture"))
+	site_card.queue_free()
 
 
 func test_a_crowded_household_moves_into_a_new_home() -> void:

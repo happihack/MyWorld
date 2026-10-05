@@ -55,6 +55,12 @@ func _run() -> void:
 			ROOT = ROOT_BASE + "_" + argument.get_slice("=", 1).validate_filename()
 	var config: Node = root.get_node("Config")
 	var saves: Node = root.get_node("SaveManager")
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--knob="):
+			var spec := argument.get_slice("=", 1).split(".")
+			var value: Variant = str_to_var(argument.get_slice("=", 2))
+			(config.get(spec[0]) as Resource).set(spec[1], value)
+			print("SOAK knob %s.%s = %s" % [spec[0], spec[1], value])
 	root.get_node("Settings").call("use_path", ROOT + "/settings.cfg")
 	config.save.save_root = ROOT + "/saves"
 	DirAccess.make_dir_recursive_absolute(config.save.save_root)
@@ -228,6 +234,18 @@ func _run() -> void:
 	print("SOAK animals: deer %d  rabbits %d  foxes %d   memories %d   save %d bytes" % [s.animals.count(&"deer"),
 		s.animals.count(&"rabbit"), s.animals.count(&"fox"), s.memories.size(), saves.last_save_info.get("bytes", 0)])
 	print("SOAK %s" % s.stats.debug_text())
+	# Fishing and boats (M19.5).
+	var fishers := 0
+	var stored_fish := 0
+	var boats := PackedStringArray()
+	for own in s.settlements.all():
+		fishers += own.fisher_count()
+		stored_fish += own.stockpile.amount(&"fish")
+		for boat in ["raft", "canoe", "nets", "plank_boat", "sail"]:
+			if own.knows_how(StringName(boat)) and not boats.has(boat):
+				boats.append(boat)
+	print("SOAK fishing: %d fishers, %d fish in the stores, %.0f of %.0f in the water, %d landings, knows %s" % [fishers, stored_fish,
+		s.fauna.fish, s.fauna.fish_capacity, s.construction.standing(PropData.Kind.LANDING).size(), ", ".join(boats) if not boats.is_empty() else "no boats"])
 	print("SOAK least food in store %.2f days (below %.1f days %d times, for %d minutes at the longest)  hungriest anyone was %.2f  worst health %.2f" % [
 		least_food_days, low_below, low_stretches, longest_low, hungriest, worst_health])
 	print("SOAK looked up %d  decisions %d" % [s.behavior.skipped + s.behavior.decisions, s.behavior.decisions])

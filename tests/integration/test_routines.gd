@@ -622,6 +622,35 @@ func test_a_house_goes_dark_when_everyone_in_it_sleeps() -> void:
 
 # --- a whole day ----------------------------------------------------------------------------------
 
+func test_nobody_sets_out_again_and_again_for_where_there_is_no_way() -> void:
+	# (Owner saw someone run hut → bridge → path, over and over: work chosen across
+	# the river, no way there, given up, chosen again.)
+	var woodcutter := _adult(&"woodcutter")
+	var places := ctx.places
+	var first: Dictionary = places.work_place(woodcutter, &"tree", ctx.rng)
+	assert_false(first.is_empty())
+	var tile: Vector2i = first["tile"]
+	# A walk there that comes to nothing (here: somewhere there is no way to at all).
+	var nowhere := Vector2i(-500, -500)
+	behavior.set_plan(woodcutter, &"work", &"routine", [WalkToStep.make(nowhere), WorkStep.make(&"tree", 0, nowhere, 60.0)])
+	_run(3.0)
+	assert_true(places.is_out_of_reach(nowhere), "a way given up is remembered")
+	# A place with no way to it is not chosen again …
+	places.note_out_of_reach(tile)
+	for n in 200:
+		var chosen: Dictionary = places.work_place(woodcutter, &"tree", ctx.rng)
+		assert_true(chosen.is_empty() or chosen["tile"] != tile, "not the tree there is no way to")
+		if not chosen.is_empty() and chosen["tile"] == tile:
+			break
+	# … for a day (a crossing may have been made by then) …
+	session.clock.tick += Places.OUT_OF_REACH_MINUTES + 1
+	assert_false(places.is_out_of_reach(tile), "tried again a day later")
+	# … or until something is built (a bridge).
+	places.note_out_of_reach(tile)
+	places.forget_out_of_reach()
+	assert_false(places.is_out_of_reach(tile))
+
+
 func test_the_day_has_a_shape() -> void:
 	# From six in the morning, two days; the second is the one looked at.
 	session.clock.tick = 0

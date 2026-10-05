@@ -162,7 +162,18 @@ func left(prop: PropData) -> int:
 func available(prop: PropData) -> int:
 	if prop == null or (prop.kind == PropData.Kind.TREE and prop.felled):
 		return 0
+	if bare_in_winter(prop):
+		return 0
 	return left(prop)
+
+
+## Is it winter now (as of the last settling)? Set by `settle`.
+var winter := false
+
+
+## A bush in winter, when the winter is bare (ResourcesConfig.winter_no_berries).
+func bare_in_winter(prop: PropData) -> bool:
+	return winter and prop != null and prop.kind == PropData.Kind.BUSH and _config != null and _config.winter_no_berries
 
 
 ## How many strokes of work one unit takes.
@@ -228,6 +239,7 @@ func due(now: int) -> bool:
 ## has passed. Returns how many nodes changed how they look.
 func settle(now: int) -> int:
 	last_settle_tick = now
+	winter = Config.time.season_of(now) == Config.time.seasons_per_year - 1
 	if _props == null:
 		return 0
 	var changed := 0
@@ -270,6 +282,10 @@ func _settle_one(prop: PropData, now: int) -> bool:
 	var days := float(_settings(prop, _config).get("regrow_days", 0.0))
 	var full := capacity(prop)
 	if days <= 0.0 or full <= 0:
+		return false
+	# (A bare winter: nothing grows back until the spring.)
+	if bare_in_winter(prop):
+		prop.stock_tick = now
 		return false
 	var minutes_per_unit := maxi(roundi(days * Config.time.MINUTES_PER_DAY / float(full)), 1)
 	@warning_ignore("integer_division")

@@ -352,6 +352,39 @@ func test_what_comes_of_being_together() -> void:
 	assert_true(store.acts.get(SocialActs.HELP, 0) >= 1)
 
 
+func test_children_are_not_drawn_into_quarrels() -> void:
+	var pair := _parent_and_child()
+	var grown := pair[0]
+	var young := pair[1]
+	var year := Config.time.ticks_per_year()
+	var now := session.clock.tick
+	young.birth_tick = now - 6 * year
+	ctx.forget(young.id) # (its stage is worked out anew)
+	assert_eq(ctx.stage_of(young), PersonData.LifeStage.CHILD)
+	# However badly they get on, no quarrel with a child …
+	store.modify(grown.id, young.id, {"affinity": -1.0}, 0, now)
+	grown.stress = 1.0
+	grown.traits[Traits.Axis.AGGRESSION] = 1.0
+	assert_false(SocialActs.weights(grown, young, ctx).has(SocialActs.ARGUE))
+	assert_false(SocialActs.weights(young, grown, ctx).has(SocialActs.ARGUE))
+	# … nor a fight, whatever asks for one: a talk.
+	_knob(config, &"fight_chance", 1.0)
+	var health := young.health
+	assert_eq(SocialActs.carry_out(ctx, grown, young, SocialActs.ARGUE), SocialActs.CONVERSE)
+	assert_eq(SocialActs.carry_out(ctx, grown, young, SocialActs.FIGHT), SocialActs.CONVERSE)
+	assert_eq(young.health, health, "nobody hurts a child")
+	# Talk never wears on what they are to each other.
+	var before := store.between(grown.id, young.id).affinity
+	SocialActs.carry_out(ctx, grown, young, SocialActs.CONVERSE)
+	assert_true(store.between(grown.id, young.id).affinity >= before)
+	# The young quarrel, but it stays words.
+	young.birth_tick = now - 14 * year
+	ctx.forget(young.id)
+	assert_eq(ctx.stage_of(young), PersonData.LifeStage.ADOLESCENT)
+	assert_true(SocialActs.weights(grown, young, ctx).has(SocialActs.ARGUE))
+	assert_eq(SocialActs.carry_out(ctx, grown, young, SocialActs.ARGUE), SocialActs.ARGUE, "words, not blows")
+
+
 func test_people_seek_out_those_they_like() -> void:
 	var places := ctx.places
 	var person := _strangers()[0]

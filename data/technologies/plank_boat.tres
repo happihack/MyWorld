@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="TechnologyDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/technology_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"plank_boat"
+domain = 1
+prerequisites = PackedStringArray("canoe", "engineering")
+required_resources = PackedStringArray()
+knowledge_threshold = 65.0
+min_population = 10
+specialist_occupation = &"fisher"
+required_buildings = PackedStringArray()
+base_daily_chance = 0.003
+unlocks = {
+"visuals": ["plank_boat"]
+}
+era_weight = 1.0
+known_from_start = false
+own_rule = false
+implemented = true
+order = 29

@@ -34,6 +34,15 @@ var _company_tick := -1
 # [kind, center] -> Array of [tile, id].
 var _work_places: Dictionary = {}
 var _work_version := -1
+## Places a walk to which was given up (no way there — across the river, before
+## a crossing): tile -> the tick until which nobody is sent there again. (Owner
+## saw someone set out, turn back and set out again, over and over.)
+var _out_of_reach: Dictionary = {}
+## A place out of reach is tried again after this long (a crossing may have
+## been made) — or at once, when a building (a bridge) is finished.
+const OUT_OF_REACH_MINUTES := 1440
+## Nobody sets out to explore this near (tiles) to where there was no way to.
+const OUT_OF_REACH_NEAR := 3
 # Where water can be drunk, remembered for a while (shores move slowly).
 var _shore: Array[Vector2i] = []
 var _shore_tick := -1_000_000
@@ -207,6 +216,54 @@ func water_tile(from: Vector2i, now: int = -1) -> Variant:
 	return best
 
 
+## The nearest bank to `from` where one can stand and fish: a dry tile beside
+## water (not a well). Null: none within reach of the water.
+func fishing_bank(from: Vector2i) -> Variant:
+	if _pathfinder == null or not _pathfinder.is_bound():
+		return null
+	var best: Variant = null
+	var best_distance := float(WATER_RADIUS * WATER_RADIUS)
+	for water in _pathfinder.shore_tiles():
+		var distance := float((water - from).length_squared())
+		if distance >= best_distance:
+			continue
+		for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var bank := water + step
+			if _pathfinder.can_stand(bank) and _world.get_water(bank) <= 0.0 and not near_out_of_reach(bank, 1):
+				best = bank
+				best_distance = distance
+				break
+	return best
+
+
+## Where a fisher fishes (M19.5): from the end of the settlement's landing, if
+## one stands near (from its boat), else from the bank nearest home.
+## {"stand": Vector2i, "at": Vector2i (the water), "landing": prop id (0: the bank)} — {} if nowhere.
+func fishing_spot(person: PersonData) -> Dictionary:
+	var home: Variant = home_tile(person)
+	var center: Vector2i = home if home != null else person.position
+	if _props != null:
+		var nearest: PropData = null
+		for prop in _props.all_props():
+			if prop.kind == PropData.Kind.LANDING and Vector2(prop.tile - center).length() <= WORK_RADIUS * 1.5 \
+					and (nearest == null or (prop.tile - center).length_squared() < (nearest.tile - center).length_squared()):
+				nearest = prop
+		if nearest != null and not near_out_of_reach(nearest.tile, 0):
+			return {"stand": nearest.tile, "at": water_beside(nearest.tile, nearest.tile), "landing": nearest.id}
+	var bank: Variant = fishing_bank(center)
+	if bank == null:
+		return {}
+	return {"stand": bank, "at": water_beside(bank, bank), "landing": 0}
+
+
+## A water tile beside `tile` (`tile` itself if none).
+func water_beside(tile: Vector2i, fallback: Vector2i) -> Vector2i:
+	for step: Vector2i in [Vector2i.UP, Vector2i.LEFT, Vector2i.RIGHT, Vector2i.DOWN]:
+		if _world.get_water(tile + step) > 0.0:
+			return tile + step
+	return fallback
+
+
 ## Where the person's work is: {"tile": Vector2i, "id": int} or {} if there is
 ## none. `target` is OccupationDef.work_target.
 func work_place(person: PersonData, target: StringName, rng: RandomNumberGenerator) -> Dictionary:
@@ -345,6 +402,8 @@ func explore_tile(person: PersonData, stage: PersonData.LifeStage, rng: RandomNu
 			continue
 		if feared(person, tile):
 			continue # not there again
+		if near_out_of_reach(tile, OUT_OF_REACH_NEAR):
+			continue # (no way over there just now: across the river, before a crossing)
 		if not was_visited(tile):
 			return tile
 		if fallback == null:
@@ -435,11 +494,21 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 			var db := (b.tile - center).length_squared()
 			return da < db or (da == db and a.id < b.id))
 		var nearest: Array = []
-		# (Going further, every bush within reach is one to go to.)
-		for i in (found.size() if further > 1.0 else mini(found.size(), WORK_CANDIDATES)):
-			nearest.append([found[i].tile, found[i].id])
+		for prop in found:
+			nearest.append([prop.tile, prop.id])
 		_work_places[key] = nearest
 	var places: Array = _work_places[key]
+	# Not where there turned out to be no way to (while that holds): the nearest
+	# that can be got to instead.
+	if not _out_of_reach.is_empty() and clock != null:
+		var reachable: Array = []
+		for place: Array in places:
+			if int(_out_of_reach.get(place[0], -1)) <= clock.tick:
+				reachable.append(place)
+		places = reachable
+	# (Going further, every bush within reach is one to go to.)
+	if further <= 1.0:
+		places = places.slice(0, WORK_CANDIDATES)
 	if places.is_empty():
 		return {}
 	# Where there is still something to take, if there is such a place among
@@ -481,6 +550,36 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 			places = calm
 	var chosen: Array = places[rng.randi_range(0, places.size() - 1) if rng != null else 0]
 	return {"tile": chosen[0], "id": chosen[1]}
+
+
+## There was no way to `tile`: nobody is sent there again for a while.
+func note_out_of_reach(tile: Vector2i) -> void:
+	if clock == null:
+		return
+	_out_of_reach[tile] = clock.tick + OUT_OF_REACH_MINUTES
+	# (Old notes are let go of as they run out.)
+	for old: Vector2i in _out_of_reach.keys():
+		if int(_out_of_reach[old]) <= clock.tick:
+			_out_of_reach.erase(old)
+
+
+func is_out_of_reach(tile: Vector2i) -> bool:
+	return clock != null and int(_out_of_reach.get(tile, -1)) > clock.tick
+
+
+## Is `tile` within `reach` tiles of somewhere there was no way to (and still is not)?
+func near_out_of_reach(tile: Vector2i, reach: int) -> bool:
+	if clock == null or _out_of_reach.is_empty():
+		return false
+	for other: Vector2i in _out_of_reach:
+		if maxi(absi(other.x - tile.x), absi(other.y - tile.y)) <= reach and int(_out_of_reach[other]) > clock.tick:
+			return true
+	return false
+
+
+## Something was built (a bridge): every way is worth trying again.
+func forget_out_of_reach() -> void:
+	_out_of_reach.clear()
 
 
 ## Does the person keep away from this place, for what they remember of it?

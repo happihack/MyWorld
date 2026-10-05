@@ -71,6 +71,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.STONE_CIRCLE: InteractionResponse.RUIN_HUM,
 	PropData.Kind.SHRINE: InteractionResponse.RUIN_HUM,
 	PropData.Kind.CEMETERY: InteractionResponse.DUST,
+	PropData.Kind.LANDING: InteractionResponse.BUILDING_KNOCK,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -401,12 +402,16 @@ func _do_uproot(iv: Intervention) -> bool:
 	var size := tree.scale_percent
 	# (A stump or a sapling has no trunk to leave lying.)
 	var has_trunk := not tree.felled
+	# (Its wood lies in the trunk: the woodcutters cut it up — WorkStep.)
+	var wood := ResourceNodes.left_of(tree, Config.resources)
 	_props.remove(tree.id)
 	if can_spawn() and has_trunk:
 		var rng := _rng.stream(RNG_STREAM)
 		var heading := rng.randf() * TAU
 		var log := _spawn(LooseObject.Kind.LOG, Vector2(response.position.x, response.position.z), 0.35, size)
 		log.yaw = heading
+		log.resource = WorkStep.LOG_RESOURCE
+		log.amount = maxi(wood, 1)
 		_motion.drop(log.id, Vector3(cos(heading), 0.0, sin(heading)) * 0.9)
 		response.dropped.append(log.id)
 	iv.response = response
@@ -732,6 +737,8 @@ func inspect(target: Picker.Result) -> InspectReport:
 			report.still_needed = construction.still_needed(project)
 		elif prop.is_building():
 			report.condition = prop.condition
+			if not project.is_empty():
+				report.repair_progress = construction.progress(project)
 		if prop.kind == PropData.Kind.CAMPFIRE and settlements != null:
 			for own in settlements.all():
 				if own.start_info().campfire_id == prop.id:
@@ -772,6 +779,9 @@ func inspect(target: Picker.Result) -> InspectReport:
 		if object.is_pile():
 			report.resource = object.resource
 			report.resource_left = object.amount
+		elif object.kind == LooseObject.Kind.LOG:
+			report.resource = WorkStep.LOG_RESOURCE
+			report.resource_left = WorkStep.log_wood(object)
 	elif animal != null:
 		report.subject = InspectReport.Subject.ANIMAL
 		report.entity_id = animal.id

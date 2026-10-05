@@ -54,9 +54,15 @@ extends ConfigBase
 @export_range(0.0, 1.0, 0.01) var field_job_floor: float = 0.0
 
 @export_group("Hunting")
+## (Under study, 2026-10-05 — off: the game as it was.) In winter nobody hunts.
+@export var winter_no_game := false
 ## A settlement with at least this many grown gatherers, game to hunt and
 ## nobody hunting has one of them take it up.
 @export_range(1, 100) var hunter_from_gatherers: int = 4
+## Fishing (M19.5): one of the gatherers takes it up once there are this many,
+## with water this near the fire (tiles) and fish in it.
+@export_range(1, 100) var fisher_from_gatherers: int = 4
+@export_range(1, 64) var fish_reach: int = 14
 ## Hunters go after game within this many tiles of the fire.
 @export_range(4.0, 128.0, 1.0) var hunt_radius: float = 28.0
 

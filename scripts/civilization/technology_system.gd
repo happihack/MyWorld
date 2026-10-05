@@ -112,6 +112,14 @@ func apply_effects() -> void:
 			# (What they can now think things are: PHYSICS, EXPERIMENT — M18.)
 			for gate in thinkers:
 				person.knowledge[gate] = true
+		# The boat at its landings: the best it has come to build (M19.5).
+		if props != null and own.fire() != null:
+			var boat := WorkStep.boat_of(own)
+			for prop in props.all_props():
+				if prop.kind == PropData.Kind.LANDING and prop.variant != boat \
+						and Vector2(prop.tile - own.fire().tile).length() <= SettlementPlanner.NEAR_REACH:
+					prop.variant = boat
+					props.changed(prop.id)
 		if own.knows_how(&"mathematics") and props != null and own.fire() != null:
 			for prop in props.all_props():
 				if prop.kind == PropData.Kind.RECORD_STONE and prop.variant == 0 \

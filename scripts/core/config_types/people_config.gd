@@ -19,10 +19,10 @@ extends ConfigBase
 @export_range(0.1, 2.0, 0.01) var walk_factor_elder: float = 0.65
 
 @export_group("Starting band")
-@export_range(1, 40) var band_min_people: int = 6
-@export_range(1, 40) var band_max_people: int = 8
-@export_range(1, 10) var band_min_households: int = 2
-@export_range(1, 10) var band_max_households: int = 3
+@export_range(1, 40) var band_min_people: int = 8
+@export_range(1, 40) var band_max_people: int = 11
+@export_range(1, 10) var band_min_households: int = 3
+@export_range(1, 10) var band_max_households: int = 4
 ## People are placed at most this many tiles from their home.
 @export_range(1, 8) var spawn_radius_tiles: int = 3
 

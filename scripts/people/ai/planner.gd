@@ -105,6 +105,13 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				target = &"site"
 			# The field: whatever it needs most right now. With nothing to do
 			# there, a farmer turns to what else they do.
+			if target == &"fish":
+				var fishing := _fish_work(person, ctx, rng)
+				if not fishing.is_empty():
+					return fishing
+				if def.helps_with.is_empty():
+					return []
+				target = StringName(def.helps_with[0])
 			if target == &"field" or target == &"game" or target == &"site" or target == &"trade" or target == &"workshop" or target == &"investigate":
 				var own_work: Array
 				match target:
@@ -125,6 +132,16 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				if def.helps_with.is_empty():
 					return []
 				target = StringName(def.helps_with[0])
+			# Wood: a fallen trunk lying near home is cut up before a tree is felled;
+			# food: fruit lying on the ground is picked up before a bush is picked.
+			if target == &"tree":
+				var cutting := _log_work(person, ctx, rng)
+				if not cutting.is_empty():
+					return cutting
+			if target == &"bush":
+				var picking := _fruit_work(person, ctx, rng)
+				if not picking.is_empty():
+					return picking
 			var place := ctx.places.work_place(person, target, rng)
 			if place.is_empty():
 				return []
@@ -210,6 +227,8 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 static func _hunt(person: PersonData, ctx: AiContext) -> Array:
 	if ctx.fauna == null or ctx.settlement == null or ctx.settlement.fire() == null:
 		return []
+	if Config.settlement.winter_no_game and Config.time.season_of(ctx.now()) == Config.time.seasons_per_year - 1:
+		return [] # (under study: no hunting in winter)
 	var quarry := ctx.fauna.quarry_for(person.world2d(), ctx.settlement.fire().position2d(), Config.settlement.hunt_radius)
 	if quarry == null:
 		return []
@@ -354,6 +373,84 @@ static func _craft_work(person: PersonData, ctx: AiContext) -> Array:
 		return getting + [WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 	return [WalkToStep.make(_beside(shop.tile, person.position, ctx), person.sub_tile_offset),
 		TradeStep.craft(shop.id, shop.tile, config.craft_minutes)]
+
+
+## Fishing (M19.5): to the bank (or the landing's boat), fish a while, and home
+## to the stores with the catch ([]: no water near, or no fish in it).
+static func _fish_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	if ctx.fauna == null or ctx.fauna.fish < 1.0 or ctx.places == null:
+		return []
+	var spot := ctx.places.fishing_spot(person)
+	if spot.is_empty():
+		return []
+	var fishing := WorkStep.make(&"fish", 0, spot["at"], snappedf(rng.randf_range(60.0, 120.0), 1.0))
+	fishing["fish"] = true
+	fishing["landing"] = int(spot["landing"])
+	var steps := [WalkToStep.make(spot["stand"], person.sub_tile_offset), fishing]
+	var stores: Variant = ctx.places.storage_tile(&"fish")
+	if stores != null:
+		steps.append(WalkToStep.make(stores, STORE_STAND))
+		steps.append(StoreStep.make())
+	return steps
+
+
+## A fallen trunk (an uprooted tree) to cut up for wood: to it, cut, and home
+## to the stores with the wood ([]: none lying near home that can be got to).
+static func _log_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	var log := _lying_near(person, ctx, func(object: LooseObject) -> bool:
+		return object.kind == LooseObject.Kind.LOG and not object.placed_by_player and object.state == LooseObject.State.RESTING)
+	if log == null:
+		return []
+	var at := Vector2i(log.position.floor())
+	var cut := WorkStep.make(&"tree", 0, at, snappedf(rng.randf_range(50.0, 110.0), 1.0))
+	cut["log"] = log.id
+	var steps := [WalkToStep.make(_beside(at, person.position, ctx), person.sub_tile_offset), cut]
+	var stores: Variant = ctx.places.storage_tile(WorkStep.LOG_RESOURCE)
+	if stores != null:
+		steps.append(WalkToStep.make(stores, STORE_STAND))
+		steps.append(StoreStep.make())
+	return steps
+
+
+## Fallen fruit to pick up (a shaken tree's): to it, gather up what lies there,
+## and home to the stores with it ([]: none lying near home that can be got to).
+static func _fruit_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	var fruit := _lying_near(person, ctx, WorkStep.is_fallen_fruit)
+	if fruit == null:
+		return []
+	var at := Vector2i(fruit.position.floor())
+	var pick := WorkStep.make(&"bush", 0, at, snappedf(rng.randf_range(4.0, 8.0), 1.0))
+	pick["fruit"] = true
+	var steps := [WalkToStep.make(at, fruit.position - Vector2(at)), pick]
+	var stores: Variant = ctx.places.storage_tile(WorkStep.FRUIT_RESOURCE)
+	if stores != null:
+		steps.append(WalkToStep.make(stores, STORE_STAND))
+		steps.append(StoreStep.make())
+	return steps
+
+
+## The nearest loose thing near the person's home that `wanted` says is for
+## the taking (and that is not in the water, nor where there was no way to).
+static func _lying_near(person: PersonData, ctx: AiContext, wanted: Callable) -> LooseObject:
+	if ctx.loose == null or ctx.places == null:
+		return null
+	var home: Variant = ctx.places.home_tile(person)
+	var center := Places.middle_of(home if home != null else person.position)
+	var best: LooseObject = null
+	var best_distance := Places.WORK_RADIUS
+	for object in ctx.loose.all_objects():
+		if not bool(wanted.call(object)):
+			continue
+		var tile := Vector2i(object.position.floor())
+		if ctx.world != null and ctx.world.get_water(tile) > Pathfinder.WET_DEPTH:
+			continue # (afloat, or under water)
+		if ctx.places.near_out_of_reach(tile, 2):
+			continue
+		var distance := object.position.distance_to(center)
+		if distance <= best_distance:
+			best = object
+			best_distance = distance
+	return best
 
 
 ## The nearest stone lying about near a site that can be walked to from it

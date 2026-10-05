@@ -38,6 +38,7 @@ const PROP_NAMES := {
 	PropData.Kind.STONE_CIRCLE: "Stone circle",
 	PropData.Kind.SHRINE: "Shrine",
 	PropData.Kind.CEMETERY: "Cemetery",
+	PropData.Kind.LANDING: "Landing",
 }
 
 const SPECIES_NAMES := {
@@ -117,6 +118,7 @@ const OCCUPATION_NAMES := {
 	&"builder": "Builder",
 	&"farmer": "Farmer",
 	&"hunter": "Hunter",
+	&"fisher": "Fisher",
 	&"trader": "Trader",
 	&"toolmaker": "Toolmaker",
 	&"scientist": "Scientist",
@@ -514,6 +516,13 @@ static func condition_text(condition: int) -> String:
 		return "Sound"
 	var word := "Weathered" if share >= 0.7 else ("Damaged" if share >= 0.4 else "Falling apart")
 	return "%s (%d%%)" % [word, roundi(share * 100.0)]
+
+
+## A building's name: "Hut", "Storehouse".
+static func building_name(building: StringName) -> String:
+	var key := "BUILDING_" + String(building).to_upper()
+	var name := MemoryText.translate(key) if MemoryText.has(key) else String(building)
+	return name.substr(0, 1).to_upper() + name.substr(1)
 
 
 ## What is going up on a site and how far: "A hut, half built".

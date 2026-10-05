@@ -53,6 +53,8 @@ var footfall := 0.0
 var path := false
 var building: StringName = &""
 var build_progress := -1.0
+## A building being mended: how far the repair has got, 0 … 1 (-1: none going on).
+var repair_progress := -1.0
 var still_needed: Dictionary = {}
 ## Crops only: Farming.Stage (-1 = not a crop), growth and vigour 0 … 1000,
 ## and whether it stands dry.

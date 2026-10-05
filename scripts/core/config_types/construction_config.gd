@@ -46,6 +46,9 @@ extends ConfigBase
 @export_range(0, 1000) var storm_damage: int = 40
 ## Below this a building is repaired: this share of its work, and of its materials.
 @export_range(0, 1000) var repair_below: int = 700
+## The builders mend a building once it is worn below this (not only when it is
+## damaged — the owner saw weathered buildings left so); a home nobody lives in is left to fall.
+@export_range(0, 1000) var repair_from: int = 950
 @export_range(0.0, 1.0, 0.01) var repair_labor_share: float = 0.5
 @export_range(0.0, 1.0, 0.01) var repair_material_share: float = 0.25
 ## A home nobody has lived in for this many days begins to fall apart, this

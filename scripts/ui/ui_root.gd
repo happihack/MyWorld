@@ -65,6 +65,9 @@ var camera_mover: Callable
 var _speed_control: SpeedControl
 var _toasts: ToastStack
 var _menu_button: MenuButtonRound
+## Milestones waiting for their card (one at a time; none while the game is in the background).
+var _milestones: Array[Notice] = []
+var _in_background := false
 
 
 func _ready() -> void:
@@ -76,6 +79,14 @@ func _ready() -> void:
 		_tick()
 		home_pressed.emit())
 	EventBus.back_requested.connect(_on_back_requested)
+	NotificationManager.posted.connect(func(notice: Notice) -> void:
+		if notice.is_milestone():
+			_milestones.append(notice)
+			show_next_milestone())
+	EventBus.app_paused.connect(func() -> void: _in_background = true)
+	EventBus.app_resumed.connect(func() -> void:
+		_in_background = false
+		show_next_milestone())
 	_panel_layer = Control.new()
 	_panel_layer.name = "Panels"
 	_panel_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -194,6 +205,31 @@ func close_top_panel() -> bool:
 		return false
 	_panels[-1].close()
 	return true
+
+
+## The next milestone waiting, on its card — unless one is open already, or the
+## game is in the background (it waits for the player's return).
+func show_next_milestone() -> MilestoneCard:
+	if _in_background or _milestones.is_empty() or milestone_card() != null:
+		return null
+	var card := MilestoneCard.new()
+	card.setup(_milestones.pop_front())
+	open_panel(card)
+	AudioManager.play_ui(&"chime")
+	card.locate_requested.connect(func(at: Vector2) -> void:
+		_tick()
+		locate_requested.emit(at))
+	card.closed.connect(func() -> void:
+		_tick()
+		show_next_milestone.call_deferred())
+	return card
+
+
+func milestone_card() -> MilestoneCard:
+	for panel: UIPanel in _panels:
+		if panel is MilestoneCard and not panel.is_closing():
+			return panel
+	return null
 
 
 func close_all_panels() -> void:

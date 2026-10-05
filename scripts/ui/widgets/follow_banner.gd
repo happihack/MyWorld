@@ -13,7 +13,11 @@ signal stop_pressed
 ## "Find …" was tapped.
 signal locate_pressed
 
-const TOP := 56.0
+## Low enough to be clear of a phone's front camera in the middle of the top
+## edge (owner: it sat under it) — lower still where the phone says its cutout reaches.
+const TOP := 120.0
+## Room left below a cutout the phone tells of.
+const BELOW_CUTOUT := 20.0
 const HEIGHT := UITheme.TOUCH_TARGET * 0.72
 
 var _banner: HBoxContainer
@@ -54,6 +58,32 @@ func _init() -> void:
 	_locate.pressed.connect(func() -> void: locate_pressed.emit())
 	_banner.visible = false
 	_locate.visible = false
+
+
+func _ready() -> void:
+	get_viewport().size_changed.connect(_place)
+	_place()
+
+
+## Below the front camera: the baseline, or lower where a cutout reaches further.
+func _place() -> void:
+	offset_top = top_for(get_viewport())
+
+
+## Where the banner's top is on `viewport` (canvas units).
+static func top_for(viewport: Viewport) -> float:
+	var top := TOP
+	if viewport == null or DisplayServer.get_name() == "headless":
+		return top
+	var window := DisplayServer.window_get_size()
+	if window.y <= 0:
+		return top
+	var per_pixel := viewport.get_visible_rect().size.y / float(window.y)
+	for cutout: Rect2 in DisplayServer.get_display_cutouts():
+		# (One along the top edge — a camera — not a notch at the bottom.)
+		if cutout.position.y < window.y * 0.2:
+			top = maxf(top, (cutout.end.y) * per_pixel + BELOW_CUTOUT)
+	return top
 
 
 ## Shows who is followed ("" = nobody), and whether the camera is with them.
@@ -110,7 +140,7 @@ func bottom() -> float:
 		return _locate.get_global_rect().end.y
 	if _banner.visible:
 		return _banner.get_global_rect().end.y
-	return TOP
+	return offset_top
 
 
 func _chip(parent: Control, chip_name: String) -> Button:

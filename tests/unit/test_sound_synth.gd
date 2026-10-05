@@ -26,7 +26,7 @@ func test_every_sound_is_made_and_sane() -> void:
 		assert_true(finite, "%s has only finite samples" % id)
 		if id != &"wind" and id != &"crickets" and id != &"rain": # (those three are loops)
 			# (Thunder rolls on for a while; everything else is over at once.)
-			assert_true(SoundSynth.seconds_of(samples) <= (3.0 if id == &"thunder" else 1.6), "%s is short" % id)
+			assert_true(SoundSynth.seconds_of(samples) <= (5.0 if SoundSynth.THUNDER_IDS.has(id) else 1.6), "%s is short" % id)
 			assert_near(samples[0], 0.0, 0.02, "%s starts silent (no click)" % id)
 			assert_near(samples[samples.size() - 1], 0.0, 0.02, "%s ends silent (no click)" % id)
 

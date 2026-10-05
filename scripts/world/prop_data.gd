@@ -9,10 +9,12 @@ extends RefCounted
 
 ## (Saved by number: append, never reorder.)
 enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
-	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY }
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING }
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
 const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE,
-	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE]
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING]
+## A landing (M19.5): its variant is the boat moored at it (0: none yet).
+enum Boat { NONE, RAFT, CANOE, PLANK_BOAT, SAIL }
 ## Solid: nobody walks through it.
 const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP,
 	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE]
@@ -54,6 +56,7 @@ const PICK_BODY := {
 	Kind.STONE_CIRCLE: [0.60, 0.48],
 	Kind.SHRINE: [0.70, 0.36],
 	Kind.CEMETERY: [0.50, 0.95],
+	Kind.LANDING: [0.40, 0.50],
 }
 
 var id: int = 0
@@ -165,7 +168,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

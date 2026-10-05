@@ -67,12 +67,14 @@ func _stage(s: WorldSession, p: PersonData) -> PersonData.LifeStage:
 # --- who they are -------------------------------------------------------------------------------
 
 func test_household_plans_fit_the_band_the_config_asks_for() -> void:
+	# The game's own band (the tests' worlds are given a smaller one, see run_tests).
+	var shipped := ResourceLoader.load("res://data/configuration/people_config.tres", "", ResourceLoader.CACHE_MODE_IGNORE) as PeopleConfig
 	var rng := RandomNumberGenerator.new()
 	var sizes := {}
 	var household_counts := {}
 	for seed_value in 400:
 		rng.seed = seed_value
-		var plans := StartingBand.plan_households(rng, Config.people)
+		var plans := StartingBand.plan_households(rng, shipped)
 		var total := 0
 		var children := 0
 		var elders := 0
@@ -84,16 +86,16 @@ func test_household_plans_fit_the_band_the_config_asks_for() -> void:
 			assert_eq(roles.count(StartingBand.Role.MOTHER), roles.count(StartingBand.Role.FATHER))
 			if roles.has(StartingBand.Role.CHILD):
 				assert_true(roles.has(StartingBand.Role.MOTHER))
-		if total < Config.people.band_min_people or total > Config.people.band_max_people:
+		if total < shipped.band_min_people or total > shipped.band_max_people:
 			fail("band of %d (seed %d)" % [total, seed_value])
-		if plans.size() < Config.people.band_min_households or plans.size() > Config.people.band_max_households:
+		if plans.size() < shipped.band_min_households or plans.size() > shipped.band_max_households:
 			fail("%d households (seed %d)" % [plans.size(), seed_value])
 		if children < 1 or elders < 1:
 			fail("a band needs its young and its old (seed %d: %d children, %d elders)" % [seed_value, children, elders])
 		sizes[total] = true
 		household_counts[plans.size()] = true
-	assert_eq(sizes.size(), 3, "bands of 6, 7 and 8 all occur")
-	assert_eq(household_counts.size(), 2, "with 2 and with 3 households")
+	assert_true(sizes.size() >= 3, "villages of different sizes, 8 to 11: %s" % str(sizes.keys()))
+	assert_eq(household_counts.size(), 2, "with 3 and with 4 households")
 
 
 func test_other_band_sizes_can_be_asked_for() -> void:

@@ -320,6 +320,45 @@ func test_a_toast_says_it_and_shows_where() -> void:
 	assert_eq(stack.toasts().size(), 0)
 
 
+func test_a_milestone_is_told_so_it_can_be_read() -> void:
+	# (Owner: discoveries should grab the eye — and stay until they have been read.)
+	await _in_game()
+	var people := session.people.all_people()
+	session.events.record(&"knowledge_learned", {"participants": [people[0].id], "significance": 0.2})
+	await wait_frames(2)
+	var card := ui.milestone_card()
+	assert_not_null(card, "a card, not only a toast")
+	assert_eq(card.heading_text(), "A DISCOVERY")
+	assert_eq(card.text(), "%s has worked something out" % people[0].given_name)
+	assert_true(card.is_in_group(InputRouter.UI_BLOCKER_GROUP), "the world waits behind it: no touch reaches it")
+	assert_eq(card.get_global_rect().size, card.get_viewport_rect().size, "across the whole screen")
+	# Its toast, framed in gold.
+	var toast := ui.toasts().toasts()[-1]
+	assert_eq((toast.get_theme_stylebox(&"panel") as StyleBoxFlat).border_color, MilestoneCard.GOLD)
+	# Another while it is open: its turn comes after (not merged into the first).
+	session.events.record(&"knowledge_learned", {"participants": [people[1].id], "significance": 0.2})
+	await wait_frames(2)
+	assert_true(ui.milestone_card() == card, "one at a time")
+	card.continue_button().pressed.emit()
+	await wait_frames(2)
+	assert_not_null(ui.milestone_card())
+	assert_eq(ui.milestone_card().text(), "%s has worked something out" % people[1].given_name)
+	ui.milestone_card().continue_button().pressed.emit()
+	await wait_frames(2)
+	assert_null(ui.milestone_card())
+	# In the background: it waits for the player's return.
+	EventBus.app_paused.emit()
+	session.events.record(&"era_entered", {"significance": 0.9})
+	await wait_frames(2)
+	assert_null(ui.milestone_card(), "nothing pops up while nobody is looking")
+	EventBus.app_resumed.emit()
+	await wait_frames(2)
+	assert_not_null(ui.milestone_card())
+	assert_eq(ui.milestone_card().heading_text(), "A NEW AGE")
+	ui.milestone_card().close()
+	await wait_frames(2)
+
+
 func test_following_someone_quiets_the_toasts() -> void:
 	await _in_game()
 	var stack := ui.toasts()

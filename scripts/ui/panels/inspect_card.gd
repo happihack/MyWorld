@@ -19,6 +19,8 @@ const BOTTOM_MARGIN := 308.0
 @onready var _close: Button = %Close
 
 var _height_step := 0.4
+## The tile it tells of (no longer written on the card: the owner found "tile 12, 8" no use to a player).
+var _tile := Vector2i.ZERO
 
 
 func _ready() -> void:
@@ -30,7 +32,8 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 	_height_step = height_step
 	for child in _rows.get_children():
 		child.queue_free()
-	var where := "tile %d, %d" % [report.tile.x, report.tile.y]
+	_tile = report.tile
+	_subtitle.visible = false
 	match report.subject:
 		InspectReport.Subject.PROP:
 			_title.text = UIText.node_name(report.prop_kind, report.prop_variant, report.look)
@@ -38,12 +41,14 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 				_title.text = UIText.crop_name(report.crop_stage)
 				_add_row("Crop", UIText.crop_state(report.crop_stage, report.crop_growth, report.crop_vigor, report.crop_dry))
 				_add_row("Soil", "%s · %s" % [UIText.moisture_text(report.moisture), UIText.fertility_text(report.fertility)])
-			_subtitle.text = where
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 			if report.condition >= 0:
 				_add_row("Condition", UIText.condition_text(report.condition))
+				if report.repair_progress >= 0.0:
+					_add_row("Being repaired", "%d%%" % roundi(report.repair_progress * 100.0))
 			elif report.build_progress >= 0.0:
-				_add_row("Going up", UIText.build_text(report.building, report.build_progress))
+				_add_row("Going up", UIText.building_name(report.building))
+				_add_row("Completion", "%d%%" % roundi(report.build_progress * 100.0))
 				if not report.still_needed.is_empty():
 					_add_row("Waiting for", UIText.needed_text(report.still_needed))
 			elif report.prop_kind != PropData.Kind.SITE:
@@ -67,10 +72,11 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 					if not report.knows.is_empty():
 						_add_row("Knows", ", ".join(report.knows))
 			_add_row("Ground height", str(report.height_level))
-			_add_row("Moisture", UIText.moisture_text(report.moisture))
+			# (What grows drinks from the ground; buildings and stones do not care.)
+			if report.prop_kind == PropData.Kind.TREE or report.prop_kind == PropData.Kind.BUSH:
+				_add_row("Moisture", UIText.moisture_text(report.moisture))
 		InspectReport.Subject.LOOSE:
 			_title.text = UIText.loose_name(report.loose_kind)
-			_subtitle.text = where
 			if report.resource != &"":
 				_title.text = String(TranslationServer.translate("RES_PILE")).format({"name": UIText.resource_name(report.resource)})
 				_add_row("Holds", UIText.resource_amount(report.resource, report.resource_left))
@@ -80,20 +86,17 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 			_add_row("Ground height", str(report.height_level))
 		InspectReport.Subject.ANIMAL:
 			_title.text = UIText.species_name(report.species)
-			_subtitle.text = where
 			_add_row("Doing", UIText.animal_state(report.animal_state, report.species == &"fox"))
 			_add_row("Age", UIText.animal_age(report.animal_age_days, report.animal_grown))
 			_add_row("In the box", str(report.species_count))
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 		InspectReport.Subject.WATER:
 			_title.text = UIText.WATER_NAME
-			_subtitle.text = where
 			_add_row("Depth", UIText.depth_text(report.water_depth, _height_step))
 			_add_row("Bed", UIText.terrain_name(report.terrain))
 			_add_row("Bed height", str(report.height_level))
 		_:
 			_title.text = UIText.terrain_name(report.terrain)
-			_subtitle.text = where
 			_add_row("Height", str(report.height_level))
 			_add_row("Moisture", UIText.moisture_text(report.moisture))
 			_add_row("Fertility", UIText.fertility_text(report.fertility))
@@ -118,7 +121,12 @@ func title_text() -> String:
 
 
 func subtitle_text() -> String:
-	return _subtitle.text
+	return _subtitle.text if _subtitle.visible else ""
+
+
+## The tile the card tells of.
+func tile() -> Vector2i:
+	return _tile
 
 
 ## The facts shown, as label -> value.

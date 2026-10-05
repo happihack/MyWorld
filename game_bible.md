@@ -816,6 +816,20 @@ Fire → Foraging tools → Agriculture → Animal husbandry → Pottery → Wea
 
 Each `TechnologyDef`: `id, name, domain, prerequisites, required_resources_known, knowledge_threshold, min_population, specialist_occupation, required_buildings, base_daily_chance, unlocks (buildings, occupations, actions, interpretations, vocabulary, visuals), era_weight`.
 
+### 18.2a Fishing and boats [CANON — owner's request, 2026-10-05; built in M19.5]
+
+Fish have been in the water since M7.4 (one stock for the box) but nobody fished. Fishing comes first, then boats as a line of their own in the technology chain, each step letting the fishers go further and bring back more:
+
+| Step | What it is | Comes from (conditions, not dates) | What it changes |
+|---|---|---|---|
+| **Fishing** (no technology) | A **fisher** (occupation) fishes from the bank with a line or a fish trap | Water near home with fish in it | Fish into the stores (it keeps a day or two); a second food that does not come from the land — and goes on in winter (through a hole in the ice, more slowly) |
+| **Raft** (technology) | Logs lashed together, poled along | Toolmaking + wood + someone who fishes | Fishers fish from a raft on deeper water: more fish; the raft lies at a landing on the bank |
+| **Dugout canoe** | A trunk hollowed out | Raft + toolmaking skill + years of fishing (knowledge) | Faster, further, more carried; fishing down the river; a canoe can carry goods to a settlement downriver (trade) |
+| **Nets** | Woven nets | Weaving + a fisher | A catch several times a line's |
+| **Plank boat** | Boards on a frame | Canoe + engineering (or metal tools) | Bigger catches, crossing wide water without a bridge, trade along the water |
+| **Sail** | Cloth on a mast | Plank boat + weaving | The far shore; sea fishing where the box has a sea (Coastal Plain) |
+
+Each step is **visible** (§18.3): a raft, then a canoe, then a boat at the landing and out on the water with someone in it; nets drying on racks by the shore. Fish run out where they are taken too hard (the stock refills in days), so a fishing settlement learns to spread out — and a bad fishing year is a story.
 ### 18.3 Visible change
 
 Every tech must visibly change something: new buildings, tools in hands, clothing, light at night (fire → oil lamps → electric lights), roads, sounds, occupations, vocabulary, statistics, how people *interpret* the player.
@@ -1515,7 +1529,7 @@ Data structures (events with causes, memories with structured params, lexicon) a
 | | ai_think_interval_ticks (T4/T3/T2) | 1 / 3 / 15 |
 | | water_step_hz / water_budget_ms | 10 / 1.5 |
 | | sim_budget_ms_per_frame | 4.0 |
-| `people_config.tres` | starting_population | 6–8 |
+| `people_config.tres` | starting_population | 8–11 (owner, 2026-10-05; was 6–8) |
 | | adulthood_age / elder_age | 16 / 50 |
 | | max_personal_memories / max_relationships | 32 / 30 |
 | | gossip_fidelity_factor | 0.85 |

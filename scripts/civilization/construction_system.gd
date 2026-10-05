@@ -308,7 +308,7 @@ func damage(building_id: int, amount: int, why: StringName, now: int) -> void:
 		damaged.emit(building.id, why)
 	if building.condition <= 0:
 		_ruin(building, &"washed" if building.kind == PropData.Kind.BRIDGE else &"worn")
-	elif building.condition < _config.repair_below:
+	elif building.condition < _config.repair_from and not _left_to_fall(building, now):
 		start_repair(building, now)
 
 
@@ -348,6 +348,11 @@ func advance_to(now: int) -> void:
 		return
 	var days := mini(today - _day, 30)
 	_day = today
+	# What is worn is mended (by the builders: a repair, worked like a build).
+	for prop in _props.all_props():
+		if prop.is_building() and prop.condition < _config.repair_from and project_at(prop.id).is_empty() \
+				and not _left_to_fall(prop, now):
+			start_repair(prop, now)
 	var homes: Array[int] = settlements.all_homes() if settlements != null and settlements.size() > 0 else _start.hut_ids.duplicate()
 	homes.append_array(abandoned_homes)
 	for home_id: int in homes:
@@ -367,6 +372,17 @@ func advance_to(now: int) -> void:
 		_props.touch(home.id)
 		if home.condition <= 0:
 			_ruin(home, &"empty")
+
+
+## A home abandoned, or one nobody has lived in for a while (past the days it
+## stands empty before it decays): not mended — it is left to fall.
+func _left_to_fall(building: PropData, now: int) -> bool:
+	if abandoned_homes.has(building.id):
+		return true
+	if building.kind != PropData.Kind.HUT or _people == null or not _people.living_in(building.id).is_empty():
+		return false
+	var since := int(_empty_since.get(building.id, now))
+	return (now - since) / TimeConfig.MINUTES_PER_DAY > _config.empty_home_days
 
 
 ## A building has fallen: what is left of it is a ruin (and history).

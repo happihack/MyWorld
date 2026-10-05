@@ -13,13 +13,20 @@ const RATE := 22050
 ## The wind is all low frequencies, so a low rate is enough (and quick to make).
 const WIND_RATE := 11025
 const WIND_SECONDS := 3.0
-const RAIN_SECONDS := 2.5
+## Long enough that the ear does not catch the loop going round (owner: the rain
+## and the crickets were "loopy"); the crickets also sing over it, one at a time
+## (see AudioManager).
+const RAIN_SECONDS := 9.0
+const CRICKETS_SECONDS := 16.0
+## The single cricket trills sung over the chorus, and the thunders to pick from.
+const CRICKET_IDS: Array[StringName] = [&"cricket", &"cricket_2", &"cricket_3"]
+const THUNDER_IDS: Array[StringName] = [&"thunder", &"thunder_2", &"thunder_3"]
 
 ## Every sound this class can make.
 const IDS: Array[StringName] = [
 	&"thud", &"plip", &"rustle", &"click", &"knock", &"crackle", &"hum",
 	&"chirp", &"chirp_2", &"chirp_3", &"ui_open", &"ui_tap", &"ui_close", &"wind", &"voice", &"crickets",
-	&"rain", &"thunder", &"gust", &"chime",
+	&"rain", &"thunder", &"gust", &"chime", &"cricket", &"cricket_2", &"cricket_3", &"thunder_2", &"thunder_3",
 ]
 
 
@@ -90,8 +97,14 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 			return _rain(rng)
 		&"gust":
 			return _finish(_gust(rng), 0.6)
-		&"thunder":
-			return _finish(_thunder(rng), 0.9)
+		&"thunder", &"thunder_2", &"thunder_3":
+			return _finish(_thunder(rng), 0.95)
+		&"cricket":
+			return _finish(_trill(4150.0, 4, 0.045), 0.5)
+		&"cricket_2":
+			return _finish(_trill(4480.0, 3, 0.05), 0.5)
+		&"cricket_3":
+			return _finish(_trill(3820.0, 6, 0.038), 0.5)
 		&"chime":
 			return _finish(_chime(), 0.5)
 		&"voice":
@@ -296,22 +309,22 @@ static func _blip(from_hz: float, to_hz: float, seconds: float) -> PackedFloat32
 	return out
 
 
-## A loop of crickets in the night: three of them, each chirping in short
-## trills at its own pitch and pace. Every trill fits inside the loop, so it
-## has no seam.
+## A loop of crickets in the night, far and near: five of them, each at its own
+## pitch, trilling at uneven gaps and now and then falling silent a while — so
+## no pattern comes round (the near ones are sung over it one at a time, at
+## random, by AudioManager). Every trill fits inside the loop: no seam.
 static func _crickets(rng: RandomNumberGenerator) -> PackedFloat32Array:
-	var seconds := 4.0
+	var seconds := CRICKETS_SECONDS
 	var n := int(seconds * RATE)
 	var out := PackedFloat32Array()
 	out.resize(n)
-	for cricket in 3:
-		var pitch := 3900.0 + cricket * 420.0 + rng.randf_range(-60.0, 60.0)
-		var period := 0.62 + cricket * 0.21
-		var loudness := 0.5 - cricket * 0.12
-		var start := rng.randf_range(0.05, 0.3)
-		while start + 0.2 < seconds:
-			# A trill: three or four quick pulses.
-			for pulse in 3 + (cricket % 2):
+	for cricket in 5:
+		var pitch := 3700.0 + cricket * 230.0 + rng.randf_range(-80.0, 80.0)
+		var loudness := rng.randf_range(0.18, 0.45)
+		var pulses := rng.randi_range(3, 5)
+		var start := rng.randf_range(0.05, 1.5)
+		while start + 0.3 < seconds:
+			for pulse in pulses:
 				var from := int((start + pulse * 0.045) * RATE)
 				var length := int(0.028 * RATE)
 				for i in length:
@@ -319,8 +332,25 @@ static func _crickets(rng: RandomNumberGenerator) -> PackedFloat32Array:
 						break
 					var f := float(i) / float(length)
 					out[from + i] += sin(TAU * pitch * float(i) / RATE) * sin(PI * f) * loudness
-			start += period + rng.randf_range(-0.04, 0.04)
+			# Uneven gaps; sometimes a rest.
+			start += rng.randf_range(0.45, 1.3) + (rng.randf_range(1.5, 4.0) if rng.randf() < 0.15 else 0.0)
 	return _finish(out, 0.4)
+
+
+## One cricket's trill: `pulses` quick pulses at `pitch`, `gap` seconds apart.
+static func _trill(pitch: float, pulses: int, gap: float) -> PackedFloat32Array:
+	var length := int(0.03 * RATE)
+	var n := int((gap * pulses + 0.05) * RATE)
+	var out := PackedFloat32Array()
+	out.resize(n)
+	for pulse in pulses:
+		var from := int(pulse * gap * RATE)
+		for i in length:
+			if from + i >= n:
+				break
+			var f := float(i) / float(length)
+			out[from + i] += sin(TAU * pitch * float(i) / RATE) * sin(PI * f)
+	return out
 
 
 ## A loop of soft, slowly breathing wind. The end is blended into the start so
@@ -368,16 +398,22 @@ static func _rain(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	var low := 0.0
 	var band := 0.0
 	var drop := 0.0
+	var swell := 0.75
+	var heavy := 0.75
 	for i in n + blend:
 		var white := rng.randf_range(-1.0, 1.0)
 		# The hiss: what is left of noise without its lowest and its sharpest.
 		low += (white - low) * 0.25
 		band += ((white - low) - band) * 0.55
-		# Drops: now and then a tick that dies away at once.
-		if rng.randf() < 0.012:
+		# Drops: now and then a tick that dies away at once — more of them, and
+		# louder, as the rain comes on harder and eases off again, unevenly.
+		if i % 512 == 0:
+			swell = clampf(swell + rng.randf_range(-0.12, 0.12), 0.45, 1.0)
+		heavy += (swell - heavy) * 0.0004
+		if rng.randf() < 0.006 + 0.012 * heavy:
 			drop = rng.randf_range(0.4, 1.0) * (1.0 if rng.randf() < 0.5 else -1.0)
 		drop *= 0.86
-		raw[i] = band * 0.6 + drop * 0.5
+		raw[i] = band * 0.6 * heavy + drop * 0.5
 	var out := PackedFloat32Array()
 	out.resize(n)
 	for i in n:
@@ -393,22 +429,38 @@ static func _rain(rng: RandomNumberGenerator) -> PackedFloat32Array:
 	return out
 
 
-## Thunder: a crack, and a rumble that rolls away.
+## Thunder: a sharp crack, and a rumble that rolls away in uneven bursts. Its
+## body lies between about 120 and 900 Hz — what a phone's speaker can play
+## (owner: the thunder was not heard: it was all below that).
 static func _thunder(rng: RandomNumberGenerator) -> PackedFloat32Array:
-	var n := int(2.8 * RATE)
+	var seconds := rng.randf_range(3.6, 4.6)
+	var n := int(seconds * RATE)
 	var out := PackedFloat32Array()
 	out.resize(n)
-	var low := 0.0
-	var lower := 0.0
+	# When the rolls come (each a swell in the rumble), different for each thunder.
+	var rolls: Array = []
+	var at := rng.randf_range(0.15, 0.4)
+	while at < seconds - 0.8:
+		rolls.append([at, rng.randf_range(0.5, 1.0), rng.randf_range(0.25, 0.6)])
+		at += rng.randf_range(0.35, 1.1)
+	var slow := 0.0
+	var mid := 0.0
+	var bright := 0.0
+	var crack_at := rng.randf_range(0.0, 0.05)
 	for i in n:
 		var t := i / float(RATE)
 		var white := rng.randf_range(-1.0, 1.0)
-		low += (white - low) * 0.06
-		lower += (low - lower) * 0.12
-		# The crack at the start (brighter), then the rumble, swelling twice as it rolls.
-		var crack := exp(-t * 14.0)
-		var roll := exp(-t * 1.3) * (0.6 + 0.4 * sin(t * 9.0 + 0.7) * sin(t * 2.3))
-		out[i] = low * 3.0 * crack + lower * 9.0 * roll
+		slow += (white - slow) * 0.035
+		mid += (white - mid) * 0.22
+		bright += (white - bright) * 0.6
+		var rumble := mid - slow # (the band a phone can play)
+		var crack := exp(-maxf(t - crack_at, 0.0) * 22.0) if t >= crack_at else 0.0
+		var swell := 0.25 * exp(-t * 0.9)
+		for roll: Array in rolls:
+			var d := t - float(roll[0])
+			if d > 0.0:
+				swell += float(roll[1]) * exp(-d / float(roll[2])) * minf(d * 20.0, 1.0) * exp(-t * 0.45)
+		out[i] = (bright - mid) * 1.4 * crack + rumble * 2.2 * swell
 	return out
 
 

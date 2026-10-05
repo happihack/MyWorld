@@ -367,7 +367,7 @@ func test_the_observing_eye_leaves_a_trail_of_tiles() -> void:
 	var card := ui.top_panel() as InspectCard
 	assert_not_null(card)
 	assert_eq(ui.panel_count(), 1, "one card, telling of one tile after the other")
-	assert_eq(card.subtitle_text(), "tile %d, %d" % [tile.x + 3, tile.y])
+	assert_eq(card.tile(), tile + Vector2i(3, 0))
 	assert_true(card.rows().has("Moisture"))
 	assert_eq(rig.pivot(), pivot, "the view stays while the eye wanders")
 	assert_true(view.effects().active_ring_count() >= 1)

@@ -62,6 +62,16 @@ func show_notice(what: Notice, seconds: float) -> void:
 		return
 	_text.text = what.text
 	_locate.visible = what.can_locate()
+	# A milestone: framed in gold, glowing, and staying longer.
+	if what.is_milestone():
+		var frame := MilestoneCard.style()
+		frame.content_margin_left = 30.0
+		frame.content_margin_right = 18.0
+		frame.content_margin_top = 14.0
+		frame.content_margin_bottom = 14.0
+		frame.shadow_size = 14
+		add_theme_stylebox_override(&"panel", frame)
+		_seconds_left = seconds * 2.0
 
 
 func text() -> String:

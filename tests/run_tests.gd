@@ -261,6 +261,13 @@ func _isolate_environment() -> void:
 	DirAccess.make_dir_recursive_absolute(save_root)
 	root.get_node("Config").save.save_root = save_root
 	root.get_node("Config").interaction.first_opening = false # (test_first_opening turns it on)
+	# The tests' worlds begin with the band they were written for (6–8 in 2–3 households);
+	# the game's own (people_config) is checked by test_config, test_starting_band and the soaks.
+	var people: Resource = root.get_node("Config").people
+	people.band_min_people = 6
+	people.band_max_people = 8
+	people.band_min_households = 2
+	people.band_max_households = 3
 	root.get_node("Settings").use_path(_run_dir.path_join("settings.cfg"))
 
 

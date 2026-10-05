@@ -228,7 +228,8 @@ func test_inspect_shows_a_card_about_the_target() -> void:
 	var card := ui.top_panel() as InspectCard
 	assert_not_null(card)
 	assert_eq(card.title_text(), "Hut")
-	assert_has(card.subtitle_text(), "%d, %d" % [hut.tile.x, hut.tile.y])
+	assert_eq(card.tile(), hut.tile)
+	assert_eq(card.subtitle_text(), "", "no tile numbers on the card")
 	var rows := card.rows()
 	assert_eq(rows["Stands on"], UIText.terrain_name(session.world.get_terrain(hut.tile)))
 	assert_eq(rows["Ground height"], str(session.world.get_height(hut.tile)))

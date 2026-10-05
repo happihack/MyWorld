@@ -23,15 +23,17 @@ func test_world_and_interaction_defaults() -> void:
 
 func test_people_defaults() -> void:
 	assert_eq(Config.time.ticks_per_year(), 24 * 1440)
-	assert_eq(Config.people.band_min_people, 6)
-	assert_eq(Config.people.band_max_people, 8)
+	# (The game's own: the tests' worlds are given a smaller band, see run_tests.)
+	var shipped := ResourceLoader.load("res://data/configuration/people_config.tres", "", ResourceLoader.CACHE_MODE_IGNORE) as PeopleConfig
+	assert_eq([shipped.band_min_people, shipped.band_max_people], [8, 11], "a village starts with 8 to 11")
+	assert_eq([shipped.band_min_households, shipped.band_max_households], [3, 4])
 	assert_eq(Config.people.stage_for_age(0), PersonData.LifeStage.CHILD)
 	assert_eq(Config.people.stage_for_age(12), PersonData.LifeStage.ADOLESCENT)
 	assert_eq(Config.people.stage_for_age(16), PersonData.LifeStage.ADULT)
 	assert_eq(Config.people.stage_for_age(48), PersonData.LifeStage.ELDER)
 	var bad := PeopleConfig.new()
 	bad.adult_from_years = 10
-	bad.band_min_people = 9
+	bad.band_min_people = 13
 	assert_eq(bad.validate().size(), 2)
 
 

@@ -664,6 +664,10 @@ func _carry_on(person: PersonData, minutes: float, known_step: Variant = null, k
 				_carry_on(person, 0.0) # begin the next step at once (set off, sit down)
 		ActionStep.Status.FAILED:
 			var failed := activity_of(person)
+			# No way there: it is not chosen again for a while (nor set out for, and turned back from, over and over).
+			if str(step_now.get("type", "")) == String(WalkToStep.TYPE) and typeof(step_now.get("target")) == TYPE_VECTOR2I \
+					and not step_now.has("toward") and ctx.places != null:
+				ctx.places.note_out_of_reach(step_now["target"])
 			_drop(person)
 			_bar(person.id, failed)
 			_think(person, &"")

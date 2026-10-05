@@ -73,11 +73,27 @@ static func weights(a: PersonData, b: PersonData, ctx: AiContext) -> Dictionary:
 	if may_flirt(a, b, ctx) and (feeling > 0.15 or drawn >= Config.relationships.chemistry_from) and feeling > -0.2:
 		out[FLIRT] = 0.15 + 0.3 * maxf(Traits.value(a.traits, Traits.Axis.SOCIABILITY), 0.0) + 0.4 * drawn \
 			+ 0.5 * (record.romance if record != null else 0.0)
-	# A quarrel: between those unlike each other, under strain, who do not much like each other.
+	# A quarrel: between those unlike each other, under strain, who do not much like each other
+	# (never with a child).
 	var strain := (1.0 - fit) * 1.0 + a.stress * 0.5 + maxf(aggressive, 0.0) * 0.3 - feeling * 0.6 - (0.3 if kin else 0.0)
-	if strain > 0.2:
+	if strain > 0.2 and may_quarrel(a, b, ctx):
 		out[ARGUE] = (strain - 0.2) * 1.5
 	return out
+
+
+## May these two quarrel: neither is a child.
+static func may_quarrel(a: PersonData, b: PersonData, ctx: AiContext) -> bool:
+	return ctx.stage_of(a) != PersonData.LifeStage.CHILD and ctx.stage_of(b) != PersonData.LifeStage.CHILD
+
+
+## May a quarrel between them come to blows: both grown up (not a child, not
+## the young — their quarrels stay words).
+static func may_fight(a: PersonData, b: PersonData, ctx: AiContext) -> bool:
+	for person: PersonData in [a, b]:
+		var stage := ctx.stage_of(person)
+		if stage == PersonData.LifeStage.CHILD or stage == PersonData.LifeStage.ADOLESCENT:
+			return false
+	return true
 
 
 ## May these two flirt: both grown up, neither with a partner, not of one
@@ -108,10 +124,16 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 	var good := 0.5 + fit # (how well a good thing goes down)
 	var bad := 1.5 - fit # (how badly a bad thing goes)
 	var deltas := {"familiarity": config.familiarity_per_talk}
+	# (Children are not drawn into quarrels: with a child, it is a talk.)
+	if (what == ARGUE or what == FIGHT) and not may_quarrel(a, b, ctx):
+		what = CONVERSE
 	match what:
 		CONVERSE:
 			# (Talk brings those who suit each other closer — and wears on those who do not.)
 			deltas["affinity"] = config.talk_affinity * (fit - config.talk_suits_from) * 3.0
+			# (With a child it never wears: a child does not fall out with anyone over talk.)
+			if not may_quarrel(a, b, ctx):
+				deltas["affinity"] = maxf(float(deltas["affinity"]), 0.0)
 		HELP:
 			deltas["affinity"] = config.help_affinity * good
 			deltas["trust"] = config.help_affinity * good
@@ -136,7 +158,7 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 			var record := store.between(a.id, b.id) if store != null else null
 			var feeling := record.affinity if record != null else 0.0
 			# A quarrel between those who already dislike each other may come to blows.
-			if feeling <= config.fight_below and maxf(Traits.value(a.traits, Traits.Axis.AGGRESSION), Traits.value(b.traits, Traits.Axis.AGGRESSION)) > 0.3 \
+			if may_fight(a, b, ctx) and feeling <= config.fight_below and maxf(Traits.value(a.traits, Traits.Axis.AGGRESSION), Traits.value(b.traits, Traits.Axis.AGGRESSION)) > 0.3 \
 					and ctx.rng.randf() < config.fight_chance:
 				what = FIGHT
 				deltas["affinity"] = -config.fight_affinity * bad

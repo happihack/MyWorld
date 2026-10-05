@@ -116,6 +116,9 @@ func offer_notice(notice: Notice) -> Notice:
 		return null
 	var config := _settings()
 	offered += 1
+	# (A milestone is always told, and told on its own.)
+	if notice.is_milestone():
+		notice.priority = maxf(notice.priority, config.high_from)
 	if notice.priority < config.notify_from:
 		return null
 	if quiet and notice.priority < config.high_from:
@@ -123,7 +126,7 @@ func offer_notice(notice: Notice) -> Notice:
 		return null
 	var now: int = now_msec.call()
 	# The same kind of thing, told (or about to be told) a moment ago: one notice.
-	var known := _same_kind(notice.kind, now)
+	var known := _same_kind(notice.kind, now) if not notice.is_milestone() else null
 	if known != null:
 		known.count += 1
 		known.priority = maxf(known.priority, notice.priority)

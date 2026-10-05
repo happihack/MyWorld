@@ -224,8 +224,22 @@ func test_lightning_and_thunder() -> void:
 	_seconds(config.thunder_max_seconds)
 	assert_eq(fx.thunders, 1)
 	assert_true(AudioManager.sounds_played > played)
-	assert_eq(AudioManager.last_sound, &"thunder")
+	assert_true(SoundSynth.THUNDER_IDS.has(AudioManager.last_sound), "one of the thunders: %s" % AudioManager.last_sound)
 	assert_true(AudioManager.has_sound(&"thunder") and AudioManager.has_sound(&"rain"))
+	# Each thunder is heard on a phone (owner: none was): most of it above 150 Hz.
+	for id in SoundSynth.THUNDER_IDS:
+		var samples := SoundSynth.samples_for(id)
+		var keep := float(SoundSynth.RATE) / (float(SoundSynth.RATE) + TAU * 150.0)
+		var high := 0.0
+		var last := 0.0
+		var heard := 0.0
+		var all := 0.0
+		for x in samples:
+			high = keep * (high + x - last)
+			last = x
+			heard += high * high
+			all += x * x
+		assert_true(heard / all > 0.6, "%s: %.2f of it a phone can play" % [id, heard / all])
 	# In a storm they come by themselves, every few seconds.
 	_seconds(config.lightning_max_seconds * 2.0 + 1.0)
 	assert_true(fx.flashes >= 3, "%d flashes" % fx.flashes)

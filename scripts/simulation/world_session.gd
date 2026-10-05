@@ -380,7 +380,13 @@ func _init() -> void:
 	construction.ruined.connect(chronicle.on_building_ruined)
 	# (A bridge finished where it stood: the way over it is open.)
 	construction.finished.connect(func(project: Dictionary, _id: int) -> void:
-		pathfinder.mark_dirty(project["tile"]))
+		pathfinder.mark_dirty(project["tile"])
+		# (… and what had no way to it may have one now.)
+		for own in settlements.all():
+			if own.places() != null:
+				own.places().forget_out_of_reach()
+		if behavior.ctx != null and behavior.ctx.places != null:
+			behavior.ctx.places.forget_out_of_reach())
 	construction.ruined.connect(func(_id: int, _def: StringName, _why: StringName) -> void:
 		_apply_storehouses()
 		households.rehouse())

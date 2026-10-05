@@ -805,6 +805,103 @@ func test_an_uprooted_stump_leaves_no_log() -> void:
 	assert_eq(session.loose.size(), loose_before + 1)
 
 
+func test_fallen_fruit_is_picked_up() -> void:
+	# (Owner: the fruit a shaken tree lets go of just lay about.)
+	_set_hour(8.5)
+	var forager := _calm(_adult(&"forager"))
+	_only([forager])
+	_gathering_only()
+	var home: Variant = ctx.places.home_tile(forager)
+	var spot: Vector2i = (home as Vector2i) + Vector2i(3, 1)
+	var fallen: Array[int] = []
+	for n in 3:
+		var fruit := LooseObject.new()
+		fruit.id = session.ids.next_id()
+		fruit.kind = LooseObject.Kind.FRUIT
+		fruit.position = Places.middle_of(spot) + Vector2(0.3 * n - 0.3, 0.2)
+		assert_true(session.loose.add(fruit))
+		fallen.append(fruit.id)
+	# One the player put somewhere is left there.
+	var kept := LooseObject.new()
+	kept.id = session.ids.next_id()
+	kept.kind = LooseObject.Kind.FRUIT
+	kept.position = Places.middle_of(spot) + Vector2(0.0, -0.4)
+	kept.placed_by_player = true
+	assert_true(session.loose.add(kept))
+	# A forager picks it up before picking a bush, and takes it to the stores.
+	var steps := Planner.plan(&"work", forager, ctx)
+	assert_true(bool(steps[1].get("fruit", false)), "the fallen fruit first")
+	assert_eq([steps[0]["type"], steps[2]["type"], steps[3]["type"]], ["walk_to", "walk_to", "store"])
+	behavior.set_plan(forager, &"work", &"purpose", steps, 2.0)
+	var waited := 0.0
+	while int(forager.current_action.get("index", 0)) < 2 and waited < 200.0:
+		_run(1.0)
+		waited += 1.0
+	assert_eq(forager.carrying, &"berries")
+	assert_eq(forager.carrying_amount, mini(3, ctx.carry_capacity(&"berries")), "a piece a unit, as much as one carries")
+	var left := 0
+	for id in fallen:
+		left += 1 if session.loose.get_object(id) != null else 0
+	assert_eq(left, 3 - forager.carrying_amount, "picked up: gone from the ground")
+	assert_not_null(session.loose.get_object(kept.id), "not the player's")
+
+
+func test_an_uprooted_tree_is_cut_up_for_wood() -> void:
+	# (Owner: the logs of uprooted trees just lay about.)
+	_set_hour(8.5)
+	var cutter := _calm(_adult(&"woodcutter"))
+	_only([cutter])
+	_gathering_only()
+	var tree := _near(PropData.Kind.TREE)
+	nodes.take(tree.id, 3, 100)
+	var wood := nodes.left(tree)
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = tree.id
+	target.tile = tree.tile
+	var response := session.interactions.uproot(target)
+	var log := session.loose.get_object(response.dropped[0])
+	assert_eq(log.kind, LooseObject.Kind.LOG)
+	assert_eq(WorkStep.log_wood(log), wood, "the wood that was in the tree lies in its trunk")
+	for n in 200: # (it falls, and comes to rest)
+		session.loose_system.step(0.05)
+	assert_eq(log.state, LooseObject.State.RESTING)
+	var looked := Picker.Result.new()
+	looked.kind = Picker.Kind.ENTITY
+	looked.entity_id = log.id
+	looked.tile = log.tile()
+	var report := session.interactions.inspect(looked)
+	assert_eq([report.resource, report.resource_left], [&"wood", wood], "the card says what is in it")
+	# A woodcutter cuts it up before felling a standing tree, and carries the wood home.
+	var steps := Planner.plan(&"work", cutter, ctx)
+	assert_eq(int(steps[1].get("log", 0)), log.id, "the fallen trunk first")
+	assert_eq([steps[0]["type"], steps[2]["type"], steps[3]["type"]], ["walk_to", "walk_to", "store"])
+	behavior.set_plan(cutter, &"work", &"purpose", steps, 2.0)
+	var waited := 0.0
+	# (Until the cutting is done: on to the stores, the third step.)
+	while int(cutter.current_action.get("index", 0)) < 2 and waited < 400.0:
+		_run(1.0)
+		waited += 1.0
+	assert_eq(BehaviorSystem.activity_of(cutter), &"work")
+	assert_eq(cutter.carrying, &"wood")
+	assert_eq(cutter.carrying_amount, ctx.carry_capacity(&"wood"))
+	assert_true(WorkStep.log_wood(session.loose.get_object(log.id)) <= wood - cutter.carrying_amount, "the log has less (by what they carry, and any load taken home already)")
+	# The last of it cut: the log is gone (and no longer in the way).
+	cutter.carrying_amount = 0
+	log.amount = 1
+	assert_true(WorkStep.cut_log(ctx, cutter, {"effort": 0}, log, 100))
+	assert_null(session.loose.get_object(log.id), "cut up and carried off")
+	# A log the player has put somewhere is left where it is.
+	var placed := LooseObject.new()
+	placed.id = session.ids.next_id()
+	placed.kind = LooseObject.Kind.LOG
+	placed.position = Places.middle_of(cutter.position + Vector2i(2, 0))
+	placed.placed_by_player = true
+	assert_true(session.loose.add(placed))
+	cutter.carrying_amount = 0
+	assert_false(int(Planner.plan(&"work", cutter, ctx)[1].get("log", 0)) == placed.id, "not the player's")
+
+
 # --- over days ---------------------------------------------------------------------------------------
 
 func test_a_week_of_gathering() -> void:

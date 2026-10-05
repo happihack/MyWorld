@@ -245,7 +245,8 @@ func _advance_lightning(delta: float) -> void:
 			_thunder_in.remove_at(i)
 			thunders += 1
 			var at := _rig.camera().global_position if _rig != null else Vector3.ZERO
-			AudioManager.play_at(&"thunder", at, _config.thunder_volume_db, _rng.randf_range(0.85, 1.1), false)
+			var thunder: StringName = SoundSynth.THUNDER_IDS[_rng.randi_range(0, SoundSynth.THUNDER_IDS.size() - 1)]
+			AudioManager.play_at(thunder, at, _config.thunder_volume_db, _rng.randf_range(0.85, 1.1), false)
 
 
 func _next_strike() -> float:

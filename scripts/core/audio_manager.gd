@@ -51,6 +51,17 @@ var _made_rain := 0.0
 var _night := 0.0
 var _ambience_wanted := false
 var _rng := RandomNumberGenerator.new() # pitch variation only; never the simulation's
+## Over the crickets' chorus, a near cricket now and then (at random: never a
+## loop going round); over the rain's loop, a slow wandering in how loud and how
+## high it is.
+var _cricket_voices: Array[AudioStreamPlayer] = []
+var _next_cricket := 0
+var _cricket_in := 1.0
+var _rain_base_db := 0.0
+var _rain_drift_db := 0.0
+var _rain_drift_to := 0.0
+var _rain_pitch_to := 1.0
+var _rain_drift_in := 0.0
 
 
 func _ready() -> void:
@@ -62,9 +73,38 @@ func _ready() -> void:
 	_synth_task = WorkerThreadPool.add_task(_make_placeholders, false, "Placeholder sounds")
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if _synth_task >= 0 and WorkerThreadPool.is_task_completed(_synth_task):
 		ensure_sounds()
+	_vary_ambience(delta)
+
+
+## The near crickets, one at a time at random; the rain wandering a little.
+func _vary_ambience(delta: float) -> void:
+	if _night_ambience != null and _night_ambience.playing and _night > 0.2:
+		_cricket_in -= delta
+		if _cricket_in <= 0.0:
+			# Now and then a longer quiet; mostly a second or two.
+			_cricket_in = _rng.randf_range(0.5, 2.6) + (_rng.randf_range(3.0, 8.0) if _rng.randf() < 0.12 else 0.0)
+			var id: StringName = SoundSynth.CRICKET_IDS[_rng.randi_range(0, SoundSynth.CRICKET_IDS.size() - 1)]
+			var stream: AudioStream = _sounds.get(id)
+			if stream != null and not _cricket_voices.is_empty():
+				var voice := _cricket_voices[_next_cricket % _cricket_voices.size()]
+				_next_cricket += 1
+				voice.stream = stream
+				voice.volume_db = Config.feedback.crickets_volume_db + linear_to_db(maxf(_night, 0.001)) + _rng.randf_range(-9.0, -1.0)
+				voice.pitch_scale = _rng.randf_range(0.93, 1.07)
+				voice.play()
+	if _rain_ambience != null and _rain_ambience.playing:
+		_rain_drift_in -= delta
+		if _rain_drift_in <= 0.0:
+			_rain_drift_in = _rng.randf_range(1.5, 5.0)
+			_rain_drift_to = _rng.randf_range(-4.0, 1.0)
+			_rain_pitch_to = _rng.randf_range(0.95, 1.05)
+		var step := clampf(delta * 0.6, 0.0, 1.0)
+		_rain_drift_db = lerpf(_rain_drift_db, _rain_drift_to, step)
+		_rain_ambience.pitch_scale = lerpf(_rain_ambience.pitch_scale, _rain_pitch_to, step)
+		_rain_ambience.volume_db = _rain_base_db + _rain_drift_db
 
 
 func _exit_tree() -> void:
@@ -114,6 +154,8 @@ func stop_ambience() -> void:
 	_ambience_wanted = false
 	_ambience.stop()
 	_night_ambience.stop()
+	for cricket in _cricket_voices:
+		cricket.stop()
 	_rain_ambience.stop()
 	# (The next world begins under whatever sky it has.)
 	_rain = 0.0
@@ -157,7 +199,8 @@ func set_weather(rain: float, wind: float) -> void:
 			return
 		_rain_ambience.stream = stream
 		_rain_ambience.play()
-	_rain_ambience.volume_db = Config.weather_fx.rain_volume_db + linear_to_db(maxf(sqrt(_rain), 0.001))
+	_rain_base_db = Config.weather_fx.rain_volume_db + linear_to_db(maxf(sqrt(_rain), 0.001))
+	_rain_ambience.volume_db = _rain_base_db + _rain_drift_db
 
 
 ## The rain the player is making under a cloud (0 = none): heard like the
@@ -363,6 +406,12 @@ func _build_voices() -> void:
 	_night_ambience.name = "NightAmbience"
 	_night_ambience.bus = BUS_AMBIENCE
 	add_child(_night_ambience)
+	for i in 3:
+		var cricket := AudioStreamPlayer.new()
+		cricket.name = "Cricket%d" % i
+		cricket.bus = BUS_AMBIENCE
+		add_child(cricket)
+		_cricket_voices.append(cricket)
 	_rain_ambience = AudioStreamPlayer.new()
 	_rain_ambience.name = "RainAmbience"
 	_rain_ambience.bus = BUS_AMBIENCE

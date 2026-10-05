@@ -10,6 +10,8 @@ const GATHER := &"gather"
 const TEND := &"tend"
 const FARM := &"farm"
 const HUNT := &"hunt"
+## Fish from the water (M19.5).
+const FISH := &"fish"
 ## Something being built or repaired (M12.1).
 const BUILD := &"build"
 ## A trade run, and tools to make (M12.4).
@@ -95,6 +97,9 @@ func refresh(settlement: Settlement, now: int) -> void:
 			# ...and meat, where there are hunters and game enough to take from.
 			if settlement.fauna != null and settlement.hunter_count() > 0 and settlement.fauna.has_game():
 				wanted.append([HUNT, &"meat", &"game", 1.0 - food / food_wanted, food, food_wanted])
+			# ...and fish, where there are fishers and fish to be had (M19.5).
+			if settlement.fisher_count() > 0 and settlement.fish_near():
+				wanted.append([FISH, &"fish", &"fish", 1.0 - food / food_wanted, food, food_wanted])
 		# Wood: so many days of what the fire burns.
 		# (More in the cold, whatever the calendar says; and what rebuilding a flooded hut takes.)
 		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted \

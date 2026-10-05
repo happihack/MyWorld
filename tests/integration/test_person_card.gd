@@ -603,6 +603,27 @@ func test_marking_someone_pins_their_name() -> void:
 	assert_eq(pins.ids().size(), 0)
 
 
+func test_at_most_five_are_starred() -> void:
+	# (Owner: limit starred villagers to five.)
+	var people := session.people.all_people()
+	assert_true(people.size() > 5)
+	for i in 5:
+		people[i].set_flag(PersonData.FLAG_MARKED_IMPORTANT, true)
+	var sixth := people[5]
+	main.select_person(sixth.id)
+	await wait_frames(2)
+	ui.person_card().button(&"mark").pressed.emit()
+	await wait_frames(2)
+	assert_false(sixth.has_flag(PersonData.FLAG_MARKED_IMPORTANT), "not a sixth")
+	assert_true(ui.toasts().texts().has("You can star up to 5 villagers — unstar one first"), str(ui.toasts().texts()))
+	# One unstarred: room for another.
+	people[0].set_flag(PersonData.FLAG_MARKED_IMPORTANT, false)
+	ui.person_card().button(&"mark").pressed.emit()
+	await wait_frames(2)
+	assert_true(sixth.has_flag(PersonData.FLAG_MARKED_IMPORTANT))
+	assert_eq(main.starred_count(), 5)
+
+
 func test_marks_and_touches_are_kept_across_saves() -> void:
 	var person := _someone()
 	main.select_person(person.id)

@@ -20,6 +20,11 @@ var count := 1
 var offered_msec := 0
 var shown_msec := -1
 
+## Milestones (owner: discoveries should grab the eye, and be read): a discovery,
+## a new age, a step in understanding the box. Their toast is framed in gold, and
+## a card tells of them (MilestoneCard); none is merged, filtered or dropped.
+const MILESTONES: Array[StringName] = [&"knowledge_learned", &"era_entered", &"box_research"]
+
 
 func can_locate() -> bool:
 	return position != Vector2.INF
@@ -27,3 +32,7 @@ func can_locate() -> bool:
 
 func is_shown() -> bool:
 	return shown_msec >= 0
+
+
+func is_milestone() -> bool:
+	return MILESTONES.has(kind)

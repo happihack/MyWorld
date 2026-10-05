@@ -21,6 +21,8 @@ var tilt_stick: TiltStick
 const OPENING_HOLD_SECONDS := 1.6
 ## "Look closer" moves in to this fraction of the current distance.
 const LOOK_CLOSER_FACTOR := 0.6
+## How many villagers can be starred (marked important) at once (owner: five).
+const MOST_STARRED := 5
 
 var _world_fingerprint := ""
 var _last_pick := "-"
@@ -506,7 +508,17 @@ func _on_person_action(action: StringName, person_id: int) -> void:
 		PersonCard.ACTION_FOCUS:
 			focus_on_person(person_id)
 		PersonCard.ACTION_MARK:
-			person.set_flag(PersonData.FLAG_MARKED_IMPORTANT, not person.has_flag(PersonData.FLAG_MARKED_IMPORTANT))
+			var starring := not person.has_flag(PersonData.FLAG_MARKED_IMPORTANT)
+			# (At most a few starred at once: the pins stay a short list.)
+			if starring and starred_count() >= MOST_STARRED:
+				var notice := Notice.new()
+				notice.kind = &"stars_full"
+				notice.text = "You can star up to %d villagers — unstar one first" % MOST_STARRED
+				notice.priority = 0.5
+				ui_root.toasts().show_notice(notice)
+				AudioManager.play_ui(&"ui_close")
+				return
+			person.set_flag(PersonData.FLAG_MARKED_IMPORTANT, starring)
 			SaveManager.note_world_changed()
 			_refresh_pins()
 			var card := ui_root.person_card()
@@ -537,6 +549,15 @@ func _on_person_removed(person_id: int) -> void:
 		follow.stop()
 		EventBus.person_followed.emit(-1)
 	_refresh_pins()
+
+
+## How many of the living are starred.
+func starred_count() -> int:
+	var count := 0
+	for person: PersonData in session.people.all_people():
+		if person.has_flag(PersonData.FLAG_MARKED_IMPORTANT):
+			count += 1
+	return count
 
 
 ## The names of the people marked as important, at the edge of the screen.
@@ -1094,6 +1115,12 @@ func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void
 	if kind == &"fire" or now - _last_work_effect_msec < WORK_EFFECT_GAP_MSEC:
 		return
 	var person := session.people.get_person(person_id)
+	# Fishing (M19.5): a splash where the line goes in (there is no prop to it).
+	if kind == &"fish" and person != null and world_view.people_view().view_of(person_id) != null:
+		_last_work_effect_msec = now
+		var at := person.world2d()
+		AudioManager.play_at(&"plip", Vector3(at.x, session.world.get_height(person.position) * session.world.height_step, at.y), -14.0)
+		return
 	var prop := session.props.get_prop(target_id)
 	if person == null or prop == null or world_view.people_view().view_of(person_id) == null:
 		return # nobody is watching

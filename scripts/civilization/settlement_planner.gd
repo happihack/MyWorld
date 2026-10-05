@@ -89,6 +89,11 @@ func plan(now: int) -> Dictionary:
 					continue # (built, or going up)
 				return _construction.start(def[0].id, tile, now, int(across["turn"]), _settlement.id)
 			continue
+		if need == &"landing":
+			var bank: Variant = landing_site()
+			if bank == null:
+				continue
+			return _construction.start(def[0].id, bank[0], now, int(bank[1]), _settlement.id)
 		var site: Variant = shrine_site() if need == &"shrine" else site_for(def[0])
 		if site == null:
 			continue
@@ -114,7 +119,50 @@ func needs(now: int) -> Array[StringName]:
 			out.append(StringName(tag))
 	if shrine_wanted():
 		out.append(&"shrine")
+	if landing_wanted():
+		out.append(&"landing")
 	return out
+
+
+## A landing (M19.5): once they build rafts and someone fishes, by the water
+## near the fire — one.
+func landing_wanted() -> bool:
+	return _settlement.knows_how(&"raft") and _settlement.fisher_count() > 0 and standing_near(PropData.Kind.LANDING).is_empty()
+
+
+## Where the landing goes: buildable ground on the bank nearest the fire, its
+## jetty turned out over the water. [tile, rotation step] — null: no bank in reach.
+func landing_site() -> Variant:
+	var fire := _settlement.fire()
+	if fire == null or _pathfinder == null or not _pathfinder.is_bound():
+		return null
+	var graves := _resting_tiles()
+	var best: Variant = null
+	var best_distance := INF
+	for water in _pathfinder.shore_tiles():
+		if Vector2(water - fire.tile).length() > NEAR_REACH:
+			continue
+		for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var bank := water - step
+			var distance := Vector2(bank - fire.tile).length()
+			if distance < best_distance and _world.get_water(bank) <= 0.0 and _buildable_on_bank(bank, graves):
+				# (The jetty runs towards -Z unturned: turned to point at the water.)
+				var angle := atan2(-float(step.x), -float(step.y))
+				best = [bank, posmod(roundi(angle / TAU * 256.0), 256)]
+				best_distance = distance
+	return best
+
+
+## Ground for a landing: like any building's, but the water beside it is wanted.
+func _buildable_on_bank(tile: Vector2i, graves: Array[Vector2i]) -> bool:
+	if not _world.is_in_bounds(tile) or _settlement.props().prop_at(tile) != null:
+		return false
+	if _pathfinder != null and _pathfinder.is_bound() and not _pathfinder.can_stand(tile):
+		return false
+	for grave in graves:
+		if maxi(absi(grave.x - tile.x), absi(grave.y - tile.y)) < _config.site_grave_distance:
+			return false
+	return true
 
 
 ## Where to bridge the water (worked out once a day): land near the fire

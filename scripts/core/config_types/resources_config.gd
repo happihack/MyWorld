@@ -27,6 +27,11 @@ extends ConfigBase
 ## How often regrowth is worked out, in game minutes.
 @export_range(1, 1440) var regrow_check_minutes: int = 60
 
+@export_group("Winter")
+## (Under study, 2026-10-05 — off: the game as it was.) In winter the bushes
+## bear nothing and grow nothing back: what is eaten is what was laid in.
+@export var winter_no_berries := false
+
 @export_group("Carrying")
 ## What a grown person carries at once, in kilograms, and the most units
 ## whatever they weigh.

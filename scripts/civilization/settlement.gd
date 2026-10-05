@@ -486,6 +486,33 @@ func hunter_count() -> int:
 	return count
 
 
+## How many of its people fish (M19.5).
+func fisher_count() -> int:
+	var count := 0
+	if occupations == null:
+		return 0
+	for person in members():
+		var def := occupations.get_def(person.occupation_id)
+		if def != null and def.work_target == &"fish":
+			count += 1
+	return count
+
+
+## Fish to be had: water near the fire (a bank to stand on) with fish in it.
+func fish_near() -> bool:
+	if fauna == null or fauna.fish < 1.0 or _places == null or fire() == null:
+		return false
+	var bank: Variant = _places.fishing_bank(fire().tile)
+	return bank != null and Vector2(bank - fire().tile).length() <= _config.fish_reach
+
+
+## With fish to be had and nobody fishing: one of the gatherers takes it up (M19.5).
+func ensure_fisher(now: int) -> PersonData:
+	if occupations == null or not occupations.has_def(&"fisher") or fisher_count() > 0 or not fish_near():
+		return null
+	return _take_up(&"fisher", _config.fisher_from_gatherers, now)
+
+
 ## A settlement of gatherers with nobody farming: in a season for sowing,
 ## the one of them best suited to it takes it up (from the trade that has
 ## the most people, so that no work is left without anyone). Returns who,
@@ -643,6 +670,7 @@ func step(now: int) -> void:
 		_farmer_check_tick = now
 		ensure_farmer(now)
 		ensure_hunter(now)
+		ensure_fisher(now)
 		ensure_builder(now)
 		ensure_trader(now)
 		ensure_toolmaker(now)
