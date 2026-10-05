@@ -34,7 +34,13 @@ class ReadResult:
 ## Writes `data` with caller-supplied header fields (e.g. save_version, world_id).
 ## The integrity fields are added automatically.
 static func write(path: String, header_fields: Dictionary, data: Dictionary) -> Error:
-	var raw := var_to_bytes(data)
+	return write_raw(path, header_fields, var_to_bytes(data))
+
+
+## The same, from `data` already turned into bytes (var_to_bytes) — what a
+## save on a worker thread is given (M22: the world is read on the main thread,
+## compressed, hashed and written on another). Safe on any thread.
+static func write_raw(path: String, header_fields: Dictionary, raw: PackedByteArray) -> Error:
 	var payload := raw.compress(COMPRESSION)
 	var header := header_fields.duplicate()
 	header["payload_size"] = payload.size()

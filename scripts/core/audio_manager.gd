@@ -60,7 +60,6 @@ var _cricket_in := 1.0
 var _rain_base_db := 0.0
 var _rain_drift_db := 0.0
 var _rain_drift_to := 0.0
-var _rain_pitch_to := 1.0
 var _rain_drift_in := 0.0
 
 
@@ -88,8 +87,12 @@ func _vary_ambience(delta: float) -> void:
 			_cricket_in = _rng.randf_range(0.5, 2.6) + (_rng.randf_range(3.0, 8.0) if _rng.randf() < 0.12 else 0.0)
 			var id: StringName = SoundSynth.CRICKET_IDS[_rng.randi_range(0, SoundSynth.CRICKET_IDS.size() - 1)]
 			var stream: AudioStream = _sounds.get(id)
-			if stream != null and not _cricket_voices.is_empty():
-				var voice := _cricket_voices[_next_cricket % _cricket_voices.size()]
+			var voice: AudioStreamPlayer = null
+			for each in _cricket_voices: # (a free one only: never one still singing)
+				if not each.playing:
+					voice = each
+					break
+			if stream != null and voice != null:
 				_next_cricket += 1
 				voice.stream = stream
 				voice.volume_db = Config.feedback.crickets_volume_db + linear_to_db(maxf(_night, 0.001)) + _rng.randf_range(-9.0, -1.0)
@@ -100,10 +103,10 @@ func _vary_ambience(delta: float) -> void:
 		if _rain_drift_in <= 0.0:
 			_rain_drift_in = _rng.randf_range(1.5, 5.0)
 			_rain_drift_to = _rng.randf_range(-4.0, 1.0)
-			_rain_pitch_to = _rng.randf_range(0.95, 1.05)
 		var step := clampf(delta * 0.6, 0.0, 1.0)
 		_rain_drift_db = lerpf(_rain_drift_db, _rain_drift_to, step)
-		_rain_ambience.pitch_scale = lerpf(_rain_ambience.pitch_scale, _rain_pitch_to, step)
+		# (Only its loudness wanders: a looping sound's pitch changed as it plays was
+		# a suspect in the audio crashes on the owner's phone.)
 		_rain_ambience.volume_db = _rain_base_db + _rain_drift_db
 
 
@@ -122,6 +125,9 @@ func play_at(id: StringName, position: Vector3, volume_db: float = 0.0, pitch: f
 	if stream == null:
 		return false
 	var voice := _free_voice(_world_voices) as AudioStreamPlayer3D
+	if voice == null:
+		sounds_dropped += 1
+		return false # (every voice busy: this one goes unheard rather than cutting another off)
 	voice.position = position
 	_start(voice, id, stream, volume_db, _varied(pitch) if vary else pitch)
 	return true
@@ -133,6 +139,9 @@ func play_ui(id: StringName, volume_db: float = 0.0, pitch: float = 1.0) -> bool
 	if stream == null:
 		return false
 	var voice := _free_voice(_ui_voices) as AudioStreamPlayer
+	if voice == null:
+		sounds_dropped += 1
+		return false
 	_start(voice, id, stream, Config.feedback.ui_volume_db + volume_db, pitch)
 	return true
 
@@ -360,19 +369,19 @@ func _start(voice: Node, id: StringName, stream: AudioStream, volume_db: float, 
 	last_sound = id
 
 
-## A voice that has finished, or else the one that has been playing longest.
+## A voice is free this long after its sound should have ended (the mixer may lag).
+const FREE_AFTER_MSEC := 50
+
+
+## A voice that has finished — or null: none is free. (A playing voice is not
+## given another sound: changing a sound under the mixer while it plays is
+## what crashed the audio thread on the owner's phone at the fastest speed.)
 func _free_voice(pool: Array) -> Node:
 	var now := Time.get_ticks_msec()
-	var oldest: Node = pool[0]
-	var oldest_start := 9223372036854775807
 	for voice: Node in pool:
-		if int(_busy_until.get(voice, 0)) <= now:
+		if int(_busy_until.get(voice, 0)) + FREE_AFTER_MSEC <= now:
 			return voice
-		var started := int(_started_at.get(voice, 0))
-		if started < oldest_start:
-			oldest_start = started
-			oldest = voice
-	return oldest
+	return null
 
 
 func _varied(pitch: float) -> float:

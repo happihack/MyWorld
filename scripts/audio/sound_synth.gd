@@ -44,8 +44,9 @@ static func make(id: StringName) -> AudioStreamWAV:
 	if samples.is_empty():
 		return null
 	var rate := WIND_RATE if id == &"wind" else RATE
-	var stream := to_stream(samples, rate)
-	if id == &"wind" or id == &"crickets" or id == &"rain":
+	var looped := id == &"wind" or id == &"crickets" or id == &"rain"
+	var stream := to_stream(samples, rate, looped)
+	if looped:
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		stream.loop_begin = 0
 		stream.loop_end = samples.size()
@@ -114,11 +115,24 @@ static func samples_for(id: StringName) -> PackedFloat32Array:
 
 
 ## 16-bit mono stream from samples in -1..1.
-static func to_stream(samples: PackedFloat32Array, rate: int) -> AudioStreamWAV:
+## (The mixer may read a little past the last sample — it looks ahead to
+## blend between samples. After the sound come GUARD more: for a loop, its
+## start again (the loop ends where it always did, seamless); for the rest,
+## silence. Owner's phone, 2026-10-05: the audio thread crashed reading off
+## the end of a sound at the fastest speed.)
+const GUARD := 32
+
+
+static func to_stream(samples: PackedFloat32Array, rate: int, looped: bool = false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
-	bytes.resize(samples.size() * 2)
-	for i in samples.size():
-		bytes.encode_s16(i * 2, int(clampf(samples[i], -1.0, 1.0) * 32767.0))
+	bytes.resize((samples.size() + GUARD) * 2)
+	for i in samples.size() + GUARD:
+		var value := 0.0
+		if i < samples.size():
+			value = samples[i]
+		elif looped and not samples.is_empty():
+			value = samples[(i - samples.size()) % samples.size()]
+		bytes.encode_s16(i * 2, int(clampf(value, -1.0, 1.0) * 32767.0))
 	var stream := AudioStreamWAV.new()
 	stream.format = AudioStreamWAV.FORMAT_16_BITS
 	stream.mix_rate = rate

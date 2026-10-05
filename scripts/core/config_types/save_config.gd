@@ -9,6 +9,8 @@ extends ConfigBase
 @export_range(0.5, 120.0, 0.5) var save_quiet_s: float = 6.0
 ## ...or this long after the first unsaved change, if they never stop.
 @export_range(1.0, 600.0, 1.0) var save_max_wait_s: float = 40.0
+## A save that failed (no room, say) is tried again after this long (seconds).
+@export_range(5.0, 3600.0, 1.0) var retry_after_s: float = 60.0
 @export_range(1, 10) var backup_count: int = 2
 ## Lifecycle/auto saves of the same world closer together than this are skipped.
 ## Android fires focus-loss and pause back to back (and quit is followed by the

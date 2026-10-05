@@ -165,10 +165,12 @@ func test_each_sound_gets_its_own_voice_until_the_pool_is_full() -> void:
 	assert_eq(AudioManager.active_voices(), voices)
 	for i in voices:
 		assert_near(AudioManager.world_voice(i).position.x, float(i), 0.001)
-	# One more: the voice that has been playing longest is reused.
-	AudioManager.play_at(&"hum", Vector3(99, 0, 0))
-	assert_near(AudioManager.world_voice(0).position.x, 99.0, 0.001)
-	assert_near(AudioManager.world_voice(1).position.x, 1.0, 0.001)
+	# One more: it goes unheard — no voice is taken from a sound still playing
+	# (that crashed the audio thread on a phone at the fastest speed).
+	var dropped := AudioManager.sounds_dropped
+	assert_false(AudioManager.play_at(&"hum", Vector3(99, 0, 0)))
+	assert_eq(AudioManager.sounds_dropped, dropped + 1)
+	assert_near(AudioManager.world_voice(0).position.x, 0.0, 0.001, "the first still playing where it was")
 	assert_eq(AudioManager.active_voices(), voices, "never more than the pool")
 
 
@@ -259,6 +261,7 @@ func test_every_tap_effect_has_a_sound_and_a_pulse() -> void:
 		var r := InteractionResponse.new()
 		r.effect = effect
 		r.position = Vector3(5, 2, 5)
+		AudioManager.stop_all() # (a voice free for each: a playing one is never taken)
 		var played := AudioManager.sounds_played
 		var felt := pulses.size()
 		Haptics.reset()

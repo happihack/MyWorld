@@ -45,6 +45,8 @@ const PAGE_SAVE := &"save"
 const PAGE_WORLDS := &"worlds"
 const PAGE_BACKUPS := &"backups"
 const PAGE_CONFIRM := &"confirm"
+## Something that cannot be taken back, first held to (M22: erasing a world).
+const PAGE_HOLD := &"hold"
 const PAGE_NEW_WORLD := &"new_world"
 const PAGE_REGIONS := &"regions"
 const PAGE_LOCATE := &"locate"
@@ -287,9 +289,11 @@ func _show() -> void:
 				_entry(MemoryText.translate("MENU_CONTINUE"), func() -> void: open_page(PAGE_WORLDS))
 			_entry(MemoryText.translate("MENU_NEW_WORLD"), func() -> void: open_page(PAGE_NEW_WORLD))
 			_entry(MemoryText.translate("MENU_BACKUPS"), func() -> void: open_page(PAGE_BACKUPS))
+			# Erasing it: held to, then asked once more (M22, bible §31.9).
 			_entry(MemoryText.translate("MENU_RESET"), func() -> void:
-				ask(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
-					world_requested.emit({"kind": "new"}, true)))
+				ask_holding(MemoryText.translate("MENU_RESET_ASK"), MemoryText.translate("MENU_RESET_HOLD"), func() -> void:
+					ask(MemoryText.translate("MENU_RESET_AGAIN"), MemoryText.translate("MENU_RESET_YES"), func() -> void:
+						world_requested.emit({"kind": "new"}, true))))
 		PAGE_LOCATE:
 			_title.text = MemoryText.translate("MENU_LOCATE")
 			_search = LineEdit.new()
@@ -342,6 +346,20 @@ func _show() -> void:
 						else:
 							back()
 							_line(MemoryText.translate("MENU_BACKUP_UNREADABLE"))))
+		PAGE_HOLD:
+			_title.text = MemoryText.translate("MENU_SURE")
+			_line(_confirm[0])
+			var then: Callable = _confirm[2]
+			var hold := HoldButton.new()
+			hold.name = "Hold"
+			hold.text = _confirm[1]
+			hold.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
+			hold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			hold.held.connect(func() -> void:
+				AudioManager.play_ui(&"ui_tap")
+				then.call())
+			_list.add_child(hold)
+			_entry(MemoryText.translate("MENU_NO"), func() -> void: back())
 		PAGE_CONFIRM:
 			_title.text = MemoryText.translate("MENU_SURE")
 			_line(_confirm[0])
@@ -545,6 +563,21 @@ static func region_name(session: WorldSession, region: Regions.Region) -> String
 	return MemoryText.translate("WORD_GLOSS").format({"word": said, "gloss": region.name}) if said != "" else name
 
 
+## Asks before something that cannot be taken back at all: a button to hold
+## (`hold_text`) until it fills; then `then`.
+func ask_holding(text: String, hold_text: String, then: Callable) -> void:
+	_confirm = [text, hold_text, then]
+	open_page(PAGE_HOLD)
+
+
+## The button held to, on a PAGE_HOLD page (tests).
+func hold_button() -> HoldButton:
+	for child in _list.get_children():
+		if child is HoldButton and not child.is_queued_for_deletion():
+			return child
+	return null
+
+
 ## Asks before something that cannot simply be taken back (a page of its own).
 func ask(text: String, yes_text: String, yes: Callable) -> void:
 	_confirm = [text, yes_text, yes]
@@ -574,8 +607,9 @@ static func world_text(world: Dictionary, now_unix: int) -> String:
 
 ## A backup in a line: "Year 1 · Spring · Day 3 · Saved 4 min ago".
 static func backup_text(backup: Dictionary, now_unix: int) -> String:
-	return MemoryText.translate("MENU_BACKUP_ROW").format({"date": date_of(int(backup["game_tick"])),
-		"saved": ago_text(int(backup["saved_unix"]), now_unix)})
+	var people := int(backup.get("population", -1))
+	return MemoryText.translate("MENU_BACKUP_ROW" if people < 0 else "MENU_BACKUP_ROW_PEOPLE").format({
+		"date": date_of(int(backup["game_tick"])), "people": people, "saved": ago_text(int(backup["saved_unix"]), now_unix)})
 
 
 ## How long ago, in a word or two: "just now", "4 min ago", "2 h ago", "3 days ago".

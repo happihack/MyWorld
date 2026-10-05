@@ -48,9 +48,16 @@ func test_stream_format() -> void:
 	assert_eq(stream.format, AudioStreamWAV.FORMAT_16_BITS)
 	assert_eq(stream.mix_rate, SoundSynth.RATE)
 	assert_false(stream.stereo)
-	assert_eq(stream.data.size(), samples.size() * 2)
+	# (and GUARD samples of silence after it: the mixer may read a little past the end)
+	assert_eq(stream.data.size(), (samples.size() + SoundSynth.GUARD) * 2)
+	assert_eq(stream.data.decode_s16((samples.size() + SoundSynth.GUARD - 1) * 2), 0, "silence after a sound")
 	assert_eq(stream.loop_mode, AudioStreamWAV.LOOP_DISABLED)
-	assert_near(stream.get_length(), SoundSynth.seconds_of(samples), 0.001)
+	assert_near(stream.get_length(), SoundSynth.seconds_of(samples) + SoundSynth.GUARD / float(SoundSynth.RATE), 0.001)
+	# A loop ends where it always did; after it, its start again (seamless if read past).
+	var rain := SoundSynth.make(&"rain")
+	var rain_samples := SoundSynth.samples_for(&"rain")
+	assert_eq(rain.loop_end, rain_samples.size())
+	assert_eq(rain.data.decode_s16(rain_samples.size() * 2), rain.data.decode_s16(0), "the start again after the end")
 	# Samples survive the conversion (within 16-bit precision) and are clamped.
 	assert_near(stream.data.decode_s16(200 * 2) / 32767.0, samples[200], 0.0001)
 	var loud := SoundSynth.to_stream(PackedFloat32Array([2.0, -2.0]), 8000)

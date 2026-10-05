@@ -2258,19 +2258,28 @@ Switches (off — the game as it was): `ResourcesConfig.winter_no_berries` (bush
 
 ---
 
-## M22 — ROBUST SAVE SYSTEM
+## M22 — ROBUST SAVE SYSTEM — built (2026-10-05), phone torture pending
 
 **Goal:** The player trusts their world will never disappear. (P:M22, S§56–57, B§31.9)
 **Depends on:** M21.
 
-- [ ] Freeze save schema for v1 release format; `SAVE_VERSION` policy; migration chain with fixture saves from every previous version in `tests/fixtures/`.
-- [ ] Save snapshot on main thread (fast dict build) → compress/hash/write on `WorkerThreadPool` thread; lifecycle saves synchronous-fast path (must finish within Android pause window — measure).
-- [ ] `save_validator.gd`: schema validation & repair (dangling ids, malformed relationships, out-of-bounds coords, NaN) → quarantine section.
-- [ ] Manual save, auto save, backups UI (list with dates/years/population; restore; export to shared storage via Android share intent — optional ⚠), Reset World with hold-to-confirm + second confirmation.
-- [ ] Low storage handling (write failure → keep old save, warn gently, retry later).
+- [x] Freeze save schema for v1 release format; `SAVE_VERSION` policy; migration chain with fixture saves from every previous version in `tests/fixtures/`.
+- [x] Save snapshot on main thread (fast dict build) → compress/hash/write on `WorkerThreadPool` thread; lifecycle saves synchronous-fast path (must finish within Android pause window — measure).
+- [x] `save_validator.gd`: schema validation & repair (dangling ids, malformed relationships, out-of-bounds coords, NaN) → quarantine section.
+- [x] Manual save, auto save, backups UI (list with dates/years/population; restore; export to shared storage via Android share intent — optional ⚠), Reset World with hold-to-confirm + second confirmation.
+- [x] Low storage handling (write failure → keep old save, warn gently, retry later).
 **Torture tests:** force close during save (kill process via adb mid-write) ×20 → always loadable; background app; kill process; low storage (fill emulator storage); malformed save (random byte flips, truncation) → backup restore; old save version → migrates.
 **Automated:** `test_atomic_rotation`, `test_corruption_detection_matrix`, `test_migration_chain_all_fixtures`, `test_validator_repairs`, `test_quarantine`.
 **Exit criteria:** zero data-loss in torture matrix.
+### M22 — What was built
+- [x] **Save format policy** (the v1 release format is `SAVE_VERSION` 28 in container 1): every change to what is saved bumps `SAVE_VERSION` and adds a migration step (`SaveMigrations`, never removed) and **a fixture** — `tests/soak/make_save_fixture.gd` writes `tests/fixtures/saves/v<N>_world.sav` once (it refuses to write over one); fixtures are never edited. `v28_world.sav` added; **`test_migration_chain_all_fixtures`** opens every one (v1 … v28) into a running world and saves it again in today's format.
+- [x] **Saves off the main thread** (`SaveManager.save_world_async`): autosaves and saves after a change read the world into a snapshot on the main thread (`var_to_bytes`, so nothing changes underneath), then compress, hash, write and read back on a `WorkerThreadPool` task (`SaveContainer.write_raw`); the backups turn and the file is renamed when it is done. Saves on pause, focus lost, quit and the player's own are written at once — any save under way is finished first: one at a time; one asked for meanwhile is done after. **Measured:** a 15-year world (~125 KB) saves in ≤ 55 ms on the PC — well within Android's pause window even several times slower on the phone.
+- [x] **`SaveValidator`** (`scripts/save/save_validator.gd`): what is read is checked and repaired before a world is built from it — people outside the world (back to the fire), numbers that are not numbers, the same person twice, a partner/parent/child nobody knows (living or remembered), a home that is not there; relationships between people not both living; things put outside the world. What is taken out is **quarantined**: kept in the world's `quarantine.txt`, beside its saves, with why — never simply lost.
+- [x] **Backups** list the date, the **people** then (the header now counts them) and how long ago; going back to one, Continue, New World as before (VS.3). **Erasing a world**: a button to **hold** (it fills; let go early and nothing happens), then asked once more. *(Export to shared storage — optional — not done.)*
+- [x] **Low storage**: the room left is looked at before writing (`DirAccess.get_space_left`, the save's size and 2 MB to spare); a save that cannot be made — no room, a failed write, a check that fails — leaves the last good save untouched, says so gently (a notice, at most every five minutes: "the last save is kept, and it will try again soon") and **tries again** after `retry_after_s` (60 s).
+- **Verified:** `test_save_robustness` (7): **`test_atomic_rotation`** (three saves, three files, the newest first; cut off mid-write — a half .tmp — the world as it was; cut off between the turn and the rename — the .tmp is the world, nothing lost), **`test_corruption_detection_matrix`** (a byte flipped at 40 places across magic, header, hash and payload, cut short at 8 lengths, garbage after: every one found, the backup loaded instead), **`test_migration_chain_all_fixtures`**, **`test_validator_repairs`** (every fault mended; the world opens; a sound world needs nothing), **`test_quarantine`**, `test_low_storage_keeps_the_last_save_and_tries_again`, `test_saves_are_written_off_the_main_thread_one_at_a_time`; `test_save_ux` (erasing: held, then asked; the autosave off the thread).
+- **Torture on the phone (open, needs the owner's go-ahead):** kill the app via adb mid-save × 20, background/kill, fill storage — then load.
+
 
 ---
 

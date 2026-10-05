@@ -95,6 +95,8 @@ func test_autosave_pause_and_rotating_backups() -> void:
 	assert_false(timer.is_stopped(), "autosave running")
 	assert_near(timer.wait_time, 120.0, 0.001)
 	timer.timeout.emit()
+	while SaveManager.is_writing(): # (written on a worker thread, M22)
+		await wait_frames(1)
 	assert_eq(SaveManager.last_save_info.get("reason"), &"autosave")
 	await wait_real_ms(Config.save.min_save_gap_ms + 50)
 	EventBus.app_paused.emit()
@@ -186,6 +188,18 @@ func test_erasing_this_world() -> void:
 	var gone: String = (main.get_node("WorldSession") as WorldSession).world_id
 	var menu := await _save_page(main)
 	await _press(menu, "Erase this world")
+	# Held to (M22): let go early and nothing happens …
+	assert_eq(menu.page(), MainMenu.PAGE_HOLD)
+	var hold := menu.hold_button()
+	assert_not_null(hold)
+	hold.press_down()
+	hold.advance(hold.hold_seconds * 0.5)
+	hold.button_up.emit()
+	assert_eq(menu.page(), MainMenu.PAGE_HOLD, "let go early: still here")
+	# … held long enough: asked once more.
+	hold.press_down()
+	hold.advance(hold.hold_seconds + 0.1)
+	await wait_frames(1)
 	assert_eq(menu.page(), MainMenu.PAGE_CONFIRM)
 	await _press(menu, "Yes, erase it")
 	main = await _after_switch()

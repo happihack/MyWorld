@@ -63,6 +63,9 @@ var _saved_unix := 0
 var _paused_unix := 0
 ## What happened while the player was away (M20), to be told once the world is on screen.
 var _away: Dictionary = {}
+## When the player was last told a save failed (they are told once in a while).
+var _save_failed_told_msec := 0
+const SAVE_FAILED_TELL_GAP_MSEC := 5 * 60 * 1000
 ## Living the time away (one catch-up at a time).
 var _catching_up := false
 ## Shorter absences are not lived (a quick look away; tests reopening a world).
@@ -606,6 +609,17 @@ func _setup_tools() -> void:
 		bar.set_current(tools.current_id()))
 	session.powers.revealed.connect(_on_power_revealed)
 	EventBus.app_paused.connect(tools.cancel)
+	# A save that did not happen (no room left, say): said gently, once in a while (M22).
+	EventBus.save_failed.connect(func(_message: String) -> void:
+		var now := Time.get_ticks_msec()
+		if now - _save_failed_told_msec < SAVE_FAILED_TELL_GAP_MSEC and _save_failed_told_msec > 0:
+			return
+		_save_failed_told_msec = now
+		var notice := Notice.new()
+		notice.kind = &"save_failed"
+		notice.text = MemoryText.translate("SAVE_FAILED_NOTICE")
+		notice.priority = 0.7
+		ui_root.toasts().show_notice(notice))
 	# Away in the background (M20): the time it was away is lived on return.
 	EventBus.app_paused.connect(func() -> void:
 		_paused_unix = int(Time.get_unix_time_from_system())
