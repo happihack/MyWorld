@@ -206,6 +206,9 @@ func look_for_traditions(now: int) -> void:
 				continue
 			var interpretation := StringName(entry["interpretation"])
 			var existing := tradition_of(own.id, subject)
+			# (Two roots of one tradition — a flood lived through, the flood — keep it once.)
+			if existing.is_empty():
+				existing = named_of(own.id, str(FROM_MEMORIES[subject][0]))
 			if not existing.is_empty():
 				existing["rooted"] = now
 				continue
@@ -285,6 +288,14 @@ func tradition_of(settlement_id: int, source: StringName) -> Dictionary:
 	return {}
 
 
+## A settlement's tradition of that name ({}: none).
+func named_of(settlement_id: int, name_key: String) -> Dictionary:
+	for tradition in traditions:
+		if int(tradition["settlement"]) == settlement_id and str(tradition["name"]) == name_key:
+			return tradition
+	return {}
+
+
 func traditions_of(settlement_id: int) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for tradition in traditions:
@@ -297,7 +308,8 @@ func traditions_of(settlement_id: int) -> Array[Dictionary]:
 func on_founded(own: Settlement, journey: Dictionary) -> void:
 	var from := int(journey.get("from", 0))
 	for tradition in traditions.duplicate():
-		if int(tradition["settlement"]) == from and tradition_of(own.id, StringName(str(tradition["source"]))).is_empty():
+		if int(tradition["settlement"]) == from and tradition_of(own.id, StringName(str(tradition["source"]))).is_empty() \
+				and named_of(own.id, str(tradition["name"])).is_empty():
 			var copy: Dictionary = tradition.duplicate()
 			copy["id"] = _next
 			_next += 1

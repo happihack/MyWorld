@@ -10,6 +10,9 @@ const NEAREST := 6
 const FURTHEST := 12
 ## The next grave is looked for within this many tiles of the first.
 const GROUND_REACH := 8
+## Once that is full: graves side by side, this far out; a new burial ground up to this far from the fire.
+const GROUND_REACH_FULL := 11
+const FURTHEST_FULL := 20
 
 var _props: PropRegistry
 var _world: WorldData
@@ -78,23 +81,35 @@ func site(start: WorldSetup.StartInfo = null) -> Variant:
 		return _first_site(own)
 	var first := _props.get_prop(graves[0])
 	var center: Vector2i = first.tile if first != null else own.settlement_tile
+	# A grave apart from the others; once the ground is full, closer together and
+	# further out; once that is full too, a new burial ground further from the
+	# fire (300-year soaks: the dead of centuries went unburied).
+	for attempt: Array in [[GROUND_REACH, true], [GROUND_REACH_FULL, false]]:
+		var best: Variant = _nearest_free(center, int(attempt[0]), bool(attempt[1]))
+		if best != null:
+			return best
+	var fresh: Variant = _first_site(own)
+	return fresh if fresh != null else _first_site(own, FURTHEST_FULL)
+
+
+func _nearest_free(center: Vector2i, reach: int, apart: bool) -> Variant:
 	var best: Variant = null
 	var best_distance := 1 << 30
-	for dy in range(-GROUND_REACH, GROUND_REACH + 1):
-		for dx in range(-GROUND_REACH, GROUND_REACH + 1):
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
 			var tile := center + Vector2i(dx, dy)
 			var distance := dx * dx + dy * dy
-			if distance >= best_distance or not _free(tile) or _grave_beside(tile):
+			if distance >= best_distance or not _free(tile) or (apart and _grave_beside(tile)):
 				continue
 			best = tile
 			best_distance = distance
-	return best if best != null else _first_site(own)
+	return best
 
 
 ## A quiet place a little way from the fire, with free ground around it.
-func _first_site(start: WorldSetup.StartInfo) -> Variant:
+func _first_site(start: WorldSetup.StartInfo, furthest: int = FURTHEST) -> Variant:
 	var fire := start.settlement_tile
-	for reach in range(NEAREST, FURTHEST + 1):
+	for reach in range(NEAREST, furthest + 1):
 		var ring: Array[Vector2i] = []
 		for dy in range(-reach, reach + 1):
 			for dx in range(-reach, reach + 1):

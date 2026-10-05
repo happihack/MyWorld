@@ -2041,7 +2041,7 @@ All five sub-phases are done (M13.1–M13.5) — **before the VS gate, at the ow
 
 ---
 
-## M16 — TECHNOLOGY
+## M16 — TECHNOLOGY — ✅ DONE (2026-10-04)
 
 **Goal:** Long-term progression; civilization visibly changes as knowledge increases. (P:M16, S§27, B§18)
 **Depends on:** M15. **Split into 3 sub-phases.**
@@ -2077,7 +2077,7 @@ All five sub-phases are done (M13.1–M13.5) — **before the VS gate, at the ow
 
 ---
 
-## M17 — CULTURE AND BELIEF (+ LANGUAGE)
+## M17 — CULTURE AND BELIEF (+ LANGUAGE) — ✅ DONE (2026-10-04)
 
 **Goal:** Civilizations become culturally distinct; player interventions can become culturally significant. (P:M17, S§29–31, B§19)
 **Depends on:** M16. **Split into 3 sub-phases.**
@@ -2142,7 +2142,7 @@ All five sub-phases are done (M13.1–M13.5) — **before the VS gate, at the ow
 
 ---
 
-## M19 — EMERGENT STORY ENGINE — ✅ DONE (2026-10-04)
+## M19 — EMERGENT STORY ENGINE — ✅ DONE (2026-10-04; exit check pending)
 
 **Goal:** Turn simulation events into compelling stories the developers didn't write. (P:M19, S§60, B§21.3)
 **Depends on:** M18. **Split into 3 sub-phases.**
@@ -2170,6 +2170,14 @@ All five sub-phases are done (M13.1–M13.5) — **before the VS gate, at the ow
 - **Deviations:** eras are named by the bible's phases (M16.3), not yet by the lexicon; no story heads are named by the lexicon yet (place names already are, M17.3). Wars do not move people or change cultures yet (borders are recorded, not drawn on the map).
 - **Verified:** `test_story` (5): **`test_chain_detection_on_fixture_graph`** (a drought → failed harvest → hunger → leaving → founding found whole, the cause first; noise left out), **`test_summary_template_filling`** (the long, three and named shapes; "the Great Drought" for a high score), **`test_no_duplicate_story`** (told once; one more step is no new story; a new branch is; saved), **`test_war_chain_records_causes`** (two real settlements: dispute ← shortage, raids ← dispute (the leader named), war ← the raids, battles ← the war, the fallen ← a battle, peace ← the war, a border; a story of it), `test_revolution_and_historians`. **Full suite (alone, beside three soaks): 1332 passed, 0 failed** (before the story rules were tightened; `test_story` 6/6 after). **Soak** (`soak_m7`, 40 years, seed 12345; it now advances conflicts and stories and prints every story told; PASSED): the first run told **51 stories** — the same quarrel-and-fight and spoiled-food-and-hunger again and again, "…led to something" where the log had let an event go. Tightened: three a year in all (looking soon after something momentous shares the year's three), **a weighty event in every story** (significance 0.75: a first hungry season, a death, a founding, a war — a quarrel and a fight alone are no story), **the same shape not again within twenty years nor more than three times**, the words kept as told, names keep their capitals. Second run: **6 stories** — "In Year 1, a new bridge led to the bridge festival." / "The Great Storm of Year 4 caused the river rising and eventually led to the seed grain eaten." / "In Year 11, Ditkalou and Guchu falling out brought about Ditkalou and Guchu becoming enemies and eventually led to the founding of Lutsilu's camp." / "In Year 24, food spoiling brought about a hungry season, which led to the stores running empty." Tension between some settlements ran to its height, but no war: no hungry side with a fierce leader in 40 years (rare by design). **Exit criteria** (*3 soak worlds × 300 years, each ≥ 3 multi-step summaries a reader finds coherent*): the 300-year soaks of M19 run overnight (2026-10-04/05) — to be read.
 
+
+### M19 — follow-up from the 300-year soaks (2026-10-05)
+Six 300-year soaks (seeds 12345, 99, 4242; M16–M18 and M19 snapshots, git worktrees) ran overnight; stopped at the owner's word at 09:00 — finished: M16–18 4242 (PASSED), M16–18 99 and M19 4242 (both FAILED one check: dead without a grave); the rest stopped at years 240–295. Every world reached pottery, weaving, herb lore, lamps, writing, sky lore and counting (no road building); **none left the age of settling** (their fields never brought in half their food — a balance question, with the known hunger); every settlement named itself, words drifted; mysteries 3–4 of 7 unfolded; no science (nobody played). Fixed:
+- **Graves**: a burial ground fills up over centuries — graves then side by side, further out, then a second burial ground (`test_a_full_burial_ground_does_not_leave_the_dead_unburied`).
+- **Stories**: 161 in 300 years, mostly the same hunger ending in nothing ("…led to Shofet getting well") — a story must now **end in an outcome** (a death, a founding, a leaving, war, peace, a leader, a tradition, a myth, a discovery, an age …), the same beginning-and-outcome not again within 30 years (3 times at most), two a year; a death names no story; a battle is "a battle".
+- **Wars**: 15 in 300 years killing 51 (seed 4242, M19) — raids only from empty stores and half as often, war after three raids in three years, fewer fall, peace after three.
+- **A tradition named once** a settlement (the Day of High Water came twice, from two roots).
+- **Still open**: the exit check (3 worlds × 300 years, ≥ 3 coherent stories each) with these rules — a verification round when the owner says so.
 
 ---
 

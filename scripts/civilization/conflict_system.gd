@@ -41,17 +41,17 @@ const DISPUTE_AT := 0.35
 const RAID_AT := 0.55
 const WAR_AT := 0.75
 ## Raids within this many years make a war (with this many of them).
-const WAR_RAIDS := 2
-const WAR_WITHIN_YEARS := 2
+const WAR_RAIDS := 3
+const WAR_WITHIN_YEARS := 3
 ## A raid carries off this share of the victim's food (at most).
 const RAID_TAKES := 0.3
 ## A leader fierce enough to raid (their aggression, -1 … 1).
 const FIERCE := 0.2
 ## A battle on a day of war (the chance), the share of each side who may fall.
 const BATTLE_CHANCE := 0.12
-const FALL_CHANCE := 0.12
+const FALL_CHANCE := 0.07
 ## Peace once this many have fallen, or this long has passed (days).
-const PEACE_AFTER_FALLEN := 4
+const PEACE_AFTER_FALLEN := 3
 const PEACE_AFTER_DAYS := 60
 ## A revolution: when this share stand against the leader's belief (the chance a day).
 const AGAINST := 0.6
@@ -169,7 +169,8 @@ func _between(a: Settlement, b: Settlement, now: int) -> void:
 		var fierce := leader != 0 and raider.members().any(func(p: PersonData) -> bool:
 			return p.id == leader and ReactionTable.lean(p.traits, Traits.Axis.AGGRESSION) >= FIERCE)
 		var roll := float(posmod(hash([a.id, b.id, _day, "raid"]), 1000)) / 1000.0
-		if fierce and raider.shortage != Settlement.Shortage.NONE and roll < t * 0.2:
+		# (Only those with nothing left in store raid: 300-year soaks — wars every twenty years, a sixth of all deaths.)
+		if fierce and raider.shortage == Settlement.Shortage.EMPTY and roll < t * 0.1:
 			_raid(raider, victim, leader, record, now)
 	var raids: Array = record["raids"]
 	var recent := raids.filter(func(tick: int) -> bool: return now - tick <= WAR_WITHIN_YEARS * Config.time.ticks_per_year())

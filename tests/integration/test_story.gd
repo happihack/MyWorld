@@ -99,7 +99,7 @@ func test_no_duplicate_story() -> void:
 	# Something new, from the same drought: a story of its own.
 	var withered := log.record(&"tree_withered", {"tick": 400}, [chain[0]])
 	var gone := log.record(&"forage_depleted", {"tick": 600}, [withered])
-	log.record(&"food_spoiled", {"tick": 700}, [gone])
+	log.record(&"migration", {"tick": 700}, [gone])
 	assert_eq(engine.mine(4000).size(), 1, "a new story")
 	# Saved: what was told stays told.
 	var again := StoryEngine.new()
@@ -137,13 +137,18 @@ func test_weight_and_repetition() -> void:
 	var b := log.record(&"fight", {"tick": 20, "significance": 0.6}, [a])
 	log.record(&"became_enemies", {"tick": 30, "significance": 0.55}, [b])
 	assert_eq(engine.mine(100).size(), 0, "not weighty enough")
-	# The same weighty shape, again and again: told once, not again soon.
+	# Hunger that came to nothing in particular: no story.
+	var x0 := log.record(&"food_spoiled", {"tick": 500})
+	var y0 := log.record(&"food_shortage", {"tick": 550, "significance": 0.8}, [x0])
+	log.record(&"shortage_over", {"tick": 600}, [y0])
+	assert_eq(engine.mine(700).size(), 0, "no outcome, no story")
+	# The same shape, again and again (hunger → people leaving): told once, not again soon.
 	var told := 0
 	for n in 4:
 		var t := 1000 + n * 400
 		var x := log.record(&"food_spoiled", {"tick": t})
 		var y := log.record(&"food_shortage", {"tick": t + 50, "significance": 0.8}, [x])
-		log.record(&"shortage_over", {"tick": t + 100}, [y])
+		log.record(&"migration", {"tick": t + 100}, [y])
 		told += engine.mine(t + 200).size()
 	assert_eq(told, 1, "the same story is not told every season")
 	# Its words stay as they were told.
@@ -161,7 +166,7 @@ func test_war_chain_records_causes() -> void:
 	var conflicts := session.conflicts
 	# Both hungry and near: a shortage told, then tension, a dispute, raids, war.
 	session.events.record(&"food_shortage", {"settlement": first.id})
-	first.shortage = Settlement.Shortage.SHORT
+	first.shortage = Settlement.Shortage.EMPTY
 	second.shortage = Settlement.Shortage.NONE
 	first.stockpile.add(&"berries", 1)
 	second.stockpile.add(&"berries", 40)
@@ -223,7 +228,7 @@ func test_revolution_and_historians() -> void:
 	var log := session.events
 	var drought := log.record(&"drought", {"tick": 10})
 	var failed := log.record(&"crop_failure", {"tick": 20}, [drought])
-	log.record(&"food_shortage", {"tick": 30}, [failed])
+	log.record(&"migration", {"tick": 30}, [failed])
 	session.stories.mine(40)
 	assert_false(session.stories.stories.is_empty())
 	session.stories.historian = func() -> int: return own.members()[0].id

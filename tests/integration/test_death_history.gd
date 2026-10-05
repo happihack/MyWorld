@@ -296,3 +296,23 @@ func test_version_21_save_loads() -> void:
 	assert_eq(odd.significance, 7.0, "points (M11.2), not a share")
 	assert_eq(odd.memories.size(), 0, "broken memories are left out")
 	assert_eq(odd.accomplishments, PackedInt64Array([3]))
+
+
+func test_a_full_burial_ground_does_not_leave_the_dead_unburied() -> void:
+	# Centuries of dead (300-year soaks: the ground filled up and the rest went unburied).
+	var graves := session.graves
+	var laid := 0
+	var tiles := {}
+	for n in 140:
+		var tile: Variant = graves.site()
+		if tile == null:
+			break
+		var grave := PropData.new()
+		grave.id = session.ids.next_id()
+		grave.kind = PropData.Kind.GRAVE
+		grave.tile = tile
+		assert_true(session.props.add(grave))
+		assert_false(tiles.has(tile), "a grave of its own")
+		tiles[tile] = true
+		laid += 1
+	assert_eq(laid, 140, "room for the dead of centuries (closer together, then a second ground)")

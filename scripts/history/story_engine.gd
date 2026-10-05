@@ -23,7 +23,7 @@ signal reinterpreted(story: Dictionary, historian: int)
 ## Chains of at least this many events are stories (a cause, what it led to, and more).
 const LEAST_EVENTS := 3
 ## At most this many stories a year, and only above this score.
-const PER_YEAR := 3
+const PER_YEAR := 2
 const LEAST_SCORE := 2.5
 ## How long a chain may grow (events).
 const LONGEST := 8
@@ -32,10 +32,16 @@ const OVERLAP := 0.5
 ## A story has at least one event that mattered this much (a hungry season the first
 ## time, a death, a founding, a war — not a quarrel and a fight alone).
 const WEIGHTY := 0.75
-## The same shape of story (the same kinds of events, in order) is not told again
-## within this many years, nor more than this many times.
-const SHAPE_YEARS := 20
+## The same shape of story — what it began with and what it came to — is not
+## told again within this many years, nor more than this many times.
+const SHAPE_YEARS := 30
 const SHAPE_MOST := 3
+## What a story comes to: an outcome — not someone getting well, or the stores
+## running empty again (300-year soaks: endless hunger stories ending in nothing).
+const OUTCOMES: Array[StringName] = [&"settlement_founded", &"settlement_abandoned", &"migration", &"war_begun", &"peace",
+	&"person_died", &"leadership", &"revolution", &"tradition_formed", &"myth_formed", &"faith_founded", &"schism",
+	&"knowledge_lost", &"knowledge_learned", &"knowledge_spread", &"era_entered", &"home_moved", &"building_ruined",
+	&"hypothesis", &"box_research", &"became_important", &"cultural_memory", &"stores_flooded", &"moved_to"]
 ## Something this significant prompts a look soon after (days).
 const MOMENTOUS := 0.9
 const SOON_DAYS := 2
@@ -102,7 +108,7 @@ func mine(now: int) -> Array[Dictionary]:
 	var best_back := {} # event id -> [path (end first), score]
 	var candidates: Array = []
 	for event in events.all_events():
-		if event.causes.is_empty():
+		if event.causes.is_empty() or not OUTCOMES.has(event.type):
 			continue
 		var path: Array = _best_back(event, best_back, 0)[0]
 		if path.size() >= LEAST_EVENTS:
@@ -180,13 +186,11 @@ func _weighty(chain: Array) -> bool:
 	return false
 
 
-## Its shape: the kinds of its events, in order.
+## Its shape: what it began with and what it came to.
 func shape_of(chain: Array) -> String:
-	var kinds := PackedStringArray()
-	for id: int in chain:
-		var event := events.get_event(id)
-		kinds.append(String(event.type) if event != null else "?")
-	return ">".join(kinds)
+	var first := events.get_event(int(chain[0]))
+	var last := events.get_event(int(chain[-1]))
+	return "%s>%s" % [String(first.type) if first != null else "?", String(last.type) if last != null else "?"]
 
 
 ## Has the like of it been told lately, or too often?
@@ -280,7 +284,8 @@ func summary(story: Dictionary) -> String:
 	# What heads it by its name ("The Great Drought of Year 83 …"), or — if its kind
 	# has none — plainly ("In Year 4, work on a bridge …").
 	var first := events.get_event(int(chain[0]))
-	var named := first != null and MemoryText.has("STORY_NAME_" + String(first.type).to_upper())
+	var named := first != null and MemoryText.has("STORY_NAME_" + String(first.type).to_upper()) \
+		and MemoryText.translate("STORY_NAME_" + String(first.type).to_upper()) != ""
 	var params := {"first": MemoryText.capitalized(name_of(story)) if named else parts[0], "year": int(story["year"]),
 		"second": parts[1] if parts.size() > 1 else "", "third": parts[2] if parts.size() > 2 else "", "last": parts[-1]}
 	var shape := "STORY_THREE" if chain.size() == 3 else ("STORY_TWO" if chain.size() == 2 else "STORY_LONG")
