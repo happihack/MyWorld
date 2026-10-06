@@ -150,11 +150,38 @@ func take_from(pile_id: int, amount: int) -> int:
 	return share
 
 
+## Carries a pile to the storage place at `center`: onto the piles of the
+## same there that have room, what is left as a pile of its own.
+func gather(pile_id: int, center: Vector2) -> void:
+	var pile := _loose.get_object(pile_id) if _loose != null else null
+	if pile == null or pile.kind != LooseObject.Kind.PILE or not is_finite(center.x):
+		return
+	var stack := _stack(pile.resource)
+	for other in piles(pile.resource, center, _config.storage_radius):
+		if pile.amount <= 0:
+			break
+		if other.id == pile.id:
+			continue
+		var fits := mini(stack - other.amount, pile.amount)
+		if fits <= 0:
+			continue
+		other.amount += fits
+		pile.amount -= fits
+		_refresh(other)
+	if pile.amount <= 0:
+		_loose.remove(pile.id)
+		return
+	_refresh(pile)
+	_loose.move(pile.id, _free_slot(center))
+
+
 ## `days` pass for what does not keep: every pile of something that spoils
 ## loses its share (a pile of berries that keep 8 days loses an eighth of
 ## itself a day — whole units; what is left over of a unit is carried to the
-## next day). Wherever the pile lies. Returns what was lost: resource -> units.
-func spoil(days: float = 1.0) -> Dictionary:
+## next day). Wherever the pile lies — but what lies within the storage
+## radius of `kept_at` (in a storehouse) goes bad `kept_factor` as fast.
+## Returns what was lost: resource -> units.
+func spoil(days: float = 1.0, kept_at: Vector2 = Vector2.INF, kept_factor: float = 1.0) -> Dictionary:
 	var lost := {}
 	if _loose == null or _library == null or days <= 0.0:
 		return lost
@@ -162,7 +189,8 @@ func spoil(days: float = 1.0) -> Dictionary:
 		var def := _library.get_def(pile.resource)
 		if def == null or not def.spoils():
 			continue
-		pile.spoil += pile.amount * days / def.spoil_days
+		var kept := kept_at != Vector2.INF and pile.position.distance_to(kept_at) <= _config.storage_radius
+		pile.spoil += pile.amount * days * (kept_factor if kept else 1.0) / def.spoil_days
 		var gone := mini(floori(pile.spoil), pile.amount)
 		if gone <= 0:
 			_loose.touch(pile.id)

@@ -247,9 +247,15 @@ func weight_at(tile: Vector2i) -> float:
 	return _weight[_id(tile)] if _bounds.has_point(tile) else INF
 
 
+## The fastest one walks, as a fraction of walking on open ground: on the
+## best of roads. (It was 1.3, and a worn path and a paved road both came to
+## that — the owner's playtest, 2026-10-05: the better the road, the further.)
+const FASTEST := 1.75
+
+
 ## How fast one walks into this tile, as a fraction of walking on open ground.
 func speed_factor(tile: Vector2i) -> float:
-	return clampf(1.0 / weight_at(tile), 0.35, 1.3)
+	return clampf(1.0 / weight_at(tile), 0.35, FASTEST)
 
 
 ## The way from `from` to `to`, tile by tile, both ends included. If `to`

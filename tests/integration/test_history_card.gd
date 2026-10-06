@@ -218,7 +218,16 @@ func test_the_journal_button_opens_the_history() -> void:
 	var button := ui.journal_button()
 	var home := ui.get_node("%HomeButton") as Control
 	assert_true(button.is_visible_in_tree())
-	assert_true(button.get_global_rect().end.y <= home.get_global_rect().position.y, "above the Home button")
+	# Top right: the clock and the weather, Home under them, the journal under Home.
+	var clock := ui.speed_control().get_global_rect()
+	assert_true(home.get_global_rect().position.y >= clock.end.y, "Home under the clock and the weather")
+	assert_true(home.get_global_rect().position.y < get_tree().root.get_visible_rect().size.y * 0.5, "in the upper half")
+	assert_near(home.get_global_rect().end.x, clock.end.x, 1.0, "in line with the clock")
+	assert_true(button.get_global_rect().position.y >= home.get_global_rect().end.y, "the journal under the Home button")
+	var map := ui.minimap().get_global_rect()
+	for above: Control in [home, button, ui.speed_control()]:
+		assert_false(map.intersects(above.get_global_rect()), "the minimap clear of %s" % above.name)
+	assert_false(map.intersects(ui.tool_bar().get_global_rect()), "and of the tools")
 	assert_near(button.get_global_rect().get_center().x, home.get_global_rect().get_center().x, 1.0)
 	assert_near(button.get_global_rect().size.x, home.get_global_rect().size.x, 1.0, "the same size")
 	assert_true(button.get_global_rect().size.y >= UITheme.TOUCH_TARGET)

@@ -926,8 +926,7 @@ func settled_tiles() -> Array[Vector2i]:
 ## or Vector2.INF if it has no such place.
 func storage_place(resource: StringName) -> Vector2:
 	var places := behavior.ctx.places if behavior.ctx != null else null
-	var tile: Variant = places.storage_tile(resource) if places != null else null
-	return Places.middle_of(tile) if tile != null else Vector2.INF
+	return places.store_point(resource) if places != null else Vector2.INF
 
 
 ## How much of `resource` the settlement has in store: what lies in piles at
@@ -1498,22 +1497,47 @@ func _on_year_started(year: int) -> void:
 	EventBus.year_started.emit(year)
 
 
-## What the storehouses that stand add to the room in the stores (each
-## settlement's own: those near its fire).
+## What the storehouses and woodsheds that stand add to the room in the
+## stores (each settlement's own: those near its fire); the food goes into
+## the storehouse nearest the fire, the materials into the nearest woodshed.
 func _apply_storehouses() -> void:
 	if settlement == null or construction == null or buildings == null:
 		return
-	var def := buildings.of_kind(PropData.Kind.STOREHOUSE)
 	for own in settlements.all():
-		var stores := own.planner.standing_near(PropData.Kind.STOREHOUSE).size() if own.planner != null \
-			else construction.standing(PropData.Kind.STOREHOUSE).size()
-		var room := stores * (def.capacity if def != null else 0)
-		# Pots hold more than baskets; what is counted is packed tighter (M16.3).
-		if own.knows_how(&"pottery"):
-			room = roundi(room * POTTERY_ROOM)
-		if own.knows_how(&"mathematics"):
-			room = roundi(room * COUNTED_ROOM)
-		own.stockpile.extra_room = room
+		var stores := _standing_near(own, PropData.Kind.STOREHOUSE)
+		var sheds := _standing_near(own, PropData.Kind.WOODSHED)
+		own.stockpile.extra_room = _room_in(own, PropData.Kind.STOREHOUSE, stores.size())
+		own.stockpile.extra_material_room = _room_in(own, PropData.Kind.WOODSHED, sheds.size())
+		own.keep_in(_nearest_fire(own, stores), _nearest_fire(own, sheds))
+
+
+func _standing_near(own: Settlement, kind: int) -> Array[int]:
+	return own.planner.standing_near(kind) if own.planner != null else construction.standing(kind)
+
+
+## What `count` buildings of `kind` hold for the settlement.
+func _room_in(own: Settlement, kind: int, count: int) -> int:
+	var def := buildings.of_kind(kind)
+	var room := count * (def.capacity if def != null else 0)
+	# Pots hold more than baskets; what is counted is packed tighter (M16.3).
+	if own.knows_how(&"pottery"):
+		room = roundi(room * POTTERY_ROOM)
+	if own.knows_how(&"mathematics"):
+		room = roundi(room * COUNTED_ROOM)
+	return room
+
+
+## Of the buildings `ids`, the one nearest the settlement's fire (0: none).
+func _nearest_fire(own: Settlement, ids: Array[int]) -> int:
+	var fire := own.fire()
+	var nearest := 0
+	var best := INF
+	for id in ids:
+		var distance := Vector2(own.props().get_prop(id).tile - fire.tile).length() if fire != null else 0.0
+		if distance < best:
+			nearest = id
+			best = distance
+	return nearest
 
 
 ## A settlement around a fire: its stores, its jobs; told to the chronicle.

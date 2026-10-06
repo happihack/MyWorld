@@ -74,6 +74,9 @@ var _people: PersonRegistry
 var _props: PropRegistry
 var _piles: PileStore
 var _library: ResourceLibrary
+## Where each kind of thing was kept when last looked (see gather_stores):
+## ResourceDef.Category -> Vector2.
+var _kept_at: Dictionary = {}
 var _config: SettlementConfig
 var _places: Places
 ## What is being built and repaired (M12.1; may be null).
@@ -659,6 +662,7 @@ func step(now: int) -> void:
 		_day += 1
 		made_up += 1
 		_spoil()
+		gather_stores()
 		_each_day(_day)
 	_day = today
 	if farming != null:
@@ -1056,11 +1060,57 @@ func _site_for(hut: PropData) -> Variant:
 	return best
 
 
+## Keeps the food in the storehouse `storehouse_id` and the materials in
+## the woodshed `woodshed_id` from now on (0: by the fire, as before there
+## was one), and puts what lies where they were kept there.
+func keep_in(storehouse_id: int, woodshed_id: int) -> void:
+	if _places == null:
+		return
+	_places.storehouse_id = storehouse_id
+	_places.woodshed_id = woodshed_id
+	gather_stores()
+
+
+## The settlement's food and materials that lie where they used to be kept
+## (by the fire, at another storehouse or woodshed of its own, at one that
+## is gone) are put where they are kept now — onto the piles there first.
+func gather_stores() -> void:
+	if _piles == null or _places == null or _library == null:
+		return
+	var radius := Config.resources.storage_radius
+	var before := {ResourceDef.Category.FOOD: [], ResourceDef.Category.MATERIAL: []}
+	for category: int in _kept_at:
+		if before.has(category):
+			(before[category] as Array).append(_kept_at[category])
+	if planner != null:
+		for id in planner.standing_near(PropData.Kind.STOREHOUSE):
+			(before[ResourceDef.Category.FOOD] as Array).append(Places.middle_of(props().get_prop(id).tile))
+		for id in planner.standing_near(PropData.Kind.WOODSHED):
+			(before[ResourceDef.Category.MATERIAL] as Array).append(Places.middle_of(props().get_prop(id).tile))
+	for pile in _piles.piles():
+		var def := _library.get_def(pile.resource)
+		if def == null or not before.has(def.category):
+			continue
+		var to := _places.store_point(pile.resource)
+		if to == Vector2.INF:
+			continue
+		_kept_at[def.category] = to
+		if pile.position.distance_to(to) <= radius:
+			continue
+		var by_fire: Variant = _places.fire_storage_tile(pile.resource)
+		var ours := by_fire != null and pile.position.distance_to(Places.middle_of(by_fire)) <= radius
+		for at: Vector2 in before[def.category]:
+			ours = ours or pile.position.distance_to(at) <= radius
+		if ours:
+			_piles.gather(pile.id, to)
+
+
 func _spoil() -> void:
 	if _piles == null:
 		return
-	# (A storehouse keeps food longer: M12.1.)
-	var kept := construction != null and not construction.standing(PropData.Kind.STOREHOUSE).is_empty()
-	var lost := _piles.spoil(Config.construction.storehouse_spoil_factor if kept else 1.0)
+	# (Food kept in the storehouse keeps longer: M12.1.)
+	var store := _places.storehouse() if _places != null else null
+	var lost := _piles.spoil(1.0, Places.middle_of(store.tile) if store != null else Vector2.INF,
+		Config.construction.storehouse_spoil_factor)
 	for resource: StringName in lost:
 		spoiled.emit(resource, int(lost[resource]))

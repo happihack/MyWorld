@@ -232,6 +232,24 @@ func test_a_walker_faces_the_way_they_go() -> void:
 	assert_true(Vector2.from_angle(person.facing).dot(heading) > 0.99)
 
 
+func test_the_better_the_road_the_further_one_walks() -> void:
+	var tile := _open_tile(5)
+	session.world.set_terrain(tile, ChunkData.Terrain.GRASS)
+	finder.mark_dirty(tile)
+	var grass := finder.speed_factor(tile)
+	session.world.set_terrain(tile, ChunkData.Terrain.ROAD)
+	finder.mark_dirty(tile)
+	var path := finder.speed_factor(tile)
+	session.world.set_terrain(tile, ChunkData.Terrain.PAVED)
+	finder.mark_dirty(tile)
+	var road := finder.speed_factor(tile)
+	assert_true(path > grass * 1.2, "a worn path is quicker than the grass (%.2f vs %.2f)" % [path, grass])
+	assert_true(road > path * 1.05, "a paved road quicker still (%.2f vs %.2f)" % [road, path])
+	var person := _adult()
+	person.health = 1.0
+	assert_near(movement.speed_of(person, tile), Config.people.walk_tiles_per_minute * road, 0.0001)
+
+
 func test_the_young_the_old_and_the_sick_walk_slower() -> void:
 	var adult := _adult()
 	var child := _of(PersonData.LifeStage.CHILD)

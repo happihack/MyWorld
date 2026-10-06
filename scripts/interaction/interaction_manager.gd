@@ -72,6 +72,7 @@ const _PROP_EFFECTS := {
 	PropData.Kind.SHRINE: InteractionResponse.RUIN_HUM,
 	PropData.Kind.CEMETERY: InteractionResponse.DUST,
 	PropData.Kind.LANDING: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.WOODSHED: InteractionResponse.BUILDING_KNOCK,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).

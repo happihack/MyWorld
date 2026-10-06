@@ -9,15 +9,15 @@ extends RefCounted
 
 ## (Saved by number: append, never reorder.)
 enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
-	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING }
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED }
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
 const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE,
-	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING]
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING, Kind.WOODSHED]
 ## A landing (M19.5): its variant is the boat moored at it (0: none yet).
 enum Boat { NONE, RAFT, CANOE, PLANK_BOAT, SAIL }
 ## Solid: nobody walks through it.
 const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP,
-	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE]
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.WOODSHED]
 ## A building's full condition (see `condition`).
 const SOUND := 1000
 ## A bridge (M12.2) is built where it stands: posts (0), beams (1), then it
@@ -57,6 +57,7 @@ const PICK_BODY := {
 	Kind.SHRINE: [0.70, 0.36],
 	Kind.CEMETERY: [0.50, 0.95],
 	Kind.LANDING: [0.40, 0.50],
+	Kind.WOODSHED: [0.70, 0.50],
 }
 
 var id: int = 0
@@ -168,7 +169,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING, Kind.WOODSHED:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

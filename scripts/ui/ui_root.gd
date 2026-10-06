@@ -36,6 +36,8 @@ const TOOL_BAR := preload("res://scenes/ui/tool_bar.tscn")
 const CALIBRATION := preload("res://scenes/ui/calibration.tscn")
 ## Upper limit of the UI scale (see ui_scale_for).
 const MAX_UI_SCALE := 3.0
+## Room between the round buttons of the right-hand column.
+const CORNER_GAP := 24.0
 
 ## Tapping the version label this many times within UNLOCK_WINDOW_MS toggles
 ## Settings "debug/enabled" (makes debug tools reachable in release builds).
@@ -106,22 +108,22 @@ func _ready() -> void:
 	_pins.chosen.connect(func(person_id: int) -> void:
 		_tick()
 		person_chosen.emit(person_id))
-	# The journal: above the Home button, the same size.
+	# Home, then the journal (the same size): top right, under the clock and
+	# the weather (placed by _place_corner).
+	_home_button.anchor_top = 0.0
+	_home_button.anchor_bottom = 0.0
 	_journal_button = JournalButton.new()
 	_journal_button.anchor_left = 1.0
 	_journal_button.anchor_right = 1.0
-	_journal_button.anchor_top = 1.0
-	_journal_button.anchor_bottom = 1.0
 	_journal_button.offset_left = _home_button.offset_left
 	_journal_button.offset_right = _home_button.offset_right
-	_journal_button.offset_bottom = _home_button.offset_top - 24.0
-	_journal_button.offset_top = _journal_button.offset_bottom - (_home_button.offset_bottom - _home_button.offset_top)
 	add_child(_journal_button)
 	move_child(_journal_button, _panel_layer.get_index())
 	_journal_button.pressed.connect(func() -> void:
 		_tick()
 		toggle_history())
-	# The minimap: above the journal, its corner kept as it folds.
+	# The minimap: bottom right, just above the row of tools, its corner kept
+	# as it folds.
 	_minimap = Minimap.new()
 	_minimap.anchor_left = 1.0
 	_minimap.anchor_right = 1.0
@@ -129,9 +131,7 @@ func _ready() -> void:
 	_minimap.anchor_bottom = 1.0
 	_minimap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_minimap.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_minimap.offset_right = _home_button.offset_right
-	_minimap.offset_bottom = _journal_button.offset_top - 24.0
-	_minimap.offset_left = _minimap.offset_right - Minimap.SIDE
+	_minimap.offset_bottom = -(ToolBar.BOTTOM_MARGIN + ToolButton.SIZE + CORNER_GAP)
 	_minimap.offset_top = _minimap.offset_bottom - Minimap.SIDE
 	add_child(_minimap)
 	move_child(_minimap, _panel_layer.get_index())
@@ -148,6 +148,9 @@ func _ready() -> void:
 	_speed_control.selector_requested.connect(func() -> void:
 		_tick()
 		open_speed_selector())
+	_speed_control.resized.connect(_place_corner)
+	get_viewport().size_changed.connect(_place_corner)
+	_place_corner()
 	_follow_banner = FollowBanner.new()
 	add_child(_follow_banner)
 	move_child(_follow_banner, _panel_layer.get_index()) # panels draw over it
@@ -165,7 +168,7 @@ func _ready() -> void:
 	_toasts = ToastStack.new()
 	add_child(_toasts)
 	move_child(_toasts, _panel_layer.get_index()) # panels draw over them
-	_toasts.keep_clear_of(_pins, _speed_control, _follow_banner)
+	_toasts.keep_clear_of(_pins, _speed_control, _follow_banner, [_home_button, _journal_button])
 	_toasts.locate_requested.connect(func(position: Vector2) -> void:
 		_tick()
 		locate_requested.emit(position))
@@ -743,6 +746,24 @@ static func ui_scale_for(window_size: Vector2, base: Vector2) -> float:
 	var wanted := minf(short_side / base.x, long_side / base.y) # as if held upright
 	var actual := minf(window_size.x / base.x, window_size.y / base.y)
 	return clampf(wanted / actual, 1.0, MAX_UI_SCALE)
+
+
+## The right-hand column: Home under the clock and the weather, the journal
+## under Home. The minimap stays at the bottom, beside the column instead
+## when the screen is too low for both (landscape).
+func _place_corner() -> void:
+	if _speed_control == null or _journal_button == null or _minimap == null:
+		return
+	var side := _home_button.offset_bottom - _home_button.offset_top
+	_home_button.offset_top = _speed_control.offset_top + _speed_control.size.y + CORNER_GAP
+	_home_button.offset_bottom = _home_button.offset_top + side
+	_journal_button.offset_top = _home_button.offset_bottom + CORNER_GAP
+	_journal_button.offset_bottom = _journal_button.offset_top + side
+	var view := _panel_layer.get_viewport_rect().size if _panel_layer != null and _panel_layer.is_inside_tree() else Vector2.ZERO
+	var map_top := view.y + _minimap.offset_bottom - Minimap.SIDE
+	var beside := view != Vector2.ZERO and map_top < _journal_button.offset_bottom + CORNER_GAP
+	_minimap.offset_right = (_journal_button.offset_left - CORNER_GAP) if beside else _home_button.offset_right
+	_minimap.offset_left = _minimap.offset_right - _minimap.custom_minimum_size.x
 
 
 func _apply_ui_scale() -> void:

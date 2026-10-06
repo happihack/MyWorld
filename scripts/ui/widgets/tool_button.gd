@@ -103,9 +103,9 @@ func _draw() -> void:
 
 ## An open hand: a palm, four fingers and a thumb.
 func _draw_hand(center: Vector2, u: float, ink: Color) -> void:
-	var palm := Rect2(center + Vector2(-u * 0.72, -u * 0.1), Vector2(u * 1.44, u * 1.2))
+	var palm := Rect2(center + Vector2(-u * 0.72, -u * 0.1), Vector2(u * 1.44, u * 0.8))
 	draw_rect(palm, ink)
-	draw_circle(center + Vector2(0.0, u * 1.02), u * 0.72, ink)
+	draw_circle(center + Vector2(0.0, u * 0.7), u * 0.72, ink)
 	var finger_width := u * 0.30
 	var lengths: Array[float] = [0.85, 1.1, 1.0, 0.7]
 	for i in 4:

@@ -76,7 +76,7 @@ extends ConfigBase
 @export_range(1, 100) var crossing_from_people: int = 6
 
 @export_group("Storage")
-## Food kept near a storehouse goes bad this much as fast.
+## Food kept in a storehouse goes bad this much as fast.
 @export_range(0.0, 1.0, 0.01) var storehouse_spoil_factor: float = 0.5
 
 

@@ -101,7 +101,7 @@ func _run(minutes: int) -> void:
 func test_the_buildings_are_defined() -> void:
 	var library := session.buildings
 	assert_eq(library.ids(), [&"bridge", &"herb_rack", &"hut", &"kiln", &"landing", &"record_stone", &"shrine", &"stone_circle", &"storehouse", &"well",
-		&"workshop"] as Array[StringName], "(and what technology brings: M16.3)")
+		&"woodshed", &"workshop"] as Array[StringName], "(and what technology brings: M16.3)")
 	for id in library.ids():
 		var def := library.get_def(id)
 		assert_eq(def.validate(), PackedStringArray(), "%s is well formed" % id)
@@ -207,7 +207,8 @@ func test_planner_proposes_storage_when_overflow() -> void:
 	var store := _build(&"storehouse")
 	assert_eq(store.kind, PropData.Kind.STOREHOUSE)
 	assert_eq(session.settlement.stockpile.room(&"berries"), room + session.buildings.get_def(&"storehouse").capacity)
-	assert_eq(planner.needs(session.clock.tick), [] as Array[StringName], "enough for a band this size")
+	assert_eq(planner.needs(session.clock.tick), [&"material_storage"] as Array[StringName],
+		"enough for a band this size (and next, the woodshed)")
 
 
 func test_a_hut_when_the_homes_are_full_and_a_well_when_water_is_far() -> void:
@@ -382,6 +383,114 @@ func test_a_crowded_household_moves_into_a_new_home() -> void:
 	# A home for nobody in particular: nobody moves.
 	var another := _build(&"hut")
 	assert_true(session.people.living_in(another.id).is_empty())
+
+
+func test_the_food_is_kept_in_the_storehouse() -> void:
+	_only(&"home")
+	var own := session.settlement
+	own.stockpile.add(&"berries", 12)
+	own.stockpile.add(&"wood", 5)
+	var berries := own.stockpile.amount(&"berries")
+	var wood := own.stockpile.amount(&"wood")
+	var by_fire := own.stockpile.place(&"berries")
+	var wood_at := own.stockpile.place(&"wood")
+	var store := _build(&"storehouse")
+	var inside := Places.middle_of(store.tile)
+	# The food goes in, and what lay by the fire is carried in with it.
+	assert_eq(own.stockpile.place(&"berries"), inside)
+	assert_eq(own.stockpile.amount(&"berries"), berries, "none of it lost on the way")
+	for pile in session.piles.piles(&"berries"):
+		assert_true(pile.position.distance_to(inside) <= Config.resources.storage_radius, "in the storehouse")
+	assert_eq(own.stockpile.place(&"wood"), wood_at, "materials stay by the fire")
+	assert_eq(own.stockpile.amount(&"wood"), wood)
+	# Brought in later, it goes in too; whoever brings it stands at the door.
+	var door: Vector2i = own.places().storage_tile(&"berries")
+	assert_eq(maxi(absi(door.x - store.tile.x), absi(door.y - store.tile.y)), 1, "beside it")
+	assert_true(session.pathfinder.can_stand(door))
+	var carrier := _builder()
+	carrier.carrying = &"berries"
+	carrier.carrying_amount = 4
+	session.behavior.ctx.put_down(carrier)
+	assert_eq(own.stockpile.amount(&"berries"), berries + 4)
+	for pile in session.piles.piles(&"berries"):
+		assert_true(pile.position.distance_to(inside) <= Config.resources.storage_radius)
+	# The storehouse falls: the food is kept by the fire again.
+	construction.damage(store.id, 100000, &"flood", session.clock.tick)
+	assert_eq(own.stockpile.place(&"berries"), by_fire)
+	assert_eq(own.stockpile.amount(&"berries"), berries + 4)
+
+
+func test_wood_and_stone_are_kept_in_the_woodshed() -> void:
+	_only(&"home")
+	var own := session.settlement
+	own.stockpile.add(&"wood", 5)
+	own.stockpile.add(&"stone", 3)
+	var wood := own.stockpile.amount(&"wood")
+	var stone := own.stockpile.amount(&"stone")
+	var room := own.stockpile.room(&"wood")
+	var berries_at := own.stockpile.place(&"berries")
+	assert_eq(UIText.prop_name(PropData.Kind.WOODSHED), "Woodshed")
+	var shed := _build(&"woodshed")
+	assert_eq(shed.kind, PropData.Kind.WOODSHED)
+	var inside := Places.middle_of(shed.tile)
+	for resource: StringName in [&"wood", &"stone"]:
+		assert_eq(own.stockpile.place(resource), inside, "%s goes in" % resource)
+		for pile in session.piles.piles(resource):
+			assert_true(pile.position.distance_to(inside) <= Config.resources.storage_radius, "%s carried in" % resource)
+	assert_eq(own.stockpile.amount(&"wood"), wood, "none of it lost on the way")
+	assert_eq(own.stockpile.amount(&"stone"), stone)
+	assert_eq(own.stockpile.room(&"wood"), room + session.buildings.get_def(&"woodshed").capacity, "room for more")
+	assert_eq(own.stockpile.place(&"berries"), berries_at, "the food is not kept there")
+	var door: Vector2i = own.places().storage_tile(&"wood")
+	assert_eq(maxi(absi(door.x - shed.tile.x), absi(door.y - shed.tile.y)), 1, "brought to its side")
+	# A storehouse adds room for food, not for wood.
+	var food_room := own.stockpile.room(&"berries")
+	room = own.stockpile.room(&"wood")
+	_build(&"storehouse")
+	assert_eq(own.stockpile.room(&"wood"), room)
+	assert_true(own.stockpile.room(&"berries") > food_room)
+
+
+func test_a_woodshed_once_there_is_no_room_for_wood() -> void:
+	_only(&"material_storage")
+	_knob(Config.construction, &"storage_room_least", 8)
+	assert_false(planner.material_storage_short(), "room enough at first")
+	var own := session.settlement
+	own.stockpile.add(&"wood", own.stockpile.room(&"wood"))
+	assert_true(planner.material_storage_short(), "the wood piles are full")
+	assert_has(planner.needs(session.clock.tick), &"material_storage")
+	var p := planner.plan(session.clock.tick)
+	assert_eq(str(p.get("def", "")), "woodshed")
+	construction.projects().clear()
+	session.props.remove(int(p["site"]))
+	_build(&"woodshed")
+	assert_false(planner.material_storage_short(), "one stands: room again")
+	# Once the food has a storehouse, the wood gets its shed too.
+	for id in planner.standing_near(PropData.Kind.WOODSHED):
+		session.props.remove(id)
+	for pile in session.piles.piles(&"wood"):
+		session.loose.remove(pile.id)
+	assert_false(planner.material_storage_short(), "room for wood, no storehouse")
+	_build(&"storehouse")
+	assert_true(planner.material_storage_short(), "a storehouse stands")
+
+
+func test_food_keeps_longer_only_in_the_storehouse() -> void:
+	_only(&"home")
+	var own := session.settlement
+	var store := _build(&"storehouse")
+	var inside := Places.middle_of(store.tile)
+	for pile in session.piles.piles():
+		session.loose.remove(pile.id)
+	session.piles.add(&"berries", 16, inside)
+	var outside := inside + Vector2(6.0, 6.0)
+	session.piles.add(&"berries", 16, outside)
+	var kept := session.piles.piles(&"berries", inside, 1.0)[0]
+	var lying := session.piles.piles(&"berries", outside, 1.0)[0]
+	for day in 2:
+		own.call(&"_spoil")
+	assert_eq(lying.amount, 13, "an eighth a day where it lies (16 → 14 → 13, and some)")
+	assert_eq(kept.amount, 15, "half that in the storehouse (16 → 15, and some)")
 
 
 func test_an_empty_home_falls_into_ruin() -> void:

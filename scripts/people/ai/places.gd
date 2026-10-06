@@ -109,10 +109,63 @@ static func middle_of(tile: Vector2i) -> Vector2:
 	return Vector2(tile) + Vector2(0.5, 0.5)
 
 
-## Where the settlement keeps `resource`: a tile near the fire, one for each
-## kind of thing (see ResourcesConfig.storage_offsets). Null if there is no
-## settlement or nowhere to stand there.
+## The buildings the settlement keeps its things in (prop ids; 0: none
+## yet): the storehouse for food, the woodshed for wood, stone and the like.
+## The settlement says which (Settlement.keep_in).
+var storehouse_id := 0
+var woodshed_id := 0
+
+
+## The storehouse the food is kept in, if it still stands (else null).
+func storehouse() -> PropData:
+	return _standing(storehouse_id, PropData.Kind.STOREHOUSE)
+
+
+## The woodshed the materials are kept in, if it still stands (else null).
+func woodshed() -> PropData:
+	return _standing(woodshed_id, PropData.Kind.WOODSHED)
+
+
+## The building `resource` is kept in, if there is one (else null).
+func store_of(resource: StringName) -> PropData:
+	var def := resources.get_def(resource) if resources != null else null
+	if def == null:
+		return null
+	match def.category:
+		ResourceDef.Category.FOOD:
+			return storehouse()
+		ResourceDef.Category.MATERIAL:
+			return woodshed()
+	return null
+
+
+## Where `resource` is put down: in the building it is kept in, once there is
+## one (the owner's playtest, 2026-10-05: food went on lying by the fire);
+## else the middle of its storage tile. Vector2.INF: nowhere.
+func store_point(resource: StringName) -> Vector2:
+	var store := store_of(resource)
+	if store != null:
+		return middle_of(store.tile)
+	var tile: Variant = storage_tile(resource)
+	return middle_of(tile) if tile != null else Vector2.INF
+
+
+## Where the settlement keeps `resource`, to stand at: a tile near the fire,
+## one for each kind of thing (see ResourcesConfig.storage_offsets) — beside
+## the storehouse or the woodshed once there is one (what is kept goes in,
+## see store_point). Null if there is no settlement or nowhere to stand there.
 func storage_tile(resource: StringName) -> Variant:
+	var store := store_of(resource)
+	if store != null:
+		var door: Variant = _beside(store.tile)
+		if door != null:
+			return door
+	return fire_storage_tile(resource)
+
+
+## Where `resource` is kept by the fire (where it lies until there is a
+## building for it). Null if there is no settlement or nowhere to stand there.
+func fire_storage_tile(resource: StringName) -> Variant:
 	var fire := _props.get_prop(_start.campfire_id) if _props != null and _start != null else null
 	if fire == null:
 		return null
@@ -123,6 +176,28 @@ func storage_tile(resource: StringName) -> Variant:
 		return tile
 	var near := _pathfinder.standable_near(tile, 1)
 	return near[0] if not near.is_empty() else null
+
+
+func _standing(id: int, kind: int) -> PropData:
+	var prop := _props.get_prop(id) if id != 0 and _props != null else null
+	return prop if prop != null and prop.kind == kind else null
+
+
+## A tile beside a building to stand on, the one nearest the fire (null: none).
+func _beside(tile: Vector2i) -> Variant:
+	var fire := _props.get_prop(_start.campfire_id) if _props != null and _start != null else null
+	var best: Variant = null
+	var best_distance := INF
+	for offset: Vector2i in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, -1),
+			Vector2i(1, 1), Vector2i(-1, 1), Vector2i(1, -1), Vector2i(-1, -1)]:
+		var at := tile + offset
+		if _pathfinder != null and not _pathfinder.can_stand(at):
+			continue
+		var distance := Vector2(at - fire.tile).length() if fire != null else 0.0
+		if distance < best_distance:
+			best = at
+			best_distance = distance
+	return best
 
 
 ## Where there is something to eat: the settlement's fire (the band's shared

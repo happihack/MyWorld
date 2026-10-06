@@ -225,8 +225,8 @@ func gatherable(prop_id: int) -> StringName:
 	var resource := nodes.resource_of(prop)
 	if resource == &"" or (resources != null and not resources.has_def(resource)):
 		return &""
-	var store: Variant = places.storage_tile(resource)
-	if store == null or piles.room(resource, Places.middle_of(store)) <= 0:
+	var store := places.store_point(resource)
+	if store == Vector2.INF or piles.room(resource, store) <= 0:
 		return &""
 	# ...or the settlement has enough of it for now (nothing posted).
 	if settlement != null and not settlement.jobs.wants(resource):
@@ -243,8 +243,8 @@ func put_down(person: PersonData) -> int:
 	person.carrying_amount = 0
 	if amount <= 0 or resource == &"" or piles == null or places == null:
 		return 0
-	var store: Variant = places.storage_tile(resource)
-	var at := Places.middle_of(store) if store != null else person.world2d()
+	var store := places.store_point(resource)
+	var at := store if store != Vector2.INF else person.world2d()
 	piles.add(resource, amount, at)
 	if settlement != null:
 		settlement.note_produced(resource, amount)

@@ -138,6 +138,7 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.STOREHOUSE, 0)] = _storehouse()
 	_templates[_key(PropData.Kind.WELL, 0)] = _well()
 	_templates[_key(PropData.Kind.WORKSHOP, 0)] = _workshop()
+	_templates[_key(PropData.Kind.WOODSHED, 0)] = _woodshed()
 	_templates[_key(PropData.Kind.KILN, 0)] = _kiln()
 	_templates[_key(PropData.Kind.HERB_RACK, 0)] = _herb_rack()
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
@@ -526,6 +527,26 @@ static func _workshop() -> Template:
 	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
 	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
 	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
+	return t
+
+
+## A woodshed: a lean-to, a plank wall at the back and a roof sloping down
+## to it, open in front — the wood and stone kept in it can be seen.
+static func _woodshed() -> Template:
+	var t := Template.new()
+	for corner: Vector3 in [Vector3(-0.42, 0.66, 0.36), Vector3(0.42, 0.66, 0.36), Vector3(-0.42, 0.46, -0.36), Vector3(0.42, 0.46, -0.36)]:
+		_box(t, Vector3(corner.x, corner.y * 0.5, corner.z), Vector3(0.03, corner.y * 0.5, 0.03), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.23, -0.37), Vector3(0.42, 0.23, 0.02), _rgba(LOG, 0.0))
+	for row in 3:
+		_box(t, Vector3(0.0, 0.10 + row * 0.13, -0.345), Vector3(0.43, 0.012, 0.012), _rgba(TRUNK_DARK, 0.0))
+	var front_left := Vector3(-0.50, 0.68, 0.44)
+	var front_right := Vector3(0.50, 0.68, 0.44)
+	var back_right := Vector3(0.50, 0.47, -0.44)
+	var back_left := Vector3(-0.50, 0.47, -0.44)
+	_quad_outward(t, front_left, front_right, back_right, back_left, _rgba(THATCH, 0.0), Vector3(0.0, -2.0, 0.0))
+	var under := Vector3(0.0, -0.012, 0.0)
+	_quad_outward(t, front_left + under, front_right + under, back_right + under, back_left + under,
+		_rgba(THATCH_DARK.darkened(0.3), 0.0), Vector3(0.0, 3.0, 0.0))
 	return t
 
 

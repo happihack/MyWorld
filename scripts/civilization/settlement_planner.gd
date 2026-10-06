@@ -108,6 +108,8 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"home")
 	if storage_short(now):
 		out.append(&"storage")
+	if material_storage_short():
+		out.append(&"material_storage")
 	if water_far():
 		out.append(&"water")
 	if workshop_wanted():
@@ -362,6 +364,19 @@ func storage_short(now: int) -> bool:
 		if today - int(entry[0]) < _config.spoiled_days:
 			spoiled += int(entry[1])
 	return (room < _config.storage_room_least or spoiled >= _config.spoiled_from) and stores < 1 + _settlement.member_count() / 12
+
+
+## A woodshed for wood and stone: once the food has a storehouse (wood is
+## gathered as it is needed, so its piles seldom overflow — the soak), or
+## when there is no room left for them; more of them as the stores fill in
+## a bigger settlement.
+func material_storage_short() -> bool:
+	var sheds := standing_near(PropData.Kind.WOODSHED).size()
+	if sheds == 0 and not standing_near(PropData.Kind.STOREHOUSE).is_empty():
+		return true
+	var stockpile := _settlement.stockpile
+	var short := stockpile.room(&"wood") < _config.storage_room_least or stockpile.room(&"stone") < _config.storage_room_least
+	return short and sheds < 1 + _settlement.member_count() / 12
 
 
 ## Does it know how to make tools, and is big enough for a workshop, and has none (M12.4)?

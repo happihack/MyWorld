@@ -18,8 +18,10 @@ var _stale := true
 var _reserved: Dictionary = {}
 
 
-## What storehouses add to the room for each kind of thing (M12.1).
+## What storehouses add to the room for each kind of thing but materials
+## (M12.1), and woodsheds for each material.
 var extra_room := 0
+var extra_material_room := 0
 
 
 func bind(piles: PileStore, places: Places, library: ResourceLibrary, loose: LooseObjectRegistry,
@@ -47,10 +49,10 @@ func unbind() -> void:
 	_stale = true
 
 
-## Where `resource` is kept (the middle of its storage tile), or Vector2.INF.
+## Where `resource` is kept (the middle of its storage tile; food: of the
+## storehouse), or Vector2.INF.
 func place(resource: StringName) -> Vector2:
-	var tile: Variant = _places.storage_tile(resource) if _places != null else null
-	return Places.middle_of(tile) if tile != null else Vector2.INF
+	return _places.store_point(resource) if _places != null else Vector2.INF
 
 
 ## Units of `resource` in store.
@@ -109,7 +111,11 @@ func food() -> float:
 ## How much more of `resource` the stores take.
 func room(resource: StringName) -> int:
 	var at := place(resource)
-	return (_piles.room(resource, at) + extra_room) if _piles != null and at != Vector2.INF else 0
+	if _piles == null or at == Vector2.INF:
+		return 0
+	var def := _library.get_def(resource) if _library != null else null
+	var material := def != null and def.category == ResourceDef.Category.MATERIAL
+	return _piles.room(resource, at) + (extra_material_room if material else extra_room)
 
 
 ## Puts `units` of `resource` into the stores.

@@ -38,6 +38,7 @@ func after_each() -> void:
 	Config.settlement.wood_days_wanted = SettlementConfig.new().wood_days_wanted
 	Config.settlement.urgent_from = SettlementConfig.new().urgent_from
 	Config.construction.cut_off_least = ConstructionConfig.new().cut_off_least
+	Config.construction.storage_room_least = ConstructionConfig.new().storage_room_least
 	session.queue_free()
 	await wait_frames(1)
 
@@ -91,6 +92,7 @@ func _gathering_only() -> void:
 	Config.settlement.wood_days_wanted = 1800.0
 	Config.settlement.urgent_from = 2.0
 	Config.construction.cut_off_least = 1_000_000 # (no bridge across wanting wood)
+	Config.construction.storage_room_least = -1000 # (nor a woodshed, when the wood piles fill)
 	_empty_stores()
 
 
