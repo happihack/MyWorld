@@ -4,7 +4,8 @@ extends UIPanel
 ## last laid first, with their years and what they died of. Each can be read
 ## in turn (their grave card).
 ##
-## A card in the bottom-left corner, like the others; its list scrolls.
+## A card at the bottom, like the others; its list scrolls, and goes a page
+## at a time once the dead of centuries lie there (Pager).
 
 ## Someone laid here was picked (to read their grave).
 signal person_chosen(person_id: int)
@@ -26,6 +27,7 @@ const LIST_MIN_HEIGHT := 150.0
 var _session: WorldSession
 var _cemetery_id := 0
 var _settling := 0
+var _page := 0
 
 
 func _ready() -> void:
@@ -60,9 +62,18 @@ func refresh() -> void:
 	_title.text = said["title"]
 	_subtitle.text = said["count"]
 	for child in _list.get_children():
+		_list.remove_child(child) # (at once: the new rows' names must not meet the old ones')
 		child.queue_free()
 	_add_locate()
-	for row: Array in said["dead"]:
+	var pager := Pager.new()
+	pager.page = _page
+	pager.set_total((said["dead"] as Array).size())
+	pager.page_changed.connect(func(page: int) -> void:
+		_page = page
+		refresh()
+		_scroll.scroll_vertical = 0)
+	_list.add_child(pager)
+	for row: Array in pager.slice(said["dead"]):
 		var button := Button.new()
 		button.text = "%s\n%s" % [row[1], row[2]]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -139,6 +150,13 @@ func title_text() -> String:
 
 func subtitle_text() -> String:
 	return _subtitle.text
+
+
+func pager() -> Pager:
+	for child in _list.get_children():
+		if child is Pager and not child.is_queued_for_deletion():
+			return child
+	return null
 
 
 ## The buttons for the dead, in order (not Locate).

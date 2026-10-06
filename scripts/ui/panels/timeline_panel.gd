@@ -3,8 +3,9 @@ extends UIPanel
 ## The world's history as a timeline (bible §21.4, M11.3): year by year,
 ## the latest first, through a filter (All · Major · People · Disasters ·
 ## Yours); a tap on an event looks for it — where it happened, or whom it
-## concerned (see TimelineModel.locate). Long histories scroll lightly: only
-## the rows on screen are made (VirtualList).
+## concerned (see TimelineModel.locate). Long histories go a page at a time
+## (Pager: the owner's playtest, 2026-10-05), the newest first, and scroll
+## lightly: only the rows on screen are made (VirtualList).
 
 ## An event was tapped.
 signal event_chosen(event_id: int)
@@ -13,6 +14,8 @@ const EDGE_MARGIN := 24.0
 const TOP := 40.0
 const MAX_WIDTH := 900.0
 const ROW_HEIGHT := 120.0
+## Rows on a page (events and the years between them).
+const PAGE_ROWS := 100
 
 var _session: WorldSession
 var _filter: StringName = TimelineModel.FILTER_ALL
@@ -21,6 +24,8 @@ var _title: Label
 var _close: Button
 var _filters: Dictionary = {} # filter -> Button
 var _list: VirtualList
+var _pager: Pager
+var _rows: Array = []
 var _empty: Label
 var _refresh := 0.0
 
@@ -51,6 +56,10 @@ func _init() -> void:
 		chips.add_child(chip)
 		_filters[filter] = chip
 	content.add_child(HSeparator.new())
+	_pager = Pager.new(PAGE_ROWS)
+	_pager.describe = _describe_page
+	_pager.page_changed.connect(func(_page: int) -> void: _show_page())
+	content.add_child(_pager)
 	_empty = Label.new()
 	_empty.text = MemoryText.translate("TIMELINE_EMPTY")
 	_empty.theme_type_variation = UITheme.DIM
@@ -81,6 +90,7 @@ func set_filter(which: StringName) -> void:
 	_filter = which
 	for key: StringName in _filters:
 		(_filters[key] as Button).set_pressed_no_signal(key == which)
+	_pager.page = 0
 	_shown_size = -1
 	refresh()
 
@@ -93,9 +103,33 @@ func refresh() -> void:
 	if size_now == _shown_size:
 		return
 	_shown_size = size_now
-	var rows := TimelineModel.rows(_session.events, _filter)
-	_list.set_items(rows)
-	_empty.visible = rows.is_empty()
+	_rows = TimelineModel.rows(_session.events, _filter)
+	_pager.set_total(_rows.size())
+	_show_page()
+	_empty.visible = _rows.is_empty()
+
+
+## The rows of the page shown — under the heading of their year, when the
+## page begins within one.
+func _show_page() -> void:
+	var shown := _pager.slice(_rows)
+	if not shown.is_empty() and not (shown[0] as Dictionary).has("year"):
+		shown.push_front({"year": HistoryText.year_of((shown[0]["event"] as WorldEvent).tick)})
+	_list.set_items(shown)
+
+
+## What a page holds: "Years 40–37 · 2/9".
+func _describe_page(from: int, to: int, _total: int) -> String:
+	var newest := -1
+	var oldest := -1
+	for i in range(from, to):
+		var row: Dictionary = _rows[i]
+		var year := int(row["year"]) if row.has("year") else HistoryText.year_of((row["event"] as WorldEvent).tick)
+		if newest < 0:
+			newest = year
+		oldest = year
+	var years := MemoryText.translate("TIMELINE_YEAR").format({"year": newest}) if newest == oldest 		else MemoryText.translate("TIMELINE_PAGE_YEARS").format({"newest": newest, "oldest": oldest})
+	return MemoryText.translate("TIMELINE_PAGE").format({"years": years, "page": _pager.page + 1, "pages": _pager.pages()})
 
 
 func _process(delta: float) -> void:
@@ -140,6 +174,10 @@ func _make_row(item: Variant, _index: int) -> Control:
 
 func list() -> VirtualList:
 	return _list
+
+
+func pager() -> Pager:
+	return _pager
 
 
 func filter_button(which: StringName) -> Button:

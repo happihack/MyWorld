@@ -166,6 +166,57 @@ func test_the_five_questions() -> void:
 	assert_false(TimelineModel.rows(session.events, TimelineModel.FILTER_ALL).is_empty(), "what happened, year by year")
 
 
+func test_long_lists_go_a_page_at_a_time() -> void:
+	# (The owner's playtest: lists that grow without end need pages.)
+	var fire := session.start.settlement_tile
+	for i in 50:
+		session.spawn_person(fire + Vector2i(i % 5, i / 5 % 5))
+	var living := session.people.size()
+	assert_true(living > 2 * Pager.PAGE)
+	var menu := ui.open_menu()
+	menu.open_page(MainMenu.PAGE_RELATIONSHIPS)
+	await wait_frames(1)
+	var pager := menu.pager()
+	assert_not_null(pager)
+	assert_true(pager.visible)
+	assert_eq(menu.entries().size(), Pager.PAGE, "a page of them")
+	assert_eq(pager.text(), "1–25 of %d" % living)
+	var first := menu.entries()[0].text
+	pager.go(1)
+	await wait_frames(1)
+	pager = menu.pager()
+	assert_eq(pager.text(), "26–50 of %d" % living)
+	assert_ne(menu.entries()[0].text, first, "the next page")
+	# Into someone's relations and back: the page is where it was.
+	menu.entries()[0].pressed.emit()
+	await wait_frames(1)
+	menu.back()
+	await wait_frames(1)
+	assert_eq(menu.pager().text(), "26–50 of %d" % living)
+	menu.pager().go(menu.pager().pages() - 1)
+	await wait_frames(1)
+	assert_eq(menu.entries().size(), living - (menu.pager().pages() - 1) * Pager.PAGE, "the rest")
+	# The living, searched: a page at a time too; a new search begins at the first.
+	menu.open_page(MainMenu.PAGE_INDIVIDUALS)
+	await wait_frames(1)
+	assert_eq(menu.entries().size(), Pager.PAGE)
+	menu.pager().go(1)
+	await wait_frames(1)
+	assert_eq(menu.pager().page, 1)
+	for child in menu.find_children("*", "LineEdit", true, false):
+		(child as LineEdit).text_changed.emit("")
+	await wait_frames(1)
+	assert_eq(menu.pager().page, 0)
+	# A short list has no page bar.
+	var bar := Pager.new()
+	bar.set_total(Pager.PAGE)
+	assert_false(bar.visible)
+	bar.set_total(Pager.PAGE + 1)
+	assert_true(bar.visible)
+	assert_eq(bar.pages(), 2)
+	bar.free()
+
+
 func test_individuals_searched_ordered_filtered() -> void:
 	var everyone := MainMenu.individuals(session)
 	assert_eq(everyone.size(), session.people.size())

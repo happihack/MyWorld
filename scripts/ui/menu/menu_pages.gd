@@ -197,8 +197,9 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 			menu.add_heading(MemoryText.translate("STORIES_TOLD"))
 			if s.stories.stories.is_empty():
 				menu.add_line(MemoryText.translate("MENU_NOTHING_RECORDED"))
-			for n in range(s.stories.stories.size() - 1, -1, -1):
-				menu.add_line(s.stories.line(s.stories.stories[n]))
+			var told: Array = s.stories.stories.duplicate()
+			told.reverse()
+			menu.add_paged(told, func(story: Variant) -> void: menu.add_line(s.stories.line(story)))
 		BOX_KNOWLEDGE:
 			menu.set_title(MemoryText.translate("MENU_BOX_KNOWLEDGE"))
 			var told := box_knowledge(s)

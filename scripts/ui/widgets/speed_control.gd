@@ -1,8 +1,9 @@
 class_name SpeedControl
 extends VBoxContainer
 ## The world's clock and how fast it runs, in the top-right corner of the HUD
-## (bible §9.2, §26.4): a round button showing the speed (‖ ▶ ▶▶ ▶▶▶), under
-## it the time of day and the date.
+## (bible §9.2, §26.4): the time of day, the date and the weather, and under
+## them a round button showing the speed (‖ ▶ ▶▶ ▶▶▶) — the text at the very
+## top, the buttons in a column below (the owner's playtest, 2026-10-05).
 ##
 ##   tap          pause / carry on at the speed it had before
 ##   long press   asks for the selector (Pause / Normal / Fast / Very fast)
@@ -17,6 +18,8 @@ signal selector_requested
 const BUTTON_SIZE := 124.0
 const EDGE_MARGIN := 32.0
 const TOP := 56.0
+## Room between the weather and the button below it.
+const BUTTON_GAP := 16.0
 const REFRESH_INTERVAL_S := 0.2
 const LIT := Color(1.0, 0.82, 0.36)
 
@@ -56,13 +59,17 @@ func _init() -> void:
 	_button.draw.connect(_draw_button)
 	_button.button_down.connect(_on_down)
 	_button.button_up.connect(_on_up)
-	add_child(_button)
 	_time = _line(UITheme.FONT_BODY, UITheme.INK)
 	_time.name = "Time"
 	_date = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
 	_date.name = "Date"
 	_sky = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
 	_sky.name = "Weather"
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0.0, BUTTON_GAP)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(gap)
+	add_child(_button)
 
 
 func bind(clock: GameClock, weather: WeatherSystem = null) -> void:

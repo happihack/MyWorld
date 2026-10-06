@@ -362,7 +362,17 @@ func test_the_cemetery_card_keeps_to_the_screen() -> void:
 	var where := UIPanel.across(view.size, CemeteryCard.MAX_WIDTH, CemeteryCard.EDGE_MARGIN)
 	assert_near(rect.position.x, where.x, 1.0, "where cards go (centred on a phone, at the left on a wide screen)")
 	assert_near(rect.size.x, where.y, 1.0, "as wide as the rule says, however long the lines")
-	assert_eq(card.dead_buttons().size(), 40)
+	# A page at a time: 25, then the rest.
+	assert_eq(card.dead_buttons().size(), Pager.PAGE)
+	assert_eq(card.pager().text(), "1–25 of 40")
+	card.pager().go(1)
+	await wait_frames(2)
+	assert_eq(card.dead_buttons().size(), 15)
+	assert_eq(card.pager().text(), "26–40 of 40")
+	card.pager().go(0)
+	await wait_frames(4)
+	view = card.get_viewport_rect()
+	rect = card.get_global_rect()
 	var scroll := card.get_node("%Scroll") as ScrollContainer
 	assert_true(scroll.size.y < scroll.get_child(0).size.y, "the list scrolls")
 	assert_true(scroll.scroll_deadzone > 0)

@@ -87,6 +87,7 @@ var _people_search: LineEdit
 var _people_query := ""
 var _people_sort: StringName = &"name"
 var _people_stage: StringName = &"all"
+var _people_page := 0
 var _people_rows: VBoxContainer
 ## The section open on the first page ("": none; kept while the game runs).
 static var _open_section := ""
@@ -378,6 +379,7 @@ func _show() -> void:
 			_people_search.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.6)
 			_people_search.text_changed.connect(func(text: String) -> void:
 				_people_query = text
+				_people_page = 0
 				_fill_individuals())
 			_list.add_child(_people_search)
 			var sorts: Array = []
@@ -385,12 +387,14 @@ func _show() -> void:
 				sorts.append([MemoryText.translate("SORT_" + String(sort).to_upper()), sort])
 			add_chips(sorts, _people_sort, func(value: Variant) -> void:
 				_people_sort = value
+				_people_page = 0
 				_fill_individuals())
 			var stages: Array = []
 			for stage in MenuPages.STAGES:
 				stages.append([MemoryText.translate("STAGE_" + String(stage).to_upper()), stage])
 			add_chips(stages, _people_stage, func(value: Variant) -> void:
 				_people_stage = value
+				_people_page = 0
 				_fill_individuals())
 			_people_rows = VBoxContainer.new()
 			_people_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -398,9 +402,9 @@ func _show() -> void:
 			_fill_individuals()
 		PAGE_FAMILIES:
 			_title.text = MemoryText.translate("MENU_FAMILIES")
-			for root in FamilyTree.families(_session):
-				var id := root
-				_entry(FamilyTree.family_title(_session, root), func() -> void: open_page(PAGE_TREE, id))
+			add_paged(FamilyTree.families(_session), func(root: Variant) -> void:
+				var id := int(root)
+				_entry(FamilyTree.family_title(_session, id), func() -> void: open_page(PAGE_TREE, id)))
 		PAGE_TREE:
 			_title.text = FamilyTree.family_title(_session, int(entry[1])).get_slice(" ·", 0)
 			var tree := FamilyTree.new()
@@ -413,32 +417,32 @@ func _show() -> void:
 			var rows := important(_session)
 			if rows.is_empty():
 				_line(MemoryText.translate("MENU_NOBODY_YET"))
-			for row: Array in rows:
+			add_paged(rows, func(row: Variant) -> void:
 				var id: int = row[0]
 				_entry(row[1], func() -> void: person_chosen.emit(id))
 				if String(row[2]) != "":
-					_small(row[2])
+					_small(row[2]))
 		PAGE_FIRSTS:
 			_title.text = MemoryText.translate("MENU_FIRSTS")
 			var firsts := _session.significance.firsts() if _session.significance != null else ([] as Array[WorldEvent])
 			if firsts.is_empty():
 				_line(MemoryText.translate("MENU_NOTHING_YET"))
-			for event in firsts:
-				_small(EventText.line(event, _session.people, _session.events))
+			add_paged(Array(firsts), func(event: Variant) -> void:
+				_small(EventText.line(event, _session.people, _session.events)))
 		PAGE_RELATIONSHIPS:
 			_title.text = MemoryText.translate("MENU_RELATIONSHIPS")
-			for row: Array in individuals(_session):
+			add_paged(individuals(_session), func(row: Variant) -> void:
 				var id: int = row[0]
-				_entry(row[1], func() -> void: open_page(PAGE_RELATIONS_OF, id))
+				_entry(row[1], func() -> void: open_page(PAGE_RELATIONS_OF, id)))
 		PAGE_RELATIONS_OF:
 			var id := int(entry[1])
 			_title.text = _session.people.name_of(id)
 			var rows := relations_of(_session, id)
 			if rows.is_empty():
 				_line(MemoryText.translate("MENU_KNOWS_NOBODY"))
-			for row: Array in rows:
+			add_paged(rows, func(row: Variant) -> void:
 				var other: int = row[0]
-				_entry(row[1], func() -> void: person_chosen.emit(other))
+				_entry(row[1], func() -> void: person_chosen.emit(other)))
 		_:
 			if not MenuPages.build(self, StringName(entry[0]), entry):
 				_line(MemoryText.translate("MENU_NOTHING_RECORDED"))
@@ -659,7 +663,16 @@ func _fill_individuals() -> void:
 	for child in _people_rows.get_children():
 		child.queue_free()
 	var rows := individuals(_session, _people_query, _people_sort, _people_stage)
-	for row: Array in rows:
+	# (A page at a time: the living of a big world are many.)
+	var pager := Pager.new()
+	pager.page = _people_page
+	pager.set_total(rows.size())
+	pager.page_changed.connect(func(page: int) -> void:
+		_people_page = page
+		_fill_individuals()
+		_scroll.scroll_vertical = 0)
+	_people_rows.add_child(pager)
+	for row: Array in pager.slice(rows):
 		var id: int = row[0]
 		var button := _make_entry(row[1], func() -> void: person_chosen.emit(id))
 		_people_rows.add_child(button)
@@ -845,6 +858,36 @@ func add_line(text: String) -> void:
 
 func add_small(text: String) -> void:
 	_small(text)
+
+
+## A list that can grow without end (families, the firsts, the stories): a
+## page of it at a time, under the page bar (Pager; the owner's playtest,
+## 2026-10-05). `add_row` adds what one item shows (add_entry, add_line …).
+## (One such list on a page: its page is kept with the page, for Back.)
+func add_paged(items: Array, add_row: Callable) -> void:
+	var entry: Array = _stack[-1]
+	if entry.size() < 4:
+		entry.append(0)
+	var pager := Pager.new()
+	pager.page = int(entry[3])
+	pager.set_total(items.size())
+	pager.page_changed.connect(func(page: int) -> void:
+		entry[3] = page
+		_show())
+	_list.add_child(pager)
+	for item: Variant in pager.slice(items):
+		add_row.call(item)
+
+
+## The page bar of the page shown, if it has one (tests).
+func pager() -> Pager:
+	var nodes: Array[Node] = [_list]
+	while not nodes.is_empty():
+		var node: Node = nodes.pop_back()
+		if node is Pager and not node.is_queued_for_deletion():
+			return node
+		nodes.append_array(node.get_children())
+	return null
 
 
 func add_entry(text: String, pressed: Callable) -> void:

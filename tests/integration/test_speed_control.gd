@@ -69,12 +69,16 @@ func test_the_clock_is_in_the_top_right_corner() -> void:
 	assert_true(rect.position.y < view_size.y * 0.2, "at the top")
 	assert_true(rect.size.x >= UITheme.TOUCH_TARGET * 0.9 and rect.size.y >= UITheme.TOUCH_TARGET * 0.9, "big enough for a finger")
 	assert_true(router.is_over_ui(rect.get_center()), "a touch on it is not a touch of the world")
-	# The time of day and the date, under it; touches pass through the words.
+	# The time of day, the date and the weather, above it, at the very top
+	# (the owner's playtest, 2026-10-05); touches pass through the words.
 	control.refresh()
 	assert_eq(control.time_text(), session.clock.format_time())
 	assert_eq(control.date_text(), "Year 1 · Spring · Day 1")
 	var time_label := control.get_node("Time") as Label
-	assert_true(time_label.get_global_rect().position.y >= rect.end.y - 1.0, "under the button")
+	assert_true(time_label.get_global_rect().end.y <= rect.position.y + 1.0, "above the button")
+	assert_near(time_label.get_global_rect().position.y, SpeedControl.TOP, 1.0, "at the top")
+	var home := ui.get_node("%HomeButton") as Control
+	assert_true(home.get_global_rect().position.y >= rect.end.y, "Home under the button")
 	assert_true(time_label.get_global_rect().end.x <= view_size.x)
 	assert_false(router.is_over_ui(time_label.get_global_rect().get_center()), "the world under the words stays touchable")
 	# Clear of what else is up there.
