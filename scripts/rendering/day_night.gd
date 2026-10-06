@@ -64,6 +64,7 @@ var forced_hour := -1.0
 ## and how bright the lightning is right now.
 var _cover := 0.0
 var _flash := 0.0
+var _eclipse := 0.0
 
 
 func _ready() -> void:
@@ -122,6 +123,19 @@ func state() -> State:
 
 ## The weather's share in the light: clouds (0 … 1) grey and dim it, a
 ## flash of lightning (0 … 1) makes it white for a moment.
+## An eclipse (a disaster: DisasterFx): 0 … 1, the sun hidden.
+func set_eclipse(amount: float) -> void:
+	amount = clampf(amount, 0.0, 1.0)
+	if absf(amount - _eclipse) < 0.004:
+		return
+	_eclipse = amount
+	_shown_hour = -100.0
+
+
+func eclipse() -> float:
+	return _eclipse
+
+
 func set_weather(cover: float, flash: float = 0.0) -> void:
 	cover = clampf(cover, 0.0, 1.0)
 	flash = clampf(flash, 0.0, 1.0)
@@ -188,7 +202,7 @@ func refresh() -> void:
 	if absf(now - _shown_hour) < UPDATE_HOURS:
 		return
 	_shown_hour = now
-	_state = under_weather(state_at(now, Config.day_night), _cover, _flash, Config.weather_fx)
+	_state = eclipsed(under_weather(state_at(now, Config.day_night), _cover, _flash, Config.weather_fx), _eclipse)
 	if _lighting != null:
 		_lighting.set_sun(_state.light_rotation, _state.light_color, _state.light_energy)
 		_lighting.set_atmosphere(_state.ambient_color, _state.ambient_energy, _state.background, _state.table_light, _state.shadow_opacity)
@@ -269,6 +283,23 @@ static func under_weather(state: State, cover: float, flash: float, config: Weat
 		state.light_color = state.light_color.lerp(Color(0.92, 0.95, 1.0), flash)
 		state.light_energy += config.flash_light * flash
 		state.ambient_energy += config.flash_light * 0.4 * flash
+	return state
+
+
+## The light `state` with the sun `amount` (0 … 1) hidden: dark as a night
+## under a strange copper glow; the houses and the fire light up.
+static func eclipsed(state: State, amount: float) -> State:
+	if amount <= 0.0:
+		return state
+	state.light_energy *= lerpf(1.0, 0.1, amount)
+	state.light_color = state.light_color.lerp(Color(1.0, 0.62, 0.42), amount * 0.6)
+	state.shadow_opacity *= lerpf(1.0, 0.3, amount)
+	state.ambient_energy *= lerpf(1.0, 0.4, amount)
+	state.ambient_color = state.ambient_color.lerp(Color(0.32, 0.30, 0.48), amount * 0.6)
+	state.background = state.background.lerp(Color(0.05, 0.05, 0.10), amount * 0.85)
+	state.table_light *= lerpf(1.0, 0.4, amount)
+	state.window_light = maxf(state.window_light, amount)
+	state.night = maxf(state.night, amount * 0.85)
 	return state
 
 

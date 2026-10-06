@@ -73,6 +73,9 @@ var ailments: Array = []
 ## Is the water on this tile bad to drink (a puddle, floodwater: water that
 ## is not the river's, nor there of old)? (tile: Vector2i) -> bool; may be unset.
 var bad_water: Callable
+## Is there no water to drink anywhere now (the waters are blood:
+## DisasterSystem)? () -> bool; may be unset.
+var water_withheld: Callable
 ## Births, partners, deaths (may be null: nobody is born or dies).
 var lifecycle: Lifecycle
 ## What settlements remember together (may be null: nothing).

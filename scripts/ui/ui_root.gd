@@ -22,6 +22,9 @@ signal person_card_closed(person_id: int)
 signal locate_requested(position: Vector2)
 ## An event on the timeline was tapped (M11.3): look for it.
 signal event_chosen(event_id: int)
+## A disaster was chosen and confirmed (see DisasterCard): bring it down
+## where the camera looks.
+signal disaster_requested(kind: StringName)
 ## Another world is to be opened (VS.3; see MainMenu.world_requested).
 signal world_requested(plan: Dictionary, erase_this: bool)
 
@@ -60,6 +63,11 @@ var _tool_bar: ToolBar
 var _pins: PinList
 var _follow_banner: FollowBanner
 var _journal_button: JournalButton
+## The disasters (the owner's design, 2026-10-05): the button in the column,
+## and the row of them that slides out to its left.
+var _disaster_button: DisasterButton
+var _disaster_bar: DisasterBar
+var _bar_slide: Tween
 ## The minimap (M13.3): bottom right, above the journal.
 var _minimap: Minimap
 ## Where the camera is asked to go (Main): Callable(world_xz: Vector2, animate: bool).
@@ -122,6 +130,21 @@ func _ready() -> void:
 	_journal_button.pressed.connect(func() -> void:
 		_tick()
 		toggle_history())
+	_disaster_button = DisasterButton.new()
+	_disaster_button.anchor_left = 1.0
+	_disaster_button.anchor_right = 1.0
+	add_child(_disaster_button)
+	move_child(_disaster_button, _panel_layer.get_index())
+	_disaster_button.pressed.connect(func() -> void:
+		_tick()
+		toggle_disasters())
+	_disaster_bar = DisasterBar.new()
+	_disaster_bar.visible = false
+	add_child(_disaster_bar)
+	move_child(_disaster_bar, _panel_layer.get_index())
+	_disaster_bar.chosen.connect(func(kind: StringName) -> void:
+		_tick()
+		warn_of_disaster(kind))
 	# The minimap: bottom right, just above the row of tools, its corner kept
 	# as it folds.
 	_minimap = Minimap.new()
@@ -168,7 +191,7 @@ func _ready() -> void:
 	_toasts = ToastStack.new()
 	add_child(_toasts)
 	move_child(_toasts, _panel_layer.get_index()) # panels draw over them
-	_toasts.keep_clear_of(_pins, _speed_control, _follow_banner, [_home_button, _journal_button])
+	_toasts.keep_clear_of(_pins, _speed_control, _follow_banner, [_home_button, _journal_button, _disaster_button])
 	_toasts.locate_requested.connect(func(position: Vector2) -> void:
 		_tick()
 		locate_requested.emit(position))
@@ -748,21 +771,108 @@ static func ui_scale_for(window_size: Vector2, base: Vector2) -> float:
 	return clampf(wanted / actual, 1.0, MAX_UI_SCALE)
 
 
+# --- the disasters --------------------------------------------------------------------------------
+
+## Slides the disasters out to the left of their button (or back in).
+func toggle_disasters() -> void:
+	if _disaster_bar.visible:
+		hide_disasters()
+	else:
+		show_disasters()
+
+
+func show_disasters() -> void:
+	_refresh_disaster_state()
+	_disaster_bar.visible = true
+	_disaster_button.open = true
+	_disaster_bar.reset_size()
+	var button := _disaster_button.get_global_rect()
+	var rest := Vector2(button.position.x - CORNER_GAP - _disaster_bar.size.x, button.get_center().y - _disaster_bar.size.y * 0.5)
+	if _bar_slide != null:
+		_bar_slide.kill()
+	if bool(Settings.get_value(&"accessibility/reduced_motion")):
+		_disaster_bar.position = rest
+		_disaster_bar.modulate.a = 1.0
+		return
+	_disaster_bar.position = Vector2(button.position.x - _disaster_bar.size.x * 0.3, rest.y)
+	_disaster_bar.modulate.a = 0.0
+	_bar_slide = create_tween().set_parallel()
+	_bar_slide.tween_property(_disaster_bar, "position", rest, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_bar_slide.tween_property(_disaster_bar, "modulate:a", 1.0, 0.18)
+
+
+func hide_disasters() -> void:
+	if _bar_slide != null:
+		_bar_slide.kill()
+	_disaster_bar.visible = false
+	_disaster_button.open = false
+
+
+## The warning before `kind` (or, while the world rests, when it can be).
+func warn_of_disaster(kind: StringName) -> DisasterCard:
+	hide_disasters()
+	var card := DisasterCard.new()
+	var now := _session.clock.tick if _session != null else 0
+	var waiting := 0
+	if _session != null and not _session.disasters.can_start(now):
+		waiting = maxi(_session.disasters.rest_left(now), 1)
+	card.setup(kind, waiting)
+	card.confirmed.connect(func(which: StringName) -> void: disaster_requested.emit(which))
+	open_panel(card)
+	return card
+
+
+func disaster_button() -> DisasterButton:
+	return _disaster_button
+
+
+func disaster_bar() -> DisasterBar:
+	return _disaster_bar
+
+
+## The button shows whether a disaster goes on, and how far the world has
+## rested since the last.
+func _refresh_disaster_state() -> void:
+	if _session == null or _session.disasters == null or _disaster_button == null:
+		return
+	var disasters := _session.disasters
+	var now := _session.clock.tick
+	_disaster_button.active = disasters.is_active()
+	_disaster_button.rested = 1.0 - clampf(float(disasters.rest_left(now)) / DisasterSystem.REST_MINUTES, 0.0, 1.0) 		if not disasters.is_active() else 0.0
+	_disaster_bar.can_strike = disasters.can_start(now)
+
+
+func _process(_delta: float) -> void:
+	_refresh_disaster_state()
+
+
+## The round buttons under the speed button, top to bottom.
+func column() -> Array[Control]:
+	return [_home_button, _journal_button, _disaster_button]
+
+
 ## The right-hand column: Home under the clock and the weather, the journal
 ## under Home. The minimap stays at the bottom, beside the column instead
 ## when the screen is too low for both (landscape).
 func _place_corner() -> void:
 	if _speed_control == null or _journal_button == null or _minimap == null:
 		return
-	var side := _home_button.offset_bottom - _home_button.offset_top
-	_home_button.offset_top = _speed_control.offset_top + _speed_control.size.y + CORNER_GAP
-	_home_button.offset_bottom = _home_button.offset_top + side
-	_journal_button.offset_top = _home_button.offset_bottom + CORNER_GAP
-	_journal_button.offset_bottom = _journal_button.offset_top + side
+	# All the round buttons of the column as big as the speed button above
+	# them, in line with it, evenly spaced (the owner's playtest, 2026-10-05).
+	var side := SpeedControl.BUTTON_SIZE
+	var top := _speed_control.offset_top + _speed_control.size.y + CORNER_GAP
+	for button: Control in column():
+		button.custom_minimum_size = Vector2(side, side)
+		button.offset_right = -SpeedControl.EDGE_MARGIN
+		button.offset_left = button.offset_right - side
+		button.offset_top = top
+		button.offset_bottom = top + side
+		top += side + CORNER_GAP
 	var view := _panel_layer.get_viewport_rect().size if _panel_layer != null and _panel_layer.is_inside_tree() else Vector2.ZERO
 	var map_top := view.y + _minimap.offset_bottom - Minimap.SIDE
-	var beside := view != Vector2.ZERO and map_top < _journal_button.offset_bottom + CORNER_GAP
-	_minimap.offset_right = (_journal_button.offset_left - CORNER_GAP) if beside else _home_button.offset_right
+	var lowest := column()[-1]
+	var beside := view != Vector2.ZERO and map_top < lowest.offset_bottom + CORNER_GAP
+	_minimap.offset_right = (lowest.offset_left - CORNER_GAP) if beside else _home_button.offset_right
 	_minimap.offset_left = _minimap.offset_right - _minimap.custom_minimum_size.x
 
 

@@ -120,6 +120,8 @@ var farming: Farming
 const STARTLE_RADIUS := 3.0
 ## The weather: what the sky does, how warm it is, what has fallen.
 var weather: WeatherSystem
+## The disasters the player brings down (the Disaster button).
+var disasters: DisasterSystem
 ## What kinds of animals there are, the animals themselves, and their lives.
 var species: SpeciesLibrary
 var animals: AnimalRegistry
@@ -190,6 +192,7 @@ var _saved_culture: Dictionary = {}
 var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
+var _saved_disasters: Dictionary = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
 var _saved_governance: Dictionary = {}
@@ -216,6 +219,7 @@ func _init() -> void:
 	farming = Farming.new()
 	fauna = AnimalSystem.new()
 	weather = WeatherSystem.new()
+	disasters = DisasterSystem.new()
 	events = EventLog.new()
 	chronicle = Chronicler.new()
 	stats = StatsRecorder.new()
@@ -524,6 +528,7 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	_saved_construction = {}
 	_saved_planner = {}
 	_saved_traffic = {}
+	_saved_disasters = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -598,10 +603,12 @@ func load_from(data: Dictionary) -> bool:
 	_saved_construction = {}
 	_saved_planner = {}
 	_saved_traffic = {}
+	_saved_disasters = {}
 	observer.reset()
 	if typeof(state) == TYPE_DICTIONARY:
 		if typeof((state as Dictionary).get("traffic")) == TYPE_DICTIONARY:
 			_saved_traffic = state["traffic"]
+		_saved_disasters = state["disasters"] if typeof((state as Dictionary).get("disasters")) == TYPE_DICTIONARY else {}
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -768,6 +775,7 @@ func to_dict() -> Dictionary:
 			"construction": construction.to_dict(),
 			"planner": planner.to_dict(),
 			"traffic": traffic.to_dict(),
+			"disasters": disasters.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -868,6 +876,7 @@ func advance_systems() -> void:
 	conflicts.advance_to(clock.tick)
 	stories.advance_to(clock.tick)
 	weather.advance_to(clock.tick)
+	disasters.advance_to(clock.tick)
 	soil.advance_to(clock.tick)
 	_look_for_powers()
 	if nodes.due(clock.tick):
@@ -1313,6 +1322,12 @@ func _activate() -> void:
 		return out
 	traffic.from_dict(_saved_traffic)
 	_saved_traffic = {}
+	# The disasters: one may be going on, or the world resting after one.
+	disasters.bind(self)
+	disasters.from_dict(_saved_disasters)
+	_saved_disasters = {}
+	interactions.disasters = disasters
+	ai.water_withheld = disasters.water_is_blood
 	movement.traffic = traffic
 	planner.bind(settlement, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
 	planner.from_dict(_saved_planner)

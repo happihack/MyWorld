@@ -196,6 +196,8 @@ func apply_intervention(iv: Intervention) -> Intervention:
 			done = _do_gust(iv)
 		Intervention.CARVE:
 			done = _do_carve(iv)
+		Intervention.DISASTER:
+			done = _do_disaster(iv)
 		_:
 			iv.rejected = &"unknown_type"
 	if not done:
@@ -319,6 +321,48 @@ func rain(at: Vector2, units: float, phase: StringName = Intervention.PHASE_END,
 	iv.magnitude = units
 	iv.params = {"phase": phase}
 	return apply_intervention(iv)
+
+
+## Brings the disaster `kind` down around `at` (world X/Z; see
+## DisasterSystem). It has been asked for and confirmed (the warning), so it
+## is not held back by "gentle hands", which keeps Major acts from happening
+## by accident.
+func disaster(kind: StringName, at: Vector2) -> Intervention:
+	var iv := Intervention.create(Intervention.DISASTER, &"disaster")
+	iv.tile = WorldCoords.world2d_to_tile(at)
+	iv.position = Vector3(at.x, 0.0, at.y)
+	iv.params = {"kind": kind}
+	return apply_intervention(iv)
+
+
+## A tree brought down by what is not a hand (an earthquake, a whirlwind:
+## DisasterSystem): it is gone, and its trunk lies where it fell.
+func fell_tree(tree_id: int, heading: float) -> bool:
+	var tree := _props.get_prop(tree_id) if _props != null else null
+	if tree == null or tree.kind != PropData.Kind.TREE:
+		return false
+	var size := tree.scale_percent
+	var has_trunk := not tree.felled
+	var wood := ResourceNodes.left_of(tree, Config.resources)
+	var at := tree.position2d()
+	_props.remove(tree.id)
+	if can_spawn() and has_trunk:
+		var log := _spawn(LooseObject.Kind.LOG, at, 0.35, size)
+		log.yaw = heading
+		log.resource = WorkStep.LOG_RESOURCE
+		log.amount = maxi(wood, 1)
+		_motion.drop(log.id, Vector3(cos(heading), 0.0, sin(heading)) * 1.2)
+	return true
+
+
+## A stone fallen from the sky lies at `at` (a falling star). Its id (0: none).
+func drop_stone(at: Vector2) -> int:
+	if not can_spawn():
+		return 0
+	var stone := _spawn(LooseObject.Kind.BOULDER, at, 0.0, 100)
+	stone.variant = _rng.stream(RNG_STREAM).randi_range(0, 1)
+	_motion.drop(stone.id, Vector3.ZERO)
+	return stone.id
 
 
 ## A gust from `from` towards `to` (world X/Z), `strength` 0 … 1.
@@ -541,6 +585,28 @@ func _wet(at: Vector2, units: float) -> void:
 				chunk.mark_changed()
 	if _hydrology != null and tiles > 0:
 		_hydrology.add(units * config.rain_river_rise * lerpf(config.rain_runoff_share, 1.0, float(on_water) / tiles))
+
+
+## The disasters (see DisasterSystem): confirmed by the player, so Major
+## without "gentle hands" standing in the way.
+var disasters: DisasterSystem
+
+
+func _do_disaster(iv: Intervention) -> bool:
+	var kind := StringName(str(iv.params.get("kind", "")))
+	if disasters == null or not DisasterSystem.KINDS.has(kind):
+		iv.rejected = &"no_such_disaster"
+		return false
+	if not disasters.can_start(_clock.tick if _clock != null else 0):
+		iv.rejected = &"resting"
+		return false
+	iv.subject = kind
+	iv.severity = Intervention.Severity.MAJOR
+	if not disasters.start(kind, Vector2(iv.position.x, iv.position.z), iv.tick):
+		iv.rejected = &"resting"
+		return false
+	iv.position = Vector3(disasters.at.x, iv.position.y, disasters.at.y)
+	return true
 
 
 func _do_gust(iv: Intervention) -> bool:

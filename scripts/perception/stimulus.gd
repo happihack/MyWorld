@@ -35,6 +35,14 @@ const GROUND_CARVED := &"ground_carved"
 const THUNDERSTORM := &"thunderstorm"
 const RAIN_RETURNED := &"rain_returned"
 const FLOOD := &"flood"
+## The disasters the player brings down (DisasterSystem; the storm and the
+## flood are the weather's and the river's own, above): the ground shaking,
+## the sun going dark, a whirlwind, the waters turned to blood, stars falling.
+const EARTHQUAKE := &"earthquake"
+const ECLIPSE := &"eclipse"
+const TORNADO := &"tornado"
+const BLOOD_WATER := &"blood_water"
+const METEORS := &"meteors"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
@@ -42,7 +50,7 @@ const TOLD := &"told"
 
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
-	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD]
+	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -150,6 +158,19 @@ static func type_for(iv: Intervention) -> StringName:
 			return SOURCELESS_WIND
 		Intervention.CARVE:
 			return GROUND_CARVED if iv.params.get("phase", Intervention.PHASE_END) == Intervention.PHASE_BEGIN else &""
+		Intervention.DISASTER:
+			# (The storm and the flood are noticed as nature's: the weather and the river tell of them.)
+			match iv.subject:
+				DisasterSystem.EARTHQUAKE:
+					return EARTHQUAKE
+				DisasterSystem.ECLIPSE:
+					return ECLIPSE
+				DisasterSystem.TORNADO:
+					return TORNADO
+				DisasterSystem.BLOOD:
+					return BLOOD_WATER
+				DisasterSystem.METEORS:
+					return METEORS
 	return &""
 
 

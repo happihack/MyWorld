@@ -38,6 +38,12 @@ func _init(config: TimeConfig) -> void:
 	_config = config
 
 
+## How far into the current game minute the clock is, 0 … 1 (for what
+## moves smoothly between minutes).
+func minute_fraction() -> float:
+	return clampf(_accumulator, 0.0, 1.0)
+
+
 ## Advances by real elapsed seconds; returns how many ticks elapsed.
 func advance(real_delta: float) -> int:
 	if real_delta <= 0.0 or is_paused():

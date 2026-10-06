@@ -25,6 +25,7 @@ var _frame: BoxFrame
 var _lighting: WorldLighting
 var _day_night: DayNight
 var _weather_fx: WeatherFx
+var _disaster_fx: DisasterFx
 var _tool_fx: ToolFx
 ## Lamps by the doors at night, where they know how (M16.3).
 var _lamps: LampsView
@@ -121,6 +122,9 @@ func _ready() -> void:
 	_weather_fx = WEATHER_FX.instantiate()
 	add_child(_weather_fx)
 	_weather_fx.setup(_rig, _day_night, _lighting, _prop_material, _terrain_material, _water_material, _ambient)
+	_disaster_fx = DisasterFx.new()
+	add_child(_disaster_fx)
+	_disaster_fx.setup(_rig, _day_night, _water_material, _effects)
 	_tool_fx = ToolFx.new()
 	add_child(_tool_fx)
 	_tool_fx.setup(_effects, _day_night)
@@ -210,6 +214,15 @@ func refresh_house_lights() -> void:
 ## Shows the world's weather (call after show_world).
 func show_weather(weather: WeatherSystem, clock: GameClock) -> void:
 	_weather_fx.bind(weather, clock)
+
+
+## Shows what the disasters do (call after show_world).
+func show_disasters(disasters: DisasterSystem, clock: GameClock, world: WorldData) -> void:
+	_disaster_fx.bind(disasters, clock, world)
+
+
+func disaster_fx() -> DisasterFx:
+	return _disaster_fx
 
 
 ## The sky: rain and snow, clouds, fog, lightning.
@@ -630,6 +643,8 @@ func _apply_camera_settings() -> void:
 	_people_view.reduced_motion = _rig.reduced_motion
 	if _weather_fx != null:
 		_weather_fx.reduced_motion = _rig.reduced_motion
+	if _disaster_fx != null:
+		_disaster_fx.reduced_motion = _rig.reduced_motion
 
 
 func _on_setting_changed(key: StringName, _value: Variant) -> void:

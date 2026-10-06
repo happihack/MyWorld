@@ -74,6 +74,9 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var meal: bool = Brain.due_now(person, ctx, hour)[0] == &"eat"
 			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)), EatStep.make(food, meal)]
 		&"drink":
+			# (Nobody drinks blood.)
+			if ctx.water_withheld.is_valid() and bool(ctx.water_withheld.call()):
+				return []
 			var water: Variant = ctx.places.water_tile(person.position, ctx.now())
 			if water == null:
 				return []

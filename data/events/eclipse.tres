@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EventDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/history/event_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"eclipse"
+significance = 0.7
+first_significance = 0.8
+first_by = ""
+visibility = 0
+merge_minutes = 0
+merge_by = PackedStringArray()
+tags = PackedStringArray("disaster")
+text_key = ""
+toast = true

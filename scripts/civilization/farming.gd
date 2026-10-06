@@ -100,6 +100,17 @@ var _dry := false
 
 # --- rules (static) -------------------------------------------------------------------------------
 
+## What stood on the plot is lost (a whirlwind, a falling star: DisasterSystem).
+func ruin(crop: PropData, now: int) -> void:
+	if crop == null or crop.kind != PropData.Kind.CROP or stage_of(crop) == Stage.FAILED:
+		return
+	crop.variant = Stage.FAILED
+	crop.stock = -1
+	crop.stock_tick = now
+	_props.changed(crop.id)
+	failed.emit(crop.id)
+
+
 static func stage_of(prop: PropData) -> Stage:
 	return clampi(prop.variant, 0, Stage.size() - 1) as Stage if prop != null and prop.kind == PropData.Kind.CROP else Stage.STUBBLE
 

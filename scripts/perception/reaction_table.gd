@@ -69,6 +69,12 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"rain_returned": [0.3, 0.3, 40.0, false, true, true],
 	&"flood": [0.8, 0.8, 40.0, false, true, false],
 	&"object_found": [0.3, 0.5, 0.0, true, false, false],
+	# The disasters (DisasterSystem): the eclipse and the blood are seen everywhere.
+	&"earthquake": [0.9, 0.9, 40.0, false, true, false],
+	&"eclipse": [0.85, 0.85, 400.0, true, true, false],
+	&"tornado": [0.9, 0.9, 30.0, false, true, true],
+	&"blood_water": [0.95, 0.95, 400.0, true, true, false],
+	&"meteors": [0.95, 0.95, 40.0, true, true, false],
 }
 
 @export_group("Perception")

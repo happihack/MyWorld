@@ -19,6 +19,8 @@ const POUR_WATER := &"pour_water"
 const MAKE_RAIN := &"make_rain"
 const MAKE_WIND := &"make_wind"
 const CARVE := &"carve"
+## A disaster brought down (subject: which; see DisasterSystem).
+const DISASTER := &"disaster"
 
 ## Acts that go on for a while (rain while a finger is held, a channel
 ## carved tile by tile) come in phases: they take effect as they go, and

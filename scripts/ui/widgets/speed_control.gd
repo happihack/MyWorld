@@ -15,7 +15,7 @@ signal speed_chosen(index: int)
 ## The player held the button: show the selector.
 signal selector_requested
 
-const BUTTON_SIZE := 124.0
+const BUTTON_SIZE := UITheme.TOUCH_TARGET # (the round buttons under it are as big: the owner, 2026-10-05)
 const EDGE_MARGIN := 32.0
 const TOP := 56.0
 ## Room between the weather and the button below it.

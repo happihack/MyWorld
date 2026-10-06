@@ -96,6 +96,7 @@ func _ready() -> void:
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
 	world_view.show_weather(session.weather, session.clock)
+	world_view.show_disasters(session.disasters, session.clock, session.world)
 	world_view.show_knowledge(session.knowledge)
 	# The minimap and the map (M13.3): where they send the camera, whom they mark.
 	ui_root.camera_mover = func(world_xz: Vector2, animate: bool) -> void:
@@ -183,6 +184,7 @@ func _ready() -> void:
 			ui_root.hints().note_tilt())
 	_begin_opening()
 	ui_root.home_pressed.connect(go_home)
+	ui_root.disaster_requested.connect(bring_down)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
@@ -995,6 +997,12 @@ func _apply_settings() -> void:
 
 ## Glides the camera home: the largest settlement (M13.5; or frames the box
 ## if there is none).
+## A disaster, chosen and confirmed: brought down where the camera looks.
+func bring_down(kind: StringName) -> Intervention:
+	var pivot := world_view.camera_rig().pivot()
+	return session.interactions.disaster(kind, Vector2(pivot.x, pivot.z))
+
+
 func go_home() -> void:
 	follow.pause()
 	var rig := world_view.camera_rig()

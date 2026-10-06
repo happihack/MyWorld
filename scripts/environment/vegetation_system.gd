@@ -176,9 +176,13 @@ func can_burn(tile: Vector2i) -> bool:
 
 ## Burns a tile: its grass is gone, its tree too, the ground is ash (which
 ## feeds the soil, and turns to grass again in time). Returns what burnt:
-## {"grass": 0 … 255, "tree": bool} — empty if nothing could.
-func burn(tile: Vector2i) -> Dictionary:
-	if not can_burn(tile):
+## {"grass": 0 … 255, "tree": bool} — empty if nothing could. `scorch`: it
+## burns whatever there is to burn (a falling star), on any dry ground.
+func burn(tile: Vector2i, scorch: bool = false) -> Dictionary:
+	if scorch:
+		if _world == null or not _world.bounds.has_point(tile) or _world.get_water(tile) > 0.0:
+			return {}
+	elif not can_burn(tile):
 		return {}
 	var chunk := _world.chunk_at_tile(tile)
 	var i := _world.index_at_tile(tile)

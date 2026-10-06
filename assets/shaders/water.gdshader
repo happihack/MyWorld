@@ -25,6 +25,9 @@ uniform float foam_amount : hint_range(0.0, 1.0) = 0.75;
 uniform float frozen : hint_range(0.0, 1.0) = 0.0;
 uniform float ice_depth : hint_range(0.0, 1.0) = 0.5;
 uniform vec3 ice_color : source_color = vec3(0.80, 0.89, 0.95);
+// The waters turned to blood (a disaster: DisasterFx), 0..1.
+uniform float blood : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 blood_color : source_color = vec3(0.42, 0.03, 0.05);
 
 varying float v_depth;
 varying float v_shore;
@@ -61,6 +64,8 @@ void fragment() {
 	float foam = smoothstep(0.72, 0.98, v_shore + ripple * 0.10) * foam_amount * smoothstep(0.10, 0.24, v_depth);
 	color = mix(color, foam_color, foam);
 
+	// Blood: dark red, the foam too; it hides what is under it.
+	color = mix(color, blood_color * (0.85 + ripple * 0.3), blood * 0.92);
 	// Ice: pale, dull, and it hides what is under it.
 	color = mix(color, ice_color, ice * 0.9);
 	ALBEDO = fog_apply(color * v_cloud, v_known);
@@ -69,5 +74,5 @@ void fragment() {
 	METALLIC = 0.0;
 	// A film of water barely tints the ground it lies on.
 	float body = mix(0.3, 1.0, smoothstep(0.0, 0.16, v_depth));
-	ALPHA = max(max(mix(opacity_shallow, opacity_deep, v_depth) * body, foam), ice * 0.94);
+	ALPHA = max(max(max(mix(opacity_shallow, opacity_deep, v_depth) * body, foam), ice * 0.94), blood * 0.9 * body);
 }
