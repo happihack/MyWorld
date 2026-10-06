@@ -6,10 +6,8 @@ extends UIPanel
 ## v0: the facts are close to the raw data; they get friendlier as systems
 ## (soil, resources, buildings) come alive.
 
-const MAX_WIDTH := 852.0
+const MAX_WIDTH := 1016.0
 const EDGE_MARGIN := 32.0
-## Room kept free on the right for the Home button.
-const RESERVED_RIGHT := 196.0
 ## Room kept free below: the card sits above the tool bar's row.
 const BOTTOM_MARGIN := 308.0
 
@@ -111,9 +109,9 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	custom_minimum_size.x = clampf(view.x - EDGE_MARGIN - RESERVED_RIGHT, 200.0, MAX_WIDTH)
+	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	reset_size()
-	position = Vector2(EDGE_MARGIN, view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
 
 
 func title_text() -> String:

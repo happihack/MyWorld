@@ -248,6 +248,19 @@ func test_inspect_shows_a_card_about_the_target() -> void:
 	assert_eq(ui.panel_count(), 0)
 
 
+func test_cards_keep_even_margins_on_a_phone() -> void:
+	# Upright: centred, as wide as allowed, the same room left and right.
+	assert_eq(UIPanel.across(Vector2(1080, 1920), 1016.0, 32.0), Vector2(32.0, 1016.0))
+	assert_eq(UIPanel.across(Vector2(1080, 1920), 900.0, 24.0), Vector2(90.0, 900.0))
+	assert_eq(UIPanel.across(Vector2(600, 1920), 1016.0, 32.0), Vector2(32.0, 536.0), "a narrow phone: the margins kept")
+	assert_eq(UIPanel.left_for(Vector2(1080, 1920), 900.0, 24.0), 90.0)
+	# Wide: at the left, clear of the middle where the world is looked at.
+	var wide := UIPanel.across(Vector2(1920, 1080), 1016.0, 32.0)
+	assert_eq(wide.x, 32.0)
+	assert_true(wide.x + wide.y < 960.0, "short of the middle (%.0f)" % (wide.x + wide.y))
+	assert_eq(UIPanel.left_for(Vector2(1920, 1080), 800.0, 32.0), 32.0)
+
+
 func test_inspecting_ground_and_water() -> void:
 	_press(_long_press(_open_ground()), "Inspect")
 	var card := ui.top_panel() as InspectCard

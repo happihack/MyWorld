@@ -109,9 +109,9 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	custom_minimum_size = Vector2(clampf(view.x - EDGE_MARGIN * 2.0 - 120.0, 300.0, MAX_WIDTH), maxf(view.y - TOP - 330.0, 400.0))
+	custom_minimum_size = Vector2(UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y, maxf(view.y - TOP - 330.0, 400.0))
 	reset_size()
-	position = Vector2(EDGE_MARGIN, TOP)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), TOP)
 
 
 func _make_row(item: Variant, _index: int) -> Control:

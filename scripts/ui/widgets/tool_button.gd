@@ -114,8 +114,8 @@ func _draw_hand(center: Vector2, u: float, ink: Color) -> void:
 		draw_rect(Rect2(center + Vector2(x, top), Vector2(finger_width, u * lengths[i] + 2.0)), ink)
 		draw_circle(center + Vector2(x + finger_width * 0.5, top), finger_width * 0.5, ink)
 	# Thumb, angled out to the side.
-	var base := center + Vector2(u * 0.6, u * 0.55)
-	var tip := center + Vector2(u * 1.3, -u * 0.1)
+	var base := center + Vector2(u * 0.6, u * 0.72)
+	var tip := center + Vector2(u * 1.3, u * 0.1)
 	draw_line(base, tip, ink, finger_width * 1.05, true)
 	draw_circle(tip, finger_width * 0.52, ink)
 

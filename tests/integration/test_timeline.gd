@@ -146,6 +146,15 @@ func test_a_long_history_scrolls_lightly() -> void:
 	assert_not_null(list.row_at(2000))
 	assert_null(list.row_at(0), "and those scrolled away are gone")
 	assert_true(list.shown_count() <= 30)
+	# A finger dragged over the rows scrolls them: a drag that begins on a row
+	# goes on to the list (the owner's playtest: it would not scroll).
+	assert_true(list.scroll_deadzone > 0, "a tap that wobbles is still a tap")
+	assert_eq(list.row_at(2000).mouse_filter, Control.MOUSE_FILTER_PASS)
+	# Where cards go (centred on a phone, at the left on a wide screen).
+	var view := panel.get_viewport_rect()
+	var rect := panel.get_global_rect()
+	assert_true(view.encloses(rect), "on the screen: %s" % rect)
+	assert_near(rect.position.x, UIPanel.across(view.size, TimelinePanel.MAX_WIDTH, TimelinePanel.EDGE_MARGIN).x, 1.0)
 	print("    timeline: %d rows, %d made; opened in %.1f ms" % [list.item_count(), list.shown_count(), opened_ms])
 
 

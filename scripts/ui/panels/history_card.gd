@@ -7,10 +7,8 @@ extends UIPanel
 ## A card in the bottom-left corner, like the others; its list scrolls. It
 ## keeps itself up to date while it is open.
 
-const MAX_WIDTH := 852.0
+const MAX_WIDTH := 1016.0
 const EDGE_MARGIN := 32.0
-## Room kept free on the right for the round buttons.
-const RESERVED_RIGHT := 196.0
 ## Room kept free below: the card sits above the tool bar's row.
 const BOTTOM_MARGIN := 308.0
 ## The list is no taller than this (it scrolls), and the card never leaves the screen.
@@ -132,13 +130,13 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	custom_minimum_size.x = clampf(view.x - EDGE_MARGIN - RESERVED_RIGHT, 200.0, MAX_WIDTH)
+	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	_scroll.custom_minimum_size.y = 0.0
 	var rest := get_combined_minimum_size().y
 	var room := minf(view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest, LIST_MAX_HEIGHT)
 	_scroll.custom_minimum_size.y = clampf(_list.get_combined_minimum_size().y, 0.0, maxf(room, LIST_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(EDGE_MARGIN, view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
 
 
 # --- what is shown --------------------------------------------------------------------------------

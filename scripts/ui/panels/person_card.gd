@@ -291,7 +291,7 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	custom_minimum_size.x = clampf(view.x - EDGE_MARGIN * 2.0, 200.0, MAX_WIDTH)
+	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	# The lower part (family, memories) takes the room there is and scrolls
 	# if that is not enough: the card never leaves the screen.
 	_more_scroll.custom_minimum_size.y = 0.0
@@ -300,7 +300,7 @@ func layout() -> void:
 		var room := view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest
 		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room, MORE_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(EDGE_MARGIN, view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
 
 
 # --- what is said about a person ----------------------------------------------------------------

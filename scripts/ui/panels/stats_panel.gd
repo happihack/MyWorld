@@ -378,9 +378,9 @@ func layout() -> void:
 	var tallest := view.y - TOP - BOTTOM
 	var rest := get_combined_minimum_size().y - _scroll.get_combined_minimum_size().y
 	_scroll.custom_minimum_size.y = clampf(_body.get_combined_minimum_size().y, 0.0, maxf(tallest - rest, 120.0))
-	custom_minimum_size = Vector2(clampf(view.x - EDGE_MARGIN * 2.0 - 120.0, 300.0, MAX_WIDTH), 0.0)
+	custom_minimum_size = Vector2(UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y, 0.0)
 	reset_size()
-	position = Vector2(EDGE_MARGIN, TOP)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), TOP)
 
 
 # --- for tests --------------------------------------------------------------------------------------

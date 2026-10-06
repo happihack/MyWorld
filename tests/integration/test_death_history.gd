@@ -343,6 +343,34 @@ func test_the_dead_of_centuries_lie_in_one_cemetery() -> void:
 	assert_eq((CemeteryCard.facts(session, first)["dead"] as Array).size(), 300, "and all of them listed")
 
 
+func test_the_cemetery_card_keeps_to_the_screen() -> void:
+	# (The owner's playtest: long lines of the dead ran the card off the right side.)
+	var first := 0
+	for n in 40:
+		var record := _dead(910000 + n, "Bartholomewina-Kristobelle Featherstonehaugh-Wolstenholme the %dth" % n)
+		record.family_name = "Of-The-Long-Valley-Beyond-The-Second-River"
+		var id := session.graves.bury(record.id)
+		if first == 0:
+			first = id
+	var card := UIRoot.CEMETERY_CARD.instantiate() as CemeteryCard
+	card.setup(session, first)
+	add_child(card)
+	await wait_frames(4)
+	var view := card.get_viewport_rect()
+	var rect := card.get_global_rect()
+	assert_true(view.encloses(rect), "on the screen: %s in %s" % [rect, view])
+	var where := UIPanel.across(view.size, CemeteryCard.MAX_WIDTH, CemeteryCard.EDGE_MARGIN)
+	assert_near(rect.position.x, where.x, 1.0, "where cards go (centred on a phone, at the left on a wide screen)")
+	assert_near(rect.size.x, where.y, 1.0, "as wide as the rule says, however long the lines")
+	assert_eq(card.dead_buttons().size(), 40)
+	var scroll := card.get_node("%Scroll") as ScrollContainer
+	assert_true(scroll.size.y < scroll.get_child(0).size.y, "the list scrolls")
+	assert_true(scroll.scroll_deadzone > 0)
+	for button in card.dead_buttons():
+		assert_eq(button.mouse_filter, Control.MOUSE_FILTER_PASS, "a drag on a name scrolls the list")
+	card.queue_free()
+
+
 func test_an_older_saves_graves_are_gathered_into_a_cemetery() -> void:
 	var fire := session.start.settlement_tile
 	var old: Array[int] = []

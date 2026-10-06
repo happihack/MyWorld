@@ -14,9 +14,8 @@ signal tree_requested(person_id: int)
 ## The grave is to be looked at (M13.5: Locate).
 signal locate_requested(position: Vector2)
 
-const MAX_WIDTH := 852.0
+const MAX_WIDTH := 1016.0
 const EDGE_MARGIN := 32.0
-const RESERVED_RIGHT := 196.0
 const BOTTOM_MARGIN := 308.0
 const LIST_MAX_HEIGHT := 760.0
 const LIST_MIN_HEIGHT := 150.0
@@ -92,13 +91,13 @@ func layout() -> void:
 	if not is_inside_tree():
 		return
 	var view := get_viewport_rect().size
-	custom_minimum_size.x = clampf(view.x - EDGE_MARGIN - RESERVED_RIGHT, 200.0, MAX_WIDTH)
+	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	_scroll.custom_minimum_size.y = 0.0
 	var rest := get_combined_minimum_size().y
 	var room := minf(view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest, LIST_MAX_HEIGHT)
 	_scroll.custom_minimum_size.y = clampf(_list.get_combined_minimum_size().y, 0.0, maxf(room, LIST_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(EDGE_MARGIN, view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
 
 
 # --- what is said ---------------------------------------------------------------------------------
