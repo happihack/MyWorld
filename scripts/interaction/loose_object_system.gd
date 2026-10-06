@@ -302,6 +302,12 @@ func _advance(object: LooseObject, dt: float) -> void:
 		var afloat := _float_lift(object, now_tile) > GROUND_EPS and _current.is_valid()
 		if afloat and (_current.call(now_tile) as Vector2).length() > REST_SPEED:
 			may_rest = _has_run_aground(object)
+		elif afloat:
+			# Afloat in still water: at rest once it is still (the slope of the
+			# bed under it is nothing to it — it kept such things moving for
+			# ever: profiling, 2026-10-06). Water that moves wakes it.
+			_anchors.erase(object.id)
+			may_rest = sideways.length() < REST_SPEED
 		else:
 			_anchors.erase(object.id)
 			may_rest = sideways.length() < REST_SPEED \

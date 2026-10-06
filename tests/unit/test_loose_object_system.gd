@@ -494,6 +494,25 @@ func test_stone_sinks_slowly_and_wood_floats() -> void:
 	assert_near(dry.height_offset, 0.0, 0.0)
 
 
+func test_afloat_in_still_water_it_comes_to_rest() -> void:
+	# (Profiling, 2026-10-06: fruit afloat in still water over a sloping bed
+	# never rested — moving for ever, a cost every frame.)
+	system.bind(world, registry, props, func(_tile: Vector2i) -> Vector2: return Vector2.ZERO)
+	for x in range(5, 9):
+		for z in range(5, 9):
+			world.set_height(Vector2i(x, z), 2 if x < 7 else 0) # a bed that falls away steeply under the water
+			world.set_water(Vector2i(x, z), 0.8)
+	var fruit := _object(LooseObject.Kind.FRUIT, Vector2(6.5, 6.5), 1.6)
+	system.drop(fruit.id)
+	for i in 900:
+		system.step(STEP)
+		if system.moving_count() == 0:
+			break
+	assert_eq(system.moving_count(), 0, "at rest, afloat")
+	assert_eq(fruit.state, LooseObject.State.RESTING)
+	assert_true(fruit.height_offset > 0.0, "on the surface")
+
+
 func test_binding_another_world_forgets_what_was_moving() -> void:
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(2.5, 2.5), 1.0)
 	system.drop(rock.id)

@@ -41,6 +41,21 @@ var worst_usec := 0
 var average_live_usec := 0.0
 var average_paths_usec := 0.0
 var average_move_usec := 0.0
+## The last frame's share of it (profiling: tests/soak/profile_loop.gd).
+var last_live_usec := 0
+var last_paths_usec := 0
+var last_move_usec := 0
+## People's turns may take this long a frame now (µs): more while frames come
+## on time, back to the configured least when they do not (see advance).
+var ai_budget_usec := 0
+## The most it grows to and how much it grows a frame on time (as parts of
+## the configured budget), and the frame time (s) below which a frame counts
+## as on time / above which it is late (profiling, 2026-10-06: at the fastest
+## speed people waited for their turns while most of the frame went unused).
+const AI_BUDGET_MOST := 4.0
+const AI_BUDGET_GROW := 1.0 / 15.0
+const ON_TIME_SECONDS := 1.0 / 57.0
+const LATE_SECONDS := 1.0 / 48.0
 
 var _clock: GameClock
 var _people: PersonRegistry
@@ -116,6 +131,7 @@ func advance(delta: float) -> int:
 	if _clock == null:
 		return 0
 	var started := Time.get_ticks_usec()
+	_adapt_budget(delta)
 	var ticks := _clock.advance(delta)
 	var minutes := _clock.last_advance_minutes
 	last_lived = 0
@@ -131,6 +147,9 @@ func advance(delta: float) -> int:
 		var served := Time.get_ticks_usec()
 		if _behavior.enabled:
 			_movement.step_in_turns(minutes)
+		last_live_usec = lived - started
+		last_paths_usec = served - lived
+		last_move_usec = Time.get_ticks_usec() - served
 		average_live_usec = lerpf(average_live_usec, float(lived - started), 0.03)
 		average_paths_usec = lerpf(average_paths_usec, float(served - lived), 0.03)
 		average_move_usec = lerpf(average_move_usec, float(Time.get_ticks_usec() - served), 0.03)
@@ -138,6 +157,21 @@ func advance(delta: float) -> int:
 	average_usec = lerpf(average_usec, float(last_usec), 0.03)
 	worst_usec = maxi(worst_usec, last_usec)
 	return ticks
+
+
+## The time people's turns may take a frame: it grows while frames come on
+## time (the frame has room to spare), and falls back to the configured
+## least as soon as one is late.
+func _adapt_budget(delta: float) -> void:
+	var least := int(Config.sim.ai_budget_ms_per_frame * 1000.0)
+	if ai_budget_usec < least or least <= 0:
+		ai_budget_usec = least
+		if least <= 0:
+			return # (no time at all, as configured)
+	if delta > LATE_SECONDS:
+		ai_budget_usec = maxi(least, ai_budget_usec / 2)
+	elif delta <= ON_TIME_SECONDS:
+		ai_budget_usec = mini(ai_budget_usec + maxi(int(least * AI_BUDGET_GROW), 1), int(least * AI_BUDGET_MOST))
 
 
 ## Lets everyone live the time that has built up for them, now (before a
@@ -181,7 +215,7 @@ func _live(minutes: float, started: int) -> void:
 		for i in _lived_until.size():
 			_lived_until[i] = _now
 		return
-	var budget := int(Config.sim.ai_budget_ms_per_frame * 1000.0)
+	var budget := maxi(ai_budget_usec, int(Config.sim.ai_budget_ms_per_frame * 1000.0))
 	var count := _order.size()
 	var first := _cursor % count
 	var out_of_time := false
@@ -206,6 +240,10 @@ func _live(minutes: float, started: int) -> void:
 		var interval := float(Config.sim.live_ticks(person.sim_tier))
 		if Config.sim.patient_steps and person.sim_tier < TierManager.FOCUS:
 			interval *= _behavior.patience(person)
+		# At the faster speeds, those far from where the player looks take bigger
+		# steps (at four times: twice the interval; sixteen: four times).
+		if person.sim_tier < TierManager.ACTIVE:
+			interval *= maxf(sqrt(_clock.speed_multiplier()), 1.0)
 		var behind := _now - _next_turn[index]
 		_next_turn[index] += interval + floorf(behind)
 		last_lived += 1

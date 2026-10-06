@@ -864,7 +864,10 @@ func _process(delta: float) -> void:
 ## Everything that goes by the clock rather than by people's minutes, brought
 ## up to the clock (each frame — and, while the player is away, day by day: M20).
 func advance_systems() -> void:
-	knowledge.advance_to(clock.tick)
+	# (What is done once a game day is spread over the first minutes of it —
+	# each such system a few minutes after the one before — so that it does
+	# not all fall on the one frame at midnight: profiling, 2026-10-06.)
+	knowledge.advance_to(clock.tick - STAGGER_KNOWLEDGE)
 	learning.advance_to(clock.tick)
 	technology.advance_to(clock.tick)
 	cultures.advance_to(clock.tick)
@@ -877,10 +880,10 @@ func advance_systems() -> void:
 	stories.advance_to(clock.tick)
 	weather.advance_to(clock.tick)
 	disasters.advance_to(clock.tick)
-	soil.advance_to(clock.tick)
+	soil.advance_to(clock.tick - STAGGER_SOIL)
 	_look_for_powers()
-	if nodes.due(clock.tick):
-		nodes.settle(clock.tick)
+	if nodes.due(clock.tick - STAGGER_NODES):
+		nodes.settle(clock.tick - STAGGER_NODES)
 	settlements.step(clock.tick)
 	relationships.settle(clock.tick)
 	lifecycle.advance_to(clock.tick)
@@ -890,8 +893,17 @@ func advance_systems() -> void:
 	migration.advance_to(clock.tick)
 	trade.advance_to(clock.tick)
 	governance.advance_to(clock.tick)
-	fauna.advance_to(clock.tick)
-	stats.advance_to(clock.tick)
+	fauna.advance_to(clock.tick - STAGGER_FAUNA)
+	stats.advance_to(clock.tick - STAGGER_STATS)
+
+
+## How many game minutes after midnight each system that works once a day
+## does it (see advance_systems).
+const STAGGER_KNOWLEDGE := 6
+const STAGGER_FAUNA := 12
+const STAGGER_STATS := 18
+const STAGGER_NODES := 24
+const STAGGER_SOIL := 30
 
 
 ## What nature does is noticed too (and people make of it what they will):

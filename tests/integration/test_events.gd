@@ -545,7 +545,8 @@ func test_the_worlds_numbers_are_written_down_every_hour() -> void:
 	assert_false(StatsRecorder.new().from_dict({"ticks": "nonsense"}), "unusable: empty, and said so")
 	s.queue_free()
 	# The game takes them as the clock runs.
-	session.clock.tick += 185
+	# (Taken a few minutes into the hour: WorldSession.STAGGER_STATS.)
+	session.clock.tick += 180 + WorldSession.STAGGER_STATS + 5
 	session.set_process(true)
 	await wait_frames(2)
 	session.set_process(false)

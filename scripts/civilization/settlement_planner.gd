@@ -35,7 +35,7 @@ var _config: ConstructionConfig
 var _day := -1_000_000
 var _spoiled: Array = [] # [day, units]
 ## The crossing worked out today: [day, {tiles, turn}] (it takes a walk over the land).
-var _crossing_today: Array = [-1_000_000, {}]
+var _crossing_today: Array = [[], {}]
 
 
 func bind(settlement: Settlement, construction: ConstructionSystem, people: PersonRegistry, world: WorldData,
@@ -63,7 +63,9 @@ func advance_to(now: int) -> void:
 	if _day == -1_000_000 or today < _day:
 		_day = today
 		return
-	if today == _day or Config.time.minute_of_day(now) < 8 * 60:
+	# (By daylight — each settlement at its own hour, so that their planning
+	# does not all fall on one frame: profiling, 2026-10-06.)
+	if today == _day or Config.time.minute_of_day(now) < 8 * 60 + _stagger():
 		return
 	_day = today
 	if _households != null:
@@ -174,10 +176,34 @@ func _buildable_on_bank(tile: Vector2i, graves: Array[Vector2i]) -> bool:
 ## as built (so it is carried on, and an old one-tile bridge is a start).
 ## {"tiles": [Vector2i…], "turn": rotation} — {} if there is none to make.
 func crossing(now: int) -> Dictionary:
-	var today := Config.time.day_index(now)
-	if int(_crossing_today[0]) != today:
-		_crossing_today = [today, _find_crossing()]
+	# (Walking out all the land in reach costs dear — tens of milliseconds a
+	# settlement, every day: profiling, 2026-10-06. The land seldom changes:
+	# looked at again every few days, or at once when a bridge is begun,
+	# built or lost, or what is wanted of one changes.)
+	var key := [floori(float(Config.time.day_index(now) + _settlement.id) / CROSSING_EVERY_DAYS), _bridges_known(),
+		_config.crossing_span_most, _config.cut_off_least, _config.crossing_from_people, _config.crossing_reach,
+		_settlement.member_count() >= _config.crossing_from_people]
+	if _crossing_today[0] != key:
+		_crossing_today = [key, _find_crossing()]
 	return _crossing_today[1]
+
+
+## How often the land is walked out for a crossing (game days).
+const CROSSING_EVERY_DAYS := 5
+
+
+## Bridges standing or begun (a change means the land is looked at again).
+func _bridges_known() -> int:
+	var count := _construction.standing(PropData.Kind.BRIDGE).size()
+	for p in _construction.builds(_settlement.id):
+		if str(p["def"]) == "bridge":
+			count += 1
+	return count
+
+
+## Minutes after 08:00 this settlement plans its day (0, 20 or 40).
+func _stagger() -> int:
+	return posmod(_settlement.id, 3) * 20 if _settlement != null else 0
 
 
 func _find_crossing() -> Dictionary:
@@ -196,13 +222,20 @@ func _find_crossing() -> Dictionary:
 		start = near[0]
 	var queue: Array[Vector2i] = [start]
 	reached[start] = true
+	# (Where a step could not be taken: only there, or beside water that can
+	# be waded or a bridge, can a way over begin — see below.)
+	var stopped := {}
 	while not queue.is_empty():
 		var at: Vector2i = queue.pop_back()
 		for step: Vector2i in _STEPS:
 			var next := at + step
-			if not reached.has(next) and area.has_point(next) and _pathfinder.can_step(at, next):
+			if reached.has(next):
+				continue
+			if area.has_point(next) and _pathfinder.can_step(at, next):
 				reached[next] = true
 				queue.append(next)
+			else:
+				stopped[at] = true
 	# A crossing begun is carried on to the far bank (even where the last of
 	# it could be waded).
 	var begun := _unfinished(fire, reach, reached)
@@ -221,8 +254,22 @@ func _find_crossing() -> Dictionary:
 	var best := {}
 	var best_cost := INF
 	var props := _construction.props()
+	# (Looking at every step from every tile reached costs dear — tens of
+	# milliseconds: profiling, 2026-10-06. Tiles reached that are wet, or
+	# bridges, are noted once; a way over begins only from dry land beside
+	# one of them, or where a step could not be taken.)
+	var dry := {}
+	var opening := {}
+	for tile: Vector2i in reached:
+		var is_dry := _dry(tile)
+		dry[tile] = is_dry
+		if not is_dry or Crossing.is_bridge(props, tile):
+			opening[tile] = true
 	for from: Vector2i in reached:
-		if not _dry(from):
+		if not dry[from]:
+			continue
+		if not stopped.has(from) and not opening.has(from + Vector2i.LEFT) and not opening.has(from + Vector2i.RIGHT) \
+				and not opening.has(from + Vector2i.UP) and not opening.has(from + Vector2i.DOWN):
 			continue
 		for step: Vector2i in _STEPS:
 			var tiles: Array[Vector2i] = []
