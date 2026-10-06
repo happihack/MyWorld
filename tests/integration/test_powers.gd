@@ -71,7 +71,7 @@ func _open_ground(clear: int = 1, dry_within: float = 0.0) -> Vector2i:
 				for y in range(-clear, clear + 1):
 					for x in range(-clear, clear + 1):
 						var near := tile + Vector2i(x, y)
-						if world.get_terrain(near) != ChunkData.Terrain.GRASS or world.get_water(near) > 0.0 or session.props.has_prop_at(near):
+						if world.get_terrain(near) != ChunkData.Terrain.GRASS or world.get_water(near) > 0.0 or _standing_at(near):
 							fine = false
 				if fine and dry_within > 0.0:
 					for y in range(-ceili(dry_within), ceili(dry_within) + 1):
@@ -79,8 +79,24 @@ func _open_ground(clear: int = 1, dry_within: float = 0.0) -> Vector2i:
 							if world.get_water(tile + Vector2i(x, y)) > 0.0:
 								fine = false
 				if fine:
+					_clear_wild_food(tile, clear)
 					return tile
 	return Vector2i(-999, -999)
+
+
+## Something standing there (mushrooms and roots do not count: they are
+## cleared off open ground when it is wanted bare — see _clear_wild_food).
+func _standing_at(tile: Vector2i) -> bool:
+	var prop := session.props.prop_at(tile)
+	return prop != null and prop.kind != PropData.Kind.MUSHROOM and prop.kind != PropData.Kind.ROOTS
+
+
+func _clear_wild_food(center: Vector2i, reach: int) -> void:
+	for y in range(-reach - 1, reach + 2):
+		for x in range(-reach - 1, reach + 2):
+			var prop := session.props.prop_at(center + Vector2i(x, y))
+			if prop != null and (prop.kind == PropData.Kind.MUSHROOM or prop.kind == PropData.Kind.ROOTS):
+				session.props.remove(prop.id)
 
 
 func _middle(tile: Vector2i) -> Vector2:

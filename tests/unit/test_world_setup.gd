@@ -4,6 +4,7 @@ extends TestCase
 ## WorldGenerator.GENERATOR_VERSION (see test_world_generator.gd).
 const GOLDEN_PROPS := {
 	1: "1bcc1ac90813d950f5e48cb90b51aa12febe735193321a9cf8cf270d6e992f39",
+	2: "200f451cd12d3ef157d3f7479d4c47f292db708da83391cf0b8beba9a4fb609a", # (mushrooms and roots: 2026-10-06)
 }
 
 var template: StartTemplate

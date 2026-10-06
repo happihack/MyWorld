@@ -309,7 +309,7 @@ func test_with_empty_stores_people_eat_from_the_bushes() -> void:
 	_empty_stores()
 	person.food_in_hand = 0.0
 	for prop in session.props.all_props():
-		if prop.kind == PropData.Kind.BUSH:
+		if PropData.FORAGE.has(prop.kind):
 			session.nodes.take(prop.id, 1000, session.clock.tick)
 	assert_true(ctx.places.forage_place(person, ctx.rng).is_empty())
 	assert_false(Planner.can(&"food", person, ctx))
@@ -638,6 +638,10 @@ func test_what_is_posted_is_what_work_brings_in() -> void:
 		session.loose.move(pile.id, pile.position + Vector2(9.0, 2.0))
 	_refresh()
 	assert_eq(board.job_for(&"berries").priority, 1.0)
+	# (Berries only, here: the mushrooms and roots are gone.)
+	for prop in session.props.all_props():
+		if prop.kind == PropData.Kind.MUSHROOM or prop.kind == PropData.Kind.ROOTS:
+			session.props.remove(prop.id)
 	var picking := 0
 	for i in 40:
 		var steps := Planner.plan(&"work", cutter, ctx)

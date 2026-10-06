@@ -493,6 +493,78 @@ func test_food_keeps_longer_only_in_the_storehouse() -> void:
 	assert_eq(kept.amount, 15, "half that in the storehouse (16 → 15, and some)")
 
 
+func test_nothing_is_built_at_the_edge_of_a_drop() -> void:
+	# (The owner, 2026-10-06: buildings hung over ledges.)
+	var def := session.buildings.get_def(&"storehouse")
+	var tile: Vector2i = planner.site_for(def)
+	assert_not_null(tile)
+	assert_true(planner.on_level(tile), "on level ground")
+	# Its neighbour sinks: that is a ledge now, and somewhere else is chosen.
+	var h := session.world.get_height(tile)
+	session.world.set_height(tile + Vector2i(1, 0), h - 1)
+	assert_false(planner.on_level(tile))
+	var again: Vector2i = planner.site_for(def)
+	assert_ne(again, tile, "not at the edge")
+	assert_true(planner.on_level(again))
+	# A cemetery's plot too.
+	var plot: Vector2i = session.graves.site()
+	for dy in range(-2, 3):
+		for dx in range(-2, 3):
+			assert_true(session.world.get_height(plot + Vector2i(dx, dy)) >= session.world.get_height(plot), "nothing lower round its plot")
+
+
+func test_old_stones_are_taken_and_built_with_again() -> void:
+	# (The owner, 2026-10-06: old stones lay about for ever.)
+	_only(&"home")
+	var ctx := session.behavior.ctx
+	var ancient := session.props.get_prop(session.start.ruin_id)
+	if ancient != null:
+		assert_false(bool(ctx.is_rubble.call(ancient)), "the world's ancient ruin is not rubble")
+	for id: StringName in session.mysteries.placed:
+		var stones := session.props.get_prop(int(session.mysteries.placed[id]["prop"]))
+		if stones != null:
+			assert_false(bool(ctx.is_rubble.call(stones)), "nor a mystery's stones")
+	var hut := _build(&"hut")
+	var tile := hut.tile
+	construction.damage(hut.id, 100000, &"flood", session.clock.tick)
+	var rubble := session.props.prop_at(tile)
+	assert_eq(rubble.kind, PropData.Kind.RUIN)
+	assert_true(bool(ctx.is_rubble.call(rubble)), "what fell is rubble")
+	var stone := ConstructionSystem.rubble_stone(session.buildings.get_def(&"hut"))
+	assert_eq(BuildStep.rubble_left(rubble), stone, "the stone that went into it, and its footing")
+	# A builder after stone takes it from the rubble, before breaking rocky ground.
+	for object in session.loose.all_objects():
+		if BuildStep.STONES.has(object.kind):
+			session.loose.remove(object.id)
+	var steps := Planner._stone_steps(tile + Vector2i(2, 0), ctx)
+	assert_eq(str(steps[1]["type"]), "salvage")
+	assert_eq(int(steps[1]["ruin"]), rubble.id)
+	var builder := _builder()
+	var salvaging := BuildStep.new()
+	var taken := 0
+	for load in 20:
+		builder.carrying = &""
+		builder.carrying_amount = 0
+		var step := BuildStep.salvage(rubble.id, tile)
+		var status := salvaging.update(ctx, builder, step, BuildStep.SALVAGE_MINUTES)
+		if status != ActionStep.Status.DONE:
+			break
+		assert_eq(builder.carrying, &"stone")
+		taken += builder.carrying_amount
+		if session.props.prop_at(tile) == null:
+			break
+	assert_eq(taken, stone, "all of it, a load at a time")
+	assert_null(session.props.prop_at(tile), "and the ground clear again")
+	# Idle hands clear rubble near home into the stores.
+	construction.damage(_build(&"hut").id, 100000, &"flood", session.clock.tick)
+	builder.carrying = &""
+	builder.carrying_amount = 0
+	var clearing := Planner._rubble_work(builder, ctx)
+	assert_eq(clearing.size(), 4)
+	assert_eq(str(clearing[1]["type"]), "salvage")
+	assert_eq(str(clearing[3]["type"]), "store")
+
+
 func test_an_empty_home_falls_into_ruin() -> void:
 	var hut := _build(&"hut")
 	assert_true(session.people.living_in(hut.id).is_empty())

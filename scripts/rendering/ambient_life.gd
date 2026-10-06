@@ -99,12 +99,15 @@ func set_night(night: float, hour: float) -> void:
 	AudioManager.set_night(_night * _crickets)
 
 
-## Tells the ambient life how warm it is (°C): in the cold no bird sings
-## (they are gone) and no cricket chirps.
-func set_warmth(celsius: float) -> void:
+## Tells the ambient life how warm it is (°C) and the season (Seasons; -1:
+## not said): in the cold no bird sings (they are gone) and no cricket
+## chirps — nor in autumn and winter at all (the owner, 2026-10-06).
+func set_warmth(celsius: float, season: int = -1) -> void:
 	var seasons := Config.seasons
 	_song = smoothstep(seasons.birds_from, seasons.birds_full, celsius)
 	_crickets = smoothstep(seasons.crickets_from, seasons.crickets_full, celsius)
+	if season == Seasons.AUTUMN or season == Seasons.WINTER:
+		_crickets = 0.0
 
 
 ## How much of their song the birds have (0 in the cold … 1).

@@ -104,11 +104,22 @@ func _open_ground(dry: int = 2) -> Vector2i:
 						if not world.is_in_bounds(near) or world.get_water(near) > 0.0:
 							fine = false
 						elif absi(x) <= 2 and absi(y) <= 2 and (world.get_terrain(near) != ChunkData.Terrain.GRASS
-								or session.props.has_prop_at(near) or world.get_height(near) != world.get_height(home)):
+								or _standing_at(near) or world.get_height(near) != world.get_height(home)):
 							fine = false
 				if fine:
+					# (Mushrooms and roots cleared off it: open ground, bare.)
+					for y in range(-dry - 1, dry + 2):
+						for x in range(-dry - 1, dry + 2):
+							var prop := session.props.prop_at(tile + Vector2i(x, y))
+							if prop != null and (prop.kind == PropData.Kind.MUSHROOM or prop.kind == PropData.Kind.ROOTS):
+								session.props.remove(prop.id)
 					return tile
 	return Vector2i(-999, -999)
+
+
+func _standing_at(tile: Vector2i) -> bool:
+	var prop := session.props.prop_at(tile)
+	return prop != null and prop.kind != PropData.Kind.MUSHROOM and prop.kind != PropData.Kind.ROOTS
 
 
 func _middle(tile: Vector2i) -> Vector2:
@@ -125,14 +136,14 @@ func test_the_tool_bar_grows_with_the_players_powers() -> void:
 	assert_true(tools.show_all, "this is a debug build")
 	tools.show_all = false
 	tools.refresh()
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, CallTool.ID])
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID])
 	assert_false(tools.has_tool(RainTool.ID))
 	assert_true(tools.select(ObserveTool.ID))
 	# It rains for the first time: the rain tool is there, glowing, and the player is told.
 	NotificationManager.clear()
 	session.weather.hold(&"rain", session.clock.tick + 1_000_000)
 	assert_true(session.powers.is_known(ToolReveals.RAIN))
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, CallTool.ID])
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID])
 	var button := bar.button(RainTool.ID)
 	assert_not_null(button)
 	assert_true(button.is_glowing())
@@ -152,7 +163,7 @@ func test_the_tool_bar_grows_with_the_players_powers() -> void:
 	# A storm: wind. The water touched: water. In the bar's order.
 	session.weather.hold(&"storm", session.clock.tick + 1_000_000)
 	session.powers.reveal(ToolReveals.WATER, session.clock.tick)
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID, CallTool.ID])
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID])
 	assert_true(bar.button(WaterTool.ID).is_glowing())
 	for id: StringName in [RainTool.ID, WindTool.ID, WaterTool.ID]:
 		assert_true(tools.select(id))
@@ -264,10 +275,11 @@ func test_a_swipe_is_a_gust() -> void:
 	assert_true(sky.blowing().length() > calm + 0.2, "%.2f against %.2f" % [sky.blowing().length(), calm])
 	assert_eq(AudioManager.last_sound, &"gust")
 	assert_true(pulses.size() >= 1)
-	# The pebble in its way is blown along.
+	# The pebble in its way is blown along (a little way: pebbles grip the
+	# ground — the owner, 2026-10-06: they slid much too far).
 	session.clock.set_speed(1)
 	await wait_real_ms(900)
-	assert_true(pebble.position.x > was.x + 0.3, "%s -> %s" % [was, pebble.position])
+	assert_true(pebble.position.x > was.x + 0.2, "%s -> %s" % [was, pebble.position])
 	# The gust dies away.
 	sky.advance(Config.tools.wind_gust_seconds + 0.1)
 	assert_near(sky.blowing().length(), sky.wind.length(), 0.001)

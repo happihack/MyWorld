@@ -37,8 +37,10 @@ const MAX_SPEED := 14.0
 ## Landings slower than this do not bounce; slower than IMPACT_MIN are silent.
 const BOUNCE_MIN := 1.2
 const IMPACT_MIN := 1.5
-## Share of the sideways speed kept through a landing.
-const LANDING_GRIP := 0.8
+## Share of the sideways speed kept through a landing: a thrown stone lands
+## and soon stops, rather than sliding on across the field (the owner,
+## 2026-10-06: small rocks slid much too far).
+const LANDING_GRIP := 0.35
 ## Share of the speed kept when bouncing off a wall, a prop or another object.
 const WALL_BOUNCE := 0.35
 const BUMP_BOUNCE := 0.3

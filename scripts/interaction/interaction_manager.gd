@@ -73,6 +73,8 @@ const _PROP_EFFECTS := {
 	PropData.Kind.CEMETERY: InteractionResponse.DUST,
 	PropData.Kind.LANDING: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.WOODSHED: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.MUSHROOM: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.ROOTS: InteractionResponse.BUSH_RUSTLE,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).
@@ -353,6 +355,17 @@ func fell_tree(tree_id: int, heading: float) -> bool:
 		log.amount = maxi(wood, 1)
 		_motion.drop(log.id, Vector3(cos(heading), 0.0, sin(heading)) * 1.2)
 	return true
+
+
+## A nut fallen from a tree lies at `at` (autumn: see WorldSession). Its id (0: none).
+func drop_nut(at: Vector2) -> int:
+	if not can_spawn():
+		return 0
+	var nut := _spawn(LooseObject.Kind.FRUIT, at, 0.0, 100)
+	nut.variant = LooseObject.NUT_VARIANT
+	nut.resource = &"nuts"
+	_motion.drop(nut.id, Vector3.ZERO)
+	return nut.id
 
 
 ## A stone fallen from the sky lies at `at` (a falling star). Its id (0: none).

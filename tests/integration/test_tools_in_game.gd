@@ -100,7 +100,7 @@ func _move(from: Vector2, to: Vector2, steps: int = 8) -> void:
 
 func test_tool_bar_shows_the_tools_that_exist() -> void:
 	var bar := ui.tool_bar()
-	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID, CallTool.ID],
+	assert_eq(bar.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID],
 		"in a debug build: every tool, and the prototype (what a player has: test_powers_in_game)")
 	assert_eq(bar.current(), HandTool.ID)
 	assert_true(bar.button(HandTool.ID).selected)
@@ -368,62 +368,6 @@ func test_a_rock_rolled_into_a_hut_knocks_and_stops_outside() -> void:
 	overlay.refresh()
 	assert_has((overlay.get_node("%OverlayLabel") as Label).text, "moving 0")
 	overlay.toggle()
-
-
-# --- calling people (prototype) -------------------------------------------------------------------
-
-func test_the_call_tool_brings_everyone_to_the_tapped_spot() -> void:
-	assert_true(tools.select(CallTool.ID))
-	assert_true(ui.tool_bar().button(CallTool.ID).selected)
-	var home := session.start.settlement_tile
-	var spot := session.pathfinder.standable_near(home + Vector2i(0, 6), 1)[0]
-	_look_at(Vector2(spot) + Vector2(0.5, 0.5), 30.0)
-	var before := {}
-	for p in session.people.all_people():
-		before[p.id] = p.world2d()
-	var at := _ground_screen(Vector2(spot) + Vector2(0.5, 0.5))
-	_touch(at, true)
-	_touch(at, false)
-	assert_eq(session.movement.walking_count(), session.people.size(), "everyone sets off")
-	assert_eq(session.history.total(), 0, "calling is not an intervention")
-	assert_eq(heard.size(), 0, "and the world does not answer it like a touch")
-	session.clock.set_speed(GameClock.SPEED_VERY_FAST)
-	await wait_real_ms(700)
-	var moved := 0
-	var seen_walking := 0
-	for p in session.people.all_people():
-		if p.world2d().distance_to(before[p.id]) > 0.5:
-			moved += 1
-		var shown := view.people_view().view_of(p.id)
-		if shown != null and shown.walk > 0.2:
-			seen_walking += 1
-	assert_true(moved >= session.people.size() - 1, "they are on their way (%d moved)" % moved)
-	assert_true(seen_walking > 0, "and are seen walking")
-	# Everyone gets there and stands about for a while.
-	var there := {}
-	for frame in 400:
-		for p in session.people.all_people():
-			if BehaviorSystem.activity_of(p) == BehaviorSystem.ACTIVITY_CALLED 					and str(BehaviorSystem.current_step(p).get("type")) == "rest":
-				there[p.id] = (p.position - spot).length()
-		if there.size() == session.people.size():
-			break
-		await wait_frames(1)
-	assert_eq(there.size(), session.people.size(), "everyone has arrived")
-	for id: int in there:
-		assert_true(there[id] <= 3.0, "by the spot (%.1f tiles)" % there[id])
-	# Then they go back to their own business.
-	await wait_real_ms(1500)
-	var own_business := 0
-	for p in session.people.all_people():
-		if BehaviorSystem.activity_of(p) != BehaviorSystem.ACTIVITY_CALLED:
-			own_business += 1
-	assert_eq(own_business, session.people.size(), "nobody stands there for ever")
-	# The hand does not call anyone.
-	tools.select(HandTool.ID)
-	_touch(at, true)
-	_touch(at, false)
-	for p in session.people.all_people():
-		assert_ne(BehaviorSystem.activity_of(p), BehaviorSystem.ACTIVITY_CALLED)
 
 
 # --- people living by themselves ------------------------------------------------------------------

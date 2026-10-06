@@ -343,6 +343,34 @@ func test_the_dead_of_centuries_lie_in_one_cemetery() -> void:
 	assert_eq((CemeteryCard.facts(session, first)["dead"] as Array).size(), 300, "and all of them listed")
 
 
+func test_one_cemetery_for_each_settlement() -> void:
+	# (The owner, 2026-10-06: one cemetery a settlement, all its dead in it.)
+	var people := session.people.all_people()
+	session.kill_person(people[0].id, Lifecycle.CAUSE_ILLNESS)
+	var first := session.archive.get_record(people[0].id).grave_id
+	assert_ne(first, 0)
+	assert_eq(session.start.cemetery_id, first, "the settlement knows its cemetery")
+	# Its fire moves far off (a move to new ground): its dead still go to its cemetery.
+	session.start.settlement_tile += Vector2i(int(Graves.GRAVEYARD_REACH) + 10, 0)
+	session.kill_person(people[1].id, Lifecycle.CAUSE_ILLNESS)
+	assert_eq(session.archive.get_record(people[1].id).grave_id, first, "the same cemetery, however far")
+	assert_eq(session.graves.cemeteries().size(), 1, "not a second one")
+	# Kept with the world.
+	var again := WorldSetup.StartInfo.from_dict(session.start.to_dict())
+	assert_eq(again.cemetery_id, first)
+	# Another settlement near it does not take it: it opens its own.
+	var other := WorldSetup.StartInfo.new()
+	other.ok = true
+	other.settlement_tile = session.props.get_prop(first).tile + Vector2i(3, 3)
+	session.graves.starts = func() -> Array: return [session.start, other]
+	assert_null(session.graves.cemetery_of(other), "not the other settlement's")
+	var record := _dead(950001, "Stranger")
+	var theirs := session.graves.bury(record.id, other)
+	assert_ne(theirs, 0)
+	assert_ne(theirs, first, "a cemetery of its own")
+	assert_eq(other.cemetery_id, theirs)
+
+
 func test_the_cemetery_card_keeps_to_the_screen() -> void:
 	# (The owner's playtest: long lines of the dead ran the card off the right side.)
 	var first := 0

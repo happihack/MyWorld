@@ -385,6 +385,18 @@ func _left_to_fall(building: PropData, now: int) -> bool:
 	return (now - since) / TimeConfig.MINUTES_PER_DAY > _config.empty_home_days
 
 
+## Stone in the rubble of a fallen building of `def` (the owner, 2026-10-06:
+## old stones are taken and built with again): what stone went into it, and
+## the stones of its footing.
+static func rubble_stone(def: BuildingDef) -> int:
+	var stone := int(def.materials.get(&"stone", 0)) if def != null else 0
+	return clampi(stone + RUBBLE_FOOTING, RUBBLE_FOOTING, 12)
+
+
+## The stones of any building's footing (see rubble_stone).
+const RUBBLE_FOOTING := 3
+
+
 ## A building has fallen: what is left of it is a ruin (and history).
 func _ruin(building: PropData, why: StringName) -> void:
 	var def := buildings.of_kind(building.kind) if buildings != null else null
@@ -408,6 +420,8 @@ func _ruin(building: PropData, why: StringName) -> void:
 	ruin.id = _ids.next_id()
 	ruin.kind = PropData.Kind.RUIN
 	ruin.tile = tile
+	# What is left of it: stone to be taken and built with again (BuildStep.SALVAGE).
+	ruin.stock = rubble_stone(def)
 	_props.add(ruin)
 	ruined.emit(ruin.id, def.id if def != null else &"", why)
 

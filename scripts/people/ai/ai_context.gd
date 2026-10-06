@@ -76,6 +76,13 @@ var bad_water: Callable
 ## Is there no water to drink anywhere now (the waters are blood:
 ## DisasterSystem)? () -> bool; may be unset.
 var water_withheld: Callable
+## Is this prop rubble — the old stones of a building that fell, there to be
+## taken and built with again (not the world's ancient ruin, nor a mystery's
+## stones)? (prop: PropData) -> bool; may be unset (then nothing is).
+var is_rubble: Callable
+## Who tells stories by each settlement's fire now: settlement id ->
+## [person id, until tick] (FireStoryStep).
+var fire_tellers: Dictionary = {}
 ## Births, partners, deaths (may be null: nobody is born or dies).
 var lifecycle: Lifecycle
 ## What settlements remember together (may be null: nothing).

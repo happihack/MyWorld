@@ -9,7 +9,10 @@ extends RefCounted
 
 ## (Saved by number: append, never reorder.)
 enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
-	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED }
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED, MUSHROOM, ROOTS }
+## Wild food that grows on the ground (the owner, 2026-10-06), foraged like a
+## bush: mushrooms on damp ground in and by the woods, roots in the meadows.
+const FORAGE: Array[int] = [Kind.BUSH, Kind.MUSHROOM, Kind.ROOTS]
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
 const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE,
 	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING, Kind.WOODSHED]
@@ -58,6 +61,8 @@ const PICK_BODY := {
 	Kind.CEMETERY: [0.50, 0.95],
 	Kind.LANDING: [0.40, 0.50],
 	Kind.WOODSHED: [0.70, 0.50],
+	Kind.MUSHROOM: [0.16, 0.22],
+	Kind.ROOTS: [0.22, 0.26],
 }
 
 var id: int = 0

@@ -174,6 +174,13 @@ func test_the_cold_is_quiet() -> void:
 	ambient.set_night(0.0, 12.0)
 	assert_true(ambient.chirp_rate() > 0.0)
 	assert_near(ambient._crickets, 1.0, 0.001)
+	# No crickets in autumn and winter, however warm (the owner, 2026-10-06).
+	for season: int in [Seasons.AUTUMN, Seasons.WINTER]:
+		ambient.set_warmth(seasons.crickets_full + 5.0, season)
+		assert_eq(ambient._crickets, 0.0, "none in season %d" % season)
+	for season: int in [Seasons.SPRING, Seasons.SUMMER]:
+		ambient.set_warmth(seasons.crickets_full + 5.0, season)
+		assert_near(ambient._crickets, 1.0, 0.001, "a warm night in season %d" % season)
 	# In between: some of the song.
 	ambient.set_warmth((seasons.birds_from + seasons.birds_full) * 0.5)
 	assert_true(ambient.bird_song() > 0.2 and ambient.bird_song() < 0.8)

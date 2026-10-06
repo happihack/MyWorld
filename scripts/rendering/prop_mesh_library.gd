@@ -88,6 +88,11 @@ const CROP_DRY := Color(0.66, 0.56, 0.26)
 const CROP_DEAD := Color(0.42, 0.30, 0.18)
 ## Fired clay (M16.3: kilns and pots).
 const CLAY := Color(0.70, 0.42, 0.28)
+const NUT := Color(0.52, 0.36, 0.20)
+const MUSHROOM_CAP := [Color(0.62, 0.42, 0.26), Color(0.80, 0.30, 0.22)]
+const MUSHROOM_STEM := Color(0.90, 0.86, 0.76)
+const ROOT_LEAF := Color(0.38, 0.56, 0.26)
+const ROOT_TOP := Color(0.66, 0.36, 0.30)
 const CLAY_DARK := Color(0.52, 0.30, 0.20)
 const HERB := Color(0.42, 0.60, 0.30)
 ## Roofs of other cultures (M17.1): reeds, grey-green; hides, dark and low.
@@ -101,6 +106,7 @@ const PILE_COLORS := {
 	&"berries": BERRY, &"meat": Color(0.62, 0.22, 0.20), &"fish": Color(0.55, 0.66, 0.74),
 	&"grain": Color(0.86, 0.72, 0.32), &"water": Color(0.35, 0.58, 0.85), &"clay": Color(0.66, 0.44, 0.32),
 	&"herbs": Color(0.40, 0.62, 0.36),
+	&"mushrooms": Color(0.74, 0.62, 0.48), &"roots": Color(0.55, 0.36, 0.24), &"nuts": Color(0.58, 0.42, 0.24),
 }
 ## Looks of a prop that has been worked on (ResourceNodes.Look), as an
 ## offset to the key of the shape.
@@ -120,6 +126,13 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.TREE, 3)] = _conifer(0.29, 1.45)
 	_templates[_key(PropData.Kind.ROCK, 0)] = _rock(0.26, 0.20, 0.0)
 	_templates[_key(PropData.Kind.ROCK, 1)] = _rock(0.19, 0.27, 0.7)
+	for variant in 2:
+		_templates[_key(PropData.Kind.MUSHROOM, variant)] = _mushrooms(variant, 3)
+		_templates[_look_key(PropData.Kind.MUSHROOM, variant, ResourceNodes.Look.SPARSE)] = _mushrooms(variant, 1)
+		_templates[_look_key(PropData.Kind.MUSHROOM, variant, ResourceNodes.Look.BARE)] = _mushrooms(variant, 0)
+		_templates[_key(PropData.Kind.ROOTS, variant)] = _roots(variant, false)
+		_templates[_look_key(PropData.Kind.ROOTS, variant, ResourceNodes.Look.SPARSE)] = _roots(variant, false)
+		_templates[_look_key(PropData.Kind.ROOTS, variant, ResourceNodes.Look.BARE)] = _roots(variant, true)
 	_templates[_key(PropData.Kind.BUSH, 0)] = _bush(0.26, 0.26)
 	_templates[_key(PropData.Kind.BUSH, 1)] = _bush(0.22, 0.31)
 	_templates[_key(PropData.Kind.HUT, 0)] = _hut()
@@ -178,6 +191,7 @@ func _init() -> void:
 	_loose[loose_key(LooseObject.Kind.BOULDER, 1)] = _rock(0.37, 0.46, 0.9)
 	_loose[loose_key(LooseObject.Kind.LOG, 0)] = _log(0.9, 0.11)
 	_loose[loose_key(LooseObject.Kind.FRUIT, 0)] = _gem(0.06, 0.07, BERRY, BERRY.lightened(0.25))
+	_loose[loose_key(LooseObject.Kind.FRUIT, LooseObject.NUT_VARIANT)] = _gem(0.05, 0.06, NUT, NUT.lightened(0.25))
 	_loose[loose_key(LooseObject.Kind.SEED, 0)] = _gem(0.03, 0.03, SEED_HUSK, SEED_HUSK.lightened(0.2))
 	_loose[loose_key(LooseObject.Kind.STRANGE_OBJECT, 0)] = _gem(0.11, 0.13, STRANGE, STRANGE_GLINT)
 	# Piles of what has been gathered.
@@ -527,6 +541,39 @@ static func _workshop() -> Template:
 	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
 	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
 	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
+	return t
+
+
+## Mushrooms (the owner, 2026-10-06): `count` of them in a clump, pale stems
+## and round caps — brown (variant 0) or red (1); none: the ground they grew from.
+static func _mushrooms(variant: int, count: int) -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0.0, 0.004, 0.0), Vector3(0.12, 0.004, 0.10), _rgba(SOIL_DARK, 0.0))
+	var spots := [Vector2(0.0, 0.0), Vector2(0.09, 0.05), Vector2(-0.07, 0.06)]
+	var sizes := [1.0, 0.75, 0.6]
+	for i in count:
+		var at: Vector2 = spots[i]
+		var s: float = sizes[i]
+		_box(t, Vector3(at.x, 0.05 * s, at.y), Vector3(0.016 * s, 0.05 * s, 0.016 * s), _rgba(MUSHROOM_STEM, 0.0))
+		var cap := _ring(0.1 * s, 0.07 * s, 7, 0.0)
+		for n in cap.size():
+			cap[n] += Vector3(at.x, 0.0, at.y)
+		_fan(t, cap, Vector3(at.x, 0.14 * s, at.y), _rgba(MUSHROOM_CAP[variant], 0.0), _rgba(MUSHROOM_CAP[variant].lightened(0.2), 0.0))
+		_fan(t, cap, Vector3(at.x, 0.09 * s, at.y), _rgba(MUSHROOM_STEM.darkened(0.2), 0.0), _rgba(MUSHROOM_STEM.darkened(0.2), 0.0), true)
+	return t
+
+
+## Wild roots: a tuft of leaves with a red root-top showing (dug: bare earth).
+static func _roots(variant: int, dug: bool) -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0.0, 0.006, 0.0), Vector3(0.14, 0.006, 0.12), _rgba(SOIL_DARK, 0.0))
+	if dug:
+		return t
+	_box(t, Vector3(0.0, 0.03, 0.0), Vector3(0.045, 0.03, 0.045), _rgba(ROOT_TOP if variant == 0 else ROOT_TOP.lightened(0.2), 0.0))
+	for i in 5:
+		var angle := TAU * i / 5.0 + variant * 0.4
+		var tip := Vector3(cos(angle) * 0.12, 0.2, sin(angle) * 0.12)
+		_box(t, tip * 0.5 + Vector3(0.0, 0.02, 0.0), Vector3(0.018, 0.1, 0.018), _rgba(ROOT_LEAF, 0.3), -angle)
 	return t
 
 

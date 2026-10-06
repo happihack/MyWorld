@@ -14,7 +14,7 @@ extends RefCounted
 ## The list is a ring: the oldest entries make room, and nothing older than
 ## KEEP_MINUTES is kept.
 
-const MAX_ENTRIES := 32
+const MAX_ENTRIES := 40 # (evenings by the fire fill a day more: 2026-10-06)
 const KEEP_MINUTES := 2880
 ## What is given up again within this many minutes never really happened:
 ## its entry makes way for what came instead.

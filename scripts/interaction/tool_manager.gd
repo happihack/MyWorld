@@ -140,8 +140,6 @@ func _build() -> void:
 		register(WindTool.new())
 	if _shown(ToolReveals.WATER):
 		register(WaterTool.new())
-	if DebugOverlay.is_available():
-		register(CallTool.new()) # prototype: debug builds, or debug tools unlocked
 
 
 func _shown(id: StringName) -> bool:

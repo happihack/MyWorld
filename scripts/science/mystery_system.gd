@@ -125,6 +125,11 @@ func _where(def: MysteryDef, start: Vector2i) -> Variant:
 	return null
 
 
+## Is a mystery placed on `tile` (its old stones are not rubble to take)?
+func lies_at(tile: Vector2i) -> bool:
+	return _taken(tile)
+
+
 func _taken(tile: Vector2i) -> bool:
 	for entry: Dictionary in placed.values():
 		if entry["tile"] == tile:

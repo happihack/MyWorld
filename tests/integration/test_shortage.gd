@@ -130,7 +130,7 @@ func _eat_at_the_stores(person: PersonData) -> Dictionary:
 func _strip_bushes(center: Vector2i, radius: float) -> int:
 	var stripped := 0
 	for prop in session.props.all_props():
-		if prop.kind == PropData.Kind.BUSH and Vector2(prop.tile - center).length() <= radius:
+		if PropData.FORAGE.has(prop.kind) and Vector2(prop.tile - center).length() <= radius:
 			session.nodes.take(prop.id, 1000, session.clock.tick)
 			stripped += 1
 	return stripped

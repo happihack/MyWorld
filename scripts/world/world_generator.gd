@@ -15,7 +15,7 @@ extends RefCounted
 ## existing worlds. After release, old versions must stay reproducible (keep the
 ## old code path, or materialise all chunks in a save migration).
 ## tests/unit/test_world_generator.gd pins a checksum per version.
-const GENERATOR_VERSION := 1
+const GENERATOR_VERSION := 2 # (2: mushrooms and roots on ground left empty — 2026-10-06)
 
 const FP := 256 # fixed-point units per tile and per height level
 const _T_ONE := 1024 # smoothstep weight scale
@@ -42,6 +42,8 @@ var _salt_forest: int
 var _salt_tree: int
 var _salt_rock: int
 var _salt_bush: int
+var _salt_mushroom: int
+var _salt_roots: int
 var _salt_prop: int
 
 # Prop densities as chances out of HashNoise.ONE.
@@ -85,6 +87,8 @@ func _init(seed_value: int, start_template: StartTemplate, world_config: WorldCo
 	_salt_tree = _salt(&"gen.tree")
 	_salt_rock = _salt(&"gen.rock")
 	_salt_bush = _salt(&"gen.bush")
+	_salt_mushroom = _salt(&"gen.mushroom")
+	_salt_roots = _salt(&"gen.roots")
 	_salt_prop = _salt(&"gen.prop")
 	_tree_chance = roundi(template.tree_density * HashNoise.ONE)
 	_rock_chance = roundi(template.rock_density * HashNoise.ONE)
@@ -175,6 +179,18 @@ func generate_props(chunk: ChunkData) -> Array[PropData]:
 				var edge := maxi(1024 - absi(forest - one * 42 / 100) * 1024 / (one * 15 / 100), 0)
 				if HashNoise.tile_value(x, y, _salt_bush) < _bush_chance * (1024 + 6 * edge) / 1024:
 					kind = PropData.Kind.BUSH
+
+			# Wild food on the ground (the owner, 2026-10-06; on ground left empty
+			# above, so the props of worlds made before are as they were):
+			# mushrooms on damp ground in and by the woods, roots in the open.
+			if kind == -1 and moisture > 110 and terrain == ChunkData.Terrain.GRASS:
+				var shade := clampi((forest - one * 36 / 100) * 1024 / (one * 20 / 100), 0, 1024)
+				if HashNoise.tile_value(x, y, _salt_mushroom) < _bush_chance * shade / 1024 * 3:
+					kind = PropData.Kind.MUSHROOM
+			if kind == -1 and moisture > 70 and (terrain == ChunkData.Terrain.GRASS or terrain == ChunkData.Terrain.DIRT):
+				var open := clampi((one * 45 / 100 - forest) * 1024 / (one * 20 / 100), 0, 1024)
+				if HashNoise.tile_value(x, y, _salt_roots) < _bush_chance * (512 + open * 2) / 1024:
+					kind = PropData.Kind.ROOTS
 
 			if kind == -1:
 				continue

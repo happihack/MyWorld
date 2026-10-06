@@ -23,6 +23,9 @@ enum Category { FOOD, WATER, MATERIAL, MEDICINE }
 @export var icon: Texture2D
 ## Defined for later: nothing in the world yields it yet.
 @export var defined_only: bool = false
+## Of use against illness, as herbs are — for herb lore to take up later
+## (the owner, 2026-10-06: certain mushrooms and roots). Food for now.
+@export var remedy: bool = false
 
 
 func is_food() -> bool:

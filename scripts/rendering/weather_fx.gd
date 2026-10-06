@@ -10,6 +10,15 @@ extends Node3D
 ## switch. Everything it drives is handed to it by the WorldView.
 
 const RAIN_SHADER := preload("res://assets/shaders/rain.gdshader")
+
+## Thunder's echoes: none to this many after the crash, this far apart
+## (seconds, least … most), each this much quieter (dB) than the one before.
+const ECHOES_MOST := 3
+const ECHO_GAP := Vector2(0.6, 1.6)
+const ECHO_FADE_DB := 6.0
+## Echoes still to come: [seconds, volume dB, pitch]; and how many were heard.
+var _echoes_in: Array = []
+var echoes := 0
 ## Below this nothing is drawn (and nothing heard).
 const NOTHING := 0.01
 
@@ -246,7 +255,24 @@ func _advance_lightning(delta: float) -> void:
 			thunders += 1
 			var at := _rig.camera().global_position if _rig != null else Vector3.ZERO
 			var thunder: StringName = SoundSynth.THUNDER_IDS[_rng.randi_range(0, SoundSynth.THUNDER_IDS.size() - 1)]
-			AudioManager.play_at(thunder, at, _config.thunder_volume_db, _rng.randf_range(0.85, 1.1), false)
+			var pitch := _rng.randf_range(0.85, 1.1)
+			AudioManager.play_at(thunder, at, _config.thunder_volume_db, pitch, false)
+			# Then none to three echoes off the hills, each later, quieter and
+			# deeper than the last (the owner, 2026-10-06).
+			var after := 0.0
+			for n in _rng.randi_range(0, ECHOES_MOST):
+				after += _rng.randf_range(ECHO_GAP.x, ECHO_GAP.y)
+				_echoes_in.append([after, _config.thunder_volume_db - ECHO_FADE_DB * (n + 1) - _rng.randf_range(0.0, 3.0),
+					pitch * (0.92 - 0.05 * n)])
+	for i in range(_echoes_in.size() - 1, -1, -1):
+		_echoes_in[i][0] -= delta
+		if float(_echoes_in[i][0]) <= 0.0:
+			var echo: Array = _echoes_in[i]
+			_echoes_in.remove_at(i)
+			echoes += 1
+			var where := _rig.camera().global_position if _rig != null else Vector3.ZERO
+			var rolling: StringName = SoundSynth.THUNDER_IDS[_rng.randi_range(0, SoundSynth.THUNDER_IDS.size() - 1)]
+			AudioManager.play_at(rolling, where, float(echo[1]), float(echo[2]), false)
 
 
 func _next_strike() -> float:
@@ -324,7 +350,7 @@ func _apply_seasons() -> void:
 		var deep := Config.terrain_palette.water_deep_levels * Config.world.height_step
 		_water_material.set_shader_parameter(&"ice_depth", clampf(seasons.ice_depth / deep, 0.0, 1.0) if deep > 0.0 else 1.0)
 	if _ambient != null and _weather != null:
-		_ambient.set_warmth(_weather.temperature())
+		_ambient.set_warmth(_weather.temperature(), _clock.season() if _clock != null else -1)
 	# Leaves in the air: the rain's drops, few, slow and brown.
 	var falling_leaves := leaf_fall > NOTHING and _drop_count > 0 and not reduced_motion
 	if _leaves.visible != falling_leaves:

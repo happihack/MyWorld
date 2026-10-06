@@ -161,7 +161,7 @@ static func _append(out: Buffers, template: PropMeshLibrary.Template, xform: Tra
 ## Living things vary a little in brightness; built things do not.
 static func _tint(prop: PropData) -> float:
 	match prop.kind:
-		PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.ROCK, PropData.Kind.CROP:
+		PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.ROCK, PropData.Kind.CROP, PropData.Kind.MUSHROOM, PropData.Kind.ROOTS:
 			var n := HashNoise.tile_value(prop.tile.x, prop.tile.y, _TINT_SALT) # 0..65535
 			return 0.88 + n / 65535.0 * 0.24
 		_:

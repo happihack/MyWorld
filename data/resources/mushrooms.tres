@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mushrooms"
+category = 0
+stack = 24
+spoil_days = 3.0
+nutrition = 0.5
+weight = 0.2
+color = Color(0.62, 0.48, 0.34, 1)
+remedy = true
+defined_only = false

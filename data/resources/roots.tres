@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"roots"
+category = 0
+stack = 20
+spoil_days = 20.0
+nutrition = 0.7
+weight = 0.4
+color = Color(0.55, 0.36, 0.24, 1)
+remedy = true
+defined_only = false

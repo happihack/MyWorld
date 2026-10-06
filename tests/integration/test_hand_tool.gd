@@ -404,7 +404,7 @@ func test_a_removed_rock_is_simply_let_go() -> void:
 
 func test_tool_manager_keeps_the_tools() -> void:
 	# (a debug build, like this one, has every tool at once — and the call tool, a prototype)
-	assert_eq(tools.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID, CallTool.ID] as Array[StringName])
+	assert_eq(tools.tool_ids(), [HandTool.ID, ObserveTool.ID, RainTool.ID, WindTool.ID, WaterTool.ID] as Array[StringName])
 	assert_eq(tools.current_id(), HandTool.ID, "the hand is the default")
 	var changes := []
 	var bus := []

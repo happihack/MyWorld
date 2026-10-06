@@ -465,8 +465,27 @@ func standing_near(kind: int) -> Array[int]:
 	return out
 
 
-## The best ground for a building (null: none in reach).
-func site_for(_def: BuildingDef) -> Variant:
+## The best ground for a building (null: none in reach): never at the edge
+## of a drop, where it would hang over the ledge (the owner, 2026-10-06) —
+## unless there is no other ground at all.
+func site_for(def: BuildingDef) -> Variant:
+	var level: Variant = _site_for(def, true)
+	return level if level != null else _site_for(def, false)
+
+
+## Ground none of whose neighbours lies lower: a building there does not hang
+## over a ledge.
+func on_level(tile: Vector2i) -> bool:
+	var h := _world.get_height(tile)
+	for y in range(-1, 2):
+		for x in range(-1, 2):
+			var at := tile + Vector2i(x, y)
+			if _world.is_in_bounds(at) and _world.get_height(at) < h:
+				return false
+	return true
+
+
+func _site_for(_def: BuildingDef, level_only: bool) -> Variant:
 	var fire := _settlement.fire()
 	if fire == null or _world == null:
 		return null
@@ -483,7 +502,7 @@ func site_for(_def: BuildingDef) -> Variant:
 			if distance < _config.site_nearest or distance > _config.site_farthest:
 				continue
 			var tile := fire.tile + Vector2i(dx, dy)
-			if taken.has(tile) or not _buildable(tile, grave_tiles):
+			if taken.has(tile) or not _buildable(tile, grave_tiles) or (level_only and not on_level(tile)):
 				continue
 			var cost := distance * _config.site_distance_cost + _unevenness(tile) * _config.site_unevenness_cost
 			if cost < best_cost:

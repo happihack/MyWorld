@@ -43,11 +43,14 @@ class StartInfo:
 	var hut_ids: Array[int] = []
 	var ruin_id := 0
 	var ruin_tile := Vector2i.ZERO
+	## Its cemetery (0: none yet): the one place all its dead are laid,
+	## wherever its fire comes to be (the owner, 2026-10-06).
+	var cemetery_id := 0
 	var problems: PackedStringArray = []
 
 	func to_dict() -> Dictionary:
 		return {"settlement_tile": settlement_tile, "settlement_id": settlement_id, "campfire_id": campfire_id,
-			"hut_ids": hut_ids.duplicate(), "ruin_id": ruin_id, "ruin_tile": ruin_tile}
+			"hut_ids": hut_ids.duplicate(), "ruin_id": ruin_id, "ruin_tile": ruin_tile, "cemetery_id": cemetery_id}
 
 	## Restores saved start info as-is (it is never recomputed, so later changes
 	## to the site scoring cannot move an existing settlement). Null if unusable.
@@ -59,6 +62,7 @@ class StartInfo:
 		info.settlement_id = maxi(int(data.get("settlement_id", 0)), 0)
 		info.campfire_id = int(data.get("campfire_id", 0))
 		info.ruin_id = int(data.get("ruin_id", 0))
+		info.cemetery_id = maxi(int(data.get("cemetery_id", 0)), 0)
 		var ruin: Variant = data.get("ruin_tile", Vector2i.ZERO)
 		info.ruin_tile = ruin if typeof(ruin) == TYPE_VECTOR2I else Vector2i.ZERO
 		var huts: Variant = data.get("hut_ids", [])

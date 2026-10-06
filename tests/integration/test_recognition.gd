@@ -93,13 +93,23 @@ func test_someone_knows_a_touch_again() -> void:
 	assert_eq(person.emote, Reactions.RECOGNIZE_EMOTE)
 	assert_true(BehaviorSystem.recognizes(person))
 	assert_true(PersonCard.activity_line(person).begins_with(UIText.REMEMBERS_THIS), "on the card")
-	# One memory, twice, going back to the first time.
-	memory = _touch_memory(person)
-	assert_eq(memory.count, 2)
+	# Going back to the first time: one memory, twice — or, taken another way
+	# this time (what it is made of is drawn by chance), a memory of its own
+	# that recalls the first.
+	var touches := session.memories.about(person, Stimulus.TOUCH)
+	memory = touches[0]
+	for m in touches:
+		if m.tick > memory.tick:
+			memory = m
 	assert_eq(memory.recalls_tick, first_tick)
 	assert_eq(memory.recalls_subject, Stimulus.TOUCH)
 	var words := MemoryText.text(memory, session.people)
-	assert_has(words, "(2 times) — just as ")
+	if touches.size() == 1:
+		assert_eq(memory.count, 2)
+		assert_has(words, "(2 times) — just as ")
+	else:
+		assert_eq(touches.size(), 2, "a second way of taking it")
+		assert_has(words, "just as ")
 	assert_has(words, "earlier that day")
 	assert_has(PersonCard.memory_lines_of(session, person, 1)[0], "just as")
 	# Again at once: more of the same, not a recognition each time.

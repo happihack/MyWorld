@@ -40,6 +40,8 @@ const PROP_NAMES := {
 	PropData.Kind.CEMETERY: "Cemetery",
 	PropData.Kind.LANDING: "Landing",
 	PropData.Kind.WOODSHED: "Woodshed",
+	PropData.Kind.MUSHROOM: "Mushrooms",
+	PropData.Kind.ROOTS: "Wild roots",
 }
 
 const SPECIES_NAMES := {
@@ -86,7 +88,6 @@ const TOOL_NAMES := {
 	&"rain": "Rain",
 	&"wind": "Wind",
 	&"water": "Water",
-	&"call": "Call (prototype)",
 }
 
 ## What the player is told when a tool shows itself.
@@ -140,6 +141,10 @@ const ACTIVITY_NAMES := {
 	&"go_home": "Resting at home",
 	&"visit_grave": "At a grave",
 	&"celebrate": "Celebrating",
+	&"dance": "Dancing by the fire",
+	&"storytelling": "Stories by the fire",
+	&"sing": "Singing by the fire",
+	&"warm_by_fire": "Warming by the fire",
 	&"called": "Answering a call",
 	&"idle": "Standing about",
 }

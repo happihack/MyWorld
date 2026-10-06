@@ -22,6 +22,8 @@ const BUSH := &"bush"
 const ROCK := &"rock"
 const SHOAL := &"shoal"
 const CROP := &"crop"
+const MUSHROOM := &"mushroom"
+const ROOTS := &"roots"
 
 ## A ripe crop's last grain was taken (the plot is stubble: see Farming).
 signal reaped(prop_id: int)
@@ -48,6 +50,10 @@ static func key_of(prop: PropData) -> StringName:
 			return ROCK
 		PropData.Kind.CROP:
 			return CROP
+		PropData.Kind.MUSHROOM:
+			return MUSHROOM
+		PropData.Kind.ROOTS:
+			return ROOTS
 	return &""
 
 
@@ -94,7 +100,7 @@ static func look_of(prop: PropData, config: ResourcesConfig = null) -> Look:
 			if not prop.felled:
 				return Look.FULL
 			return Look.STUMP if fraction_of(prop, config) < config.sapling_from else Look.SAPLING
-		PropData.Kind.BUSH:
+		PropData.Kind.BUSH, PropData.Kind.MUSHROOM, PropData.Kind.ROOTS:
 			if prop.stock == 0:
 				return Look.BARE
 			return Look.SPARSE if fraction_of(prop, config) < config.sparse_below else Look.FULL
@@ -162,13 +168,21 @@ func left(prop: PropData) -> int:
 func available(prop: PropData) -> int:
 	if prop == null or (prop.kind == PropData.Kind.TREE and prop.felled):
 		return 0
-	if bare_in_winter(prop):
+	if bare_in_winter(prop) or out_of_season(prop):
 		return 0
 	return left(prop)
 
 
 ## Is it winter now (as of the last settling)? Set by `settle`.
 var winter := false
+## The season now (Seasons; as of the last settling).
+var season := 0
+
+
+## Mushrooms: none in winter (and they grow back only in spring and autumn —
+## see _settle_one). Roots are there all the year round.
+func out_of_season(prop: PropData) -> bool:
+	return prop != null and prop.kind == PropData.Kind.MUSHROOM and season == Seasons.WINTER
 
 
 ## A bush in winter, when the winter is bare (ResourcesConfig.winter_no_berries).
@@ -240,6 +254,7 @@ func due(now: int) -> bool:
 func settle(now: int) -> int:
 	last_settle_tick = now
 	winter = Config.time.season_of(now) == Config.time.seasons_per_year - 1
+	season = Config.time.season_of(now)
 	if _props == null:
 		return 0
 	var changed := 0
@@ -283,8 +298,9 @@ func _settle_one(prop: PropData, now: int) -> bool:
 	var full := capacity(prop)
 	if days <= 0.0 or full <= 0:
 		return false
-	# (A bare winter: nothing grows back until the spring.)
-	if bare_in_winter(prop):
+	# (A bare winter: nothing grows back until the spring. Mushrooms come up
+	# in spring and autumn only.)
+	if bare_in_winter(prop) or (prop.kind == PropData.Kind.MUSHROOM and season != Seasons.SPRING and season != Seasons.AUTUMN):
 		prop.stock_tick = now
 		return false
 	var minutes_per_unit := maxi(roundi(days * Config.time.MINUTES_PER_DAY / float(full)), 1)

@@ -29,7 +29,12 @@ const ROUTINE_PULL := 0.25
 ## score it was begun with no longer counts, and this share of the hysteresis.
 const DUE_HYSTERESIS := 0.5
 ## What is done out of doors (bad weather takes from its worth; from work less).
-const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along", &"celebrate"]
+## Below this (°C) the fire draws people to warm themselves, the colder the more.
+const WARM_FROM := 12.0
+## Someone telling by the fire draws listeners.
+const STORY_PULL := 0.35
+const OUTDOORS: Array[StringName] = [&"explore", &"play", &"socialize", &"tag_along", &"celebrate", &"dance", &"storytelling",
+	&"sing", &"warm_by_fire"]
 ## A festival draws everyone (M17.1).
 const FESTIVAL_PULL := 1.6
 ## What a baby (younger than LifeConfig.infant_years) does: stay with its
@@ -146,6 +151,11 @@ static func _score(def: ActivityDef, person: PersonData, ctx: AiContext, stage: 
 	# A festival: everyone comes (the requirement says one is on).
 	if def.id == &"celebrate":
 		total += FESTIVAL_PULL
+	# The fire draws people on a cold evening; a story draws listeners.
+	if def.id == &"warm_by_fire":
+		total *= lerpf(0.4, 2.2, clampf((WARM_FROM - ctx.temperature()) / WARM_FROM, 0.0, 1.0))
+	elif def.id == &"storytelling" and Planner._teller_at_fire(person, ctx) not in [0, person.id]:
+		total += STORY_PULL
 	# A baby keeps to its parent, wherever they are.
 	if infant and def.id == &"tag_along":
 		total += INFANT_FOLLOW

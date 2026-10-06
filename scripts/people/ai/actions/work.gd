@@ -115,24 +115,32 @@ static func gather(ctx: AiContext, person: PersonData, step: Dictionary, prop: P
 	return person.carrying_amount >= capacity or ctx.nodes.available(prop) <= 0
 
 
-## Fruit lying on the ground near `at` (not what the player has put somewhere):
-## picked up, as berries, as much as their arms hold. Returns how much.
+## Fruit (or nuts) lying on the ground near `at` (not what the player has put
+## somewhere): picked up as what it is — berries, nuts — one kind at a time,
+## as much as their arms hold. Returns how much.
 static func pick_fruit(ctx: AiContext, person: PersonData, at: Vector2i) -> int:
-	if ctx.loose == null or (person.carrying_amount > 0 and person.carrying != FRUIT_RESOURCE):
+	if ctx.loose == null:
 		return 0
-	var capacity := ctx.carry_capacity(FRUIT_RESOURCE)
 	var middle_of := Places.middle_of(at)
 	var picked := 0
 	for object in ctx.loose.all_objects():
-		if person.carrying_amount >= capacity:
-			break
 		if not is_fallen_fruit(object) or object.position.distance_to(middle_of) > FRUIT_REACH:
 			continue
+		var resource := fruit_resource(object)
+		if person.carrying_amount > 0 and person.carrying != resource:
+			continue
+		if person.carrying_amount >= ctx.carry_capacity(resource):
+			break
 		ctx.loose.remove(object.id)
-		person.carrying = FRUIT_RESOURCE
+		person.carrying = resource
 		person.carrying_amount += 1
 		picked += 1
 	return picked
+
+
+## What a fallen fruit is when picked up: nuts, or berries.
+static func fruit_resource(object: LooseObject) -> StringName:
+	return object.resource if object.resource != &"" else FRUIT_RESOURCE
 
 
 ## Fruit lying on the ground, there to be picked up (not the player's, not afloat).

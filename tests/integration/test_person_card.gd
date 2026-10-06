@@ -348,16 +348,6 @@ func test_a_double_tap_looks_at_them() -> void:
 	assert_eq(heard.size(), 1, "touched once: the second tap was the look")
 
 
-func test_other_tools_keep_their_own_tap() -> void:
-	var person := _someone()
-	await _look_at(person.world2d())
-	main.tools.select(CallTool.ID)
-	_tap(_screen_of(person))
-	await wait_frames(2)
-	assert_eq(main.selected_person_id(), 0, "calling is not selecting")
-	assert_null(ui.person_card())
-
-
 # --- the card -------------------------------------------------------------------------------------
 
 func test_the_card_grows_and_shrinks() -> void:

@@ -144,8 +144,8 @@ func _target_of(pile: LooseObject) -> Picker.Result:
 func test_resources_are_defined_in_data() -> void:
 	var library := session.resources
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"meat", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
-	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"grain", &"meat"] as Array[StringName])
+	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"meat", &"mushrooms", &"nuts", &"roots", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
+	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"grain", &"meat", &"mushrooms", &"nuts", &"roots"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"clay", &"stone", &"tools", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.WATER), [&"water"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MEDICINE), [&"herbs"] as Array[StringName])
@@ -621,7 +621,10 @@ func test_gathering() -> void:
 	assert_true(cutter.world2d().distance_to(session.storage_place(&"wood")) < 1.2, "they brought it there themselves")
 	assert_false(PersonCard.activity_line(cutter).contains("carrying"))
 	assert_eq(_missing_from_nodes(&"wood"), 2)
-	# A forager and the berries, the same way.
+	# A forager and the berries, the same way (berries only, here).
+	for prop in session.props.all_props():
+		if prop.kind == PropData.Kind.MUSHROOM or prop.kind == PropData.Kind.ROOTS:
+			session.props.remove(prop.id)
 	behavior.set_plan(cutter, BehaviorSystem.ACTIVITY_CALLED, BehaviorSystem.ACTIVITY_CALLED, [RestStep.make(1000000.0)])
 	_calm(forager)
 	var picking := Planner.plan(&"work", forager, ctx)

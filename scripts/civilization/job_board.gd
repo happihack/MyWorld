@@ -78,7 +78,14 @@ func job_for(resource: StringName) -> Job:
 
 ## Is more of `resource` wanted?
 func wants(resource: StringName) -> bool:
+	# (Food from the wild — berries, mushrooms, roots, nuts — is one job: food.)
+	if FORAGED.has(resource):
+		resource = &"berries"
 	return job_for(resource) != null
+
+
+## What foragers bring in, all wanted as food (posted as berries).
+const FORAGED: Array[StringName] = [&"berries", &"mushrooms", &"roots", &"nuts"]
 
 
 ## Brings the board up to date with what the settlement has and needs.

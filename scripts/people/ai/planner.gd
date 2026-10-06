@@ -4,7 +4,8 @@ extends RefCounted
 ## each plain data (see ActionStep). An empty list means it cannot be done
 ## right now — nothing to eat, nowhere to sleep, nobody to talk to.
 
-const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent", &"grave", &"festival"]
+const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"company", &"parent", &"grave", &"festival",
+	&"fire", &"stories"]
 ## Where on the storage tile someone stands to put things down (the piles
 ## lie around its middle).
 const STORE_STAND := Vector2(0.5, 0.88)
@@ -31,7 +32,25 @@ static func can(requirement: StringName, person: PersonData, ctx: AiContext) -> 
 			return not ctx.places.grave_to_visit(person).is_empty()
 		&"festival":
 			return ctx.cultures != null and not ctx.cultures.festival_now(person.settlement_id, ctx.now()).is_empty()
+		&"fire":
+			# The settlement's fire, burning (the evenings round it: the owner, 2026-10-06).
+			return ctx.settlement != null and ctx.settlement.fire() != null and ctx.settlement.fire_lit()
+		&"stories":
+			# Someone telling by the fire to listen to — or, grown, tales to tell
+			# (the band's old tales; and what they lived through goes round with them).
+			if _teller_at_fire(person, ctx) != 0:
+				return true
+			var stage := ctx.stage_of(person)
+			return stage == PersonData.LifeStage.ADULT or stage == PersonData.LifeStage.ELDER
 	return false
+
+
+## Who is telling stories by the person's fire now (0: nobody).
+static func _teller_at_fire(person: PersonData, ctx: AiContext) -> int:
+	var telling: Variant = ctx.fire_tellers.get(person.settlement_id)
+	if typeof(telling) != TYPE_ARRAY or int(telling[1]) < ctx.now():
+		return 0
+	return int(telling[0])
 
 
 ## A scientist's day (M18): to where something unexplained happened (one of
@@ -135,8 +154,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				if def.helps_with.is_empty():
 					return []
 				# Nothing of their own to do: a fallen trunk lying near is
-				# cut up first, whoever they are (wood that is down already).
+				# cut up first, whoever they are (wood that is down already),
+				# and the rubble of what fell is cleared, its stone kept.
 				var hauling := _log_work(person, ctx, rng)
+				if hauling.is_empty():
+					hauling = _rubble_work(person, ctx)
 				if not hauling.is_empty():
 					return hauling
 				target = StringName(def.helps_with[0])
@@ -172,6 +194,53 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)),
 				ReactStep.make(PersonData.Pose.JUMP, &"note", snappedf(rng.randf_range(30.0, 60.0), 1.0), at),
 				ReactStep.make(PersonData.Pose.WAVE, &"note", snappedf(rng.randf_range(15.0, 30.0), 1.0), at)]
+		&"dance":
+			# A dance circle (the owner, 2026-10-06): round the fire from place
+			# to place, leaping and waving, singing as they go.
+			var ring := ctx.places.fire_ring(person)
+			var fire := ctx.settlement.fire() if ctx.settlement != null else null
+			if ring.is_empty() or fire == null:
+				return []
+			var at := fire.position2d()
+			var start := posmod(person.id, ring.size())
+			var steps := []
+			for n in mini(4, ring.size()):
+				var spot: Vector2i = ring[(start + n) % ring.size()]
+				steps.append(WalkToStep.make(spot, Vector2(0.5, 0.5)))
+				steps.append(ReactStep.make(PersonData.Pose.JUMP if n % 2 == 0 else PersonData.Pose.WAVE, &"note",
+					snappedf(rng.randf_range(6.0, 12.0), 1.0), at))
+			return steps
+		&"storytelling":
+			# Stories by the fire: one tells, the rest sit round and listen.
+			var fire := ctx.settlement.fire() if ctx.settlement != null else null
+			if fire == null:
+				return []
+			var spot := ctx.places.meal_spot(person)
+			var teller := _teller_at_fire(person, ctx)
+			if teller != 0 and teller != person.id:
+				var telling: Array = ctx.fire_tellers[person.settlement_id]
+				return [WalkToStep.make(spot, Vector2(0.5, 0.5)), FireStoryStep.listen(teller, maxf(float(int(telling[1]) - ctx.now()), 10.0))]
+			var stage := ctx.stage_of(person)
+			if teller == 0 and (stage == PersonData.LifeStage.ADULT or stage == PersonData.LifeStage.ELDER):
+				var minutes := snappedf(rng.randf_range(30.0, 50.0), 1.0)
+				# (Known as the teller from now: the others come to listen while they walk.)
+				ctx.fire_tellers[person.settlement_id] = [person.id, ctx.now() + int(minutes) + 30]
+				return [WalkToStep.make(spot, Vector2(0.5, 0.5)), FireStoryStep.tell(minutes)]
+			return []
+		&"sing":
+			# Singing round the fire, sitting.
+			var fire := ctx.settlement.fire() if ctx.settlement != null else null
+			if fire == null:
+				return []
+			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)),
+				ReactStep.make(PersonData.Pose.KNEEL, &"note", snappedf(rng.randf_range(20.0, 40.0), 1.0), fire.position2d())]
+		&"warm_by_fire":
+			# Standing at the fire, hands to it, a while.
+			var fire := ctx.settlement.fire() if ctx.settlement != null else null
+			if fire == null:
+				return []
+			return [WalkToStep.make(ctx.places.meal_spot(person), Vector2(0.5, 0.5)),
+				ReactStep.make(PersonData.Pose.IDLE, &"", snappedf(rng.randf_range(20.0, 40.0), 1.0), fire.position2d())]
 		&"socialize":
 			var partner := ctx.places.company(person, rng)
 			if partner == null:
@@ -297,6 +366,10 @@ static func _stone_steps(site: Vector2i, ctx: AiContext) -> Array:
 	var stone := _loose_stone(site, ctx)
 	if stone != null:
 		return [WalkToStep.make(Vector2i(stone.position.floor())), BuildStep.quarry(stone.id)]
+	# The old stones of a building that fell (the owner, 2026-10-06).
+	var rubble := _rubble_near(site, Config.construction.stone_reach, ctx)
+	if rubble != null:
+		return [WalkToStep.make(_beside(rubble.tile, site, ctx)), BuildStep.salvage(rubble.id, rubble.tile)]
 	var rock: Variant = _rocky_ground(site, ctx)
 	if rock == null:
 		return []
@@ -402,6 +475,40 @@ static func _fish_work(person: PersonData, ctx: AiContext, rng: RandomNumberGene
 	return steps
 
 
+## The rubble of a building that fell, near `center` and to be got to, the
+## nearest (null: none).
+static func _rubble_near(center: Vector2i, reach: float, ctx: AiContext) -> PropData:
+	if ctx.props == null or not ctx.is_rubble.is_valid():
+		return null
+	var best: PropData = null
+	var best_distance := reach
+	for prop in ctx.props.all_props():
+		if prop.kind != PropData.Kind.RUIN or not bool(ctx.is_rubble.call(prop)):
+			continue
+		var distance := Vector2(prop.tile - center).length()
+		if distance > best_distance or (ctx.places != null and ctx.places.near_out_of_reach(prop.tile, 1)):
+			continue
+		best = prop
+		best_distance = distance
+	return best
+
+
+## Rubble near home cleared, its stone to the stores while they have room
+## ([]: none, or no room).
+static func _rubble_work(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.settlement == null or ctx.settlement.stockpile.room(&"stone") <= 0 or person.carrying_amount > 0:
+		return []
+	var home: Variant = ctx.places.home_tile(person) if ctx.places != null else null
+	var rubble := _rubble_near(home if home != null else person.position, Places.WORK_RADIUS, ctx)
+	if rubble == null:
+		return []
+	var stores: Variant = ctx.places.storage_tile(&"stone")
+	if stores == null:
+		return []
+	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.salvage(rubble.id, rubble.tile),
+		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
 ## How far from home a fallen trunk is fetched (tiles).
 const LOG_REACH := Places.WORK_RADIUS * 2.0
 
@@ -438,7 +545,7 @@ static func _fruit_work(person: PersonData, ctx: AiContext, rng: RandomNumberGen
 	var pick := WorkStep.make(&"bush", 0, at, snappedf(rng.randf_range(4.0, 8.0), 1.0))
 	pick["fruit"] = true
 	var steps := [WalkToStep.make(at, fruit.position - Vector2(at)), pick]
-	var stores: Variant = ctx.places.storage_tile(WorkStep.FRUIT_RESOURCE)
+	var stores: Variant = ctx.places.storage_tile(WorkStep.fruit_resource(fruit))
 	if stores != null:
 		steps.append(WalkToStep.make(stores, STORE_STAND))
 		steps.append(StoreStep.make())

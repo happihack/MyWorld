@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="ResourceDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/resource_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"nuts"
+category = 0
+stack = 30
+spoil_days = 60.0
+nutrition = 0.8
+weight = 0.1
+color = Color(0.58, 0.42, 0.24, 1)
+remedy = false
+defined_only = false

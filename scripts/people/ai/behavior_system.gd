@@ -102,11 +102,11 @@ func _init() -> void:
 			[DrinkStep.TYPE, DrinkStep.new()], [SleepStep.TYPE, SleepStep.new()], [WorkStep.TYPE, WorkStep.new()],
 			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()],
 			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()],
-			[HuntStep.TYPE, HuntStep.new()]]:
+			[HuntStep.TYPE, HuntStep.new()], [FireStoryStep.TYPE, FireStoryStep.new()]]:
 		_steps[String(step[0])] = step[1]
 	# Building (M12.1): one handler, three kinds of step.
 	var build := BuildStep.new()
-	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY, BuildStep.BREAK]:
+	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY, BuildStep.BREAK, BuildStep.SALVAGE]:
 		_steps[String(type)] = build
 	var trading := TradeStep.new()
 	for type: StringName in [TradeStep.LOAD, TradeStep.UNLOAD, TradeStep.CRAFT]:

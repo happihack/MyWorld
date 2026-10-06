@@ -11,6 +11,8 @@ extends ConfigBase
 @export var nodes: Dictionary = {
 	&"tree": {"resource": &"wood", "quantity": 16, "strokes_per_unit": 12, "regrow_days": 24.0},
 	&"bush": {"resource": &"berries", "quantity": 8, "strokes_per_unit": 4, "regrow_days": 2.0},
+	&"mushroom": {"resource": &"mushrooms", "quantity": 4, "strokes_per_unit": 2, "regrow_days": 3.0},
+	&"roots": {"resource": &"roots", "quantity": 6, "strokes_per_unit": 7, "regrow_days": 8.0},
 	&"rock": {"resource": &"stone", "quantity": 10, "strokes_per_unit": 16, "regrow_days": 0.0},
 	&"crop": {"resource": &"grain", "quantity": 6, "strokes_per_unit": 2, "regrow_days": 0.0},
 	&"shoal": {"resource": &"fish", "quantity": 20, "strokes_per_unit": 10, "regrow_days": 4.0},

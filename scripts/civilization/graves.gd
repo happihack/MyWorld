@@ -26,7 +26,13 @@ var _start: WorldSetup.StartInfo
 var _ids: IdAllocator
 var _archive: HistoryArchive
 var _loose: LooseObjectRegistry
-## A settlement's cemetery is the one within this many tiles of its fire (M12.3).
+## Every settlement's start (its cemetery among them): () -> Array of
+## WorldSetup.StartInfo; may be unset (then only the first settlement's).
+var starts: Callable
+## Looking for level ground only (see site()).
+var _level_only := false
+## A settlement of an older save takes the cemetery within this many tiles of
+## its fire for its own, if no other settlement has (M12.3).
 const GRAVEYARD_REACH := 14.0
 
 
@@ -92,14 +98,47 @@ func bury(person_id: int, start: WorldSetup.StartInfo = null) -> int:
 		cemetery = _open(tile)
 		if cemetery == null:
 			return 0
+		own.cemetery_id = cemetery.id
 	_lay(person_id, cemetery)
 	return cemetery.id
 
 
-## The cemetery of the settlement whose fire is at `start` (null: none yet).
+## The cemetery of the settlement of `start` (null: none yet). One for each
+## settlement, all its dead laid there, however far its fire has moved since;
+## never another settlement's (the owner, 2026-10-06). A settlement of an
+## older save takes the one near its fire that no other has.
 func cemetery_of(start: WorldSetup.StartInfo = null) -> PropData:
 	var own := start if start != null else _start
-	return _cemetery_near(own.settlement_tile, GRAVEYARD_REACH) if own != null else null
+	if own == null or _props == null:
+		return null
+	if own.cemetery_id != 0:
+		var kept := _props.get_prop(own.cemetery_id)
+		if kept != null and kept.kind == PropData.Kind.CEMETERY:
+			return kept
+		own.cemetery_id = 0 # (gone: a new one is opened)
+	var taken := {}
+	for other: WorldSetup.StartInfo in _all_starts():
+		if other != own and other.cemetery_id != 0:
+			taken[other.cemetery_id] = true
+	var best: PropData = null
+	var best_distance := GRAVEYARD_REACH
+	for id in cemeteries():
+		if taken.has(id):
+			continue
+		var cemetery := _props.get_prop(id)
+		var distance := Vector2(cemetery.tile - own.settlement_tile).length()
+		if distance <= best_distance:
+			best = cemetery
+			best_distance = distance
+	if best != null:
+		own.cemetery_id = best.id
+	return best
+
+
+func _all_starts() -> Array:
+	if starts.is_valid():
+		return starts.call()
+	return [_start] if _start != null else []
 
 
 ## Where the dead of `start` are laid: its cemetery, or where one would be opened (null: nowhere).
@@ -108,8 +147,18 @@ func site(start: WorldSetup.StartInfo = null) -> Variant:
 	var cemetery := cemetery_of(own)
 	if cemetery != null:
 		return cemetery.tile
-	var fresh: Variant = _first_site(own.settlement_tile)
-	return fresh if fresh != null else _first_site(own.settlement_tile, FURTHEST_FULL)
+	# Level ground first (no plot hanging over a ledge: the owner, 2026-10-06),
+	# further if need be; at the last, any ground — the dead are not left unburied.
+	for level_only: bool in [true, false]:
+		_level_only = level_only
+		var fresh: Variant = _first_site(own.settlement_tile)
+		if fresh == null:
+			fresh = _first_site(own.settlement_tile, FURTHEST_FULL)
+		if fresh != null:
+			_level_only = false
+			return fresh
+	_level_only = false
+	return null
 
 
 ## Gathers the single graves of an older save into cemeteries: each into the
@@ -199,10 +248,21 @@ func _first_site(center: Vector2i, furthest: int = FURTHEST, nearest: int = NEAR
 
 ## The whole plot is free ground, and no other cemetery's plot touches it.
 func _room(tile: Vector2i) -> bool:
+	var h := _world.get_height(tile)
 	for dy in range(-PLOT, PLOT + 1):
 		for dx in range(-PLOT, PLOT + 1):
 			if not _free(tile + Vector2i(dx, dy)):
 				return false
+	if _level_only:
+		# The plot all one level, and nothing lower round it.
+		for dy in range(-PLOT - 1, PLOT + 2):
+			for dx in range(-PLOT - 1, PLOT + 2):
+				var at := tile + Vector2i(dx, dy)
+				if not _world.bounds.has_point(at):
+					continue
+				var there := _world.get_height(at)
+				if there < h or (absi(dx) <= PLOT and absi(dy) <= PLOT and there != h):
+					return false
 	for id in cemeteries():
 		var other := _props.get_prop(id)
 		if maxi(absi(other.tile.x - tile.x), absi(other.tile.y - tile.y)) <= PLOT * 2 + 1:

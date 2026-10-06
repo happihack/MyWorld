@@ -214,15 +214,25 @@ func meal_spot(person: PersonData) -> Vector2i:
 	var fire: Variant = food_tile(person)
 	if fire == null:
 		return person.position
+	var around := fire_ring(person)
+	if around.is_empty():
+		return fire
+	return around[posmod(person.id, around.size())]
+
+
+## The places round the fire one can stand at, going round it in order
+## (a meal, a dance circle, the stories: the owner, 2026-10-06).
+func fire_ring(person: PersonData) -> Array[Vector2i]:
 	var around: Array[Vector2i] = []
+	var fire: Variant = food_tile(person)
+	if fire == null:
+		return around
 	for offset: Vector2i in [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1),
 			Vector2i(0, -1), Vector2i(1, -1)]:
 		var tile: Vector2i = (fire as Vector2i) + offset
 		if _pathfinder.can_stand(tile) and _pathfinder.weight_at(tile) < Pathfinder.WEIGHT_OBSTACLE:
 			around.append(tile)
-	if around.is_empty():
-		return fire
-	return around[posmod(person.id, around.size())]
+	return around
 
 
 ## A parent of the person who is up and about (the nearer one), or null.
@@ -351,7 +361,7 @@ func work_place(person: PersonData, target: StringName, rng: RandomNumberGenerat
 		&"tree":
 			return _nearest_prop(person, PropData.Kind.TREE, rng)
 		&"bush":
-			return _nearest_prop(person, PropData.Kind.BUSH, rng)
+			return _nearest_forage(person, rng)
 		&"rock":
 			return _nearest_prop(person, PropData.Kind.ROCK, rng)
 	return {}
@@ -360,7 +370,31 @@ func work_place(person: PersonData, target: StringName, rng: RandomNumberGenerat
 ## A bush with berries on it, near home: where someone goes to eat when the
 ## stores are empty. {} if there is none.
 func forage_place(person: PersonData, rng: RandomNumberGenerator) -> Dictionary:
-	return _nearest_prop(person, PropData.Kind.BUSH, rng, true) if _start != null and nodes != null else {}
+	return _nearest_forage(person, rng, true) if _start != null and nodes != null else {}
+
+
+## The nearest wild food with something on it — a bush, mushrooms, roots
+## (the owner, 2026-10-06) — each kind found as a bush is; the nearest of
+## those wins. {} if none.
+func _nearest_forage(person: PersonData, rng: RandomNumberGenerator, only_giving: bool = false) -> Dictionary:
+	var home: Variant = home_tile(person)
+	var center: Vector2i = home if home != null else person.position
+	var best: Dictionary = {}
+	var best_distance := INF
+	for kind: int in PropData.FORAGE:
+		var place := _nearest_prop(person, kind as PropData.Kind, rng, only_giving)
+		if place.is_empty():
+			continue
+		var prop := _props.get_prop(int(place["id"]))
+		if nodes != null and (prop == null or nodes.available(prop) <= 0):
+			continue
+		var distance := Vector2(Vector2i(place["tile"]) - center).length()
+		if distance < best_distance:
+			best = place
+			best_distance = distance
+	if best.is_empty() and not only_giving:
+		return _nearest_prop(person, PropData.Kind.BUSH, rng)
+	return best
 
 
 ## Is there anything to eat for this person: food in the settlement's
@@ -555,7 +589,7 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 		_work_version = _props.version
 		_work_places.clear()
 	# Short of food, people go further for berries (and have more bushes to choose from).
-	var further := forage_reach if kind == PropData.Kind.BUSH else 1.0
+	var further := forage_reach if PropData.FORAGE.has(kind) else 1.0
 	var radius := WORK_RADIUS * further
 	var key := [kind, center, further]
 	if not _work_places.has(key):
@@ -602,7 +636,7 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 				# enough on it (a nearly bare one only if there are no others).
 				if kind == PropData.Kind.TREE and prop.stock >= 0:
 					begun.append(place)
-				elif kind == PropData.Kind.BUSH and there >= nodes.capacity(prop) * Config.resources.worth_picking_from:
+				elif PropData.FORAGE.has(kind) and there >= nodes.capacity(prop) * Config.resources.worth_picking_from:
 					laden.append(place)
 					if laden.size() >= WORK_CHOICES:
 						break # (the nearest few are found: no need to look at the rest)

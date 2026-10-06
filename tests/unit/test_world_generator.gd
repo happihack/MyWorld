@@ -6,6 +6,7 @@ extends TestCase
 ## on that constant about existing worlds.
 const GOLDEN := {
 	1: "deec5d8dec3f0331d28560ee18d44d7d9965d28106c0fcd4ca5ded6741be4b95",
+	2: "deec5d8dec3f0331d28560ee18d44d7d9965d28106c0fcd4ca5ded6741be4b95", # (the ground as it was: only props were added)
 }
 
 const SEEDS := [1, 2, 3, 7, 42, 12345, 987654321, 5636584777608190886]

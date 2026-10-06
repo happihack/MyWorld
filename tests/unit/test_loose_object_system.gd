@@ -184,26 +184,31 @@ func test_a_long_frame_does_not_break_the_fall() -> void:
 # --- rolling, friction, slopes --------------------------------------------------------------
 
 func test_a_thrown_rock_rolls_on_and_stops() -> void:
+	# (Thrown hard: on the ground it soon stops — the owner, 2026-10-06: small
+	# rocks slid much too far.)
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(-6.5, 0.5), 0.5)
-	system.drop(rock.id, Vector3(5.0, 0.0, 0.0))
+	system.drop(rock.id, Vector3(9.0, 0.0, 0.0))
 	_settle()
 	var travelled := rock.position.x + 6.5
-	assert_true(travelled > 1.5 and travelled < 9.0, "it rolls a few tiles (%.2f)" % travelled)
+	assert_true(travelled > 1.5 and travelled < 5.0, "it rolls a few tiles, not a field's length (%.2f)" % travelled)
 	assert_near(rock.position.y, 0.5, 0.001, "in a straight line")
 	assert_eq(rock.state, LooseObject.State.RESTING)
 	assert_eq(rock.velocity, Vector3.ZERO)
-	# A log drags; it stops much sooner.
-	var log := _object(LooseObject.Kind.LOG, Vector2(-6.5, 6.5), 0.5)
-	system.drop(log.id, Vector3(5.0, 0.0, 0.0))
+	# Pushed along the ground, a log drags: it stops much sooner than a rock.
+	var slid := _object(LooseObject.Kind.ROCK, Vector2(-6.5, -6.5))
+	system.push(slid.id, Vector3(5.0, 0.0, 0.0))
+	var log := _object(LooseObject.Kind.LOG, Vector2(-6.5, 6.5))
+	system.push(log.id, Vector3(5.0, 0.0, 0.0))
 	_settle()
-	assert_true(log.position.x + 6.5 < travelled * 0.7, "log %.2f vs rock %.2f" % [log.position.x + 6.5, travelled])
+	var rock_slid := slid.position.x + 6.5
+	assert_true(log.position.x + 6.5 < rock_slid * 0.7, "log %.2f vs rock %.2f" % [log.position.x + 6.5, rock_slid])
 
 
 func test_a_higher_block_is_a_wall() -> void:
 	for z in range(-16, 16):
 		world.set_height(Vector2i(4, z), 5)
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(1.5, 0.5))
-	system.push(rock.id, Vector3(6.0, 0.0, 0.0))
+	system.push(rock.id, Vector3(9.0, 0.0, 0.0))
 	var furthest := rock.position.x
 	var came_back := false
 	for i in 600:
@@ -225,7 +230,7 @@ func test_rolling_off_an_edge_drops_to_the_lower_ground() -> void:
 		for z in range(-16, 16):
 			world.set_height(Vector2i(x, z), 0) # a cliff: two levels down
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(0.5, 0.5))
-	system.push(rock.id, Vector3(5.0, 0.0, 0.0))
+	system.push(rock.id, Vector3(8.0, 0.0, 0.0))
 	var lowest_y := INF
 	for i in 900:
 		system.step(STEP)
@@ -287,7 +292,7 @@ func test_everything_stays_inside_the_box() -> void:
 func test_a_rolling_rock_bounces_off_a_hut() -> void:
 	var hut := _prop(PropData.Kind.HUT, Vector2i(4, 0))
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(0.5, 0.5))
-	system.push(rock.id, Vector3(6.0, 0.0, 0.0))
+	system.push(rock.id, Vector3(9.0, 0.0, 0.0))
 	var closest := INF
 	for i in 600:
 		system.step(STEP)
@@ -304,7 +309,7 @@ func test_a_rolling_rock_bounces_off_a_hut() -> void:
 func test_bushes_give_way_and_things_can_fly_over_low_props() -> void:
 	_prop(PropData.Kind.BUSH, Vector2i(3, 0))
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(0.5, 0.5))
-	system.push(rock.id, Vector3(7.0, 0.0, 0.0))
+	system.push(rock.id, Vector3(10.0, 0.0, 0.0))
 	_settle()
 	assert_true(rock.position.x > 4.0, "straight through the bush (%.2f)" % rock.position.x)
 	assert_eq(bumps.size(), 0)
@@ -353,7 +358,7 @@ func test_a_rolling_boulder_knocks_a_pebble_away() -> void:
 func test_a_pebble_bounces_off_a_boulder() -> void:
 	var boulder := _object(LooseObject.Kind.BOULDER, Vector2(3.5, 0.5))
 	var pebble := _object(LooseObject.Kind.PEBBLE, Vector2(0.5, 0.5))
-	system.push(pebble.id, Vector3(6.0, 0.0, 0.0))
+	system.push(pebble.id, Vector3(8.0, 0.0, 0.0))
 	var came_back := false
 	for i in 900:
 		system.step(STEP)

@@ -19,7 +19,7 @@ enum State { RESTING, HELD, FALLING, SLIDING }
 ##   friction - how fast the ground slows it (tiles/s per second); round things roll far
 ##   roll     - how strongly a slope pulls it (1 = rolls freely, less = drags)
 const SPECS := {
-	Kind.PEBBLE: {"radius": 0.09, "height": 0.08, "mass": 0.3, "floats": false, "bounce": 0.35, "friction": 4.0, "roll": 1.0},
+	Kind.PEBBLE: {"radius": 0.09, "height": 0.08, "mass": 0.3, "floats": false, "bounce": 0.35, "friction": 7.0, "roll": 1.0},
 	Kind.ROCK: {"radius": 0.26, "height": 0.24, "mass": 14.0, "floats": false, "bounce": 0.25, "friction": 3.5, "roll": 1.0},
 	Kind.BOULDER: {"radius": 0.42, "height": 0.44, "mass": 190.0, "floats": false, "bounce": 0.12, "friction": 2.5, "roll": 1.0},
 	Kind.LOG: {"radius": 0.45, "height": 0.22, "mass": 45.0, "floats": true, "bounce": 0.15, "friction": 9.0, "roll": 0.4},
@@ -32,7 +32,10 @@ const SPECS := {
 ## The resources piles are drawn for, in the order of their looks
 ## (`variant` of a pile; PropMeshLibrary has a shape for each). Part of the
 ## save format: append, never reorder.
-const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs", &"tools"]
+const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs", &"tools",
+	&"mushrooms", &"roots", &"nuts"]
+## A fallen fruit of this variant is a nut (resource "nuts"; others are berries).
+const NUT_VARIANT := 1
 
 ## A generated rock at least this big (PropData.scale_percent) is a boulder.
 const BOULDER_FROM_SCALE := 110

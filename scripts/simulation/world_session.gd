@@ -1292,6 +1292,11 @@ func _activate() -> void:
 	lifecycle.start = start
 	lifecycle.events = events
 	graves.bind(props, world, pathfinder, start, ids, archive, loose)
+	graves.starts = func() -> Array:
+		var out: Array = []
+		for own in settlements.all():
+			out.append(own.start_info())
+		return out
 	# (An older save's graves, one each: gathered into cemeteries.)
 	var gathered := graves.gather_old()
 	if gathered > 0:
@@ -1328,6 +1333,9 @@ func _activate() -> void:
 	_saved_disasters = {}
 	interactions.disasters = disasters
 	ai.water_withheld = disasters.water_is_blood
+	# Old stones to take: what fell, not what was there of old or a mystery's.
+	ai.is_rubble = func(prop: PropData) -> bool:
+		return prop != null and prop.kind == PropData.Kind.RUIN and (start == null or prop.id != start.ruin_id) and not mysteries.lies_at(prop.tile)
 	movement.traffic = traffic
 	planner.bind(settlement, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
 	planner.from_dict(_saved_planner)
@@ -1499,8 +1507,45 @@ func _apply_pause() -> void:
 
 func _on_day_started(day: int) -> void:
 	EventBus.day_started.emit(day)
+	_let_nuts_fall()
 	if not unfold_pending and unfolder.due(world, settlements, people.size(), clock.tick):
 		unfold_pending = true
+
+
+## In autumn the broadleaf trees near a settlement let their nuts fall, a
+## few a day, until there are enough lying under them to gather (the owner,
+## 2026-10-06): food that keeps through the winter.
+const NUTS_LYING_MOST := 24
+const NUTS_A_DAY := 6
+
+
+func _let_nuts_fall() -> void:
+	if not is_active or settlements == null or interactions == null or Config.time.season_of(clock.tick) != Seasons.AUTUMN:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([world_seed, clock.tick, "nuts"])
+	for own in settlements.all():
+		var fire := own.fire()
+		if fire == null:
+			continue
+		var center := fire.position2d()
+		var lying := 0
+		for object in loose.all_objects():
+			if object.kind == LooseObject.Kind.FRUIT and object.resource == &"nuts" and object.position.distance_to(center) <= Places.WORK_RADIUS:
+				lying += 1
+		if lying >= NUTS_LYING_MOST:
+			continue
+		var trees: Array[PropData] = []
+		for prop in props.all_props():
+			if prop.kind == PropData.Kind.TREE and not prop.felled and not prop.is_conifer() \
+					and prop.position2d().distance_to(center) <= Places.WORK_RADIUS:
+				trees.append(prop)
+		if trees.is_empty():
+			continue
+		for n in mini(NUTS_A_DAY, NUTS_LYING_MOST - lying):
+			var tree := trees[rng.randi_range(0, trees.size() - 1)]
+			var under := tree.position2d() + Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.3, 0.8)
+			interactions.drop_nut(under)
 
 
 func _on_season_changed(season: int, year: int) -> void:

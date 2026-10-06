@@ -126,7 +126,8 @@ func _until(person: PersonData, activity: StringName, limit: float = 600.0) -> b
 func test_the_activities_are_defined_in_data() -> void:
 	var library := session.activities
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"celebrate", &"drink", &"eat", &"explore", &"go_home", &"play", &"sleep", &"socialize", &"tag_along", &"visit_grave", &"work"] as Array[StringName])
+	assert_eq(library.ids(), [&"celebrate", &"dance", &"drink", &"eat", &"explore", &"go_home", &"play", &"sing", &"sleep", &"socialize",
+		&"storytelling", &"tag_along", &"visit_grave", &"warm_by_fire", &"work"] as Array[StringName])
 	_set_hour(10.0)
 	var person := _adult()
 	# (Someone they grieve, with a grave to go to.)
@@ -595,7 +596,11 @@ func test_everyone_s_work_is_their_own() -> void:
 		# (Work at a tree or a bush brings something home: two more steps.)
 		assert_eq(steps.size(), 2 if occupation == &"elder" else 4)
 		var target := session.props.get_prop(int(steps[1]["target"]))
-		assert_eq(target.kind, kinds[occupation], "a %s works at a %s" % [occupation, PropData.Kind.keys()[kinds[occupation]]])
+		if occupation == &"forager":
+			# (Wild food of any kind: a bush, mushrooms, roots — the owner, 2026-10-06.)
+			assert_true(PropData.FORAGE.has(target.kind), "a forager forages (%s)" % PropData.Kind.keys()[target.kind])
+		else:
+			assert_eq(target.kind, kinds[occupation], "a %s works at a %s" % [occupation, PropData.Kind.keys()[kinds[occupation]]])
 		assert_true(Vector2(target.tile - session.start.settlement_tile).length() <= Places.WORK_RADIUS + 6.0, "near home")
 	# Not always the same tree.
 	var woodcutter := _adult(&"woodcutter")
