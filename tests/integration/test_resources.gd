@@ -893,7 +893,7 @@ func test_an_uprooted_tree_is_cut_up_for_wood() -> void:
 	log.amount = 1
 	assert_true(WorkStep.cut_log(ctx, cutter, {"effort": 0}, log, 100))
 	assert_null(session.loose.get_object(log.id), "cut up and carried off")
-	# A log the player has put somewhere is left where it is.
+	# A log the player has put somewhere is used as well.
 	var placed := LooseObject.new()
 	placed.id = session.ids.next_id()
 	placed.kind = LooseObject.Kind.LOG
@@ -901,7 +901,7 @@ func test_an_uprooted_tree_is_cut_up_for_wood() -> void:
 	placed.placed_by_player = true
 	assert_true(session.loose.add(placed))
 	cutter.carrying_amount = 0
-	assert_false(int(Planner.plan(&"work", cutter, ctx)[1].get("log", 0)) == placed.id, "not the player's")
+	assert_eq(int(Planner.plan(&"work", cutter, ctx)[1].get("log", 0)), placed.id, "the player's too (the owner, 2026-10-05: logs lay unused)")
 
 
 # --- over days ---------------------------------------------------------------------------------------

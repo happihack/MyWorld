@@ -261,6 +261,7 @@ func _process(delta: float) -> void:
 	if water_button != null:
 		water_button.fill = session.water.carried / WaterTool.BUCKET
 	_advance_follow(delta)
+	_slow_for_disasters()
 	session.watch_followed(follow.person_id if follow.is_following() else 0)
 	_update_locate()
 	ui_root.hints().set_person_in_view(world_view.people_view().shown_count() > 0)
@@ -753,7 +754,9 @@ func _begin_opening() -> void:
 		return
 	if session.start == null or session.start.campfire_id == 0:
 		return
-	if Config.interaction.first_opening and not ui_root.hints().is_completed(HintDirector.INTRO):
+	# The box opens every time the world is opened, as it did the first time
+	# (the owner, 2026-10-05); a touch skips it.
+	if Config.interaction.first_opening:
 		_play_intro()
 		return
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):
@@ -763,8 +766,9 @@ func _begin_opening() -> void:
 	get_tree().create_timer(OPENING_HOLD_SECONDS).timeout.connect(_opening_glide)
 
 
-## The first opening (bible §26.1): the box opens and the camera comes down
-## to someone walking. Once on this device; a touch skips it.
+## The opening (bible §26.1): the box opens and the camera comes down to
+## someone walking. Every time a world is opened (once, until the owner's
+## word of 2026-10-05); a touch skips it.
 func _play_intro() -> void:
 	intro = BoxIntro.new()
 	intro.name = "BoxIntro"
@@ -997,6 +1001,31 @@ func _apply_settings() -> void:
 
 ## Glides the camera home: the largest settlement (M13.5; or frames the box
 ## if there is none).
+## The speed the world went at before a disaster slowed it (-1: none did),
+## and the disaster that did (its start tick: each slows it once).
+var _speed_before_disaster := -1
+var _slowed_for := -1
+
+
+## As a disaster begins, the world goes at its usual speed, to be watched —
+## once: the player may speed it up again (the owner, 2026-10-05). When it
+## has been watched, the speed it went before comes back, unless the player
+## chose another meanwhile.
+func _slow_for_disasters() -> void:
+	var clock := session.clock
+	var disasters := session.disasters
+	if disasters.watching(clock.tick):
+		if _slowed_for != disasters.began:
+			_slowed_for = disasters.began
+			if clock.speed_index > GameClock.SPEED_NORMAL:
+				_speed_before_disaster = clock.speed_index
+				ui_root.set_speed(GameClock.SPEED_NORMAL)
+	elif _speed_before_disaster >= 0:
+		if clock.speed_index == GameClock.SPEED_NORMAL:
+			ui_root.set_speed(_speed_before_disaster)
+		_speed_before_disaster = -1
+
+
 ## A disaster, chosen and confirmed: brought down where the camera looks.
 func bring_down(kind: StringName) -> Intervention:
 	var pivot := world_view.camera_rig().pivot()

@@ -64,14 +64,8 @@ func test_the_first_opening() -> void:
 	var at := view.people_view().ground_position(person)
 	assert_near(rig.distance(), BoxIntro.REST_DISTANCE, 0.5)
 	assert_true(Vector2(rig.pivot().x, rig.pivot().z).distance_to(Vector2(at.x, at.z)) < 2.0, "on them")
-	# "Something lives inside." — until the first touch.
+	# No "Something lives inside." (the owner, 2026-10-05): nothing is said.
 	ui.hints().advance(0.1)
-	assert_eq(ui.hints().current(), HintDirector.INSIDE)
-	assert_eq(UIText.hint(HintDirector.INSIDE), "Something lives inside.")
-	_touch(true)
-	_touch(false)
-	await wait_frames(2)
-	assert_true(ui.hints().is_completed(HintDirector.INSIDE))
 	assert_ne(ui.hints().current(), HintDirector.INSIDE)
 
 
@@ -90,15 +84,18 @@ func test_a_touch_skips_it() -> void:
 	assert_near(view.camera_rig().distance(), BoxIntro.REST_DISTANCE, 0.5, "at rest above someone")
 
 
-func test_once_only() -> void:
+func test_every_time() -> void:
 	var main := await _open_main()
 	(main.get("intro") as BoxIntro).skip()
 	await wait_frames(2)
 	get_tree().unload_current_scene()
 	await wait_frames(2)
 	main = await _open_main()
-	assert_null(main.get("intro"), "a later launch: the opening shot of every launch instead")
-	assert_true((main.get_node("WorldView") as WorldView).camera_rig().is_framed())
+	# (The owner, 2026-10-05: the box opens every time, as it did the first.)
+	assert_not_null(main.get("intro"), "a later launch: the box opens again")
+	(main.get("intro") as BoxIntro).skip()
+	await wait_frames(2)
+	assert_null(main.get("intro"))
 
 
 func test_with_reduced_motion_it_is_simply_the_end() -> void:
@@ -114,8 +111,11 @@ func test_the_menu_glows_at_the_first_event() -> void:
 	(main.get("intro") as BoxIntro).skip()
 	var ui: UIRoot = main.get_node("UIRoot")
 	var session: WorldSession = main.get_node("WorldSession")
-	assert_false(ui.menu_button().is_glowing())
-	session.events.record(&"dry_spell", {"days": 6, "significance": 0.6})
+	# (The world runs while it opens: something may already have happened
+	# then — the first event all the same; else one is made to happen now.)
+	if not ui.hints().is_completed(HintDirector.MENU_GLOW):
+		assert_false(ui.menu_button().is_glowing())
+		session.events.record(&"dry_spell", {"days": 6, "significance": 0.6})
 	assert_true(ui.menu_button().is_glowing(), "the ☰, softly")
 	assert_true(ui.hints().is_completed(HintDirector.MENU_GLOW), "once")
 	# Once only: on the next launch it does not glow again.

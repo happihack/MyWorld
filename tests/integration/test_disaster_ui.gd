@@ -69,7 +69,8 @@ func test_the_button_and_its_disasters() -> void:
 	for kind in DisasterSystem.KINDS:
 		var one := bar.button(kind)
 		var rect := one.get_global_rect()
-		assert_near(rect.size.x, SpeedControl.BUTTON_SIZE * 0.5, 1.0, "%s half the size" % kind)
+		assert_near(rect.size.x, DisasterBar.size_of_one(), 1.0, "%s two thirds the size" % kind)
+		assert_true(rect.size.x >= SpeedControl.BUTTON_SIZE * 0.6, "big enough to make out")
 		assert_true(rect.end.x <= button.get_global_rect().position.x, "%s to the left of the button" % kind)
 		assert_true(rect.position.x > last_x, "in order, left to right")
 		assert_true(rect.position.x >= 0.0, "%s on the screen" % kind)
@@ -130,6 +131,42 @@ func test_a_warning_first_then_where_the_camera_looks() -> void:
 	card = ui.warn_of_disaster(DisasterSystem.STORM)
 	assert_true(card.yes_button().visible)
 	card.close()
+
+
+func test_slowed_to_be_watched() -> void:
+	var clock := session.clock
+	ui.set_speed(GameClock.SPEED_VERY_FAST)
+	main.bring_down(DisasterSystem.ECLIPSE)
+	await wait_frames(2)
+	assert_eq(clock.speed_index, GameClock.SPEED_NORMAL, "at its usual speed, to be watched")
+	# Only once: the player may speed it up again.
+	ui.set_speed(GameClock.SPEED_FAST)
+	await wait_frames(2)
+	assert_eq(clock.speed_index, GameClock.SPEED_FAST, "the player's choice stands")
+	ui.set_speed(GameClock.SPEED_NORMAL)
+	clock.tick = session.disasters.began + DisasterSystem.WATCH[DisasterSystem.ECLIPSE]
+	session.disasters.advance_to(clock.tick)
+	await wait_frames(2)
+	assert_eq(clock.speed_index, GameClock.SPEED_VERY_FAST, "and as fast as before, after")
+	# The long ones: only at first.
+	session.disasters.rest_until = 0
+	main.bring_down(DisasterSystem.BLOOD)
+	await wait_frames(2)
+	assert_eq(clock.speed_index, GameClock.SPEED_NORMAL)
+	clock.tick += DisasterSystem.WATCH[DisasterSystem.BLOOD]
+	await wait_frames(2)
+	assert_true(session.disasters.is_active(), "it goes on")
+	assert_eq(clock.speed_index, GameClock.SPEED_VERY_FAST, "but the world need not wait for it")
+	# A speed the player chose meanwhile is kept.
+	session.disasters.kind = &""
+	session.disasters.rest_until = 0
+	main.bring_down(DisasterSystem.TORNADO)
+	await wait_frames(2)
+	ui.set_speed(GameClock.SPEED_PAUSE)
+	clock.tick = session.disasters.until
+	session.disasters.advance_to(clock.tick)
+	await wait_frames(2)
+	assert_eq(clock.speed_index, GameClock.SPEED_PAUSE, "the player's choice stands")
 
 
 func test_what_it_looks_like() -> void:

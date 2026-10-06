@@ -4,7 +4,7 @@ extends Node
 ## time, only when it is relevant, and only until the player has done the thing
 ## once — after that it never comes back on this device.
 ##
-##   "Something lives inside."       as the first opening ends (BoxIntro), until the first touch
+##   ("Something lives inside." is no more: the owner, 2026-10-05.)
 ##   "Drag to explore."              after a few idle seconds, until the first pan
 ##   "Try touching someone."         once the player has panned and someone is in view,
 ##                                   until the first touch of a person
@@ -35,7 +35,7 @@ const TILT := &"tilt"
 const INTRO := &"intro"
 const MENU_GLOW := &"menu_glow"
 ## Hints in the order they are offered.
-const ORDER: Array[StringName] = [INSIDE, DRAG, TOUCH, HOLD, FOLLOW, MOVED, TILT]
+const ORDER: Array[StringName] = [DRAG, TOUCH, HOLD, FOLLOW, MOVED, TILT]
 ## "Try tilting the box." after this much play (seconds).
 const TILT_AFTER_SECONDS := 180.0
 const SETTING := &"ftue/completed"
@@ -83,7 +83,8 @@ func note_touch() -> void:
 
 ## The first opening has ended: its line is due.
 func offer_inside() -> void:
-	_inside_due = not is_completed(INSIDE)
+	# ("Something lives inside." was taken out at the owner's word, 2026-10-05.)
+	_inside_due = false
 	_idle = 0.0
 
 

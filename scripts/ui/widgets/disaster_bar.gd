@@ -3,7 +3,7 @@ extends HBoxContainer
 ## The disasters to choose from (the owner's design, 2026-10-05): a row of
 ## small round buttons that slides out to the left of the Disaster button —
 ## earthquake, eclipse, storm, flood, whirlwind, blood, falling stars. Half
-## the size of the buttons in the column. Each draws its own glyph.
+## two thirds the size of the buttons in the column. Each draws its own glyph.
 
 ## One was picked (the warning comes next).
 signal chosen(kind: StringName)
@@ -23,7 +23,7 @@ var can_strike := true:
 func _init() -> void:
 	name = "DisasterBar"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE # only the buttons take touches
-	add_theme_constant_override(&"separation", 14)
+	add_theme_constant_override(&"separation", 10)
 	for kind in DisasterSystem.KINDS:
 		var button := Button.new()
 		button.name = String(kind).capitalize().replace(" ", "")
@@ -42,9 +42,10 @@ func _init() -> void:
 		_buttons[kind] = button
 
 
-## Half as big as the round buttons of the column.
+## Two thirds as big as the round buttons of the column (half was too
+## small to make out: the owner, 2026-10-05).
 static func size_of_one() -> float:
-	return roundf(SpeedControl.BUTTON_SIZE * 0.5)
+	return roundf(SpeedControl.BUTTON_SIZE * 0.68)
 
 
 func button(kind: StringName) -> Button:
@@ -57,7 +58,7 @@ func _draw_button(button: Button, kind: StringName) -> void:
 	button.draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if button.button_pressed else HomeButton.BACKDROP)
 	button.draw_arc(center, radius, 0.0, TAU, 32, HomeButton.RING, maxf(radius * 0.07, 1.5), true)
 	var ink := HomeButton.GLYPH if can_strike else Color(HomeButton.GLYPH, 0.35)
-	draw_glyph(button, kind, center, radius * 0.44, ink, can_strike)
+	draw_glyph(button, kind, center, radius * 0.5, ink, can_strike)
 
 
 ## The sign of a disaster, drawn on `canvas` around `center` (`u`: a unit

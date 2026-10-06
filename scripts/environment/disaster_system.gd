@@ -38,6 +38,11 @@ const KINDS: Array[StringName] = [EARTHQUAKE, ECLIPSE, STORM, FLOOD, TORNADO, BL
 ## How long each goes on (game minutes; a game hour is half a minute at
 ## the usual speed).
 const LASTS := {EARTHQUAKE: 6, ECLIPSE: 70, STORM: 360, FLOOD: 180, TORNADO: 40, BLOOD: 1440, METEORS: 24}
+## How long of each is there to be watched (game minutes from its start):
+## the world goes at its usual speed meanwhile, however fast it went before
+## (the owner, 2026-10-05: at the fastest speed an eclipse was over in two
+## seconds). The long ones only at first.
+const WATCH := {EARTHQUAKE: 6, ECLIPSE: 70, STORM: 60, FLOOD: 60, TORNADO: 40, BLOOD: 60, METEORS: 24}
 ## How long the world rests after one before the next can be brought down.
 const REST_MINUTES := 1440
 ## What each is written down as (data/events/<id>.tres; the storm and the
@@ -167,6 +172,11 @@ func advance_to(now: int) -> void:
 		_stars.clear()
 		Log.info(Log.Category.WORLD, "The disaster is over", {"kind": was})
 		ended.emit(was)
+
+
+## Is one going on that is to be watched now (see WATCH)?
+func watching(now: int) -> bool:
+	return kind != &"" and now < began + int(WATCH[kind])
 
 
 ## Where the whirlwind is at `tick` (world X/Z).

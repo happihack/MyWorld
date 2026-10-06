@@ -134,6 +134,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 					return own_work
 				if def.helps_with.is_empty():
 					return []
+				# Nothing of their own to do: a fallen trunk lying near is
+				# cut up first, whoever they are (wood that is down already).
+				var hauling := _log_work(person, ctx, rng)
+				if not hauling.is_empty():
+					return hauling
 				target = StringName(def.helps_with[0])
 			# Wood: a fallen trunk lying near home is cut up before a tree is felled;
 			# food: fruit lying on the ground is picked up before a bush is picked.
@@ -397,15 +402,23 @@ static func _fish_work(person: PersonData, ctx: AiContext, rng: RandomNumberGene
 	return steps
 
 
+## How far from home a fallen trunk is fetched (tiles).
+const LOG_REACH := Places.WORK_RADIUS * 2.0
+
+
 ## A fallen trunk (an uprooted tree) to cut up for wood: to it, cut, and home
 ## to the stores with the wood ([]: none lying near home that can be got to).
 static func _log_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	# (Any log lying about, the player's too, and from further off than other
+	# work: wood that is down already — the owner's playtest, 2026-10-05: the
+	# logs of uprooted trees were not being used.)
 	var log := _lying_near(person, ctx, func(object: LooseObject) -> bool:
-		return object.kind == LooseObject.Kind.LOG and not object.placed_by_player and object.state == LooseObject.State.RESTING)
+		return object.kind == LooseObject.Kind.LOG and object.state == LooseObject.State.RESTING, LOG_REACH)
 	if log == null:
 		return []
 	var at := Vector2i(log.position.floor())
-	var cut := WorkStep.make(&"tree", 0, at, snappedf(rng.randf_range(50.0, 110.0), 1.0))
+	# (Quicker than felling: the tree is down already.)
+	var cut := WorkStep.make(&"tree", 0, at, snappedf(rng.randf_range(25.0, 50.0), 1.0))
 	cut["log"] = log.id
 	var steps := [WalkToStep.make(_beside(at, person.position, ctx), person.sub_tile_offset), cut]
 	var stores: Variant = ctx.places.storage_tile(WorkStep.LOG_RESOURCE)
@@ -434,13 +447,13 @@ static func _fruit_work(person: PersonData, ctx: AiContext, rng: RandomNumberGen
 
 ## The nearest loose thing near the person's home that `wanted` says is for
 ## the taking (and that is not in the water, nor where there was no way to).
-static func _lying_near(person: PersonData, ctx: AiContext, wanted: Callable) -> LooseObject:
+static func _lying_near(person: PersonData, ctx: AiContext, wanted: Callable, reach: float = Places.WORK_RADIUS) -> LooseObject:
 	if ctx.loose == null or ctx.places == null:
 		return null
 	var home: Variant = ctx.places.home_tile(person)
 	var center := Places.middle_of(home if home != null else person.position)
 	var best: LooseObject = null
-	var best_distance := Places.WORK_RADIUS
+	var best_distance := reach
 	for object in ctx.loose.all_objects():
 		if not bool(wanted.call(object)):
 			continue
