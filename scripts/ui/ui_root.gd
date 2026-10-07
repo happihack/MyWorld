@@ -27,6 +27,8 @@ signal event_chosen(event_id: int)
 signal disaster_requested(kind: StringName)
 ## Another world is to be opened (VS.3; see MainMenu.world_requested).
 signal world_requested(plan: Dictionary, erase_this: bool)
+## The benchmark was asked for (the menu is closed: M21.1).
+signal benchmark_requested
 
 const CONTEXT_MENU := preload("res://scenes/ui/panels/context_menu.tscn")
 const INSPECT_CARD := preload("res://scenes/ui/panels/inspect_card.tscn")
@@ -380,6 +382,10 @@ func open_menu() -> MainMenu:
 		menu.close()
 		if camera_mover.is_valid():
 			camera_mover.call(world_xz, true))
+	menu.benchmark_requested.connect(func() -> void:
+		_tick()
+		menu.close()
+		benchmark_requested.emit())
 	menu.world_requested.connect(func(plan: Dictionary, erase_this: bool) -> void:
 		menu.close()
 		world_requested.emit(plan, erase_this))

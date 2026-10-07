@@ -115,13 +115,13 @@ func apply_effects() -> void:
 		# The boat at its landings: the best it has come to build (M19.5).
 		if props != null and own.fire() != null:
 			var boat := WorkStep.boat_of(own)
-			for prop in props.all_props():
+			for prop in props.of_kind(PropData.Kind.LANDING):
 				if prop.kind == PropData.Kind.LANDING and prop.variant != boat \
 						and Vector2(prop.tile - own.fire().tile).length() <= SettlementPlanner.NEAR_REACH:
 					prop.variant = boat
 					props.changed(prop.id)
 		if own.knows_how(&"mathematics") and props != null and own.fire() != null:
-			for prop in props.all_props():
+			for prop in props.of_kind(PropData.Kind.RECORD_STONE):
 				if prop.kind == PropData.Kind.RECORD_STONE and prop.variant == 0 \
 						and Vector2(prop.tile - own.fire().tile).length() <= SettlementPlanner.NEAR_REACH:
 					prop.variant = 1
@@ -229,7 +229,7 @@ func _near(at: Vector2i, kind: int) -> int:
 	if props == null:
 		return 0
 	var count := 0
-	for prop in props.all_props():
+	for prop in props.of_kind(kind):
 		if prop.kind == kind and Vector2(prop.tile - at).length() <= PLANTS_REACH:
 			count += 1
 			if count >= PLANTS_LEAST:

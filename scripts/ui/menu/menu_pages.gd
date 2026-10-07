@@ -283,6 +283,7 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 		DEBUG:
 			menu.set_title(MemoryText.translate("MENU_DEBUG"))
 			menu.add_toggle(&"debug/overlay_visible", "DEBUG_OVERLAY")
+			menu.add_entry(MemoryText.translate("DEBUG_BENCHMARK"), func() -> void: menu.benchmark_requested.emit())
 		_:
 			return false
 	return true
@@ -347,7 +348,7 @@ static func stores_lines(own: Settlement) -> PackedStringArray:
 static func world_resource_lines(s: WorldSession) -> PackedStringArray:
 	var trees := 0
 	var bushes := 0
-	for prop in s.props.all_props():
+	for prop in s.props.of_kind(PropData.Kind.TREE):
 		if prop.kind == PropData.Kind.TREE and prop.stock != 0:
 			trees += 1
 		elif prop.kind == PropData.Kind.BUSH:
@@ -460,7 +461,7 @@ static func buildings(s: WorldSession) -> Array:
 	var out: Array = []
 	for own in s.settlements.all():
 		var kinds := {}
-		for prop in s.props.all_props():
+		for prop in s.props.buildings():
 			if prop.is_building() and prop.kind != PropData.Kind.CAMPFIRE and s.settlements.nearest(prop.tile) == own:
 				kinds[prop.kind] = int(kinds.get(prop.kind, 0)) + 1
 		var lines := PackedStringArray()

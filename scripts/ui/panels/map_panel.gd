@@ -220,7 +220,7 @@ func markers() -> Array:
 		for own in _session.settlements.all():
 			var tile := own.start_info().settlement_tile
 			out.append([&"fire", Vector2(tile) + Vector2(0.5, 0.5), own.display_name()])
-		for prop in _session.props.all_props():
+		for prop in _session.props.of_kind(PropData.Kind.RUIN):
 			if prop.kind == PropData.Kind.RUIN:
 				out.append([&"ruin", prop.position2d(), ""])
 	if bool(layers[&"events"]):

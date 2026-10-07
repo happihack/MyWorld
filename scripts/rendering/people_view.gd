@@ -49,6 +49,10 @@ const MARKER_SIZE := 18.0
 ## so that nobody pops in at the edge.
 const VIEW_MARGIN := 140.0
 const MAX_VIEWS := 96
+## Someone with nothing drawn is looked at every this-many frames (a power of two).
+const NOTHING_DRAWN_EVERY := 4
+## ...once there are more than this many people (fewer cost nothing to look at).
+const IN_TURNS_FROM := 128
 ## A view is checked against its person's age and work every this many frames
 ## (a power of two; people do not change their clothes from one frame to the next).
 const DRESS_CHECK_FRAMES := 16
@@ -310,7 +314,17 @@ func refresh(delta: float) -> void:
 		multimesh.instance_count = maxi(_ids.size(), multimesh.instance_count * 2)
 	var marker_scale := MARKER_SIZE * units_per_px
 	_marker_transforms.clear()
+	var in_turns := _ids.size() > IN_TURNS_FROM
 	for id in _ids:
+		# Someone with nothing drawn (no body, no marker, no sign) is looked at
+		# every NOTHING_DRAWN_EVERY-th frame only, in turns: whether they have
+		# come into sight can wait that long — the margin round the screen
+		# hides it (M21: everyone every frame was 3.5 ms at 500 people).
+		if in_turns and _marker_alpha <= 0.0 and ((_refreshes + id) & (NOTHING_DRAWN_EVERY - 1)) != 0 \
+				and not _pool.has_view(id) and not _emote_sprites.has(id) and id != _selected_id:
+			var quiet := _people.get_person(id)
+			if quiet == null or quiet.emote == &"":
+				continue
 		var person := _people.get_person(id)
 		if person == null:
 			continue

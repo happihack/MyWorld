@@ -27,6 +27,9 @@ static func is_available() -> bool:
 	return OS.is_debug_build() or bool(Settings.get_value(&"debug/enabled"))
 
 
+## F4 was pressed (debug builds): the benchmark is wanted (M21.1).
+signal benchmark_requested
+
 func _ready() -> void:
 	register_section(&"engine", _engine_section)
 	register_section(&"input", func() -> String: return "gesture %s" % _last_gesture)
@@ -116,6 +119,11 @@ func _process(delta: float) -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed(&"debug_toggle_overlay"):
 		toggle()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and not event.echo and (event as InputEventKey).keycode == KEY_F4 \
+			and is_available():
+		# (F4: the benchmark — also from adb, `input keyevent 134`, M21.1.)
+		benchmark_requested.emit()
 		get_viewport().set_input_as_handled()
 
 

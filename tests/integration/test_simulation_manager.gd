@@ -28,6 +28,8 @@ func after_each() -> void:
 	Config.sim.ai_budget_ms_per_frame = SimConfig.new().ai_budget_ms_per_frame
 	Config.sim.tier3_cap_high = SimConfig.new().tier3_cap_high
 	Config.sim.tier3_cap_low = SimConfig.new().tier3_cap_low
+	Config.sim.tier2_cap_high = SimConfig.new().tier2_cap_high
+	Config.sim.tier2_cap_low = SimConfig.new().tier2_cap_low
 	session.queue_free()
 	await wait_frames(1)
 
@@ -280,8 +282,41 @@ func test_someone_in_focus_looks_up_more_often() -> void:
 	assert_eq(Config.sim.think_ticks(TierManager.FOCUS), 1)
 	assert_eq(Config.sim.think_ticks(TierManager.ACTIVE), 3)
 	assert_eq(Config.sim.think_ticks(TierManager.REGIONAL), 15)
-	assert_eq(Config.sim.think_ticks(TierManager.DORMANT), 15)
+	assert_eq(Config.sim.think_ticks(TierManager.ABSTRACT), 60, "an hour at a time (M21)")
+	assert_eq(Config.sim.think_ticks(TierManager.DORMANT), 60)
+	assert_eq(Config.sim.live_ticks(TierManager.ABSTRACT), 60)
 	assert_eq(Config.sim.live_ticks(TierManager.ACTIVE), 1)
+
+
+func test_the_furthest_live_an_hour_at_a_time_and_lose_nothing() -> void:
+	# (M21: beyond the people simulated in full and those simulated coarsely,
+	# the furthest from where the player looks live in hourly turns.)
+	Config.sim.patient_steps = false
+	Config.sim.tier3_cap_high = 3
+	Config.sim.tier3_cap_low = 3
+	Config.sim.tier2_cap_high = 3
+	Config.sim.tier2_cap_low = 3
+	_crowd(12)
+	for p in session.people.all_people():
+		p.needs = Needs.full()
+		session.behavior.set_plan(p, BehaviorSystem.ACTIVITY_CALLED, &"", [RestStep.make(10000.0)])
+	sim.tiers.unfocus()
+	sim.tiers.look_at(Vector2(9999, 9999))
+	sim.tiers.refresh()
+	var counts := sim.tiers.counts()
+	assert_eq([counts.get(TierManager.ACTIVE, 0), counts.get(TierManager.REGIONAL, 0), counts.get(TierManager.ABSTRACT, 0)],
+		[3, 3, 6], "the nearest in full, the next coarsely, the rest an hour at a time")
+	var before := _hunger()
+	var turns := {}
+	for frame in 30 * 60 * 3: # three game hours
+		sim.advance(FRAME)
+	var elapsed := session.clock.tick + session.clock.tick_fraction()
+	for p in session.people.all_people():
+		var body := Config.needs.body_factor(p.life_stage(session.clock.tick, YEAR, Config.people))
+		var passed: float = (float(before[p.id]) - p.needs[Needs.Need.HUNGER]) / (Config.needs.hunger_per_minute * body)
+		assert_near(passed + sim.pending_minutes(p.id), elapsed, 0.05, "%s lost no time (tier %d)" % [p.given_name, p.sim_tier])
+		if p.sim_tier == TierManager.ABSTRACT:
+			assert_true(sim.pending_minutes(p.id) <= 60.0 + 1.0, "never more than an hour behind")
 
 
 func test_a_look_up_is_a_glance_unless_something_has_changed() -> void:

@@ -20,6 +20,12 @@ signal at_the_edge(person_id: int, tile: Vector2i)
 
 ## How far people see about them (tiles).
 const SIGHT := 6
+## Where someone stood and saw nothing new: all of it is known already (it is
+## never forgotten), so standing there again is passed over — at a thousand
+## people, marking it all again was a quarter of a second an hour (M21).
+## Forgotten when the box unfolds (new land past the old walls).
+var _done := {}
+var _done_in := Rect2i()
 ## A wall is reached this close (tiles).
 const EDGE_REACH := 1
 
@@ -46,6 +52,7 @@ func bind(world: WorldData, people: PersonRegistry) -> void:
 	_people = people
 	_last.clear()
 	_bits.clear()
+	_done.clear()
 	regions.compute(world)
 
 
@@ -90,8 +97,12 @@ func look_about() -> Array[Vector2i]:
 		if _last.get(person.id, Vector2i.MAX) == at:
 			continue
 		_last[person.id] = at
-		_mark_around(person.id, at, coords)
 		var bounds := _world.bounds
+		if bounds != _done_in:
+			_done_in = bounds
+			_done.clear() # (the box has unfolded: new land beyond the old walls)
+		if not _done.has(at) and _mark_around(person.id, at, coords) == 0:
+			_done[at] = true
 		if not edge_reached and (at.x - bounds.position.x <= EDGE_REACH or bounds.end.x - 1 - at.x <= EDGE_REACH
 				or at.y - bounds.position.y <= EDGE_REACH or bounds.end.y - 1 - at.y <= EDGE_REACH):
 			edge_reached = true
@@ -188,7 +199,8 @@ func know_home(tile: Vector2i) -> void:
 	_mark_around(0, tile, coords, SIGHT * 2)
 
 
-func _mark_around(person_id: int, at: Vector2i, coords: Dictionary, sight: int = SIGHT) -> void:
+func _mark_around(person_id: int, at: Vector2i, coords: Dictionary, sight: int = SIGHT) -> int:
+	var fresh := 0
 	for dy in range(-sight, sight + 1):
 		for dx in range(-sight, sight + 1):
 			if dx * dx + dy * dy > sight * sight:
@@ -197,12 +209,14 @@ func _mark_around(person_id: int, at: Vector2i, coords: Dictionary, sight: int =
 			if not _world.is_in_bounds(tile) or _has_bit(tile, EXPLORED):
 				continue
 			_put_bit(tile, EXPLORED)
+			fresh += 1
 			coords[WorldCoords.tile_to_chunk(tile, _world.chunk_size)] = true
 			var region := regions.region_at(tile)
 			if region != null and not discovered.has(region.id):
 				discovered[region.id] = true
 				if person_id != 0:
 					found.emit(person_id, region.id)
+	return fresh
 
 
 func to_dict() -> Dictionary:

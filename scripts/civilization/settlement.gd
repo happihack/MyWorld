@@ -468,7 +468,7 @@ func bare_share() -> float:
 		return 0.0
 	var bushes := 0
 	var bare := 0
-	for prop in _props.all_props():
+	for prop in _props.of_kind(PropData.Kind.BUSH):
 		if prop.kind != PropData.Kind.BUSH or Vector2(prop.tile - _start.settlement_tile).length() > Places.WORK_RADIUS:
 			continue
 		bushes += 1

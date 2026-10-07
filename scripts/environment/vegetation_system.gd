@@ -107,13 +107,14 @@ func forest_coverage() -> float:
 	var land := 0
 	if _world == null:
 		return 0.0
+	# (Every SAMPLE_STEP-th tile each way, counted for all those it stands for.)
 	for chunk in _world.loaded_chunks():
-		for i in chunk.terrain.size():
+		for i in _sampled(chunk):
 			var terrain := chunk.terrain[i]
 			if chunk.water[i] <= 0.0 and (terrain == ChunkData.Terrain.GRASS or terrain == ChunkData.Terrain.DIRT
 					or terrain == ChunkData.Terrain.FARMLAND or terrain == ChunkData.Terrain.ASH):
-				land += 1
-	return float(_trees) / land if land > 0 else 0.0
+				land += SAMPLE_STEP * SAMPLE_STEP
+	return minf(float(_trees) / land, 1.0) if land > 0 else 0.0
 
 
 ## How lush the grass is on average, 0 … 1 (over the tiles that are grass).
@@ -123,11 +124,32 @@ func grass_cover() -> float:
 	if _world == null:
 		return 0.0
 	for chunk in _world.loaded_chunks():
-		for i in chunk.terrain.size():
+		for i in _sampled(chunk):
 			if chunk.terrain[i] == ChunkData.Terrain.GRASS:
 				total += chunk.vegetation[i]
 				tiles += 1
 	return float(total) / (tiles * 255.0) if tiles > 0 else 0.0
+
+
+## The land is looked over on every SAMPLE_STEP-th tile each way for the
+## averages (M21: every tile of a 512-tile box, daily, was 170 ms).
+const SAMPLE_STEP := 4
+
+
+## The indexes of a chunk's sampled tiles.
+func _sampled(chunk: ChunkData) -> PackedInt32Array:
+	var size := _world.chunk_size
+	if _sample_size != size:
+		_sample_size = size
+		_sample_ids.clear()
+		for y in range(0, size, SAMPLE_STEP):
+			for x in range(0, size, SAMPLE_STEP):
+				_sample_ids.append(y * size + x)
+	return _sample_ids
+
+
+var _sample_ids := PackedInt32Array()
+var _sample_size := -1
 
 
 ## What the soil of a tile lets grow there now (0 … 255): what the land was
@@ -383,7 +405,7 @@ func _count_trees() -> void:
 	_trees = 0
 	_tree_props = 0
 	if _props != null:
-		for prop in _props.all_props():
+		for prop in _props.of_kind(PropData.Kind.TREE):
 			if prop.kind == PropData.Kind.TREE:
 				_tree_props += 1
 				if not prop.felled:

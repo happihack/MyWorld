@@ -101,7 +101,7 @@ func _where(def: MysteryDef, start: Vector2i) -> Variant:
 	if def.placement == "ruin":
 		# Old stones the world already has, if any are free.
 		var ruins: Array[PropData] = []
-		for prop in props.all_props():
+		for prop in props.of_kind(PropData.Kind.RUIN):
 			if prop.kind == PropData.Kind.RUIN and not _taken(prop.tile):
 				ruins.append(prop)
 		ruins.sort_custom(func(x: PropData, y: PropData) -> bool: return x.id < y.id)

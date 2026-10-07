@@ -182,6 +182,10 @@ func _day_step() -> void:
 func _work(own: Settlement, share: float, now: int) -> void:
 	if own.occupations == null:
 		return
+	# (What everyone gathers is added up and taken from the land once a
+	# resource: each gathering asks the stores for room, and that looks at
+	# every pile — a thousand times a day was seconds: M21.)
+	var gathered := {} # [kind, resource] -> amount
 	for person in own.members():
 		var def := own.occupations.get_def(person.occupation_id)
 		if def == null or def.work_target == &"" or not def.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
@@ -189,9 +193,9 @@ func _work(own: Settlement, share: float, now: int) -> void:
 		var target := def.work_target
 		match target:
 			&"bush":
-				_gather(own, PropData.Kind.BUSH, &"berries", RATES[&"bush"][&"berries"] * share, now)
+				_add_to(gathered, PropData.Kind.BUSH, &"berries", RATES[&"bush"][&"berries"] * share)
 			&"tree":
-				_gather(own, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * share, now)
+				_add_to(gathered, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * share)
 			&"game":
 				_hunt(own, share)
 			&"fish":
@@ -206,7 +210,14 @@ func _work(own: Settlement, share: float, now: int) -> void:
 		# What else they gather when their own work is done.
 		var also: Dictionary = RATES.get(target, {})
 		if target != &"bush" and also.has(&"berries"):
-			_gather(own, PropData.Kind.BUSH, &"berries", float(also[&"berries"]) * share, now)
+			_add_to(gathered, PropData.Kind.BUSH, &"berries", float(also[&"berries"]) * share)
+	for key: Array in gathered:
+		_gather(own, key[0], key[1], float(gathered[key]), now)
+
+
+static func _add_to(gathered: Dictionary, kind: PropData.Kind, resource: StringName, amount: float) -> void:
+	var key := [kind, resource]
+	gathered[key] = float(gathered.get(key, 0.0)) + amount
 
 
 ## `amount` (in units, a fraction carried over by the dice) of `resource` from
@@ -236,7 +247,7 @@ func _nodes_near(own: Settlement, kind: PropData.Kind) -> Array:
 		return _near[key]
 	var fire := own.fire().tile
 	var found: Array = []
-	for prop in _s.props.all_props():
+	for prop in _s.props.of_kind(kind):
 		if prop.kind == kind and Vector2(prop.tile - fire).length() <= Places.WORK_RADIUS:
 			found.append(prop)
 	found.sort_custom(func(a: PropData, b: PropData) -> bool:
@@ -362,18 +373,57 @@ func _court(share: float) -> void:
 		for person in own.members():
 			if person.partner_id == 0 and ctx.stage_of(person) == PersonData.LifeStage.ADULT:
 				free.append(person)
+		for pair in _meetings(free):
+			var a: PersonData = pair[0]
+			var b: PersonData = pair[1]
+			if not SocialActs.may_flirt(a, b, ctx):
+				continue
+			var record := store.between(a.id, b.id)
+			var feeling := record.affinity if record != null else 0.0
+			var drawn := SocialActs.chemistry(a, b)
+			if (feeling > 0.15 or drawn >= config.chemistry_from) and feeling > -0.2:
+				store.modify(a.id, b.id, {"romance": config.flirt_romance * (0.5 + drawn) * FLIRTS_PER_DAY * share,
+					"affinity": config.talk_affinity * FLIRTS_PER_DAY * share}, 0, _s.clock.tick)
+
+
+## Who meets whom, a day: in a small settlement every free pair (as on
+## screen, where everyone runs into everyone); in a large one each meets those
+## they already know and the same few others every day — their neighbours in
+## the order of their ids, as at a long table — so that what grows between
+## two people has the days to grow (M21: every pair of a few hundred free
+## people was seconds a day). Each pair once, in a fixed order.
+const EVERYONE_MEETS_UP_TO := 24
+const NEIGHBOURS_A_DAY := 6
+
+
+func _meetings(free: Array[PersonData]) -> Array:
+	var out: Array = []
+	if free.size() <= EVERYONE_MEETS_UP_TO:
 		for i in free.size():
 			for j in range(i + 1, free.size()):
-				var a := free[i]
-				var b := free[j]
-				if not SocialActs.may_flirt(a, b, ctx):
-					continue
-				var record := store.between(a.id, b.id)
-				var feeling := record.affinity if record != null else 0.0
-				var drawn := SocialActs.chemistry(a, b)
-				if (feeling > 0.15 or drawn >= config.chemistry_from) and feeling > -0.2:
-					store.modify(a.id, b.id, {"romance": config.flirt_romance * (0.5 + drawn) * FLIRTS_PER_DAY * share,
-						"affinity": config.talk_affinity * FLIRTS_PER_DAY * share}, 0, _s.clock.tick)
+				out.append([free[i], free[j]])
+		return out
+	var index := {}
+	for i in free.size():
+		index[free[i].id] = i
+	var seen := {}
+	for i in free.size():
+		var a := free[i]
+		var others: Array[int] = []
+		for other_id: int in _s.relationships.of(a.id):
+			if index.has(other_id):
+				others.append(int(index[other_id]))
+		for k in range(1, NEIGHBOURS_A_DAY + 1):
+			others.append((i + k) % free.size())
+		for j in others:
+			if j == i:
+				continue
+			var key := Vector2i(mini(i, j), maxi(i, j))
+			if seen.has(key):
+				continue
+			seen[key] = true
+			out.append([free[key.x], free[key.y]])
+	return out
 
 
 ## Those setting out to found (or join) a settlement are where they were going.

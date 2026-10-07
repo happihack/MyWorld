@@ -5,7 +5,9 @@ extends ConfigBase
 @export_range(4, 64) var chunk_size: int = 16
 @export_range(16, 4096) var initial_world_tiles: int = 64
 @export_range(16, 4096) var slice_world_tiles: int = 32
-@export_range(16, 4096) var max_world_tiles: int = 512
+## The box unfolds no further than this (the owner, 2026-10-07: worlds are at
+## most 128 × 128 — M21's measurements of 256 and 512 boxes).
+@export_range(16, 4096) var max_world_tiles: int = 128
 @export_range(2, 255) var height_levels: int = 16
 ## World units of vertical rise per height level.
 @export_range(0.05, 2.0, 0.05) var height_step: float = 0.4

@@ -5,8 +5,9 @@ extends RefCounted
 ##   3  Active       — everyone else, up to a cap
 ##   2  Regional     — whoever is beyond the cap, furthest from where the
 ##                     player looks (coarser steps; never loses time)
-## Tiers 1 (abstract, per game hour) and 0 (dormant, per day) belong to the
-## scale milestone (M21); the numbers and the interface are already theirs.
+##   1  Abstract     — beyond that too, the furthest of all: an hour at a
+##                     time (M21; never loses time either)
+## Tier 0 (dormant, per day) is not used: nobody is that far yet.
 ##
 ## A person's tier is PersonData.sim_tier (runtime only). Their state is the
 ## same in every tier, so they can move between tiers at any time.
@@ -97,6 +98,7 @@ func refresh() -> void:
 		return
 	_stale = false
 	var cap := Config.sim.tier3_cap(low_end)
+	var regional := Config.sim.tier2_cap(low_end)
 	var others: Array[PersonData] = []
 	for person in _people.all_people():
 		if _focus.has(person.id):
@@ -110,7 +112,7 @@ func refresh() -> void:
 			var db := b.world2d().distance_squared_to(from)
 			return da < db or (da == db and a.id < b.id))
 	for i in others.size():
-		others[i].sim_tier = ACTIVE if i < cap else REGIONAL
+		others[i].sim_tier = ACTIVE if i < cap else (REGIONAL if i < cap + regional else ABSTRACT)
 	changed.emit()
 
 

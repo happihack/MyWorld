@@ -69,7 +69,7 @@ func cemeteries() -> Array[int]:
 	var out: Array[int] = []
 	if _props == null:
 		return out
-	for prop in _props.all_props():
+	for prop in _props.of_kind(PropData.Kind.CEMETERY):
 		if prop.kind == PropData.Kind.CEMETERY:
 			out.append(prop.id)
 	out.sort()
@@ -172,7 +172,7 @@ func gather_old() -> int:
 	if _props == null or _archive == null:
 		return 0
 	var old: Array[PropData] = []
-	for prop in _props.all_props():
+	for prop in _props.of_kind(PropData.Kind.GRAVE):
 		if prop.kind == PropData.Kind.GRAVE:
 			old.append(prop)
 	if old.is_empty():

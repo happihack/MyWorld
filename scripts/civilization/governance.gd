@@ -117,10 +117,11 @@ func weigh(own: Settlement, now: int = -1) -> void:
 	var best: PersonData = null
 	var best_score := -INF
 	var scores := {}
+	var member_set := _set_of(members)
 	for person in members:
 		if not _can_lead(person):
 			continue
-		var score := standing(person, own, members)
+		var score := standing(person, own, members, member_set)
 		scores[person.id] = score
 		if score > best_score or (score == best_score and best != null and person.id < best.id):
 			best_score = score
@@ -147,21 +148,32 @@ func weigh(own: Settlement, now: int = -1) -> void:
 	led.emit(own.id, best.id, was, why)
 
 
+static func _set_of(members: Array[PersonData]) -> Dictionary:
+	var out := {}
+	for person in members:
+		out[person.id] = true
+	return out
+
+
 ## How much `person` is looked to in `own` (see GovernanceConfig).
-func standing(person: PersonData, own: Settlement, members: Array[PersonData] = []) -> float:
+func standing(person: PersonData, own: Settlement, members: Array[PersonData] = [], member_set: Dictionary = {}) -> float:
 	if members.is_empty():
 		members = own.members()
+	if member_set.is_empty():
+		member_set = _set_of(members)
 	var respect := 0.0
 	var liking := 0.0
-	var others := 0
-	for other in members:
-		if other.id == person.id:
-			continue
-		others += 1
-		var record := relationships.between(other.id, person.id) if relationships != null else null
-		if record != null:
-			respect += record.respect
-			liking += record.affinity
+	var others := members.size() - (1 if member_set.has(person.id) else 0)
+	# (What they are to each of the others: only those they know have a record
+	# — at most a few dozen — the rest count for nothing. Asking every pair
+	# was minutes a day at a few hundred people: M21.)
+	if relationships != null:
+		var known := relationships.of(person.id)
+		for other_id: int in known:
+			if other_id != person.id and member_set.has(other_id):
+				var record: Relationship = known[other_id]
+				respect += record.respect
+				liking += record.affinity
 	if others > 0:
 		respect /= others
 		liking /= others

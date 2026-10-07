@@ -131,7 +131,7 @@ func standing(prop_kind: int) -> Array[int]:
 	if _standing.has(prop_kind):
 		out.assign(_standing[prop_kind])
 		return out
-	for prop in _props.all_props():
+	for prop in _props.of_kind(prop_kind):
 		if prop.kind == prop_kind:
 			out.append(prop.id)
 	out.sort()
@@ -349,7 +349,7 @@ func advance_to(now: int) -> void:
 	var days := mini(today - _day, 30)
 	_day = today
 	# What is worn is mended (by the builders: a repair, worked like a build).
-	for prop in _props.all_props():
+	for prop in _props.buildings():
 		if prop.is_building() and prop.condition < _config.repair_from and project_at(prop.id).is_empty() \
 				and not _left_to_fall(prop, now):
 			start_repair(prop, now)

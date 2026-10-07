@@ -265,11 +265,15 @@ func _pair_up(now: int) -> void:
 		others.sort()
 		for other_id: int in others:
 			var record: Relationship = known[other_id]
+			# (What is cheap to ask first, the family last: most fall at the
+			# first question, and asking after kin is dear — M21.)
+			if record.romance < config.partner_romance or record.affinity < config.partner_affinity \
+					or record.romance <= best_romance:
+				continue
 			var other := people.get_person(other_id)
 			if other == null or other.partner_id != 0 or other.sex == person.sex or not _grown(other, now) \
-					or relationships.is_family(person.id, other_id) or relationships.close_kin(person.id, other_id) \
-					or record.romance < config.partner_romance or record.affinity < config.partner_affinity \
-					or absi(person.age_years(now, Config.time.ticks_per_year()) - other.age_years(now, Config.time.ticks_per_year())) > config.partner_most_years_apart:
+					or absi(person.age_years(now, Config.time.ticks_per_year()) - other.age_years(now, Config.time.ticks_per_year())) > config.partner_most_years_apart \
+					or relationships.is_family(person.id, other_id) or relationships.close_kin(person.id, other_id):
 				continue
 			if record.romance > best_romance:
 				best_romance = record.romance

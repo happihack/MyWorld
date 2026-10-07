@@ -405,7 +405,7 @@ func _init() -> void:
 					construction.damage(prop.id, Config.construction.flood_damage, &"flood", clock.tick))
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
 		if now == WeatherSystem.STORM and is_active:
-			for prop in props.all_props():
+			for prop in props.buildings():
 				if prop.is_building():
 					construction.damage(prop.id, Config.construction.storm_damage, &"storm", clock.tick))
 	culture.formed.connect(chronicle.on_cultural_memory)
@@ -868,7 +868,7 @@ func _process(delta: float) -> void:
 
 ## Timing each part of the frame (the debug overlay's "profile" lines, for
 ## measuring on the phone — 2026-10-06): name -> [average µs, worst µs in the
-## last PROFILE_WINDOW frames, worst in the window before].
+## last PROFILE_WINDOW frames, worst in the window before, this frame's].
 var profiling := false
 var profile := {}
 var _profile_frames := 0
@@ -882,12 +882,15 @@ func _timed(name: StringName, since: int) -> int:
 		return 0
 	var now := Time.get_ticks_usec()
 	var took := now - since
-	var entry: Array = profile.get(name, [0.0, 0, 0])
+	var entry: Array = profile.get(name, [0.0, 0, 0, 0])
 	entry[0] = lerpf(entry[0], float(took), 0.02)
 	if _profile_frames % PROFILE_WINDOW == 0 and _profile_frames > 0 and name == &"people":
 		_turn_profile_window()
-		entry = profile.get(name, [0.0, 0, 0])
+		entry = profile.get(name, [0.0, 0, 0, 0])
 	entry[1] = maxi(int(entry[1]), took)
+	if entry.size() < 4:
+		entry.append(0)
+	entry[3] = took # (this frame's)
 	profile[name] = entry
 	return now
 
@@ -908,9 +911,9 @@ func advance_systems() -> void:
 	var t := Time.get_ticks_usec() if profiling else 0
 	knowledge.advance_to(clock.tick - STAGGER_KNOWLEDGE)
 	t = _timed(&"knowledge", t)
-	learning.advance_to(clock.tick)
+	learning.advance_to(clock.tick - STAGGER_LEARNING)
 	t = _timed(&"learning", t)
-	technology.advance_to(clock.tick)
+	technology.advance_to(clock.tick - STAGGER_TECHNOLOGY)
 	t = _timed(&"technology", t)
 	cultures.advance_to(clock.tick)
 	t = _timed(&"cultures", t)
@@ -941,11 +944,11 @@ func advance_systems() -> void:
 	t = _timed(&"nodes", t)
 	settlements.step(clock.tick)
 	t = _timed(&"settlements", t)
-	relationships.settle(clock.tick)
+	relationships.settle(clock.tick - STAGGER_RELATIONSHIPS)
 	t = _timed(&"relationships", t)
-	lifecycle.advance_to(clock.tick)
+	lifecycle.advance_to(clock.tick - STAGGER_LIFECYCLE)
 	t = _timed(&"lifecycle", t)
-	culture.advance_to(clock.tick)
+	culture.advance_to(clock.tick - STAGGER_CULTURE)
 	t = _timed(&"culture", t)
 	construction.advance_to(clock.tick)
 	t = _timed(&"construction", t)
@@ -955,7 +958,7 @@ func advance_systems() -> void:
 	t = _timed(&"migration", t)
 	trade.advance_to(clock.tick)
 	t = _timed(&"trade", t)
-	governance.advance_to(clock.tick)
+	governance.advance_to(clock.tick - STAGGER_GOVERNANCE)
 	t = _timed(&"governance", t)
 	fauna.advance_to(clock.tick - STAGGER_FAUNA)
 	t = _timed(&"fauna", t)
@@ -970,6 +973,12 @@ const STAGGER_FAUNA := 12
 const STAGGER_STATS := 18
 const STAGGER_NODES := 24
 const STAGGER_SOIL := 30
+const STAGGER_LIFECYCLE := 36
+const STAGGER_GOVERNANCE := 42
+const STAGGER_TECHNOLOGY := 48
+const STAGGER_RELATIONSHIPS := 54
+const STAGGER_LEARNING := 60
+const STAGGER_CULTURE := 66
 
 
 ## What nature does is noticed too (and people make of it what they will):
@@ -1035,6 +1044,7 @@ func _build_new_world(setup_ids: IdAllocator) -> void:
 	var size := _start_size if _start_size > 0 else Config.world.initial_world_tiles
 	world = WorldData.create_centered(size, Config.world.chunk_size, Config.world.height_step)
 	generator = WorldGenerator.new(world_seed, template, Config.world)
+	generator.keep_made = true # (for the soil: see SoilSystem.bind)
 	world.set_generator(generator)
 	spatial = SpatialIndex.new(SpatialIndex.FINE_CELL_TILES)
 	props = PropRegistry.new(world.chunk_size, spatial)
@@ -1139,6 +1149,7 @@ func _restore_world(state: Dictionary) -> bool:
 	world_config.chunk_size = restored.chunk_size
 	world_config.height_step = restored.height_step
 	var restored_generator := WorldGenerator.new(world_seed, _load_template(saved_template), world_config)
+	restored_generator.keep_made = true # (for the soil: see SoilSystem.bind)
 	restored.set_generator(restored_generator)
 	var restored_spatial := SpatialIndex.new(SpatialIndex.FINE_CELL_TILES)
 	var restored_props := PropRegistry.new(restored.chunk_size, restored_spatial)
@@ -1267,6 +1278,8 @@ func _activate() -> void:
 	ai.farming = farming
 	# The land's soil and plants go on from where the save left them.
 	soil.bind(world, generator, props, weather, hydrology, Config.vegetation, Config.farming)
+	if generator != null:
+		generator.stop_keeping()
 	soil.from_dict(_saved_soil)
 	_saved_soil = {}
 	vegetation.bind(world, props, nodes, soil, weather, ids, rng.stream(&"vegetation"), clock, Config.vegetation, fire_at)
@@ -1626,7 +1639,7 @@ func _let_nuts_fall() -> void:
 		if lying >= NUTS_LYING_MOST:
 			continue
 		var trees: Array[PropData] = []
-		for prop in props.all_props():
+		for prop in props.of_kind(PropData.Kind.TREE):
 			if prop.kind == PropData.Kind.TREE and not prop.felled and not prop.is_conifer() \
 					and prop.position2d().distance_to(center) <= Places.WORK_RADIUS:
 				trees.append(prop)

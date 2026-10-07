@@ -172,6 +172,25 @@ func count_for(person: int) -> int:
 	return (_by_person.get(person, PackedInt64Array()) as PackedInt64Array).size()
 
 
+## Every pair at once, for the statistics: [pairs, summed affinity, friends,
+## feuds] — from the pairs themselves, not person by person (M21: building
+## everyone's list of acquaintances every game hour was 30 ms at 1,000 people).
+func summary() -> Array:
+	var pairs := 0
+	var affinity := 0.0
+	var friends := 0
+	var feuds := 0
+	for key: int in _pairs:
+		var record: Relationship = _pairs[key]
+		pairs += 1
+		affinity += record.affinity
+		if record.has_kind(Relationship.Kind.FRIEND):
+			friends += 1
+		if record.has_kind(Relationship.Kind.RIVAL) or record.has_kind(Relationship.Kind.ENEMY):
+			feuds += 1
+	return [pairs, affinity, friends, feuds]
+
+
 func size() -> int:
 	return _pairs.size()
 

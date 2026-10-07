@@ -156,7 +156,7 @@ func markers() -> Array:
 		return out
 	for fire in _session.settlements.fire_tiles():
 		out.append([&"fire", Vector2(fire) + Vector2(0.5, 0.5)])
-	for prop in _session.props.all_props():
+	for prop in _session.props.of_kind(PropData.Kind.RUIN):
 		if prop.kind == PropData.Kind.RUIN:
 			out.append([&"ruin", prop.position2d()])
 	var shown := 0

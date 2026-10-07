@@ -120,6 +120,7 @@ func _ready() -> void:
 	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
 	ui_root.world_requested.connect(switch_world)
+	ui_root.benchmark_requested.connect(run_benchmark)
 	ui_root.person_action.connect(_on_person_action)
 	ui_root.person_chosen.connect(_on_person_chosen)
 	ui_root.person_card_closed.connect(_on_person_card_closed)
@@ -196,6 +197,7 @@ func _ready() -> void:
 	debug_overlay.register_section(&"people", _people_debug_section)
 	debug_overlay.register_section(&"doing", _doing_debug_section)
 	debug_overlay.register_section(&"profile", _profile_debug_section)
+	debug_overlay.benchmark_requested.connect(run_benchmark)
 	debug_overlay.register_section(&"perception", func() -> String:
 		return "%s  reactions %d
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
@@ -849,7 +851,7 @@ func lamp_places() -> Array[Vector3]:
 		var fire := own.fire()
 		if not own.knows_how(&"lamps") or fire == null:
 			continue
-		for prop in session.props.all_props():
+		for prop in session.props.of_kind(PropData.Kind.HUT):
 			if prop.kind == PropData.Kind.HUT and Vector2(prop.tile - fire.tile).length() <= SettlementPlanner.NEAR_REACH:
 				var at := prop.position2d()
 				var base := Vector3(at.x, session.world.get_height(prop.tile) * session.world.height_step, at.y)
@@ -1271,6 +1273,25 @@ func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void
 		AudioManager.play_at(&"knock", answer.position, -13.0, 0.85 if kind == &"tree" else 1.1)
 
 
+## The on-device benchmark (M21.1): the camera's fixed way over the world,
+## measured; told when done (and written to user://benchmark.txt).
+func run_benchmark() -> Benchmark:
+	for child in get_children():
+		if child is Benchmark:
+			return child # (one at a time)
+	var bench := Benchmark.new()
+	bench.name = "Benchmark"
+	add_child(bench)
+	bench.finished.connect(func(summary: String) -> void:
+		var notice := Notice.new()
+		notice.kind = &"benchmark"
+		notice.text = MemoryText.translate("DEBUG_BENCHMARK_DONE").format({"result": summary})
+		notice.priority = 1.0
+		NotificationManager.offer_notice(notice))
+	bench.start(session, world_view.camera_rig())
+	return bench
+
+
 func _doing_debug_section() -> String:
 	if not session.is_active:
 		return "doing: -"
@@ -1282,13 +1303,15 @@ func _doing_debug_section() -> String:
 		parts.append("%s %d" % [activity if activity != &"" else &"nothing", counts[activity]])
 	var sim := session.simulation
 	var tiers := sim.tiers.counts()
-	return "%s  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d\nactive AI %d  tiers 4:%d 3:%d 2:%d%s" % [session.clock.format_date(),
+	return "%s  doing: %s  (%d decisions, %d spared)\nsim %.3f ms/frame of %.1f (live %.3f paths %.3f move %.3f)  worst %.2f  deferred %d\nactive AI %d  tiers 4:%d 3:%d 2:%d 1:%d%s" % [session.clock.format_date(),
 		", ".join(parts), session.behavior.decisions, session.behavior.skipped, sim.average_usec / 1000.0,
 		Config.perf.sim_budget_ms_per_frame, sim.average_live_usec / 1000.0, sim.average_paths_usec / 1000.0,
 		sim.average_move_usec / 1000.0, sim.worst_usec / 1000.0, sim.deferred_total,
-		(tiers.get(TierManager.FOCUS, 0) + tiers.get(TierManager.ACTIVE, 0) + tiers.get(TierManager.REGIONAL, 0))
+		(tiers.get(TierManager.FOCUS, 0) + tiers.get(TierManager.ACTIVE, 0) + tiers.get(TierManager.REGIONAL, 0)
+			+ tiers.get(TierManager.ABSTRACT, 0))
 			if session.behavior.enabled else 0,
 		tiers.get(TierManager.FOCUS, 0), tiers.get(TierManager.ACTIVE, 0), tiers.get(TierManager.REGIONAL, 0),
+		tiers.get(TierManager.ABSTRACT, 0),
 		"" if session.behavior.enabled else "  FROZEN"]
 
 

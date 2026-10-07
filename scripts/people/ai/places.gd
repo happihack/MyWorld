@@ -50,6 +50,8 @@ var _shore_version := -1
 ## While water is moving, the shore is looked for again at most this often
 ## (game minutes); while it is still, never.
 const SHORE_MINUTES := 120
+const SHORE_CELL_SHIFT := 4
+var _shore_cells: Dictionary = {} # Vector2i cell -> Array of shore tiles
 var _up_and_about: Dictionary = {} # settlement id -> people up and about
 
 
@@ -279,26 +281,47 @@ func parent_about(person: PersonData) -> PersonData:
 ## The nearest water to drink from (a tile of water with dry land beside it),
 ## or null.
 func water_tile(from: Vector2i, now: int = -1) -> Variant:
-	if _shore_version != _pathfinder.version and (now < 0 or now - _shore_tick >= SHORE_MINUTES or _shore_version < 0):
-		_shore = _pathfinder.shore_tiles()
-		_shore_tick = now
-		_shore_version = _pathfinder.version
 	var best: Variant = null
 	var best_distance := float(WATER_RADIUS * WATER_RADIUS)
-	for tile in _shore:
+	for tile: Vector2i in _shore_near(from, now):
 		var distance := float((tile - from).length_squared())
 		if distance < best_distance:
 			best = tile
 			best_distance = distance
 	# A well is water too (M12.1).
 	if _props != null:
-		for prop in _props.all_props():
+		for prop in _props.of_kind(PropData.Kind.WELL):
 			if prop.kind == PropData.Kind.WELL:
 				var distance := float((prop.tile - from).length_squared())
 				if distance < best_distance:
 					best = prop.tile
 					best_distance = distance
 	return best
+
+
+## The shore tiles within WATER_RADIUS-ish of `from` (by 16-tile cells): the
+## world's shore is worked out again at most every SHORE_MINUTES (the
+## pathfinder changes all the time) and kept in cells, so a question asks the
+## few cells about it, not every shore tile of the box (M21: a 512-tile box
+## has thousands, and working them out walks every tile).
+func _shore_near(from: Vector2i, now: int = -1) -> Array:
+	if _shore_version != _pathfinder.version and (now < 0 or now - _shore_tick >= SHORE_MINUTES or _shore_version < 0):
+		_shore = _pathfinder.shore_tiles()
+		_shore_tick = now
+		_shore_version = _pathfinder.version
+		_shore_cells.clear()
+		for tile in _shore:
+			var cell := Vector2i(tile.x >> SHORE_CELL_SHIFT, tile.y >> SHORE_CELL_SHIFT)
+			if not _shore_cells.has(cell):
+				_shore_cells[cell] = []
+			(_shore_cells[cell] as Array).append(tile)
+	var out: Array = []
+	var reach := (WATER_RADIUS >> SHORE_CELL_SHIFT) + 1
+	var at := Vector2i(from.x >> SHORE_CELL_SHIFT, from.y >> SHORE_CELL_SHIFT)
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			out.append_array(_shore_cells.get(at + Vector2i(dx, dy), []))
+	return out
 
 
 ## The nearest bank to `from` where one can stand and fish: a dry tile beside
@@ -308,7 +331,7 @@ func fishing_bank(from: Vector2i) -> Variant:
 		return null
 	var best: Variant = null
 	var best_distance := float(WATER_RADIUS * WATER_RADIUS)
-	for water in _pathfinder.shore_tiles():
+	for water: Vector2i in _shore_near(from, clock.tick if clock != null else -1):
 		var distance := float((water - from).length_squared())
 		if distance >= best_distance:
 			continue
@@ -329,7 +352,7 @@ func fishing_spot(person: PersonData) -> Dictionary:
 	var center: Vector2i = home if home != null else person.position
 	if _props != null:
 		var nearest: PropData = null
-		for prop in _props.all_props():
+		for prop in _props.of_kind(PropData.Kind.LANDING):
 			if prop.kind == PropData.Kind.LANDING and Vector2(prop.tile - center).length() <= WORK_RADIUS * 1.5 \
 					and (nearest == null or (prop.tile - center).length_squared() < (nearest.tile - center).length_squared()):
 				nearest = prop
@@ -594,7 +617,7 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 	var key := [kind, center, further]
 	if not _work_places.has(key):
 		var found: Array[PropData] = []
-		for prop in _props.all_props():
+		for prop in _props.of_kind(kind):
 			if prop.kind == kind and Vector2(prop.tile - center).length() <= radius \
 					and _world.get_water(prop.tile) <= Pathfinder.WET_DEPTH:
 				found.append(prop)

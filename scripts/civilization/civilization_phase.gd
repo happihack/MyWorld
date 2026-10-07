@@ -71,7 +71,7 @@ static func farms_feed(own: Settlement) -> float:
 static func _standing(props: PropRegistry, kind: int) -> bool:
 	if props == null:
 		return false
-	for prop in props.all_props():
+	for prop in props.of_kind(kind):
 		if prop.kind == kind:
 			return true
 	return false

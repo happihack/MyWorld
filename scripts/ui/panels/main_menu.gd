@@ -20,6 +20,8 @@ signal timeline_requested
 signal timeline_filter_requested(filter: StringName)
 ## The statistics were asked for (VS.2).
 signal statistics_requested
+## Settings → Debug → Run benchmark (M21.1).
+signal benchmark_requested
 ## The map was asked for (M13.3).
 signal map_requested
 ## A place was chosen (a region, M13.4): the camera goes there.
@@ -515,7 +517,7 @@ static func locate_rows(session: WorldSession, query: String = "") -> Array:
 		var tile := own.start_info().settlement_tile
 		add.call("settlements", "%s · %s" % [own.display_name(), Settlements.tier_name(own.tier())], Vector2(tile) + Vector2(0.5, 0.5), 0)
 	shown = 0
-	for prop in session.props.all_props():
+	for prop in session.props.buildings():
 		if not prop.is_building() or prop.kind == PropData.Kind.CAMPFIRE or shown >= LOCATE_EACH:
 			continue
 		var own := session.settlements.nearest(prop.tile)
@@ -538,7 +540,7 @@ static func locate_rows(session: WorldSession, query: String = "") -> Array:
 	if session.knowledge != null:
 		for region in session.knowledge.found_regions():
 			add.call("discoveries", region.name.substr(0, 1).to_upper() + region.name.substr(1), region.centre, 0)
-	for prop in session.props.all_props():
+	for prop in session.props.of_kind(PropData.Kind.RUIN):
 		if prop.kind == PropData.Kind.RUIN:
 			add.call("discoveries", UIText.prop_name(prop.kind, prop.variant), prop.position2d(), 0)
 	return out

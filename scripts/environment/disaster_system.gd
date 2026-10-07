@@ -296,7 +296,7 @@ func _ruin_crops(where: Vector2, reach: float, now: int) -> void:
 
 func _buildings_near(where: Vector2, reach: float) -> Array[PropData]:
 	var out: Array[PropData] = []
-	for prop in _s.props.all_props():
+	for prop in _s.props.buildings():
 		if prop.is_building() and prop.kind != PropData.Kind.BRIDGE and prop.position2d().distance_to(where) <= reach:
 			out.append(prop)
 	return out
@@ -304,7 +304,7 @@ func _buildings_near(where: Vector2, reach: float) -> Array[PropData]:
 
 func _trees_near(where: Vector2, reach: float) -> Array[PropData]:
 	var out: Array[PropData] = []
-	for prop in _s.props.all_props():
+	for prop in _s.props.of_kind(PropData.Kind.TREE):
 		if prop.kind == PropData.Kind.TREE and not prop.felled and prop.position2d().distance_to(where) <= reach:
 			out.append(prop)
 	return out

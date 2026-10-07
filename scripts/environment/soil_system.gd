@@ -65,6 +65,14 @@ func bind(world: WorldData, generator: WorldGenerator, props: PropRegistry, weat
 	passes = 0
 	silted = 0
 	for coord in _order:
+		# (What the generator kept as it made the world just now, if it did:
+		# not made a second time.)
+		var kept: Variant = generator.take_made(coord) if generator != null else null
+		if kept != null:
+			_base_moisture[coord] = kept[0]
+			_base_fertility[coord] = kept[1]
+			_base_vegetation[coord] = kept[2]
+			continue
 		var made: ChunkData = generator.generate_chunk(coord) if generator != null else world.get_chunk(coord)
 		if made == null:
 			continue

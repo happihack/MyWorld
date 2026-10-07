@@ -482,7 +482,7 @@ static func _rubble_near(center: Vector2i, reach: float, ctx: AiContext) -> Prop
 		return null
 	var best: PropData = null
 	var best_distance := reach
-	for prop in ctx.props.all_props():
+	for prop in ctx.props.of_kind(PropData.Kind.RUIN):
 		if prop.kind != PropData.Kind.RUIN or not bool(ctx.is_rubble.call(prop)):
 			continue
 		var distance := Vector2(prop.tile - center).length()

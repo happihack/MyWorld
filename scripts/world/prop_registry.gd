@@ -20,6 +20,9 @@ var spatial_index: SpatialIndex
 var _props: Dictionary = {} # id -> PropData
 var _by_tile: Dictionary = {} # Vector2i -> id
 var _by_chunk: Dictionary = {} # Vector2i -> Array[int]
+## Props by kind: kind -> {id: true}, in the order they came (M21: a scan of
+## every prop of a 512-tile box for the few wells was dear on every turn).
+var _by_kind: Dictionary = {}
 var _removed_generated: Dictionary = {} # generated id -> true
 var _changed_generated: Dictionary = {} # generated id -> true (saved in full)
 var _saved_changes: Dictionary = {} # generated id -> PropData from the save, until its chunk is populated
@@ -58,6 +61,28 @@ func props_in_chunk(coord: Vector2i) -> Array[PropData]:
 	var ids: Array = _by_chunk.get(coord, [])
 	for id: int in ids:
 		out.append(_props[id])
+	return out
+
+
+## Every prop of `kind`, in the order they came.
+func of_kind(kind: int) -> Array[PropData]:
+	var out: Array[PropData] = []
+	for id: int in _by_kind.get(kind, {}):
+		out.append(_props[id])
+	return out
+
+
+## How many props of `kind` there are.
+func count_of(kind: int) -> int:
+	return (_by_kind.get(kind, {}) as Dictionary).size()
+
+
+## Every building (PropData.BUILDINGS), in the order of the kinds.
+func buildings() -> Array[PropData]:
+	var out: Array[PropData] = []
+	for kind: int in PropData.BUILDINGS:
+		for id: int in _by_kind.get(kind, {}):
+			out.append(_props[id])
 	return out
 
 
@@ -213,6 +238,7 @@ func clear() -> void:
 	_props.clear()
 	_by_tile.clear()
 	_by_chunk.clear()
+	_by_kind.clear()
 	_removed_generated.clear()
 	_changed_generated.clear()
 	_saved_changes.clear()
@@ -223,6 +249,9 @@ func _insert(prop: PropData) -> void:
 	version += 1
 	_props[prop.id] = prop
 	_by_tile[prop.tile] = prop.id
+	if not _by_kind.has(prop.kind):
+		_by_kind[prop.kind] = {}
+	(_by_kind[prop.kind] as Dictionary)[prop.id] = true
 	var coord := WorldCoords.tile_to_chunk(prop.tile, chunk_size)
 	if not _by_chunk.has(coord):
 		_by_chunk[coord] = []
@@ -235,6 +264,7 @@ func _erase(prop: PropData) -> void:
 	version += 1
 	_props.erase(prop.id)
 	_by_tile.erase(prop.tile)
+	(_by_kind.get(prop.kind, {}) as Dictionary).erase(prop.id)
 	var coord := WorldCoords.tile_to_chunk(prop.tile, chunk_size)
 	var ids: Array = _by_chunk.get(coord, [])
 	ids.erase(prop.id)

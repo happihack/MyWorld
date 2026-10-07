@@ -108,6 +108,27 @@ func _init(seed_value: int, start_template: StartTemplate, world_config: WorldCo
 	_scratch.resize(S_COUNT)
 
 
+## While on: what each chunk was made with (its moisture, fertility, plants)
+## is kept as it is made, for the soil to take (`take_made`) instead of making
+## the whole world a second time when a world is opened (M21: a 256-tile box
+## took one and a half seconds more to open).
+var keep_made := false
+var _made: Dictionary = {} # coord -> [moisture, fertility, vegetation]
+
+
+## What chunk `coord` was made with (copies), if kept — and forgotten here; null if not.
+func take_made(coord: Vector2i) -> Variant:
+	var made: Variant = _made.get(coord)
+	_made.erase(coord)
+	return made
+
+
+## Stops keeping, and forgets what was kept.
+func stop_keeping() -> void:
+	keep_made = false
+	_made.clear()
+
+
 ## Use as WorldData.generator.
 func generate_chunk(coord: Vector2i) -> ChunkData:
 	var chunk := ChunkData.new(coord, chunk_size)
@@ -129,6 +150,8 @@ func generate_chunk(coord: Vector2i) -> ChunkData:
 			# Higher ground is cooler: -2 per level above the valley floor.
 			chunk.temperature[i] = clampi(-(out[S_HEIGHT] - template.floor_level) * 2, -128, 127) + 128
 	chunk.mark_pristine()
+	if keep_made:
+		_made[coord] = [chunk.moisture.duplicate(), chunk.fertility.duplicate(), chunk.vegetation.duplicate()]
 	return chunk
 
 

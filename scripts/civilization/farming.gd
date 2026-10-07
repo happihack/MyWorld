@@ -206,7 +206,7 @@ func crops() -> Array[PropData]:
 	if _crops_version != _props.version:
 		_crops_version = _props.version
 		_crops = []
-		for prop in _props.all_props():
+		for prop in _props.of_kind(PropData.Kind.CROP):
 			if prop.kind == PropData.Kind.CROP:
 				_crops.append(prop)
 		_crops.sort_custom(func(a: PropData, b: PropData) -> bool: return a.id < b.id)

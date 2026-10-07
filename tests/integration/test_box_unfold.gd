@@ -12,6 +12,12 @@ var session: WorldSession
 var _knobs: Array = []
 
 
+func test_the_box_unfolds_to_128_at_most() -> void:
+	# (The owner, 2026-10-07: worlds are at most 128 × 128.)
+	assert_eq(WorldConfig.new().max_world_tiles, 128)
+	assert_eq(Config.world.max_world_tiles, 128)
+
+
 func before_each() -> void:
 	SaveManager.attach(null)
 	SaveManager.open_next = {}

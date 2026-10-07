@@ -88,7 +88,7 @@ static func sample(s: WorldSession) -> Dictionary:
 	out[&"produced"] = produced
 	out[&"trade"] = float(s.trade.trips) if s.trade != null else 0.0
 	var buildings := 0
-	for prop in s.props.all_props():
+	for prop in s.props.buildings():
 		if prop.is_building() and prop.kind != PropData.Kind.CAMPFIRE:
 			buildings += 1
 	out[&"buildings"] = float(buildings)
@@ -99,18 +99,11 @@ static func sample(s: WorldSession) -> Dictionary:
 	var friends := 0
 	var feuds := 0
 	if s.relationships != null:
-		for person in s.people.all_people():
-			var known := s.relationships.of(person.id)
-			for other: int in known:
-				if other <= person.id:
-					continue
-				var record: Relationship = known[other]
-				pairs += 1
-				affinity += record.affinity
-				if record.has_kind(Relationship.Kind.FRIEND):
-					friends += 1
-				if record.has_kind(Relationship.Kind.RIVAL) or record.has_kind(Relationship.Kind.ENEMY):
-					feuds += 1
+		var all: Array = s.relationships.summary()
+		pairs = int(all[0])
+		affinity = float(all[1])
+		friends = int(all[2])
+		feuds = int(all[3])
 	out[&"trust"] = affinity / pairs if pairs > 0 else 0.0
 	out[&"friendships"] = float(friends)
 	out[&"conflict"] = float(feuds)
@@ -119,14 +112,32 @@ static func sample(s: WorldSession) -> Dictionary:
 	out[&"temperature"] = s.weather.temperature(s.clock.tick)
 	out[&"rainfall"] = s.weather.rainfall_on(s.clock.day())
 	out[&"trees"] = float(s.vegetation.tree_count())
-	out[&"grass"] = s.vegetation.grass_cover()
-	out[&"forest"] = s.vegetation.forest_coverage()
+	var land := _land(s)
+	out[&"grass"] = land[0]
+	out[&"forest"] = land[1]
 	out[&"wildlife"] = float(s.animals.size()) if s.animals != null else 0.0
-	out[&"soil"] = _soil(s)
+	out[&"soil"] = land[2]
 	# The player.
 	out[&"interventions"] = float(s.history.stats()["total_interactions"]) if s.history != null else 0.0
 	out[&"remembered"] = float(PlayerConsequences.people_who_remember(s))
 	return out
+
+
+## The land changes slowly: its grass, forest and soil are looked over once a
+## game day and kept for the day's samples (M21: every tile every hour was
+## near 50 ms on a 256-tile box). [grass, forest, soil].
+static var _land_day := {} # session instance id -> [day, [grass, forest, soil]]
+
+
+static func _land(s: WorldSession) -> Array:
+	var day := s.clock.day()
+	var kept: Variant = _land_day.get(s.get_instance_id())
+	if kept != null and int(kept[0]) == day:
+		return kept[1]
+	var land := [s.vegetation.grass_cover(), s.vegetation.forest_coverage(), _soil(s)]
+	_land_day.clear() # (one world at a time)
+	_land_day[s.get_instance_id()] = [day, land]
+	return land
 
 
 ## How fertile the land is, on average (0 … 1).

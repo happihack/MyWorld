@@ -304,7 +304,7 @@ func _unfinished(fire: Vector2i, reach: int, reached: Dictionary) -> Dictionary:
 	var finished: Array[Vector2i] = []
 	var open: Array[Dictionary] = []
 	var seen := {}
-	for prop in props.all_props():
+	for prop in props.of_kind(PropData.Kind.BRIDGE):
 		if prop.kind != PropData.Kind.BRIDGE or seen.has(prop.tile) or Vector2(prop.tile - fire).length() > reach:
 			continue
 		var axis := Crossing.axis_of(prop.rotation_step)

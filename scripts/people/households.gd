@@ -165,25 +165,38 @@ func take_new_home(home: int) -> int:
 ## shares (or that is over-full); `full_only`: only from a home with no room
 ## left (where nobody more can be born). 0: none.
 func mover(except: int = 0, full_only: bool = false, settlement_id: int = -1) -> int:
+	# (Everyone counted once — each household's people and settlement, each
+	# home's people and households — instead of every household against every
+	# other, each counting everyone: minutes a day at 500 people, M21.)
+	var first_member := {} # household id -> its first person's settlement
+	var living := {} # home -> people living there
+	for person in _people.all_people() if _people != null else ([] as Array[PersonData]):
+		living[person.home_building_id] = int(living.get(person.home_building_id, 0)) + 1
+		var own: Variant = first_member.get(person.household_id)
+		if own == null or person.id < int(own[0]):
+			first_member[person.household_id] = [person.id, person.settlement_id]
+	var sharing := {} # home -> households (with anyone in them) whose home it is
+	for id: int in _records:
+		if first_member.has(id):
+			var at := home_of(id)
+			sharing[at] = int(sharing.get(at, 0)) + 1
 	var best := 0
 	var least_room := 1_000_000
 	var ids := _records.keys()
 	ids.sort()
-	var all := homes()
+	var all := {}
+	for home in homes():
+		all[home] = true
 	for id: int in ids:
 		var at := home_of(id)
-		if at == except or members(id).is_empty():
+		if at == except or not first_member.has(id):
 			continue
-		if settlement_id >= 0 and settlement_of(id) != settlement_id:
+		if settlement_id >= 0 and int(first_member[id][1]) != settlement_id:
 			continue # (another settlement's)
 		if at == 0 or not all.has(at):
 			return id
-		var sharing := 0
-		for other: int in _records:
-			if home_of(other) == at and not members(other).is_empty():
-				sharing += 1
-		var free := room(at)
-		if (sharing > 1 or free < 0) and free < least_room and (not full_only or free <= 0):
+		var free := _config.home_room - int(living.get(at, 0))
+		if (int(sharing.get(at, 0)) > 1 or free < 0) and free < least_room and (not full_only or free <= 0):
 			least_room = free
 			best = id
 	return best

@@ -1613,13 +1613,13 @@ All six sub-phases are done (M9.1–M9.6): the weather and its sky; the seasons;
 - **Deviations:** tilt slosh and the earthquake wait for M8 (motion is on hold). Reaction timing is unchanged: a touched person already reacts at once, and the recognition sign comes first.
 - **Verified:** `test_recognition` (5): `test_someone_knows_a_touch_again` (the first touch: nothing known; hours later: the sign first, "Remembers this" on the card, one memory twice going back to the first; again at once: not recognised), `test_rain_brings_back_a_touch` (a season on, rain from a clear sky brings back the touch; nature's rain brings back nothing; saved; an older memory brings back nothing), `test_where_and_when_in_words`, `test_how_it_felt_leans_the_reaction`, `test_the_juice_of_the_key_moments` (the squash and back, the jolt and settle, the dust ring only for the heavy, the first touch, the chime). Changed: `test_reactions_in_game` (the first touch of all is felt strongly first). Changed too: `test_feedback_services` (a boulder dropped from high is felt strongly; set down, medium). **Full suite (alone): 1293 passed, 1 failed** — that landing test's old expectation; fixed and run again (26/26), no code changed since. Desktop screenshots (`C:/tmp/vs5/`): a woodcutter touched twice, the card and the memory.
 
-### VS.6 Slice playtest (mini M26)
-- [ ] 3–5 fresh players, no instructions; observe 10 min each; follow Appendix 4 protocol; record findings.
-- [ ] Android: low + mid device, portrait + landscape, background/resume, kill process → world persisted.
+### VS.6 Slice playtest (mini M26) — ✅ DONE (2026-10-06, at the owner's word)
+- [x] 3–5 fresh players, no instructions; observe 10 min each; follow Appendix 4 protocol; record findings. — run by the owner.
+- [x] Android: low + mid device, portrait + landscape, background/resume, kill process → world persisted. — by the owner; the development checks were on the Note20 (a mid/high device: 46–50 FPS at 16× after the 2026-10-06 profiling fixes).
 
-### VS Exit criteria (GO / NO-GO)
-- [ ] **GO** if: most testers touch a person within 60 s; most discover tilt within 5 min (with hint); at least half spontaneously comment on a person's reaction/memory; no crashes; world persists across kill/relaunch; ≥ 30 FPS low-end.
-- [ ] **NO-GO →** iterate on M2–M9 feel (do **not** start M10). Record what failed and why.
+### VS Exit criteria (GO / NO-GO) — ✅ GO (2026-10-06, the owner's word)
+- [x] **GO** if: most testers touch a person within 60 s; ~~most discover tilt within 5 min (with hint)~~ (void: tilting dropped, D-15); at least half spontaneously comment on a person's reaction/memory; no crashes; world persists across kill/relaunch; ≥ 30 FPS low-end.
+- [x] ~~**NO-GO →** iterate on M2–M9 feel (do **not** start M10).~~ — GO; M10 onwards (begun before the gate at the owner's word) stands.
 
 ---
 
@@ -2253,8 +2253,34 @@ Switches (off — the game as it was): `ResourcesConfig.winter_no_berries` (bush
 
 ### M21.4 Data scale
 - [ ] Hierarchical pathfinding (chunk graph + local A*); memory compaction; history archive compression (old events summarized, raw kept compressed); relationship pruning; stats downsampling. Evaluate GDExtension for water/pathfinding hot loops **only if** budgets are missed (record D-decision).
-**Targets:** 1,000 people, 512² world, 500 years: ≥ 30 FPS low-end / 60 FPS mid-range at typical zoom; sim ≤ 4 ms/frame; memory within budget; save < 300 ms (B§33).
+> **Owner's decision (2026-10-07):** worlds are limited to **128 × 128** (the box unfolds 64 → 96 → 128 and no further; `WorldConfig.max_world_tiles`). The 512² target below is replaced by 128²; the 256/512 measurements above stay as the record of why.
+
+**Targets:** 1,000 people, ~~512²~~ 128² world, 500 years: ≥ 30 FPS low-end / 60 FPS mid-range at typical zoom; sim ≤ 4 ms/frame; memory within budget; save < 300 ms (B§33).
 **Exit criteria:** *The game remains playable as the civilization becomes significantly larger than the prototype.*
+
+### M21 — first pass (2026-10-06): measured, the worst fixed
+- [x] **The harness** (`tests/soak/scale_bench.gd`): a world of any size (`--tiles`), people spread over settlements founded where a band would settle (`--people`, `--settlements`), optionally lived for years the offline way (`--age_years`), then the running game at any speed with every part of the frame timed (`WorldSession.profiling`) — sim ms a game hour, frame mean/p95/p99/max, **the parts of every frame over 200 ms**, deferred turns, memory, save size and time, read and rebuild time, a day lived offline, deaths by cause and events after aging.
+- [x] **The on-device benchmark** (`scripts/debug/benchmark.gd`, ☰ → Settings → Debug → *Run benchmark*): the camera's fixed way (the whole box, down to the fire, round it, across), every frame measured (real interval, FPS, p95, slow frames, draw calls, objects), a line per part to `user://benchmark.txt` and a notice; the camera back where it was. *Not yet run on the phone* (needs the owner's go-ahead).
+- [x] **Tier 1** (an hour at a time) for whoever is beyond the tier-3 and tier-2 caps (`SimConfig.tier2_cap_high/low` 128/64, `live_ticks_tier1`/`think_ticks_tier1` 60), losing no time (test). *Deviation:* tier 1 is individual hourly turns, not the plan's per-settlement abstraction; tier 0 is not used (nobody is that far yet). Perception was already event-driven by distance (no tier limit needed).
+- [x] **Found and fixed** (each measured; the full suite green after them):
+  - households weighed every household against every other, each counting everyone (`Households.mover`): **13–26 s** at 500 people a planner's day → **≤ 43 ms**;
+  - governance asked every pair of a settlement (`Governance.standing`) → each one's own ≤ 30 acquaintances;
+  - pairing up asked after kin before the cheap questions (`Lifecycle._pair_up`, 190 ms at 1,000) → cheap first;
+  - the known land marked anew every hour by everyone (`FogOfKnowledge`, 270 ms at 1,000) → places that showed nothing new are passed over;
+  - the hourly statistics (95 ms at 1,000): relationships counted from the pairs, the land (grass, forest, soil) once a day and **sampled** every 4th tile;
+  - whole-world scans for wells, landings and work places on every turn (`Places`) → **props by kind** (`PropRegistry.of_kind`, `buildings()`; 30 loops switched), the shore in 16-tile cells and worked out at most every 2 game hours: a person's turn on a 512 box **17.3 → 4.9 ms** for 100 people;
+  - the daily systems spread over the first hour of the day (lifecycle, governance, technology, relationships, learning, culture join knowledge, fauna, stats, nodes, soil);
+  - offline: courting among a few hundred free people (every pair, 2.6 s a day) → those they know and their neighbours; gathering added up per resource (1.5 s) → **a day offline at 1,000 people 111 s → 0.86 s**;
+  - opening a world made every chunk twice (`SoilSystem.bind`) → kept from the first making: **a 256 box opens in 4.0 s (was 5.5)**;
+  - people drawn: those with nothing drawn looked at every 4th frame once there are more than 128 (`PeopleView`, per-person cost halved).
+- **Where it stands (PC, 1,000 people on a 256 box):** normal speed **2.6 ms a frame** (p99 12, worst 53); fastest speed 9.2 ms, worst 162 ms (was 4.3 s of sim a game hour and a 16.9 s frame); save 0.3–0.8 s (target < 0.3 s: within at 100 people, over at 1,000); open 4.0 s (256) / ~20 s (512); memory +100 MB (256) / +260 MB (512); a day offline 0.86 s.
+- **Open:**
+  - the phone benchmark run;
+  - rendering LOD/MultiMesh (GPU 2 ms at 1,000 people on the PC — not yet the limit);
+  - hierarchical pathfinding — *not needed by the measurements* (paths ≤ 0.1 ms a frame); world generation and opening at 512 (generation 32 s, opening 20 s: per-tile GDScript);
+  - tier 0;
+  - weather's 3-hourly river level on large boxes (50–110 ms).
+- **Found, outside M21:** worlds lived **only offline** tend to dwindle — 3 of 4 seeds of a natural band (and the same on the last commit, so not M21's doing) lose most or all of their people within 100 game years (starvation, few births), where watched worlds keep 16–26 for 300 years. One absence is capped at ~15 game years (D-09), so it is a slow push, but a real one: M20's offline rates or births need a look.
 
 ---
 
