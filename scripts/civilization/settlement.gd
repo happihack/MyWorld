@@ -1051,7 +1051,7 @@ func _site_for(hut: PropData) -> Variant:
 					if near != null and near.id != hut.id and (x == 0 and y == 0 or near.kind == PropData.Kind.HUT
 							or near.kind == PropData.Kind.CAMPFIRE or near.kind == PropData.Kind.CROP):
 						clear = false
-			if not clear:
+			if not clear or Graves.near_cemetery(_props, tile):
 				continue
 			if pathfinder != null and (not pathfinder.can_stand(tile) or not pathfinder.is_reachable(hearth.tile + Vector2i(1, 0), tile)):
 				continue

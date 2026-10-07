@@ -16,6 +16,10 @@ const FURTHEST := 12
 const FURTHEST_FULL := 20
 ## Its plot: the tiles within this many of where it stands (kept clear).
 const PLOT := 1
+## Nothing is built within this many tiles of where it stands: not on its
+## plot, nor right against its fence (the owner, 2026-10-06: "cannot build
+## on/in cemetery").
+const CLEAR := PLOT + 1
 ## Headstones shown, at most (its variant: one per death, up to this).
 const MOST_STONES := 9
 
@@ -246,12 +250,18 @@ func _first_site(center: Vector2i, furthest: int = FURTHEST, nearest: int = NEAR
 	return null
 
 
-## The whole plot is free ground, and no other cemetery's plot touches it.
+## The whole plot is free ground, nothing is built (or being built) right
+## against it, and no other cemetery's plot touches it.
 func _room(tile: Vector2i) -> bool:
 	var h := _world.get_height(tile)
 	for dy in range(-PLOT, PLOT + 1):
 		for dx in range(-PLOT, PLOT + 1):
 			if not _free(tile + Vector2i(dx, dy)):
+				return false
+	for dy in range(-CLEAR, CLEAR + 1):
+		for dx in range(-CLEAR, CLEAR + 1):
+			var near := _props.prop_at(tile + Vector2i(dx, dy))
+			if near != null and keeps_off(near):
 				return false
 	if _level_only:
 		# The plot all one level, and nothing lower round it.
@@ -283,6 +293,81 @@ func _free(tile: Vector2i) -> bool:
 			if object.tile() == tile:
 				return false
 	return true
+
+
+## Is `tile` too near a cemetery to build on (on its plot, or right against it)?
+static func near_cemetery(props: PropRegistry, tile: Vector2i) -> bool:
+	for dy in range(-CLEAR, CLEAR + 1):
+		for dx in range(-CLEAR, CLEAR + 1):
+			var near := props.prop_at(tile + Vector2i(dx, dy))
+			if near != null and near.kind == PropData.Kind.CEMETERY:
+				return true
+	return false
+
+
+## What a cemetery keeps off its ground: buildings, what is being built, fires.
+static func keeps_off(prop: PropData) -> bool:
+	return prop.is_building() or prop.kind == PropData.Kind.SITE or prop.kind == PropData.Kind.CAMPFIRE
+
+
+## Moves every cemetery that has something built on or right against it to
+## clear ground near its settlement's fire, its dead and its headstones with
+## it (older saves: a hut moved off flooded ground onto a plot, a cemetery
+## opened against a building). Returns how many were moved.
+func clear_plots() -> int:
+	if _props == null or _world == null:
+		return 0
+	var moved := 0
+	for id in cemeteries():
+		var cemetery := _props.get_prop(id)
+		var crowded := false
+		for dy in range(-CLEAR, CLEAR + 1):
+			for dx in range(-CLEAR, CLEAR + 1):
+				var near := _props.prop_at(cemetery.tile + Vector2i(dx, dy))
+				if near != null and keeps_off(near):
+					crowded = true
+		if not crowded:
+			continue
+		var center := cemetery.tile
+		for own: WorldSetup.StartInfo in _all_starts():
+			if own != null and own.cemetery_id == id:
+				center = own.settlement_tile
+		# (Off the map while a place is looked for: its own plot is not in the way.)
+		_props.remove(id)
+		var tile: Variant = null
+		for level_only: bool in [true, false]:
+			_level_only = level_only
+			tile = _first_site(center)
+			if tile == null:
+				tile = _first_site(center, FURTHEST_FULL)
+			if tile != null:
+				break
+		_level_only = false
+		if tile != null:
+			cemetery.tile = tile
+			moved += 1
+		_props.add(cemetery)
+		for record in _archive.all_buried_in(id) if _archive != null else []:
+			_archive.set_grave(record.id, id, cemetery.tile)
+	return moved
+
+
+## Takes wild food and trees off every cemetery's plot (an older save's: the
+## wild food that came with M19's forage was laid over the plots too). Returns
+## how many were taken.
+func clear_wild() -> int:
+	if _props == null:
+		return 0
+	var taken := 0
+	for id in cemeteries():
+		var cemetery := _props.get_prop(id)
+		for dy in range(-PLOT, PLOT + 1):
+			for dx in range(-PLOT, PLOT + 1):
+				var there := _props.prop_at(cemetery.tile + Vector2i(dx, dy))
+				if there != null and (PropData.FORAGE.has(there.kind) or there.kind == PropData.Kind.TREE):
+					_props.remove(there.id)
+					taken += 1
+	return taken
 
 
 ## Is `tile` on the plot of a cemetery (kept clear of fields and buildings)?

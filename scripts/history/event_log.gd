@@ -86,7 +86,7 @@ func record(type: StringName, params: Dictionary = {}, causes: Array = []) -> Wo
 	var who := WorldEvent._ids(params.get(PARAM_PARTICIPANTS))
 	# The same thing again, soon after, for the same reasons: one event.
 	if def != null and def.merge_minutes > 0:
-		var earlier := _mergeable(def, text_params, cause_ids, now)
+		var earlier := _mergeable(def, text_params, cause_ids, now, int(params.get(PARAM_SETTLEMENT, 0)))
 		if earlier != null:
 			earlier.count += maxi(int(text_params.get("count", 1)), 1)
 			earlier.last_tick = now
@@ -147,6 +147,25 @@ func record(type: StringName, params: Dictionary = {}, causes: Array = []) -> Wo
 
 
 ## Notes what came of an event (after the fact: "ended": the tick).
+## Takes out the events of these types that nothing kept was caused by (an
+## older save's everyday events, no longer written down). Returns how many.
+func drop_uncited(types: Array[StringName]) -> int:
+	var cited := {}
+	for event in _events:
+		for cause in event.causes:
+			cited[cause] = true
+	var kept: Array[WorldEvent] = []
+	for event in _events:
+		if types.has(event.type) and not cited.has(event.id) and not event.is_first():
+			continue
+		kept.append(event)
+	var gone := _events.size() - kept.size()
+	if gone > 0:
+		_events = kept
+		_reindex()
+	return gone
+
+
 func note_effect(event_id: int, key: String, value: Variant) -> void:
 	var event := get_event(event_id)
 	if event != null:
@@ -432,10 +451,13 @@ func _cause_ids(causes: Array) -> PackedInt64Array:
 
 ## The latest event of the kind that this one is the same as, happening
 ## again (see EventDef.merge_minutes), or null.
-func _mergeable(def: EventDef, text_params: Dictionary, cause_ids: PackedInt64Array, now: int) -> WorldEvent:
+func _mergeable(def: EventDef, text_params: Dictionary, cause_ids: PackedInt64Array, now: int,
+		settlement_id: int = 0) -> WorldEvent:
 	var earlier := latest(def.id)
 	if earlier == null or now - earlier.last_tick > def.merge_minutes or now < earlier.tick or earlier.causes != cause_ids:
 		return null
+	if earlier.settlement_id != settlement_id:
+		return null # (another settlement's)
 	for key in def.merge_by:
 		if earlier.text_params.get(key) != text_params.get(key):
 			return null

@@ -268,7 +268,7 @@ func test_building_damage_repair() -> void:
 		pass
 	assert_eq(hut.condition, PropData.SOUND, "mended")
 	assert_eq(session.props.prop_at(hut.tile).kind, PropData.Kind.HUT)
-	assert_eq(session.events.count_of(&"building_repaired"), 1)
+	assert_eq(session.events.count_of(&"building_repaired"), 0, "everyday: not written into history (the owner, 2026-10-06)")
 	# Worn through: a ruin.
 	construction.damage(hut.id, PropData.SOUND, &"flood", session.clock.tick)
 	assert_null(session.props.get_prop(hut.id))

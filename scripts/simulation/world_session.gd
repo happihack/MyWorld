@@ -379,7 +379,8 @@ func _init() -> void:
 	construction.finished.connect(func(_project: Dictionary, id: int) -> void:
 		if start != null and start.hut_ids.has(id):
 			households.take_new_home(id))
-	construction.repaired.connect(chronicle.on_building_repaired)
+	# (A building mended, food gone bad: everyday, and no longer written into
+	# history — a third of the log was spoilage: the owner, 2026-10-06.)
 	construction.damaged.connect(chronicle.on_building_damaged)
 	construction.ruined.connect(chronicle.on_building_ruined)
 	# (A bridge finished where it stood: the way over it is open.)
@@ -1307,6 +1308,10 @@ func _activate() -> void:
 	var lost_events := events.from_dict(_saved_events)
 	if lost_events > 0:
 		Log.warn(Log.Category.LOAD, "Some saved events were unusable and skipped", {"events": lost_events})
+	# (An older save's everyday events, no longer written down, make room.)
+	var everyday := events.drop_uncited([&"food_spoiled", &"building_repaired"])
+	if everyday > 0:
+		Log.info(Log.Category.LOAD, "Everyday events dropped from history", {"events": everyday})
 	chronicle.listening = true
 	chronicle.bind(events, people, props, loose, resources, settlement, farming, Config.events)
 	chronicle.settlement_names = func(id: int) -> String:
@@ -1378,6 +1383,14 @@ func _activate() -> void:
 	var gathered := graves.gather_old()
 	if gathered > 0:
 		Log.info(Log.Category.LOAD, "Graves gathered into cemeteries", {"graves": gathered})
+	# (An older save's cemetery with something built on or against it: moved.)
+	var cleared := graves.clear_plots()
+	if cleared > 0:
+		Log.info(Log.Category.LOAD, "Cemeteries moved off built ground", {"cemeteries": cleared})
+	# (Nothing wild grows inside a cemetery's fence: the owner, 2026-10-06.)
+	var wild := graves.clear_wild()
+	if wild > 0:
+		Log.info(Log.Category.LOAD, "Wild plants taken off cemetery plots", {"plants": wild})
 	lifecycle.graves = graves if start != null and start.campfire_id != 0 else null
 	ai.lifecycle = lifecycle
 	# What settlements remember together, as saved.
@@ -1697,7 +1710,9 @@ func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dic
 	own.seed_released.connect(chronicle.on_seed_released)
 	own.forage_changed.connect(chronicle.on_forage_changed)
 	own.fire_changed.connect(chronicle.on_fire_changed)
-	own.spoiled.connect(chronicle.on_spoiled)
+	own.spoiled.connect(func(_resource: StringName, amount: int) -> void:
+		if amount > 0 and learning != null:
+			learning.learn_from(&"food_spoiled", own.id))
 	own.took_up.connect(chronicle.on_took_up)
 	own.flood_took.connect(chronicle.on_flood_took)
 	own.home_moved.connect(chronicle.on_home_moved)

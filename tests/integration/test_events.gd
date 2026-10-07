@@ -390,8 +390,12 @@ func test_a_new_world_begins_its_history() -> void:
 	assert_eq(EventText.text(hunts[0], session.people, events), "%s brought down the first deer" % hunter.given_name)
 	assert_eq(hunts[0].position, hunter.world2d())
 	# Food going bad, the fire going out and being lit again.
+	# (Food going bad is everyday: no longer written into history — the owner,
+	# 2026-10-06; it still teaches.)
+	var count := events.size()
 	settlement.spoiled.emit(&"berries", 4)
-	assert_eq(events.latest(Chronicler.TYPE_SPOILED).text_params, {"resource": "berries", "units": 4})
+	assert_eq(events.size(), count, "not written down")
+	assert_null(events.latest(Chronicler.TYPE_SPOILED))
 	settlement.fire_changed.emit(false)
 	settlement.fire_changed.emit(true)
 	assert_eq(Array(events.latest(Chronicler.TYPE_FIRE_RELIT).causes), [events.latest(Chronicler.TYPE_FIRE_OUT).id])
@@ -409,6 +413,31 @@ func test_a_new_world_begins_its_history() -> void:
 	for event in events.all_events():
 		assert_false(EventText.text(event, session.people, events).contains("{"), "%s: %s" % [event.type, EventText.text(event, session.people, events)])
 		assert_ne(EventText.text(event, session.people, events), "Something happened", String(event.type))
+
+
+func test_everyday_events_stay_out_of_history() -> void:
+	# (The owner, 2026-10-06: a third of a 30-year log was food gone bad.)
+	# Bushes picked bare again within days: the one spell of it, per settlement.
+	var first := events.record(Chronicler.TYPE_FORAGE, {"settlement": 1})
+	session.clock.tick += 600
+	var again := events.record(Chronicler.TYPE_FORAGE, {"settlement": 1})
+	assert_eq(again, first, "the same spell")
+	var elsewhere := events.record(Chronicler.TYPE_FORAGE, {"settlement": 2})
+	assert_ne(elsewhere, first, "another settlement's is its own")
+	# Food gone bad still teaches.
+	var person := session.people.all_people()[0]
+	var before := Knowledge.points(person, Knowledge.Domain.CRAFT)
+	settlement.spoiled.emit(&"berries", 4)
+	assert_true(Knowledge.points(person, Knowledge.Domain.CRAFT) > before, "a lesson learnt")
+	# An older save's everyday events make room — unless something was caused by them.
+	var cited := events.record(&"food_spoiled", {"resource": "berries"})
+	events.record(&"food_shortage", {}, [cited])
+	var idle := events.record(&"food_spoiled", {"resource": "grain"})
+	var mended := events.record(&"building_repaired", {"building": "hut"})
+	assert_eq(events.drop_uncited([&"food_spoiled", &"building_repaired"]), 2)
+	assert_true(events.has_event(cited.id), "kept: a shortage names it")
+	assert_false(events.has_event(idle.id))
+	assert_false(events.has_event(mended.id))
 
 
 func test_what_the_player_does_is_written_down() -> void:

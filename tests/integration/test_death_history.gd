@@ -429,3 +429,55 @@ func test_an_older_saves_graves_are_gathered_into_a_cemetery() -> void:
 	assert_eq(session.archive.all_buried_in(cemeteries[0]).size(), 3, "all gathered into one cemetery")
 	assert_eq(session.archive.get_record(800001).grave_tile, session.props.get_prop(cemeteries[0]).tile)
 	assert_eq(session.graves.gather_old(), 0, "once")
+
+
+func test_nothing_is_built_on_or_against_a_cemetery() -> void:
+	# (The owner, 2026-10-06: "cannot build on/in cemetery" — a hut moved off
+	# flooded ground onto a plot; a cemetery opened against a woodshed.)
+	var record := _dead(820000, "Laid")
+	var id := session.graves.bury(record.id)
+	var cemetery := session.props.get_prop(id)
+	var at := cemetery.tile
+	for dy in range(-Graves.CLEAR, Graves.CLEAR + 1):
+		for dx in range(-Graves.CLEAR, Graves.CLEAR + 1):
+			assert_true(Graves.near_cemetery(session.props, at + Vector2i(dx, dy)), "kept clear: %s" % Vector2i(dx, dy))
+	assert_false(Graves.near_cemetery(session.props, at + Vector2i(Graves.CLEAR + 1, 0)), "beyond it, ground like any")
+	# Nor does the planner put anything there.
+	var planner := session.settlement.planner
+	var site: Variant = planner.site_for(session.construction.buildings.get_def(&"hut"))
+	if site != null:
+		assert_false(Graves.near_cemetery(session.props, site), "a building's site keeps off it")
+	# An older world: a hut stands against it. On loading, the cemetery moves —
+	# its dead with it.
+	var hut := PropData.new()
+	hut.id = session.ids.next_id()
+	hut.kind = PropData.Kind.HUT
+	hut.tile = at + Vector2i(0, -1)
+	if session.props.prop_at(hut.tile) != null:
+		session.props.remove(session.props.prop_at(hut.tile).id)
+	assert_true(session.props.add(hut))
+	assert_eq(session.graves.clear_plots(), 1)
+	var moved := session.props.get_prop(id)
+	assert_not_null(moved, "the same cemetery")
+	assert_ne(moved.tile, at, "somewhere else")
+	assert_false(Graves.near_cemetery(session.props, hut.tile), "clear of the hut now")
+	assert_eq(session.archive.get_record(record.id).grave_tile, moved.tile, "its dead with it")
+	assert_eq(session.archive.all_buried_in(id).size(), 1)
+	assert_eq(session.graves.clear_plots(), 0, "once")
+
+
+func test_nothing_wild_grows_in_a_cemetery() -> void:
+	# (The owner, 2026-10-06: roots grew inside a cemetery's fence.)
+	var record := _dead(830000, "Laid")
+	var cemetery := session.props.get_prop(session.graves.bury(record.id))
+	var roots := PropData.new()
+	roots.id = session.ids.next_id()
+	roots.kind = PropData.Kind.ROOTS
+	roots.tile = cemetery.tile + Vector2i(1, 0)
+	assert_true(session.props.add(roots))
+	assert_eq(session.graves.clear_wild(), 1)
+	assert_null(session.props.get_prop(roots.id), "taken off the plot")
+	assert_eq(session.graves.clear_wild(), 0)
+	assert_not_null(session.props.get_prop(cemetery.id), "the cemetery itself stays")
+	# Nor does a tree seed itself there.
+	assert_true(Graves.on_plot(session.props, cemetery.tile + Vector2i(-1, 1)))

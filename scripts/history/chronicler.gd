@@ -600,14 +600,6 @@ func on_building_damaged(building_id: int, why: StringName) -> void:
 		"position": building.position2d(), "settlement": _settlement_id()}, causes)
 
 
-func on_building_repaired(project: Dictionary, _building_id: int) -> void:
-	if not _writing():
-		return
-	var tile: Vector2i = project["tile"]
-	_log.record(TYPE_REPAIRED, {"building": str(project["def"]), "participants": ConstructionSystem.builders_of(project),
-		"position": Places.middle_of(tile), "settlement": _settlement_id()})
-
-
 func on_building_ruined(ruin_id: int, def_id: StringName, why: StringName = &"") -> void:
 	if not _writing():
 		return
@@ -962,13 +954,6 @@ func on_stored(resource: StringName, _amount: int, pile_id: int) -> void:
 		_known[String(resource)] = true
 		_log.record(TYPE_DISCOVERED, {"resource": String(resource), "position": at, "participants": who,
 			"settlement": _settlement_id()})
-
-
-func on_spoiled(resource: StringName, amount: int) -> void:
-	if not _writing() or amount <= 0:
-		return
-	_log.record(TYPE_SPOILED, {"resource": String(resource), "units": amount, "position": _fire_place(),
-		"settlement": _settlement_id()})
 
 
 func on_forage_changed(low: bool) -> void:

@@ -424,7 +424,7 @@ func site_score(tile: Vector2i, own: Settlement) -> Variant:
 	var terrain := world.get_terrain(tile)
 	if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT:
 		return null
-	if props.prop_at(tile) != null or (pathfinder != null and not pathfinder.can_stand(tile)):
+	if props.prop_at(tile) != null or (pathfinder != null and not pathfinder.can_stand(tile)) or Graves.near_cemetery(props, tile):
 		return null
 	if pathfinder != null and not pathfinder.is_reachable(own.start_info().settlement_tile + Vector2i(1, 0), tile):
 		return null
@@ -584,7 +584,8 @@ func found(journey: Dictionary, now: int) -> Settlement:
 func _first_shelter(fire: Vector2i) -> PropData:
 	for offset in HUT_RING:
 		var tile := fire + offset
-		if not world.is_in_bounds(tile) or props.prop_at(tile) != null or world.get_water(tile) > 0.0:
+		if not world.is_in_bounds(tile) or props.prop_at(tile) != null or world.get_water(tile) > 0.0 \
+				or Graves.near_cemetery(props, tile):
 			continue
 		if pathfinder != null and not pathfinder.can_stand(tile):
 			continue

@@ -316,7 +316,7 @@ func _tree_days(coord: Vector2i, days: int, now: int) -> void:
 func _seed_from(parent: PropData, now: int) -> void:
 	var reach := _config.sapling_reach
 	var tile := parent.tile + Vector2i(_rng.randi_range(-reach, reach), _rng.randi_range(-reach, reach))
-	if tile == parent.tile or not _world.bounds.has_point(tile) or _props.has_prop_at(tile):
+	if tile == parent.tile or not _world.bounds.has_point(tile) or _props.has_prop_at(tile) or Graves.on_plot(_props, tile):
 		return
 	var chunk := _world.chunk_at_tile(tile)
 	var i := _world.index_at_tile(tile)

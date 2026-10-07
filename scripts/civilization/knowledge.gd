@@ -259,10 +259,17 @@ static func teach(teacher: PersonData, learner: PersonData) -> int:
 
 ## Something happened: what goes wrong teaches (LESSONS).
 func on_event(event: WorldEvent) -> void:
-	if event == null or settlements == null or not LESSONS.has(event.type):
+	if event != null:
+		learn_from(event.type, event.settlement_id)
+
+
+## The lesson of something of `type` that went wrong in a settlement (0: the
+## home one) — for what is not written into history (food gone bad).
+func learn_from(type: StringName, settlement_id: int) -> void:
+	if settlements == null or not LESSONS.has(type):
 		return
-	var lesson: Array = LESSONS[event.type]
-	var own := settlements.get_settlement(event.settlement_id) if event.settlement_id != 0 else settlements.home()
+	var lesson: Array = LESSONS[type]
+	var own := settlements.get_settlement(settlement_id) if settlement_id != 0 else settlements.home()
 	if own == null:
 		return
 	for person in own.members():
