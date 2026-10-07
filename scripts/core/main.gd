@@ -190,11 +190,12 @@ func _ready() -> void:
 	debug_overlay.register_section(&"world", _world_debug_section)
 	debug_overlay.register_section(&"save", _save_debug_section)
 	debug_overlay.register_section(&"moving", func() -> String:
-		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms" % [
+		return "moving %d  step %.2f ms   water %d tiles  step %.2f ms\n  moving: %s" % [
 			session.loose_system.moving_count(), session.loose_system.last_step_usec / 1000.0,
-			session.water.active_count(), session.water.last_step_usec / 1000.0])
+			session.water.active_count(), session.water.last_step_usec / 1000.0, session.loose_system.moving_text()])
 	debug_overlay.register_section(&"people", _people_debug_section)
 	debug_overlay.register_section(&"doing", _doing_debug_section)
+	debug_overlay.register_section(&"profile", _profile_debug_section)
 	debug_overlay.register_section(&"perception", func() -> String:
 		return "%s  reactions %d
 %s" % [session.perception.debug_text(), session.behavior.reactions, session.memories.debug_text()])
@@ -1289,6 +1290,31 @@ func _doing_debug_section() -> String:
 			if session.behavior.enabled else 0,
 		tiers.get(TierManager.FOCUS, 0), tiers.get(TierManager.ACTIVE, 0), tiers.get(TierManager.REGIONAL, 0),
 		"" if session.behavior.enabled else "  FROZEN"]
+
+
+## What each part of the session's frame costs (ms): average, and the worst
+## of the last ten seconds or so — the heaviest first (profiling on the phone).
+func _profile_debug_section() -> String:
+	if not session.is_active:
+		return "profile: -"
+	session.profiling = true
+	var entries: Dictionary = session.profile
+	var planner: Array = entries.get(&"planner", [0.0, 0, 0])
+	planner[0] = lerpf(planner[0], float(session.settlements.planner_usec), 0.02)
+	planner[1] = maxi(int(planner[1]), session.settlements.planner_usec)
+	entries[&"planner"] = planner
+	var names: Array = entries.keys()
+	var worst_of := func(name: StringName) -> int:
+		return maxi(int(entries[name][1]), int(entries[name][2]))
+	names.sort_custom(func(a: StringName, b: StringName) -> bool: return worst_of.call(a) > worst_of.call(b))
+	var parts := PackedStringArray()
+	var total := 0.0
+	for name: StringName in names:
+		if name != &"planner":
+			total += float(entries[name][0])
+	for name: StringName in names.slice(0, 10):
+		parts.append("%s %.2f/%.0f" % [name, float(entries[name][0]) / 1000.0, worst_of.call(name) / 1000.0])
+	return "profile (avg/worst ms) all %.2f: %s" % [total / 1000.0, "  ".join(parts)]
 
 
 func _people_debug_section() -> String:

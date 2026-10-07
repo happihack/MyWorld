@@ -68,6 +68,10 @@ var _change := PackedFloat32Array() # scratch: change of depth in the running st
 var _marked := PackedByteArray() # scratch: 1 where _change has an entry
 var _active: Dictionary = {} # tile index -> true
 var _flow: Dictionary = {} # tile index -> Vector2, water moved out last step (depth, by direction)
+## The river's way at a tile (downstream, and toward the middle): it follows
+## from the tile alone, and working it out is dear — kept once asked
+## (tile index -> Vector2; profiling on the phone, 2026-10-06).
+var _river_way: Dictionary = {}
 var _time_bank := 0.0
 
 
@@ -77,6 +81,7 @@ func bind(world: WorldData, generator: WorldGenerator = null) -> void:
 	_generator = generator
 	_active.clear()
 	_flow.clear()
+	_river_way.clear()
 	_time_bank = 0.0
 	soaked_total = 0.0
 	carried = 0.0
@@ -216,10 +221,15 @@ func current_at(tile: Vector2i) -> Vector2:
 		current = (moved / maxf(depth, FILM) / STEP_SECONDS).limit_length(3.0)
 	if _generator != null and _world.get_terrain(tile) == ChunkData.Terrain.RIVERBED:
 		var strength := RIVER_CURRENT * river_flow * clampf((depth - 0.1) / 0.3, 0.0, 1.0)
-		# Downstream, and gently toward the middle of the channel, so what
-		# floats follows the river round its bends instead of nosing into a bank.
-		var to_middle := clampf((_generator.river_center_x(tile.y) - (tile.x + 0.5)) * 0.4, -0.6, 0.6)
-		current += (_generator.river_direction(tile) + Vector2(to_middle, 0.0)) * strength
+		var i := _index(tile)
+		var way: Variant = _river_way.get(i)
+		if way == null:
+			# Downstream, and gently toward the middle of the channel, so what
+			# floats follows the river round its bends instead of nosing into a bank.
+			var to_middle := clampf((_generator.river_center_x(tile.y) - (tile.x + 0.5)) * 0.4, -0.6, 0.6)
+			way = _generator.river_direction(tile) + Vector2(to_middle, 0.0)
+			_river_way[i] = way
+		current += (way as Vector2) * strength
 	return current
 
 

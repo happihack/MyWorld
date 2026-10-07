@@ -112,12 +112,19 @@ func fire_tiles() -> Array[Vector2i]:
 
 ## Lets time pass for every settlement (its fire, stores, jobs, plans).
 func step(now: int) -> void:
+	planner_usec = 0
 	for settlement in _list:
 		if settlement.farming != null:
 			settlement.farming.use_start(settlement.start_info())
 		settlement.step(now)
 		if settlement.planner != null:
+			var started := Time.get_ticks_usec()
 			settlement.planner.advance_to(now)
+			planner_usec += Time.get_ticks_usec() - started
+
+
+## How long the planners took in the last step (µs; for the profile).
+var planner_usec := 0
 
 
 static func tier_for(people: int) -> Tier:

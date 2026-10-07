@@ -857,8 +857,45 @@ func _exit_tree() -> void:
 func _process(delta: float) -> void:
 	if is_active:
 		unfold_if_due()
+		var t := Time.get_ticks_usec() if profiling else 0
 		simulation.advance(delta)
+		t = _timed(&"people", t)
 		advance_systems()
+		if profiling:
+			_profile_frames += 1
+
+
+## Timing each part of the frame (the debug overlay's "profile" lines, for
+## measuring on the phone — 2026-10-06): name -> [average µs, worst µs in the
+## last PROFILE_WINDOW frames, worst in the window before].
+var profiling := false
+var profile := {}
+var _profile_frames := 0
+const PROFILE_WINDOW := 600
+
+
+## Notes how long `name` took since `since` (µs); returns now. Nothing while
+## not profiling.
+func _timed(name: StringName, since: int) -> int:
+	if not profiling:
+		return 0
+	var now := Time.get_ticks_usec()
+	var took := now - since
+	var entry: Array = profile.get(name, [0.0, 0, 0])
+	entry[0] = lerpf(entry[0], float(took), 0.02)
+	if _profile_frames % PROFILE_WINDOW == 0 and _profile_frames > 0 and name == &"people":
+		_turn_profile_window()
+		entry = profile.get(name, [0.0, 0, 0])
+	entry[1] = maxi(int(entry[1]), took)
+	profile[name] = entry
+	return now
+
+
+func _turn_profile_window() -> void:
+	for name: StringName in profile:
+		var entry: Array = profile[name]
+		entry[2] = entry[1]
+		entry[1] = 0
 
 
 ## Everything that goes by the clock rather than by people's minutes, brought
@@ -867,34 +904,62 @@ func advance_systems() -> void:
 	# (What is done once a game day is spread over the first minutes of it —
 	# each such system a few minutes after the one before — so that it does
 	# not all fall on the one frame at midnight: profiling, 2026-10-06.)
+	var t := Time.get_ticks_usec() if profiling else 0
 	knowledge.advance_to(clock.tick - STAGGER_KNOWLEDGE)
+	t = _timed(&"knowledge", t)
 	learning.advance_to(clock.tick)
+	t = _timed(&"learning", t)
 	technology.advance_to(clock.tick)
+	t = _timed(&"technology", t)
 	cultures.advance_to(clock.tick)
+	t = _timed(&"cultures", t)
 	faith.advance_to(clock.tick)
+	t = _timed(&"faith", t)
 	lexicon.advance_to(clock.tick)
+	t = _timed(&"lexicon", t)
 	anomaly_archive.advance_to(clock.tick)
+	t = _timed(&"anomaly_archive", t)
 	science.advance_to(clock.tick)
+	t = _timed(&"science", t)
 	mysteries.advance_to(clock.tick)
+	t = _timed(&"mysteries", t)
 	conflicts.advance_to(clock.tick)
+	t = _timed(&"conflicts", t)
 	stories.advance_to(clock.tick)
+	t = _timed(&"stories", t)
 	weather.advance_to(clock.tick)
+	t = _timed(&"weather", t)
 	disasters.advance_to(clock.tick)
+	t = _timed(&"disasters", t)
 	soil.advance_to(clock.tick - STAGGER_SOIL)
+	t = _timed(&"soil", t)
 	_look_for_powers()
+	t = _timed(&"powers", t)
 	if nodes.due(clock.tick - STAGGER_NODES):
 		nodes.settle(clock.tick - STAGGER_NODES)
+	t = _timed(&"nodes", t)
 	settlements.step(clock.tick)
+	t = _timed(&"settlements", t)
 	relationships.settle(clock.tick)
+	t = _timed(&"relationships", t)
 	lifecycle.advance_to(clock.tick)
+	t = _timed(&"lifecycle", t)
 	culture.advance_to(clock.tick)
+	t = _timed(&"culture", t)
 	construction.advance_to(clock.tick)
+	t = _timed(&"construction", t)
 	traffic.advance_to(clock.tick)
+	t = _timed(&"traffic", t)
 	migration.advance_to(clock.tick)
+	t = _timed(&"migration", t)
 	trade.advance_to(clock.tick)
+	t = _timed(&"trade", t)
 	governance.advance_to(clock.tick)
+	t = _timed(&"governance", t)
 	fauna.advance_to(clock.tick - STAGGER_FAUNA)
+	t = _timed(&"fauna", t)
 	stats.advance_to(clock.tick - STAGGER_STATS)
+	t = _timed(&"stats", t)
 
 
 ## How many game minutes after midnight each system that works once a day

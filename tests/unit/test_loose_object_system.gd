@@ -513,6 +513,48 @@ func test_afloat_in_still_water_it_comes_to_rest() -> void:
 	assert_true(fruit.height_offset > 0.0, "on the surface")
 
 
+func test_afloat_at_rest_it_rises_and_falls_with_the_water_where_it_lies() -> void:
+	# (Profiling on the phone, 2026-10-06: every change of the river's level
+	# woke everything afloat, and the current carried it off again.)
+	system.bind(world, registry, props, func(_tile: Vector2i) -> Vector2: return Vector2(0.5, 0.0))
+	var tile := Vector2i(6, 6)
+	world.set_water(tile, 0.5)
+	var fruit := _object(LooseObject.Kind.FRUIT, Vector2(6.5, 6.5), 0.5)
+	fruit.state = LooseObject.State.RESTING
+	world.set_water(tile, 0.7)
+	system.on_water_changed([tile])
+	assert_eq(system.moving_count(), 0, "not woken")
+	assert_near(fruit.height_offset, 0.7, 0.0001, "risen with the water")
+	assert_eq(fruit.position, Vector2(6.5, 6.5), "where it lay")
+	# Run dry: it comes down onto the ground.
+	world.set_water(tile, 0.0)
+	system.on_water_changed([tile])
+	assert_eq(system.moving_count(), 1, "falls")
+	# Elsewhere: nothing to do with it.
+	_settle()
+	world.set_water(Vector2i(10, 10), 0.4)
+	system.on_water_changed([Vector2i(10, 10)])
+	assert_eq(system.moving_count(), 0)
+
+
+func test_a_gentle_touch_does_not_wake_what_lies_at_rest() -> void:
+	# (Profiling on the phone, 2026-10-06: what the river brought to the end of
+	# the box nudged each other awake for ever.)
+	var resting := _object(LooseObject.Kind.FRUIT, Vector2(5.5, 5.5))
+	var drifting := _object(LooseObject.Kind.FRUIT, Vector2(5.5 - resting.radius() * 1.8, 5.5))
+	system.push(drifting.id, Vector3(0.2, 0.0, 0.0))
+	for i in 120:
+		system.step(STEP)
+	assert_eq(resting.state, LooseObject.State.RESTING, "leant on, not woken")
+	assert_eq(resting.position, Vector2(5.5, 5.5), "and not moved")
+	# A real knock still wakes it.
+	var thrown := _object(LooseObject.Kind.FRUIT, Vector2(5.5 - resting.radius() * 1.8, 5.5))
+	system.push(thrown.id, Vector3(4.0, 0.0, 0.0))
+	for i in 30:
+		system.step(STEP)
+	assert_ne(resting.position, Vector2(5.5, 5.5), "knocked on")
+
+
 func test_binding_another_world_forgets_what_was_moving() -> void:
 	var rock := _object(LooseObject.Kind.ROCK, Vector2(2.5, 2.5), 1.0)
 	system.drop(rock.id)

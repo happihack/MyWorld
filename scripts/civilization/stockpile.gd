@@ -34,16 +34,16 @@ func bind(piles: PileStore, places: Places, library: ResourceLibrary, loose: Loo
 	_radius = (config if config != null else Config.resources).storage_radius
 	_stale = true
 	if _loose != null:
-		_loose.object_added.connect(_on_loose_changed)
+		_loose.object_added.connect(_on_pile_changed)
 		_loose.object_removed.connect(_on_loose_changed)
-		_loose.object_moved.connect(_on_loose_changed)
+		_loose.object_moved.connect(_on_pile_changed)
 
 
 func unbind() -> void:
-	if _loose != null and _loose.object_added.is_connected(_on_loose_changed):
-		_loose.object_added.disconnect(_on_loose_changed)
+	if _loose != null and _loose.object_added.is_connected(_on_pile_changed):
+		_loose.object_added.disconnect(_on_pile_changed)
 		_loose.object_removed.disconnect(_on_loose_changed)
-		_loose.object_moved.disconnect(_on_loose_changed)
+		_loose.object_moved.disconnect(_on_pile_changed)
 	_loose = null
 	_counts.clear()
 	_stale = true
@@ -171,14 +171,28 @@ func _recount() -> void:
 	_counts.clear()
 	if _piles == null or _library == null:
 		return
+	# (Each storage place looked over once, for everything kept there — not
+	# once for every kind of thing: profiling, 2026-10-06.)
+	var at_place := {} # place -> {resource -> units}
 	for resource in _library.ids():
 		var at := place(resource)
 		if at == Vector2.INF:
 			continue
-		var units := _piles.total(resource, at, _radius)
+		if not at_place.has(at):
+			at_place[at] = _piles.totals(at, _radius)
+		var units := int(at_place[at].get(resource, 0))
 		if units > 0:
 			_counts[resource] = units
 
 
 func _on_loose_changed(_id: int) -> void:
 	_stale = true
+
+
+## Only piles are counted: a fruit rolling by, or one drifting down the river,
+## changes nothing in store (it made the store be counted again every frame —
+## milliseconds a time: profiling on the phone, 2026-10-06).
+func _on_pile_changed(id: int) -> void:
+	var object := _loose.get_object(id) if _loose != null else null
+	if object == null or object.kind == LooseObject.Kind.PILE:
+		_stale = true

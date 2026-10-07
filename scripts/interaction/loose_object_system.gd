@@ -64,6 +64,8 @@ const FLOAT_GRIP := 2.5
 ## Carried by a current, an object that moved less than this far in this many
 ## steps has run aground and comes to rest.
 const AGROUND_STEPS := 45
+## Slower than this (tiles/s), running into something at rest does not wake it.
+const NUDGE_SPEED := 0.3
 const AGROUND_DISTANCE := 0.06
 ## Kinds of props a loose object can run into.
 const PROP_KINDS := SpatialIndex.KIND_BUILDING | SpatialIndex.KIND_MYSTERY | SpatialIndex.KIND_RESOURCE_NODE
@@ -139,15 +141,29 @@ func push(id: int, velocity: Vector3) -> bool:
 
 ## The water changed on `tiles`: what floats rises and falls with it, and
 ## what lay on a tile that ran dry settles on the ground.
-func on_water_changed(_tiles: Array[Vector2i] = []) -> void:
+func on_water_changed(tiles: Array[Vector2i] = []) -> void:
 	if _registry == null or _world == null:
 		return
+	var changed := {}
+	for tile in tiles:
+		changed[tile] = true
 	for object in _registry.all_objects():
 		if object.state != LooseObject.State.RESTING or not object.floats():
 			continue
-		if absf(object.height_offset - _float_lift(object, object.tile())) > 0.004:
-			object.state = LooseObject.State.FALLING
-			_moving[object.id] = true
+		var tile := object.tile()
+		if not changed.is_empty() and not changed.has(tile):
+			continue
+		var lift := _float_lift(object, tile)
+		if absf(object.height_offset - lift) <= 0.004:
+			continue
+		if object.height_offset > GROUND_EPS and lift > GROUND_EPS:
+			# Afloat and still afloat: it rises and falls where it lies (waking
+			# everything afloat whenever the river's level moved kept the
+			# river's fruit drifting for ever: profiling on the phone, 2026-10-06).
+			_registry.move(object.id, object.position, lift)
+			continue
+		object.state = LooseObject.State.FALLING
+		_moving[object.id] = true
 
 
 func is_moving(id: int) -> bool:
@@ -161,6 +177,23 @@ func is_falling(id: int) -> bool:
 
 func moving_count() -> int:
 	return _moving.size()
+
+
+## What is moving now, for the debug overlay: "fruit afloat 3, log 1 …".
+func moving_text() -> String:
+	var counts := {}
+	for id: int in _moving:
+		var object := _registry.get_object(id) if _registry != null else null
+		if object == null:
+			continue
+		var key := String(LooseObject.Kind.keys()[object.kind]).to_lower()
+		if object.floats() and _float_lift(object, object.tile()) > GROUND_EPS:
+			key += " afloat"
+		counts[key] = int(counts.get(key, 0)) + 1
+	var parts := PackedStringArray()
+	for key: String in counts:
+		parts.append("%s %d" % [key, counts[key]])
+	return ", ".join(parts)
 
 
 ## Height above the ground at which an object rests on its tile: on the ground,
@@ -407,6 +440,17 @@ func _collide_with_object(object: LooseObject, other: LooseObject) -> float:
 	if absf(_base_y(object) - _base_y(other)) >= maxf(object.height(), other.height()):
 		return 0.0
 	var normal := away / distance if distance > 0.0001 else Vector2.RIGHT
+	if other.state == LooseObject.State.RESTING and object.mass() <= other.mass() * 1.5:
+		var leaning := Vector2(object.velocity.x - other.velocity.x, object.velocity.z - other.velocity.z).dot(normal)
+		if -leaning < NUDGE_SPEED:
+			# A gentle touch does not wake what lies at rest: it is leant on,
+			# like a wall (what the river brings down to the end of the box
+			# nudged each other awake for ever: profiling on the phone, 2026-10-06).
+			_shift(object, normal * gap)
+			if leaning < 0.0:
+				var sideways := Vector2(object.velocity.x, object.velocity.z) - normal * leaning * (1.0 + BUMP_BOUNCE)
+				object.velocity = Vector3(sideways.x, object.velocity.y, sideways.y)
+			return maxf(-leaning, 0.0)
 	var mass := object.mass()
 	var other_mass := other.mass()
 	# Apart, the lighter one giving way more. What one cannot move (a wall
