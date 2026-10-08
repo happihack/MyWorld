@@ -26,6 +26,14 @@ const EMOTES := {
 	&"note": preload("res://assets/ui/emotes/note.svg"),
 	&"dots": preload("res://assets/ui/emotes/dots.svg"),
 	&"recognize": preload("res://assets/ui/emotes/recognize.svg"),
+	# (FC1: what people feel, and what has happened to them.)
+	&"angry": preload("res://assets/ui/emotes/angry.svg"),
+	&"sad": preload("res://assets/ui/emotes/sad.svg"),
+	&"love": preload("res://assets/ui/emotes/love.svg"),
+	&"hurt": preload("res://assets/ui/emotes/hurt.svg"),
+	&"ill": preload("res://assets/ui/emotes/ill.svg"),
+	&"hungry": preload("res://assets/ui/emotes/hungry.svg"),
+	&"tired": preload("res://assets/ui/emotes/tired.svg"),
 }
 ## How large a sign is in the world, and the least it is on screen (viewport
 ## units): readable from the middle distance.
@@ -326,7 +334,7 @@ func refresh(delta: float) -> void:
 		if in_turns and _marker_alpha <= 0.0 and ((_refreshes + id) & (NOTHING_DRAWN_EVERY - 1)) != 0 \
 				and not _pool.has_view(id) and not _emote_sprites.has(id) and id != _selected_id:
 			var quiet := _people.get_person(id)
-			if quiet == null or quiet.emote == &"":
+			if quiet == null or Signs.shown(quiet, now) == &"":
 				continue
 		var person := _people.get_person(id)
 		if person == null:
@@ -363,10 +371,13 @@ func refresh(delta: float) -> void:
 		elif view != null:
 			view.unbind()
 			_pool.release(id)
-		if person.emote != &"" and not indoors:
+		var sign := Signs.shown(person, now)
+		if sign == &"" and id == _selected_id:
+			sign = Signs.state_of(person) # (the one selected: what they are going through)
+		if sign != &"" and not indoors:
 			var head := (view.position if view != null and wants_view else feet) \
 				+ Vector3(0, PersonMeshLibrary.ADULT_HEIGHT * (view.scale.y / PersonMeshLibrary.ADULT_HEIGHT if view != null and wants_view else 1.0), 0)
-			_show_emote(id, person.emote, head, maxf(EMOTE_SIZE, EMOTE_MIN_ON_SCREEN * units_per_px), delta)
+			_show_emote(id, sign, head, maxf(EMOTE_SIZE, EMOTE_MIN_ON_SCREEN * units_per_px), delta)
 		elif _emote_sprites.has(id):
 			_drop_emote(id)
 		if _marker_alpha > 0.0 and not indoors:

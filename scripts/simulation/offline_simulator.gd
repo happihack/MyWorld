@@ -121,6 +121,7 @@ func begin(minutes: int) -> void:
 	# (Nothing is toasted while the player is away: what happened is told on return.)
 	_telling = NotificationManager.enabled
 	NotificationManager.enabled = false
+	_s.walking_raids = false # (away, raids are made at once)
 	_begun = true
 	_s.movement.stop_all()
 
@@ -147,6 +148,7 @@ func finish() -> Dictionary:
 		_settle_people()
 		_s.events.recorded.disconnect(_heard)
 		NotificationManager.enabled = _telling
+		_s.walking_raids = true
 		_begun = false
 	return summary()
 

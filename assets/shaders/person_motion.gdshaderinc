@@ -17,7 +17,8 @@ instance uniform float stoop = 0.0;
 instance uniform float busy = 0.0;
 
 // What the body is showing (PersonView.ACT): 0 nothing, 1 startled, 2 kneeling,
-// 3 waving, 4 jumping, 5 crouching, 6 crying out, 7 shrugging, 8 seated in a boat.
+// 3 waving, 4 jumping, 5 crouching, 6 crying out, 7 shrugging, 8 seated in a boat,
+// 9 scuffling, 10 embracing.
 instance uniform float act = 0.0;
 
 // 1 = full motion; lower with "reduced motion".
@@ -108,6 +109,21 @@ vec3 person_motion(vec3 vertex, vec2 uv, float time) {
 		vertex.x -= seated * leg * vertex.x * 0.6;
 		vertex.z -= seated * leg * vertex.z * 0.3;
 		lean += seated * 0.05;
+		// Scuffling (FC2): bent in, shoving — both arms thrust forward and back,
+		// the body rocking to it; nothing worse (the owner: gentle).
+		float scuffling = acting(9.0);
+		float shove = 0.5 + 0.5 * sin(time * 11.0 + phase);
+		vertex.x += scuffling * along * (0.12 + 0.2 * shove * motion);
+		vertex.y += scuffling * along * 0.1;
+		vertex.z -= scuffling * along * side * 0.05;
+		lean += scuffling * (0.16 + 0.07 * sin(time * 8.0 + phase) * motion);
+		vertex.y -= scuffling * 0.03 * above_legs * shove * motion;
+		// Embracing (FC2: made it up): arms out and round the other.
+		float embracing = acting(10.0);
+		vertex.x += embracing * along * 0.2;
+		vertex.y += embracing * along * 0.12;
+		vertex.z -= embracing * along * side * 0.14;
+		lean += embracing * 0.08;
 	}
 	vertex.x += lean * h * h;
 	vertex.y -= stoop * 0.35 * h * h;

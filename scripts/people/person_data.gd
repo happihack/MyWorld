@@ -23,7 +23,7 @@ const FLAG_DYED := 1 << 6
 
 ## How someone holds themselves while doing something (what the view shows).
 ## (Plans store poses by number: append, never reorder.)
-enum Pose { IDLE, WORK, EAT, TALK, SLEEP, STARTLE, KNEEL, WAVE, JUMP, CROUCH, YELL, SHRUG, SEATED }
+enum Pose { IDLE, WORK, EAT, TALK, SLEEP, STARTLE, KNEEL, WAVE, JUMP, CROUCH, YELL, SHRUG, SEATED, SCUFFLE, EMBRACE }
 
 ## How many skin, hair and clothing colours an appearance can index (the
 ## palettes themselves belong to the rendering, M4.2).
@@ -85,6 +85,10 @@ var sim_tier := 3
 ## ground of their tile they sit in it.
 var aboard := 0
 var aboard_height := 0.0
+## Runtime only (FC1): a sign shown for a while after something happened to
+## them (Signs.flash), and the tick it goes.
+var flash: StringName = &""
+var flash_until := 0
 ## Runtime only: set by whatever they are doing, shown by their view.
 var pose: Pose = Pose.IDLE
 ## Runtime only: the sign above their head (&"" = none; see PeopleView.EMOTES).

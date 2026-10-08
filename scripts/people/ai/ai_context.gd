@@ -67,6 +67,9 @@ var relationships: RelationshipStore
 ## What came of people being together that is worth telling, not announced
 ## yet: [act, person id, other id] (see SocialActs).
 var social_events: Array = []
+## What two people do that others should see (FC2): [kind, a id, b id] —
+## staged once the turn is over (Scenes).
+var scenes: Array = []
 ## Kills not announced yet: [person id, species].
 var kills: Array = []
 ## People who have fallen ill, or recovered, not announced yet:

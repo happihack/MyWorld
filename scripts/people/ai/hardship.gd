@@ -42,6 +42,7 @@ static func live(person: PersonData, ctx: AiContext, minutes: float, config: Nee
 			return # (nearly everyone, nearly always)
 		if hunger < config.hungry_below:
 			person.conditions.append({"id": String(HUNGER), "since": ctx.now(), "sick": false, "well": person.health, "fed": false})
+			Signs.flash(person, Signs.HUNGRY, ctx.now()) # (FC3)
 		_remember(person, ctx)
 		return
 	var day := float(TimeConfig.MINUTES_PER_DAY)

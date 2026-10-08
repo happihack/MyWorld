@@ -323,6 +323,12 @@ func announce() -> void:
 		ctx.social_events.clear()
 		for entry: Array in happened:
 			social.emit(entry[0], entry[1], entry[2])
+	# What others should see (FC2): staged now the turn is over.
+	if not ctx.scenes.is_empty():
+		var staged := ctx.scenes.duplicate()
+		ctx.scenes.clear()
+		for entry: Array in staged:
+			Scenes.stage(self, ctx, entry[0], entry[1], entry[2])
 	if not ctx.ailments.is_empty():
 		var ailing := ctx.ailments.duplicate()
 		ctx.ailments.clear()

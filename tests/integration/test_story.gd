@@ -177,6 +177,7 @@ func test_war_chain_records_causes() -> void:
 	leader.traits[Traits.Axis.AGGRESSION] = 1.0
 	var day := Config.time.day_index(session.clock.tick)
 	var record := conflicts.pair(first.id, second.id)
+	session.walking_raids = false # (the chain as it is reckoned: raids at once — walked ones are FC5's)
 	for d in 400:
 		record["tension"] = maxf(float(record["tension"]), ConflictSystem.WAR_AT + 0.05)
 		conflicts.each_day((day + d + 1) * TimeConfig.MINUTES_PER_DAY)

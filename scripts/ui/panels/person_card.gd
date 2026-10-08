@@ -67,6 +67,16 @@ var _bars: Array[NeedBar] = []
 var _buttons: Dictionary = {} # action -> Button
 var _family_shown: Array = []
 var _memories_shown := PackedStringArray()
+## FC4: how they feel (a mood bar and a calm one, under the needs), what ails
+## them (a line under who they are), and who they get on with — or not (the
+## full card, under the family).
+var _mood_bar: NeedBar
+var _calm_bar: NeedBar
+var _health: Label
+var _people: VBoxContainer
+var _people_shown: Array = []
+## How many friends (and rivals, enemies) the full card lists.
+const PEOPLE_SHOWN := 6
 ## How many memories the full card lists.
 const MEMORIES_SHOWN := 5
 var _observing := false
@@ -90,6 +100,22 @@ func _ready() -> void:
 		var bar := NeedBar.new()
 		_needs.add_child(bar)
 		_bars.append(bar)
+	for entry: Array in [["Mood", "_mood_bar"], ["Calm", "_calm_bar"]]:
+		var label := Label.new()
+		label.text = entry[0]
+		label.theme_type_variation = UITheme.DIM
+		_needs.add_child(label)
+		var bar := NeedBar.new()
+		_needs.add_child(bar)
+		set(entry[1], bar)
+	_health = Label.new()
+	_health.name = "Health"
+	_health.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_health.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
+	_about.add_sibling(_health)
+	_people = VBoxContainer.new()
+	_people.name = "People"
+	_family.add_sibling(_people)
 	_actions.add_theme_constant_override(&"separation", 0)
 	for entry: Array in [[ACTION_OBSERVE, "Observe"], [ACTION_TOUCH, "Touch"], [ACTION_FOLLOW, "Follow"], [ACTION_FOCUS, "Focus"]]:
 		var button := Button.new()
@@ -269,6 +295,11 @@ func refresh() -> void:
 	for need in mini(needs.size(), _bars.size()):
 		_bars[need].value = needs[need]
 	_traits.text = " · ".join(shown["traits"]) if not (shown["traits"] as PackedStringArray).is_empty() else "Unremarkable"
+	_mood_bar.value = shown["mood_value"]
+	_calm_bar.value = shown["calm_value"]
+	var ails: PackedStringArray = shown["health"]
+	_health.visible = not ails.is_empty()
+	_health.text = " · ".join(ails)
 	var remembered: PackedStringArray = shown["memories"]
 	_memory.visible = not remembered.is_empty() and _state == State.HALF
 	if not remembered.is_empty():
@@ -280,6 +311,9 @@ func refresh() -> void:
 	if _state == State.FULL and _family_shown != shown["family"]:
 		_family_shown = shown["family"]
 		_show_family(_family_shown)
+	if _state == State.FULL and _people_shown != shown["people"]:
+		_people_shown = shown["people"]
+		_show_people(_people_shown)
 	if _state == State.FULL and _memories_shown != remembered:
 		_memories_shown = remembered
 		_show_memories(remembered)
@@ -311,7 +345,10 @@ func layout() -> void:
 ##   family: Array of [person id, relation, name] (living and dead: parents,
 ##     partner, children, brothers and sisters);
 ##   memories: PackedStringArray, the most recent first ("Age 23 · Felt …");
-##   today_title, today: String — their day so far ("Today", "06:30 wakes · …").
+##   today_title, today: String — their day so far ("Today", "06:30 wakes · …");
+##   mood_value, calm_value: float (0 … 1; FC4); health: PackedStringArray (what
+##     ails them: "Hurt in a fight (bad)"); people: Array of [id, word, name]
+##     (friends, rivals, enemies: the closest first).
 static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 	var now := session.clock.tick
 	var year := Config.time.ticks_per_year()
@@ -337,7 +374,63 @@ static func facts(session: WorldSession, person: PersonData) -> Dictionary:
 		"marked": person.has_flag(PersonData.FLAG_MARKED_IMPORTANT),
 		"family": family,
 		"memories": memory_lines_of(session, person, MEMORIES_SHOWN),
+		"mood_value": clampf(person.mood, 0.0, 1.0),
+		"calm_value": clampf(1.0 - person.stress, 0.0, 1.0),
+		"health": health_lines(person, now),
+		"people": people_of(session, person),
 	}
+
+
+## What ails someone, in words (FC4): their wounds (how bad), illness, hunger,
+## the cold — and a child on the way.
+static func health_lines(person: PersonData, _now: int) -> PackedStringArray:
+	var out := PackedStringArray()
+	for injury: Variant in person.injuries:
+		if typeof(injury) != TYPE_DICTIONARY:
+			continue
+		var severity := float(injury.get("severity", 0.0))
+		if severity < 0.05:
+			continue
+		var how := "grave" if severity > 0.6 else ("bad" if severity > 0.3 else "healing")
+		out.append("%s (%s)" % [INJURY_WORDS.get(str(injury.get("kind", "")), "Hurt"), how])
+	var illness := Health.illness_of(person)
+	if not illness.is_empty():
+		out.append(ILLNESS_WORDS.get(str(illness.get("kind", "")), "Ill"))
+	if Exposure.is_sick(person):
+		out.append(UIText.ILL_WITH_COLD)
+	if Hardship.is_sick(person):
+		out.append(UIText.WEAK_WITH_HUNGER)
+	if not Hardship.condition_of(person, Lifecycle.PREGNANT).is_empty():
+		out.append("With child")
+	return out
+
+
+const INJURY_WORDS := {"fight": "Hurt in a fight", "fall": "Hurt in a fall", "cut": "Cut at work", "mauled": "Mauled by a wild beast"}
+const ILLNESS_WORDS := {"bad_water": "Ill from bad water", "crowding": "Ill from a crowded roof"}
+
+
+## Friends, rivals and enemies, the closest (or bitterest) first: [id, word, name].
+static func people_of(session: WorldSession, person: PersonData) -> Array:
+	var out: Array = []
+	if session.relationships == null:
+		return out
+	var known := session.relationships.of(person.id)
+	var ranked: Array = []
+	for other: int in known:
+		var record: Relationship = known[other]
+		var word := ""
+		if record.has_kind(Relationship.Kind.ENEMY):
+			word = "Enemy"
+		elif record.has_kind(Relationship.Kind.RIVAL):
+			word = "Rival"
+		elif record.has_kind(Relationship.Kind.FRIEND):
+			word = "Friend"
+		if word != "":
+			ranked.append([absf(record.affinity), other, word])
+	ranked.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0] or (a[0] == b[0] and a[1] < b[1]))
+	for entry: Array in ranked.slice(0, PEOPLE_SHOWN):
+		out.append([entry[1], entry[2], session.people.name_of(int(entry[1]))])
+	return out
 
 
 ## What a person remembers, in lines, the most recent first.
@@ -402,6 +495,20 @@ func _show_family(family: Array) -> void:
 	tree.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
 	tree.pressed.connect(func() -> void: tree_requested.emit(_person_id))
 	_family.add_child(tree)
+
+
+func _show_people(people: Array) -> void:
+	_settling = 3
+	for child in _people.get_children():
+		child.queue_free()
+	for entry: Array in people:
+		var button := Button.new()
+		button.text = "%s  %s" % [entry[1], entry[2]]
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.7)
+		button.pressed.connect(func() -> void: person_chosen.emit(entry[0]))
+		_people.add_child(button)
 
 
 func _show_memories(lines: PackedStringArray) -> void:

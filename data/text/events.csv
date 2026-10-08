@@ -290,6 +290,7 @@ EVENT_MYSTERY_CLUE_TERRAIN_PATTERN_1,"Measured from the stone circle, the land d
 EVENT_MYSTERY_CLUE_TERRAIN_PATTERN_2,"The squares of the land were laid out by someone"
 EVENT_DISPUTE,"{place} and {other_place} quarrel over the land and its food"
 EVENT_RAID,"{name} has led a raid from {place} on {other_place}'s stores"
+EVENT_RAID_REPELLED,"The people of {other_place} have driven off raiders from {place}"
 EVENT_WAR_BEGUN,"War has broken out between {place} and {other_place}"
 EVENT_BATTLE,"{place} and {other_place} have fought; {fallen} fell, and {name} stood fast"
 EVENT_PEACE,"{place} and {other_place} have made peace; a border runs between them now"

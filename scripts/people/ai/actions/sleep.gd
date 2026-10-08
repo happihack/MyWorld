@@ -24,6 +24,8 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	# Indoors — unless they are flooded out of their hut: then they sleep in
 	# the open, to be seen.
 	person.set_flag(PersonData.FLAG_INDOORS, ctx.places == null or not ctx.places.is_flooded_out(person))
+	if not person.has_flag(PersonData.FLAG_INDOORS):
+		Signs.flash(person, Signs.TIRED, ctx.now()) # (asleep out of doors, worn out: FC3)
 	# A child put to bed for the night (not taken up again after a load).
 	if float(step.get("elapsed", 0.0)) <= 0.0 and ctx.stage_of(person) == PersonData.LifeStage.CHILD \
 			and is_bedtime_for(person, ctx.clock.hour() if ctx.clock != null else 12.0):

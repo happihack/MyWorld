@@ -142,6 +142,8 @@ func _run() -> void:
 				s.fauna.advance_to(s.clock.tick) # (the herds, the fish — and the big predators, PR1)
 				s.predators.advance_to(s.clock.tick) # (PR2–PR3: seen, feared, attacks)
 				s.parties.advance_to(s.clock.tick) # (PR4: the hunting parties)
+				s.assemblies.advance_to(s.clock.tick) # (FC7: disputes and revolutions, seen)
+				s.raids.advance_to(s.clock.tick) # (FC5: raids walked)
 				for fisher in s.people.all_people():
 					if fisher.occupation_id == &"fisher":
 						var steps: Variant = fisher.current_action.get("steps")
@@ -232,7 +234,16 @@ func _run() -> void:
 	for person in s.people.all_people():
 		for condition: Variant in person.conditions:
 			if typeof(condition) == TYPE_DICTIONARY and bool(condition.get("sick", false)) and not bool(condition.get("fed", false)):
-				_problem("%s is weak with hunger at the end" % person.given_name)
+				var own_s: Variant = s.settlements.of(person)
+				_problem("%s is weak with hunger at the end (%s: %.1f days of food; %s / %s; hunger %.2f, health %.2f)" % [person.given_name,
+					own_s.display_name() if own_s != null else "nowhere", own_s.days_of_food() if own_s != null else 0.0,
+					person.current_action.get("activity", "-"), person.current_action.get("reason", "-"), person.needs[0], person.health])
+				if own_s != null:
+					s.behavior.ctx.enter(person)
+					var eat_plan: Array = load("res://scripts/people/ai/planner.gd").plan(&"eat", person, s.behavior.ctx)
+					print("SOAK   (%s: %.0f tiles from the fire, served %s, food units %d, eat plan %s, steps %s)" % [person.given_name,
+						Vector2(person.position - own_s.fire().tile).length(), own_s.serves(person.id), own_s.stockpile.food_units(),
+						str(eat_plan.map(func(st: Dictionary) -> String: return str(st.get("type")))), str((person.current_action.get("steps", []) as Array).map(func(st: Variant) -> String: return str((st as Dictionary).get("type")) if typeof(st) == TYPE_DICTIONARY else "?"))])
 	# It can be saved and opened again.
 	if not saves.save_world(s, &"soak"):
 		_problem("the world could not be saved")

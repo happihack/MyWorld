@@ -53,6 +53,7 @@ const BUSY := {
 const ACT := {
 	PersonData.Pose.STARTLE: 1.0, PersonData.Pose.KNEEL: 2.0, PersonData.Pose.WAVE: 3.0, PersonData.Pose.JUMP: 4.0,
 	PersonData.Pose.CROUCH: 5.0, PersonData.Pose.YELL: 6.0, PersonData.Pose.SHRUG: 7.0, PersonData.Pose.SEATED: 8.0,
+	PersonData.Pose.SCUFFLE: 9.0, PersonData.Pose.EMBRACE: 10.0,
 }
 var _shown_act := -1.0
 # Standing where the person stands, turned as they are turned: nothing to do

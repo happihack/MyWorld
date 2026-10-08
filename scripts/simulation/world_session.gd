@@ -32,6 +32,8 @@ var clock: GameClock
 var ids: IdAllocator
 var rng: RngStreams
 var is_active := false
+## Raids made by people walking over (FC5) — off while the time away is lived.
+var walking_raids := true
 
 ## The tile world and what stands on it.
 var template_id: StringName = DEFAULT_TEMPLATE_ID
@@ -132,6 +134,10 @@ var boats: BoatSystem
 var predators: PredatorWatch
 ## The hunting parties sent after them (PR4).
 var parties: HuntingParties
+## Disputes and revolutions, seen (FC7).
+var assemblies: Assemblies
+## Raids walked (FC5).
+var raids: RaidParties
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## What has happened in this world, and what led to what (data/events).
@@ -203,6 +209,8 @@ var _saved_disasters: Dictionary = {}
 var _saved_boats: Variant = {}
 var _saved_predators: Dictionary = {}
 var _saved_parties: Dictionary = {}
+var _saved_assemblies: Dictionary = {}
+var _saved_raids: Dictionary = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
 var _saved_governance: Dictionary = {}
@@ -231,6 +239,8 @@ func _init() -> void:
 	boats = BoatSystem.new()
 	predators = PredatorWatch.new()
 	parties = HuntingParties.new()
+	assemblies = Assemblies.new()
+	raids = RaidParties.new()
 	weather = WeatherSystem.new()
 	disasters = DisasterSystem.new()
 	events = EventLog.new()
@@ -282,6 +292,12 @@ func _init() -> void:
 	# What people are to each other; what is worth telling of it is told.
 	relationships = RelationshipStore.new()
 	relationships.kind_changed.connect(func(a: int, b: int, kind: int, gained: bool) -> void:
+		# (Seen, FC2: friends wave; those who make it up embrace.)
+		if behavior != null and behavior.ctx != null:
+			if kind == Relationship.Kind.FRIEND and gained:
+				behavior.ctx.scenes.append([Scenes.FRIENDS, a, b])
+			elif kind == Relationship.Kind.RIVAL and not gained:
+				behavior.ctx.scenes.append([Scenes.EMBRACE, a, b])
 		var event := chronicle.on_kind_changed(a, b, kind, gained)
 		var record := relationships.between(a, b)
 		if event != null and record != null:
@@ -357,6 +373,14 @@ func _init() -> void:
 	trade.traded.connect(lexicon.on_traded)
 	lexicon.renamed.connect(chronicle.on_renamed)
 	# Strife (M19.1): each step told, with what caused it; the next step names it.
+	conflicts.dispute.connect(func(a: int, b: int, _causes: Array) -> void:
+		assemblies.dispute(a, b, clock.tick)) # (seen the next morning: FC7)
+	conflicts.revolution.connect(func(id: int, deposed_id: int) -> void:
+		assemblies.revolution(id, deposed_id, clock.tick))
+	raids.done.connect(func(raid: Dictionary, taken: int, was_repelled: bool) -> void:
+		conflicts.raid_done(int(raid["raider"]), int(raid["victim"]), taken, int(raid["leader"]), raid["causes"], was_repelled))
+	conflicts.repelled.connect(func(raider: int, victim: int, leader: int, causes: Array) -> void:
+		chronicle.on_conflict(&"raid_repelled", raider, victim, [leader] if leader != 0 else [], causes))
 	conflicts.dispute.connect(func(a: int, b: int, causes: Array) -> void:
 		var e := chronicle.on_conflict(&"dispute", a, b, [], causes)
 		if e != null:
@@ -456,6 +480,19 @@ func _init() -> void:
 	lifecycle.died.connect(func(person_id: int, _cause: StringName, _causes: Array) -> void:
 		learning.on_dying(person_id))
 	lifecycle.partnered.connect(chronicle.on_partnered)
+	# Seen (FC3): mourners at the grave; a new couple's embrace; the parents' joy.
+	lifecycle.died.connect(func(person_id: int, _cause: StringName, _causes: Array) -> void:
+		var dead := people.get_person(person_id)
+		if dead != null and behavior != null and behavior.ctx != null:
+			Scenes.mourn(behavior, behavior.ctx, person_id, _cemetery_near(dead.position)))
+	lifecycle.partnered.connect(func(a: int, b: int) -> void:
+		if behavior != null and behavior.ctx != null:
+			for id: int in [a, b]:
+				Signs.flash(people.get_person(id), Signs.LOVE, clock.tick)
+			behavior.ctx.scenes.append([Scenes.EMBRACE, a, b]))
+	lifecycle.born.connect(func(_child: int, mother: int, father: int) -> void:
+		for id: int in [mother, father]:
+			Signs.flash(people.get_person(id), Signs.LOVE, clock.tick, 30))
 	lifecycle.came_of_age.connect(chronicle.on_came_of_age)
 	lifecycle.injured.connect(chronicle.on_injured)
 	lifecycle.taken_in.connect(chronicle.on_taken_in)
@@ -564,6 +601,8 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	_saved_boats = {}
 	_saved_predators = {}
 	_saved_parties = {}
+	_saved_assemblies = {}
+	_saved_raids = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -647,6 +686,8 @@ func load_from(data: Dictionary) -> bool:
 		_saved_boats = state["boats"] if typeof((state as Dictionary).get("boats")) == TYPE_DICTIONARY else null
 		_saved_predators = state["predators"] if typeof((state as Dictionary).get("predators")) == TYPE_DICTIONARY else {}
 		_saved_parties = state["parties"] if typeof((state as Dictionary).get("parties")) == TYPE_DICTIONARY else {}
+		_saved_assemblies = state["assemblies"] if typeof((state as Dictionary).get("assemblies")) == TYPE_DICTIONARY else {}
+		_saved_raids = state["raids"] if typeof((state as Dictionary).get("raids")) == TYPE_DICTIONARY else {}
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -817,6 +858,8 @@ func to_dict() -> Dictionary:
 			"boats": boats.to_dict(),
 			"predators": predators.to_dict(),
 			"parties": parties.to_dict(),
+			"assemblies": assemblies.to_dict(),
+			"raids": raids.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -1008,6 +1051,8 @@ func advance_systems() -> void:
 	t = _timed(&"boats", t)
 	predators.advance_to(clock.tick)
 	parties.advance_to(clock.tick)
+	assemblies.advance_to(clock.tick)
+	raids.advance_to(clock.tick)
 	t = _timed(&"predators", t)
 	stats.advance_to(clock.tick - STAGGER_STATS)
 	t = _timed(&"stats", t)
@@ -1053,6 +1098,18 @@ func _bind_boats() -> void:
 	else:
 		boats.adopt_landings(clock.tick)
 	_saved_boats = {}
+
+
+## The cemetery nearest `tile`, within reach of mourners (null: none).
+func _cemetery_near(tile: Vector2i) -> Variant:
+	var best: Variant = null
+	var best_d := 25.0
+	for prop in props.of_kind(PropData.Kind.CEMETERY):
+		var d := Vector2(prop.tile - tile).length()
+		if prop.kind == PropData.Kind.CEMETERY and d < best_d:
+			best = prop.tile
+			best_d = d
+	return best
 
 
 ## A boat swamped in a storm (FB4): told; whoever did not reach the bank drowned
@@ -1708,6 +1765,25 @@ func _activate() -> void:
 	predators.remember = remember
 	parties.from_dict(_saved_parties)
 	_saved_parties = {}
+	assemblies.bind(clock.tick)
+	assemblies.people = people
+	assemblies.behavior = behavior
+	assemblies.settlements = settlements
+	assemblies.governance = governance
+	assemblies.pathfinder = pathfinder
+	assemblies.from_dict(_saved_assemblies)
+	_saved_assemblies = {}
+	raids.bind(clock.tick)
+	raids.people = people
+	raids.behavior = behavior
+	raids.settlements = settlements
+	raids.governance = governance
+	raids.rng = rng.stream(&"raids")
+	raids.from_dict(_saved_raids)
+	_saved_raids = {}
+	# (Raids are walked while the box is watched; away, they are made at once: M20.)
+	conflicts.walk_raid = func(raider: int, victim: int, leader: int, causes: Array) -> bool:
+		return walking_raids and raids.queue(raider, victim, leader, causes, clock.tick)
 	perception.bind(ai)
 	behavior.from_dict(_saved_behavior)
 	_saved_behavior = {}

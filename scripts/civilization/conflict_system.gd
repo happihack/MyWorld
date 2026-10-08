@@ -21,6 +21,8 @@ extends RefCounted
 
 signal dispute(a: int, b: int, causes: Array)
 signal raided(raider: int, victim: int, units: int, leader: int, causes: Array)
+## A raid walked (FC5) was driven off empty-handed.
+signal repelled(raider: int, victim: int, leader: int, causes: Array)
 signal war_begun(a: int, b: int, causes: Array)
 signal battle(a: int, b: int, fallen: Array, heroes: Array)
 signal peace(a: int, b: int, fallen: int)
@@ -64,6 +66,10 @@ var governance: Governance
 var cultures: CultureSystem
 var lexicon: Lexicon
 var trade: TradeSystem
+## Walks a raid (FC5): Callable(raider, victim, leader, causes) -> bool (true:
+## it will be made by people, and told when it is over — see raid_done).
+## Unset (or false: away from the box), a raid is made at once.
+var walk_raid := Callable()
 ## Kills a person (session: Lifecycle.die): Callable(person_id, cause, causes).
 var kill := Callable()
 ## The event id of a settlement's latest shortage (for causes): Callable(settlement_id) -> int (0: none).
@@ -191,6 +197,14 @@ func _hunger_causes(a: Settlement, b: Settlement) -> Array:
 
 
 func _raid(raider: Settlement, victim: Settlement, leader: int, record: Dictionary, now: int) -> void:
+	var causes_first: Array = []
+	if int(record["dispute"]) > 0:
+		causes_first.append(int(record["dispute"]))
+	causes_first.append_array(_hunger_causes(raider, victim))
+	if walk_raid.is_valid() and bool(walk_raid.call(raider.id, victim.id, leader, causes_first)):
+		(record["raids"] as Array).append(now)
+		record["tension"] = minf(float(record["tension"]) + AFTER_RAID, MOST)
+		return # (told when it is over: raid_done)
 	var taken := 0
 	for resource: StringName in [&"grain", &"berries", &"meat", &"fish"]:
 		var units := floori(victim.stockpile.amount(resource) * RAID_TAKES)
@@ -206,6 +220,14 @@ func _raid(raider: Settlement, victim: Settlement, leader: int, record: Dictiona
 		causes.append(int(record["dispute"]))
 	causes.append_array(_hunger_causes(raider, victim))
 	raided.emit(raider.id, victim.id, taken, leader, causes)
+
+
+## A walked raid is over (FC5): told as it went.
+func raid_done(raider_id: int, victim_id: int, taken: int, leader: int, causes: Array, was_repelled: bool) -> void:
+	if was_repelled or taken <= 0:
+		repelled.emit(raider_id, victim_id, leader, causes)
+	else:
+		raided.emit(raider_id, victim_id, taken, leader, causes)
 
 
 ## A day of war: perhaps a battle; peace once it has cost enough, or lasted long enough.

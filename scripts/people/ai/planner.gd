@@ -9,6 +9,8 @@ const REQUIREMENTS: Array[StringName] = [&"home", &"food", &"water", &"work", &"
 ## Where on the storage tile someone stands to put things down (the piles
 ## lie around its middle).
 const STORE_STAND := Vector2(0.5, 0.88)
+## Going to bed with less than this to drink, they drink first.
+const DRINK_BEFORE_BED := 0.45
 
 
 ## Is what an activity requires there for this person? (Cheap: asked for
@@ -104,7 +106,15 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			var home: Variant = ctx.places.home_tile(person)
 			if home == null:
 				return []
-			return [WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()]
+			# Thirsty at bedtime: a drink first — a night's thirst on top of it
+			# and the morning's walk to the water leaves them parched.
+			var steps: Array = []
+			if Needs.value(person.needs, Needs.Need.THIRST) < DRINK_BEFORE_BED 					and not (ctx.water_withheld.is_valid() and bool(ctx.water_withheld.call())):
+				var water: Variant = ctx.places.water_tile(person.position, ctx.now())
+				if water != null:
+					steps = [WalkToStep.make(water), DrinkStep.make(water)]
+			steps.append_array([WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()])
+			return steps
 		&"work":
 			var def := ctx.occupations.get_def(person.occupation_id) if ctx.occupations != null else null
 			if def == null or def.work_target == &"":

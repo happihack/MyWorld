@@ -15,7 +15,9 @@ const TEACH := &"teach"
 const FLIRT := &"flirt"
 const ARGUE := &"argue"
 const FIGHT := &"fight"
-const ALL: Array[StringName] = [CONVERSE, HELP, GIFT, TEACH, FLIRT, ARGUE, FIGHT]
+## Children at odds (FC2): voices, never blows.
+const SQUABBLE := &"squabble"
+const ALL: Array[StringName] = [CONVERSE, HELP, GIFT, TEACH, FLIRT, ARGUE, FIGHT, SQUABBLE]
 ## The bipolar axes on which being alike makes people get on.
 const KINDRED: Array[int] = [Traits.Axis.CURIOSITY, Traits.Axis.GENEROSITY, Traits.Axis.SOCIABILITY, Traits.Axis.SPIRITUALITY,
 	Traits.Axis.AGGRESSION, Traits.Axis.SUSPICION, Traits.Axis.ADVENTURE]
@@ -78,6 +80,9 @@ static func weights(a: PersonData, b: PersonData, ctx: AiContext) -> Dictionary:
 	var strain := (1.0 - fit) * 1.0 + a.stress * 0.5 + maxf(aggressive, 0.0) * 0.3 - feeling * 0.6 - (0.3 if kin else 0.0)
 	if strain > 0.2 and may_quarrel(a, b, ctx):
 		out[ARGUE] = (strain - 0.2) * 1.5
+	# Two children at odds squabble (FC2).
+	if strain > 0.35 and ctx.stage_of(a) == PersonData.LifeStage.CHILD and ctx.stage_of(b) == PersonData.LifeStage.CHILD:
+		out[SQUABBLE] = (strain - 0.35) * 1.0
 	return out
 
 
@@ -154,6 +159,8 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 		FLIRT:
 			deltas["romance"] = config.flirt_romance * (0.5 + chemistry(a, b))
 			deltas["affinity"] = config.talk_affinity * good
+			Signs.flash(a, Signs.LOVE, now) # (FC3: seen)
+			Signs.flash(b, Signs.LOVE, now)
 		ARGUE:
 			var record := store.between(a.id, b.id) if store != null else null
 			var feeling := record.affinity if record != null else 0.0
@@ -171,14 +178,19 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 				deltas["trust"] = -config.argue_affinity * 0.4 * bad
 				for person: PersonData in [a, b]:
 					person.stress = minf(person.stress + 0.1, 1.0)
+		SQUABBLE:
+			deltas["affinity"] = -config.argue_affinity * 0.3 * bad
 	if store != null:
 		store.acts[what] = int(store.acts.get(what, 0)) + 1
 	# Whatever else, unless they quarrel they talk — and tell of what is on their mind.
-	if what != ARGUE and what != FIGHT:
+	if what != ARGUE and what != FIGHT and what != SQUABBLE:
 		Gossip.share(ctx, a, b)
 	var event_id := 0
 	if what == FIGHT:
 		ctx.social_events.append([FIGHT, a.id, b.id])
+	# (Seen: FC2.)
+	if what == ARGUE or what == FIGHT or what == SQUABBLE:
+		ctx.scenes.append([what, a.id, b.id])
 	if store != null:
 		store.modify(a.id, b.id, deltas, event_id, now)
 	if ctx.day_log != null and what != CONVERSE:

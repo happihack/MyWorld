@@ -451,9 +451,48 @@ static func settlements(s: WorldSession) -> Array:
 		if specialty != &"":
 			lines.append(MemoryText.translate("SET_KNOWN_FOR").format({"what": UIText.resource_name(specialty)}))
 		lines.append(MemoryText.translate("SET_FOUNDED").format({"year": Config.time.year_of(own.founded_tick)}))
+		# How its people feel, and the past year's strife (FC4).
+		lines.append(mood_line(own))
+		var strife := strife_line(s, own)
+		if strife != "":
+			lines.append(strife)
 		var tile := own.start_info().settlement_tile
 		out.append([own.display_name(), lines, Vector2(tile) + Vector2(0.5, 0.5)])
 	return out
+
+
+## "Content 5 · at ease 3 · troubled 2": how a settlement's people feel (FC4).
+static func mood_line(own: Settlement) -> String:
+	var counts := {}
+	var order: Array[String] = []
+	for person in own.members():
+		var word := UIText.mood_word(person.mood, person.stress)
+		if not counts.has(word):
+			order.append(word)
+		counts[word] = int(counts.get(word, 0)) + 1
+	order.sort_custom(func(a: String, b: String) -> bool: return int(counts[a]) > int(counts[b]) or (counts[a] == counts[b] and a < b))
+	var parts := PackedStringArray()
+	for word in order:
+		parts.append("%s %d" % [word if parts.is_empty() else word.to_lower(), counts[word]])
+	return MemoryText.translate("SET_MOOD").format({"moods": " · ".join(parts)}) if not parts.is_empty() else ""
+
+
+## The past year's strife in a settlement: fights, fallings-out, makings-up ("" if none).
+static func strife_line(s: WorldSession, own: Settlement) -> String:
+	if s.events == null:
+		return ""
+	var since := s.clock.tick - Config.time.ticks_per_year()
+	var counted := {}
+	for type: StringName in [Chronicler.TYPE_FIGHT, Chronicler.TYPE_FELL_OUT, Chronicler.TYPE_RECONCILED]:
+		var n := 0
+		for event in s.events.of_type(type):
+			if event.tick >= since and event.settlement_id == own.id:
+				n += 1
+		counted[type] = n
+	if int(counted[Chronicler.TYPE_FIGHT]) + int(counted[Chronicler.TYPE_FELL_OUT]) + int(counted[Chronicler.TYPE_RECONCILED]) == 0:
+		return ""
+	return MemoryText.translate("SET_STRIFE").format({"fights": counted[Chronicler.TYPE_FIGHT],
+		"fell_out": counted[Chronicler.TYPE_FELL_OUT], "made_up": counted[Chronicler.TYPE_RECONCILED]})
 
 
 ## [[settlement, lines (each kind of building, what is going up)], …].

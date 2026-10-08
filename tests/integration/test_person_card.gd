@@ -812,3 +812,40 @@ func test_the_hints_lead_to_touching_holding_and_following() -> void:
 	ui.open_history()
 	hints.advance(60.0)
 	assert_eq(hints.current(), &"")
+
+
+func test_how_they_feel_what_ails_them_and_who_they_get_on_with() -> void:
+	# (FC4.)
+	var person := _someone()
+	var other: PersonData = null
+	for p in session.people.all_people():
+		if p != person:
+			other = p
+			break
+	person.mood = 0.3
+	person.stress = 0.6
+	Health.injure(person, Health.FIGHT, 0.5, session.clock.tick)
+	session.relationships.modify(person.id, other.id, {"affinity": -0.8, "familiarity": 0.8}, 0, session.clock.tick)
+	var facts := PersonCard.facts(session, person)
+	assert_near(float(facts["mood_value"]), 0.3, 0.001)
+	assert_near(float(facts["calm_value"]), 0.4, 0.001, "calm: the strain's other side")
+	assert_true((facts["health"] as PackedStringArray).has("Hurt in a fight (bad)"), str(facts["health"]))
+	assert_eq((facts["people"] as Array)[0][0], other.id)
+	assert_eq((facts["people"] as Array)[0][1], "Enemy")
+	main.select_person(person.id)
+	await wait_frames(2)
+	var card := ui.person_card()
+	card.set_state(PersonCard.State.FULL)
+	card.refresh()
+	await wait_frames(3)
+	assert_true((card.get_node("%Body/Health") as Label).text.contains("Hurt in a fight") if card.has_node("%Body/Health") else true)
+	var listed := false
+	for button in card.find_children("*", "Button", true, false):
+		listed = listed or (button as Button).text == "Enemy  %s" % other.given_name
+	assert_true(listed, "the enemy listed, a tap away")
+	# And the settlement: how its people feel.
+	var lines: PackedStringArray = MenuPages.settlements(session)[0][1]
+	var feeling := false
+	for line in lines:
+		feeling = feeling or line.begins_with("Feeling:")
+	assert_true(feeling, str(lines))

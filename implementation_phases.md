@@ -2342,6 +2342,21 @@ The full plan, audit and caveats: `predators_and_weapons_plan.md` (bible §12, �
 
 ---
 
+## FEELINGS & CONFLICT YOU CAN SEE (FC) — the owner's request (2026-10-08)
+
+The full plan, audit and caveats: `feelings_and_conflict_plan.md`. Today quarrels, fights, raids, battles and revolutions are numbers and toasts — nothing on screen tells a fistfight from a chat or a war from an ordinary day; seven signs exist (! ? pray speech note dots recognize), none for anger, grief, love, hurt, illness, hunger. **Decisions (the owner, 2026-10-08): all as recommended** — badge-style signs; lasting states shown briefly then only for the selected; a gentle scuffle; a brave friend may separate fighters; raids walked with defenders; battles on a meeting ground after PR6 (the fallen carried home and buried); border stones at peace; order FC1–FC4, FC7, FC5, PR6, FC6, FC8.
+
+- [x] **FC1 New signs** — angry, sad, love, hurt, ill, hungry, tired (SVG badges); priorities and lengths.
+- [x] **FC2 Quarrels and fights you can see** — raised voices; a scuffle animation; onlookers look, a brave friend separates; both walk off hurt; making up shown (an embrace); children squabble and are scolded.
+- [x] **FC3 Grief, love and hardship** — mourners at the grave, the gathering at a burial; hearts at a flirt, a pairing, a birth; hurt, ill, hungry, tired shown as they begin.
+- [x] **FC4 Mood on the card** — a mood meter (stress over it); wounds and illness listed; friends, rivals, enemies; the settlement's mood.
+- [x] **FC5 Raids walked** — a raiding party walks over, takes armfuls, walks home; seen, shouted at; defenders, a stand-off, a scuffle; told with the real outcome.
+- [ ] **FC6 War in the open** (after PR6) — war parties gather and march to a meeting ground; battles in rounds, pairs scuffling; the fallen carried home and buried; guards on war days; peace and border stones.
+- [x] **FC7 Disputes and revolutions shown** — leaders meet halfway and argue; a crowd at the fire turns on its leader.
+- [ ] **FC8 Clutter and tuning** — a sign budget (≈12 on screen), rates per kind, reduced motion; soaks (rates unchanged, raids, battle deaths, phone FPS).
+
+---
+
 ## M22 — ROBUST SAVE SYSTEM — built (2026-10-05), phone torture pending
 
 **Goal:** The player trusts their world will never disappear. (P:M22, S§56–57, B§31.9)

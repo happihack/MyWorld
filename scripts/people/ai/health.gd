@@ -36,6 +36,7 @@ static func injure(person: PersonData, kind: StringName, severity: float, now: i
 	var took := minf(severity * config.injury_health, maxf(person.health - 0.05, 0.0))
 	person.health -= took
 	person.injuries.append({"kind": String(kind), "severity": severity, "initial": severity, "took": took, "since": now})
+	Signs.flash(person, Signs.HURT, now) # (FC3: seen as it happens)
 
 
 ## Someone falls ill (unless they already are). Returns whether they did.
@@ -43,6 +44,7 @@ static func fall_ill(person: PersonData, kind: StringName, now: int) -> bool:
 	if not illness_of(person).is_empty():
 		return false
 	person.conditions.append({"id": String(ILLNESS), "kind": String(kind), "since": now, "well": person.health, "fed": false})
+	Signs.flash(person, Signs.ILL, now)
 	return true
 
 
