@@ -9,6 +9,7 @@ func _init() -> void:
 	var seed_value := 4242
 	var years := 30
 	var dir := "C:/tmp/wiab_shots"
+	var like_soak := OS.get_cmdline_user_args().has("--like-soak")
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			seed_value = int(arg.get_slice("=", 1))
@@ -42,9 +43,21 @@ func _init() -> void:
 			s.pathfinder.serve(1000000)
 			s.movement.step(1.0)
 			s.unfold_if_due()
-			s.advance_systems()
+			if like_soak:
+				# (Only what the soak steps — to compare: soak_m7.gd.)
+				if s.nodes.due(s.clock.tick):
+					s.nodes.settle(s.clock.tick)
+				if i % 60 == 0:
+					for name in ["stats", "knowledge", "learning", "technology", "cultures", "faith", "lexicon", "anomaly_archive", "science", "mysteries", "conflicts", "stories"]:
+						s.get(name).advance_to(s.clock.tick)
+				if i % 10 == 0:
+					for name in ["soil", "boats", "fauna", "predators", "parties", "assemblies", "raids", "wars"]:
+						s.get(name).advance_to(s.clock.tick)
+			else:
+				s.advance_systems()
 		if day % config.time.days_per_year() == 0:
-			print("GROW year %d: %d people, %d settlements" % [day / config.time.days_per_year(), s.people.size(), s.settlements.size()])
+			print("GROW year %d: %d people, %d settlements, food %.1f days  %s" % [day / config.time.days_per_year(), s.people.size(), s.settlements.size(),
+				s.settlement.days_of_food() if s.settlement != null else 0.0, str(s.lifecycle.counts)])
 	var kept: bool = root.get_node("SaveManager").save_world(s, &"grown")
 	print("GROW saved %s: %s (%d people)" % [s.world_id, kept, s.people.size()])
 	quit()

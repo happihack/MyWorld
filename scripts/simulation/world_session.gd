@@ -1036,15 +1036,19 @@ func system_steps() -> Array:
 				if nodes.due(clock.tick - STAGGER_NODES):
 					nodes.settle(clock.tick - STAGGER_NODES)],
 			[&"settlements", func() -> void: settlements.step(clock.tick)],
-			[&"relationships", func() -> void: relationships.settle(clock.tick - STAGGER_RELATIONSHIPS)],
-			[&"lifecycle", func() -> void: lifecycle.advance_to(clock.tick - STAGGER_LIFECYCLE)],
-			[&"culture", func() -> void: culture.advance_to(clock.tick - STAGGER_CULTURE)],
+			# (These five the people's own step brings up to the clock too, at the
+			# clock: never a staggered moment behind it — a day's dice would be
+			# thrown again and again for the first minutes of every day as the two
+			# took turns at "today" and "yesterday", 2026-10-08.)
+			[&"relationships", func() -> void: relationships.settle(clock.tick)],
+			[&"lifecycle", func() -> void: lifecycle.advance_to(clock.tick)],
+			[&"culture", func() -> void: culture.advance_to(clock.tick)],
 			[&"construction", func() -> void: construction.advance_to(clock.tick)],
 			[&"traffic", func() -> void: traffic.advance_to(clock.tick)],
 			[&"migration", func() -> void: migration.advance_to(clock.tick)],
 			[&"trade", func() -> void: trade.advance_to(clock.tick)],
-			[&"governance", func() -> void: governance.advance_to(clock.tick - STAGGER_GOVERNANCE)],
-			[&"fauna", func() -> void: fauna.advance_to(clock.tick - STAGGER_FAUNA)],
+			[&"governance", func() -> void: governance.advance_to(clock.tick)],
+			[&"fauna", func() -> void: fauna.advance_to(clock.tick)],
 			[&"boats", func() -> void: boats.advance_to(clock.tick - STAGGER_BOATS)],
 			[&"predators", func() -> void:
 				predators.advance_to(clock.tick)
@@ -1061,17 +1065,14 @@ var _system_steps: Array = []
 
 ## How many game minutes after midnight each system that works once a day
 ## does it (see advance_systems).
+## (Only for systems nothing else brings up to the clock: one called at the
+## clock as well would go back and forth between the two days — see system_steps.)
 const STAGGER_KNOWLEDGE := 6
-const STAGGER_FAUNA := 12
 const STAGGER_STATS := 18
 const STAGGER_NODES := 24
 const STAGGER_SOIL := 30
-const STAGGER_LIFECYCLE := 36
-const STAGGER_GOVERNANCE := 42
 const STAGGER_TECHNOLOGY := 48
-const STAGGER_RELATIONSHIPS := 54
 const STAGGER_LEARNING := 60
-const STAGGER_CULTURE := 66
 const STAGGER_BOATS := 72
 
 
