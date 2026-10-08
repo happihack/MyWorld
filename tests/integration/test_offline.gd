@@ -108,6 +108,23 @@ func test_offline_vs_realtime_statistical_parity() -> void:
 	await wait_frames(1)
 
 
+func test_years_away_do_not_wear_a_band_down() -> void:
+	# (PG.4, 2026-10-07: worlds lived only offline dwindled — no rationing and
+	# nobody turning to food when it ran short; a band that ran short did not
+	# come back from it.)
+	var s := _world()
+	var start := s.people.size()
+	OfflineSimulator.new(s).run(10 * Config.time.ticks_per_year())
+	var starved := 0
+	for record in s.archive.all_records():
+		if record.cause == Lifecycle.CAUSE_STARVATION:
+			starved += 1
+	assert_eq(starved, 0, "nobody starved in ten years away")
+	assert_true(s.people.size() >= start, "the band has not dwindled: %d at the start, %d after ten years" % [start, s.people.size()])
+	s.queue_free()
+	await wait_frames(1)
+
+
 func test_wywg_summary_contents() -> void:
 	var s := _world()
 	var before := s.events.size()

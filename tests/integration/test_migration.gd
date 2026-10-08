@@ -28,7 +28,7 @@ func before_each() -> void:
 	migration = session.migration
 	for knob: StringName in [&"base_death_per_year", &"infant_death_per_year", &"old_age_death_per_year",
 			&"accident_per_work_day", &"crowding_chance_per_day", &"partner_chance_per_day", &"conceive_chance_per_day",
-			&"starve_chance_per_day", &"illness_death_per_day", &"injury_death_per_day", &"newcomer_chance_per_day"]:
+			&"starve_chance_per_day", &"illness_death_per_day", &"injury_death_per_day", &"newcomer_chance_per_day", &"marry_out_chance_per_day", &"gathering_romance"]:
 		_knob(Config.life, knob, 0.0)
 
 
@@ -337,6 +337,48 @@ func test_the_last_few_move_where_they_can_grow() -> void:
 	# Nobody is left: it is abandoned.
 	migration._abandon_empty()
 	assert_null(session.settlements.get_settlement(own.id))
+
+
+func test_marrying_out() -> void:
+	# (PG.1, the owner, 2026-10-07: in a small band most are kin; someone with
+	# nobody at home to pair with may find someone in another settlement.)
+	var own := _found()
+	var single: PersonData = null
+	for person in own.members():
+		if person.partner_id != 0:
+			var was := session.people.get_person(person.partner_id)
+			was.partner_id = 0
+			person.partner_id = 0
+			single = person
+			break
+	for person in own.members():
+		if person != single and person.sex != single.sex:
+			person.settlement_id = session.settlement.id # (nobody at the camp for them)
+	var year := Config.time.ticks_per_year()
+	var suitor := session.spawn_person(session.settlement.fire().tile + Vector2i(2, 0))
+	suitor.sex = PersonData.Sex.MALE if single.sex == PersonData.Sex.FEMALE else PersonData.Sex.FEMALE
+	suitor.birth_tick = single.birth_tick
+	suitor.settlement_id = session.settlement.id
+	assert_true(session.settlement.member_count() > own.member_count(), "the first is the larger")
+	_knob(Config.life, &"marry_out_chance_per_day", 1.0)
+	session.lifecycle._marry_out(session.clock.tick)
+	assert_eq(single.partner_id, suitor.id, "partners across settlements")
+	assert_eq(suitor.partner_id, single.id)
+	assert_eq(suitor.settlement_id, single.settlement_id, "they live in one settlement")
+	var mover := suitor if suitor.settlement_id == own.id else single
+	var there := session.settlements.get_settlement(mover.settlement_id)
+	assert_true(migration.travelling(mover.id), "the one who goes walks there")
+	var minutes := 0
+	while migration.travelling(mover.id) and minutes < Config.migration.longest_journey + 60:
+		_run(10)
+		minutes += 10
+	assert_false(migration.travelling(mover.id), "arrived after %d minutes" % minutes)
+	assert_true(Vector2(mover.position - there.fire().tile).length() < 8.0, "at their new home")
+	assert_eq(session.lifecycle.counts.get("married_out", 0), 1)
+	# Someone with someone at home to pair with does not look elsewhere.
+	var before: int = int(session.lifecycle.counts.get("married_out", 0))
+	session.lifecycle._marry_out(session.clock.tick)
+	assert_eq(session.lifecycle.counts.get("married_out", 0), before, "nobody else is lonely here")
 
 
 func test_a_camps_lonely_get_newcomers() -> void:

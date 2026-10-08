@@ -30,7 +30,7 @@ func before_each() -> void:
 	session.clock.set_speed(0)
 	for knob: StringName in [&"base_death_per_year", &"infant_death_per_year", &"old_age_death_per_year",
 			&"accident_per_work_day", &"crowding_chance_per_day", &"partner_chance_per_day", &"conceive_chance_per_day",
-			&"newcomer_chance_per_day"]:
+			&"newcomer_chance_per_day", &"marry_out_chance_per_day", &"gathering_romance"]:
 		_knobs.append([knob, Config.life.get(knob)])
 		Config.life.set(knob, 0.0)
 

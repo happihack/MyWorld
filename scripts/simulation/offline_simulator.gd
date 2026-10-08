@@ -31,6 +31,11 @@ const FISH_PER_DAY := 14.0
 ## What a person eats from the stores in a day, in bellies (measured: 2.47 —
 ## more than the stores plan for, SettlementConfig.food_per_person_day).
 const EAT_PER_DAY := 2.45
+## Short of food (rationing, or less than this many days in store): those of
+## other trades spend this share of the day gathering food (PG.4).
+const HUNGRY_DAYS := 1.0
+const HUNGRY_HANDS := 0.75
+const FOOD_WORK: Array[StringName] = [&"bush", &"game", &"fish", &"field"]
 ## Each day-step ends at this hour (minute of the day): late enough that what
 ## waits for the morning (the planner's day, setting out) has had its turn.
 const STEP_AT_MINUTE := 12 * 60
@@ -186,16 +191,24 @@ func _work(own: Settlement, share: float, now: int) -> void:
 	# resource: each gathering asks the stores for room, and that looks at
 	# every pile — a thousand times a day was seconds: M21.)
 	var gathered := {} # [kind, resource] -> amount
+	# Short of food, everyone lends a hand with it — as the job board has them
+	# do when someone is watching (PG.4: without it a settlement that ran
+	# short did not come back from it; worlds lived away dwindled).
+	var hungry := own.is_short() or own.days_of_food() < HUNGRY_DAYS
 	for person in own.members():
 		var def := own.occupations.get_def(person.occupation_id)
 		if def == null or def.work_target == &"" or not def.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
 			continue
 		var target := def.work_target
+		var own_share := share
+		if hungry and not FOOD_WORK.has(target):
+			_add_to(gathered, PropData.Kind.BUSH, &"berries", RATES[&"bush"][&"berries"] * HUNGRY_HANDS * share)
+			own_share = share * (1.0 - HUNGRY_HANDS)
 		match target:
 			&"bush":
 				_add_to(gathered, PropData.Kind.BUSH, &"berries", RATES[&"bush"][&"berries"] * share)
 			&"tree":
-				_add_to(gathered, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * share)
+				_add_to(gathered, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * own_share)
 			&"game":
 				_hunt(own, share)
 			&"fish":
@@ -203,7 +216,7 @@ func _work(own: Settlement, share: float, now: int) -> void:
 			&"field":
 				_farm(own, person, share, now)
 			&"site":
-				_build(own, person, share, now)
+				_build(own, person, own_share, now)
 		# Better at it for the day's work (as they would be, a unit at a time: WorkStep).
 		var key := String(person.occupation_id)
 		person.skills[key] = minf(float(person.skills.get(key, 0.0)) + Config.trade.skill_per_unit * SKILL_UNITS_PER_DAY * share, 1.0)
@@ -336,6 +349,11 @@ func _eat(own: Settlement, share: float) -> void:
 	if members.is_empty():
 		return
 	var need := EAT_PER_DAY * share
+	var full := need * members.size()
+	# (Rationing, as the settlement does: the stores last longer, and people
+	# are the hungrier for it — PG.4.)
+	if own.is_short():
+		need *= Config.settlement.ration_share
 	var wanted := need * members.size()
 	var eaten := 0.0
 	# (Taken a kind at a time, not a unit at a time: the stores count their piles anew at each change.)
@@ -351,7 +369,7 @@ func _eat(own: Settlement, share: float) -> void:
 			break
 		var units := mini(ceili((wanted - eaten) / def.nutrition), own.stockpile.available(def.id))
 		eaten += own.stockpile.take(def.id, units) * def.nutrition
-	var fed := clampf(eaten / maxf(wanted, 0.0001), 0.0, 1.0)
+	var fed := clampf(eaten / maxf(full, 0.0001), 0.0, 1.0)
 	for person in members:
 		var hunger := person.needs[Needs.Need.HUNGER] if person.needs.size() == Needs.COUNT else 1.0
 		person.needs = Needs.full()

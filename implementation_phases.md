@@ -2280,7 +2280,31 @@ Switches (off — the game as it was): `ResourcesConfig.winter_no_berries` (bush
   - hierarchical pathfinding — *not needed by the measurements* (paths ≤ 0.1 ms a frame); world generation and opening at 512 (generation 32 s, opening 20 s: per-tile GDScript);
   - tier 0;
   - weather's 3-hourly river level on large boxes (50–110 ms).
-- **Found, outside M21:** worlds lived **only offline** tend to dwindle — 3 of 4 seeds of a natural band (and the same on the last commit, so not M21's doing) lose most or all of their people within 100 game years (starvation, few births), where watched worlds keep 16–26 for 300 years. One absence is capped at ~15 game years (D-09), so it is a slow push, but a real one: M20's offline rates or births need a look.
+- **Found, outside M21 (see "Population growth" below):** worlds lived **only offline** tend to dwindle — 3 of 4 seeds of a natural band (and the same on the last commit, so not M21's doing) lose most or all of their people within 100 game years (starvation, few births), where watched worlds keep 16–26 for 300 years. One absence is capped at ~15 game years (D-09), so it is a slow push, but a real one: M20's offline rates or births need a look.
+
+---
+
+## POPULATION GROWTH — the owner's request (2026-10-07)
+
+**Why:** the game progresses by population (village 30, town 100, city 500; the ages follow), and worlds stall: the five 300-year M19 soaks reach 40–70 people by year 50 and stay flat for 250 years; about 40% of everyone ever added is a newcomer from outside, not a birth; deaths are ~75% old age, 15–20% illness (starvation, war, accidents barely count).
+
+**What holds it back (measured 2026-10-07, two 40-year soaks, every fertile woman's day counted):** **partners**. Women without one are the largest share of every year — in seed 7's year 25, ~8 fertile women all year, and not one day a woman could conceive; 8 and 6 couples formed in 40 years (18 and 17 born; 22 and 10 newcomers). In a band of 10–30 most become kin (no pairing to first cousins); romance grows only by chance flirting in `socialize`. Food and crowded homes begin to block children only once a world grows (years 15–20 on).
+
+**The ways (listed for the owner):** 1 marrying out (partners from another settlement) · 2 more chances to meet (gatherings) · 3 easier pairing (thresholds) · 4 more newcomers (couples, families) · 5 a soft food rule for children · 6 a shorter gap between children · 7 homes ready sooner · 8 more food per worker · 9 daughter settlements sooner · 10 longer lives, less illness · 11 offline worlds to grow like watched ones.
+
+**Chosen: 1, 2, 5 and 11** (the owner, 2026-10-07). Aim: steady growth of the order of 1–2% a year — ~100 people by year 100 rather than a plateau near 50 — never a boom; disease, hunger, war and predators still cull. Judged by the five-seed 300-year soak.
+
+### PG.1 Marrying out — ✅ built (2026-10-07)
+- [x] Someone grown and free with nobody they could pair with at home (as `Lifecycle.lonely_one` judges) may, each day, pair with someone free and suitable (not kin, the age gap) of another settlement within reach — likelier where the two trade (`LifeConfig.marry_out_chance_per_day`). The one of the larger settlement goes to live in the other (a journey of one, `Migration`): the history tells of it.
+### PG.2 More chances to meet — ✅ built (2026-10-07)
+- [x] The evening gatherings (dance, singing, stories, a festival, the fire) are where people meet: two free, suitable grown-ups who were both at one that day come to feel a little more for each other (`LifeConfig.gathering_romance`, more with chemistry).
+### PG.3 A soft food rule for children — ✅ built (2026-10-07)
+- [x] Not "no child unless there is a day's food and no shortage" but a chance that falls the hungrier the settlement is: full with `food_days_for_child` days in store, `hungry_conceive_share` of it with none, `short_conceive_share` while it rations, none when the stores are empty — growth slows as food per head falls (a soft cap, not a cliff).
+### PG.4 Offline worlds grow like watched ones — ✅ built (2026-10-07)
+- [x] **Found:** offline, a settlement that ran short never came back from it — nobody rationed and nobody turned to food (when someone watches, the stores ration and the job board puts every hand to food). **Fixed:** while short (rationing, or less than a day's food), those of other trades spend ¾ of the day gathering food; rationing as the settlement does (and the hungrier for it). **Measured** (natural band, 128² box, 100 years offline, 4 seeds): before — 0, 0, 3, 20 people; after — 24, 27, 14, 25, nobody starved. Test: `test_years_away_do_not_wear_a_band_down`. (Offline still levels off near 25–30 for a band of one settlement: marrying out needs a second settlement.)
+- [x] Measure offline vs watched over 100 years (same seeds) after PG.1–3; find why offline worlds dwindle; fix; add the population to the offline parity test.
+**First measurements (40 years watched, seeds 7 / 12345):** born 18 → 24 and 17 → 40; couples 8 → 11 (3 married out) and 6 → 23 (11 married out); people at year 40: 38 → 36 (fewer lonely, so fewer newcomers: 22 → 10) and 25 → 40 (8 starved: growth reached the food limit). **Five seeds × 100 years (2026-10-07, all PASSED):** people at year 100 — seed 7: 73 (was 38 in the M19 round), 99: 75 (58), 4242: 57 (29), 2026: 76 (57), 12345: 111 (58); on average ~78 against ~48 (+60%), about 1.9% a year over the century — fast to year ~50 (~3%), then levelling off near 70–80 as food runs out (0.2–0.5 days in store, rationing much of the time). Couples 66–102 a world (34–69 married out); born 94–158; newcomers 40–49. The cost of growth: deaths from hunger 4–17 a world (were 0–7) and much more illness (crowded roofs). **Next, to grow past the food limit without starving:** more food (option 8), daughter settlements sooner (option 9), homes ready sooner (option 7) — the owner's choice.
+**Exit:** five seeds × 300 years: no world dies out; growth of the order of 1–2% a year until food limits it; offline aging within tolerance of watched.
 
 ---
 

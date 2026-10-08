@@ -36,7 +36,7 @@ func before_each() -> void:
 	# Nothing happens by chance unless a test asks for it.
 	for knob: StringName in [&"base_death_per_year", &"infant_death_per_year", &"old_age_death_per_year",
 			&"accident_per_work_day", &"crowding_chance_per_day", &"partner_chance_per_day", &"conceive_chance_per_day",
-			&"starve_chance_per_day", &"illness_death_per_day", &"injury_death_per_day", &"newcomer_chance_per_day"]:
+			&"starve_chance_per_day", &"illness_death_per_day", &"injury_death_per_day", &"newcomer_chance_per_day", &"marry_out_chance_per_day", &"gathering_romance"]:
 		_knob(config, knob, 0.0)
 
 
@@ -101,6 +101,30 @@ func _two_newcomers() -> Array[PersonData]:
 
 
 # --- growing up and old -----------------------------------------------------------------------------
+
+
+func test_people_meet_at_the_evening_gatherings() -> void:
+	# (PG.2: romance grew only by chance flirting; the dance, the songs, the
+	# stories, a festival, the fire are where people meet.)
+	_knob(config, &"gathering_romance", 0.1)
+	var now := session.clock.tick
+	var a := session.spawn_person(session.settlement.fire().tile)
+	var b := session.spawn_person(session.settlement.fire().tile)
+	var c := session.spawn_person(session.settlement.fire().tile)
+	a.sex = PersonData.Sex.FEMALE
+	b.sex = PersonData.Sex.MALE
+	c.sex = PersonData.Sex.MALE
+	for p: PersonData in [a, b, c]:
+		p.birth_tick = now - 25 * Config.time.ticks_per_year()
+		p.partner_id = 0
+	a.activity_log["dance"] = now
+	b.activity_log["sing"] = now
+	life._gatherings(now)
+	var ab := session.relationships.between(a.id, b.id)
+	assert_not_null(ab, "they met")
+	assert_true(ab.romance > 0.0, "and feel a little more (%.3f)" % ab.romance)
+	var ac := session.relationships.between(a.id, c.id)
+	assert_true(ac == null or ac.romance == 0.0, "who was not there did not meet her")
 
 func test_aging_stage_transitions() -> void:
 	assert_eq(config.validate().size(), 0, str(config.validate()))
@@ -236,8 +260,17 @@ func test_birth() -> void:
 	_make_age(mother, config.fertile_until_years + 1)
 	assert_false(life.may_conceive(mother, session.clock.tick), "too old")
 	_make_age(mother, 30)
+	# Food makes a child likelier or less likely, it does not forbid one (PG.3).
+	assert_near(life.conceive_share(mother), 1.0, 0.0001, "well fed: the whole chance")
 	_knob(config, &"food_days_for_child", 1000.0)
-	assert_false(life.may_conceive(mother, session.clock.tick), "not food enough")
+	assert_true(life.may_conceive(mother, session.clock.tick), "short of food, still possible")
+	assert_true(life.conceive_share(mother) < 0.35 and life.conceive_share(mother) >= config.hungry_conceive_share,
+		"but much less likely (%.2f)" % life.conceive_share(mother))
+	session.settlement.shortage = Settlement.Shortage.SHORT
+	assert_near(life.conceive_share(mother), config.short_conceive_share, 0.0001, "while it rations: little")
+	session.settlement.shortage = Settlement.Shortage.EMPTY
+	assert_eq(life.conceive_share(mother), 0.0, "the stores empty: none")
+	session.settlement.shortage = Settlement.Shortage.NONE
 	_knob(config, &"food_days_for_child", 0.0)
 	_knob(config, &"home_room", session.people.living_in(mother.home_building_id).size())
 	assert_false(life.may_conceive(mother, session.clock.tick), "no room under the roof")

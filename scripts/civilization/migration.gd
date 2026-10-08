@@ -353,6 +353,25 @@ func depart_join(own: Settlement, target: Settlement, now: int, push: Dictionary
 	return journey
 
 
+## One person goes to live in `target` (PG.1: married to someone there):
+## they walk there, as anyone joining another settlement does. Returns the
+## journey ({}: nobody).
+func send_to(person: PersonData, from_id: int, target: Settlement, now: int) -> Dictionary:
+	if person == null or target == null:
+		return {}
+	var to := target.start_info().settlement_tile
+	var journey := {"id": _next_id, "kind": "join", "last": false, "from": from_id, "target": target.id, "to": to,
+		"members": [person.id], "households": [], "leader": person.id, "started": now, "goods": {},
+		"causes": [], "event": 0}
+	_next_id += 1
+	journeys.append(journey)
+	var spots := pathfinder.standable_near(to, 1, 3) if pathfinder != null else []
+	if behavior != null:
+		behavior.set_plan(person, ACTIVITY, ACTIVITY, [WalkToStep.make(spots[0] if not spots.is_empty() else to, person.sub_tile_offset)])
+	joining.emit(journey)
+	return journey
+
+
 ## They are there: of `target` now, under its roofs (the roomiest; crowded if
 ## need be — its planner sees to more), with what they brought.
 func join(journey: Dictionary, now: int) -> Settlement:

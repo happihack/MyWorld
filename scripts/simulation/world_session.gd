@@ -1454,6 +1454,8 @@ func _activate() -> void:
 	construction.settlements = settlements
 	households.settlements = settlements
 	lifecycle.settlements = settlements
+	lifecycle.migration = migration
+	lifecycle.trade = trade
 	ai.settlements = settlements
 	_place_settlements()
 	migration.bind(clock.tick, Config.migration)

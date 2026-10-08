@@ -14,15 +14,33 @@ extends ConfigBase
 ## happens this often.
 @export_range(0, 60) var partner_most_years_apart: int = 14
 @export_range(0.0, 1.0, 0.01) var partner_chance_per_day: float = 0.25
+## Where people meet (PG.2, the owner, 2026-10-07): two free grown-ups who
+## could become partners and were both at an evening gathering that day (a
+## dance, singing, the stories, a festival, the fire) come to feel this much
+## more for each other (romance; × 0.5 … 1.5 with chemistry).
+@export_range(0.0, 1.0, 0.005) var gathering_romance: float = 0.03
+## Marrying out (PG.1): someone with nobody they could become partners with
+## at home may, this often a day, find someone free and suitable in another
+## settlement within `marry_out_reach` tiles — `marry_out_trade_boost` times
+## as often where the two trade. The one of the larger settlement goes (unless
+## the other has a home of their own to bring them to).
+@export_range(0.0, 1.0, 0.001) var marry_out_chance_per_day: float = 0.04
+@export_range(1.0, 10.0, 0.1) var marry_out_trade_boost: float = 2.0
+@export_range(4, 1000) var marry_out_reach: int = 90
 
 @export_group("Children")
 ## A woman with a partner may be with child from adulthood until this age …
 @export_range(1, 80) var fertile_until_years: int = 40
-## … this often a day, when the household has a roof with room under it and
-## the settlement has food for at least `food_days_for_child` days and no
-## shortage; not again within `child_gap_days` of the last birth.
+## … this often a day, when the household has a roof with room under it; not
+## again within `child_gap_days` of the last birth. How well fed the
+## settlement is makes it likelier or less likely (a soft rule, not a wall —
+## the owner, 2026-10-07): in full with `food_days_for_child` days of food in
+## store, `hungry_conceive_share` of it with none, `short_conceive_share` of
+## it while it rations, and not at all with the stores empty.
 @export_range(0.0, 1.0, 0.001) var conceive_chance_per_day: float = 0.02
-@export_range(0.0, 60.0, 0.5) var food_days_for_child: float = 1.0
+@export_range(0.0, 60.0, 0.5) var food_days_for_child: float = 2.0
+@export_range(0.0, 1.0, 0.01) var hungry_conceive_share: float = 0.3
+@export_range(0.0, 1.0, 0.01) var short_conceive_share: float = 0.15
 @export_range(0, 500) var child_gap_days: int = 36
 ## How long a child is carried (game days).
 @export_range(1, 200) var carry_days: int = 18

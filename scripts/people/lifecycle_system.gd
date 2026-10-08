@@ -60,6 +60,12 @@ var start: WorldSetup.StartInfo
 var events: EventLog
 var graves: Graves
 var config: LifeConfig
+## For marrying out (PG.1): who goes to live in the other settlement walks there.
+var migration: Migration
+## Where settlements trade, people meet more (PG.1).
+var trade: TradeSystem
+## The evening gatherings, where people meet (PG.2).
+const GATHERINGS: Array[String] = ["dance", "sing", "storytelling", "celebrate", "warm_by_fire"]
 ## Off: nobody is born, ages into new work or dies (tests of other things).
 var enabled := true
 ## Counts since the world began (saved): "born", "partners", and per cause of death.
@@ -186,7 +192,9 @@ func _live_day(now: int) -> void:
 			var chance: Array = death_chance(person, now)
 			if rng.randf() < float(chance[0]):
 				die(person, _pick(chance[1]), now)
+	_gatherings(now)
 	_pair_up(now)
+	_marry_out(now)
 	_children(now)
 	_newcomers(now)
 
@@ -280,6 +288,115 @@ func _pair_up(now: int) -> void:
 				best = other
 		if best != null and rng.randf() < config.partner_chance_per_day:
 			partner(person, best, now)
+
+
+## The evening's gatherings (PG.2): two free grown-ups who could become
+## partners and were both at one today feel a little more for each other.
+func _gatherings(now: int) -> void:
+	if relationships == null or config.gathering_romance <= 0.0:
+		return
+	var by_settlement := {}
+	for person in people.all_people():
+		if person.partner_id != 0 or not _grown(person, now) or not _gathered(person, now):
+			continue
+		if not by_settlement.has(person.settlement_id):
+			by_settlement[person.settlement_id] = []
+		(by_settlement[person.settlement_id] as Array).append(person)
+	var year := Config.time.ticks_per_year()
+	for settlement_id: int in by_settlement:
+		var there: Array = by_settlement[settlement_id]
+		there.sort_custom(func(a: PersonData, b: PersonData) -> bool: return a.id < b.id)
+		for i in there.size():
+			for j in range(i + 1, there.size()):
+				var a: PersonData = there[i]
+				var b: PersonData = there[j]
+				if a.sex == b.sex or absi(a.age_years(now, year) - b.age_years(now, year)) > config.partner_most_years_apart \
+						or relationships.is_family(a.id, b.id) or relationships.close_kin(a.id, b.id):
+					continue
+				var drawn := SocialActs.chemistry(a, b)
+				relationships.modify(a.id, b.id, {"romance": config.gathering_romance * (0.5 + drawn),
+					"affinity": config.gathering_romance * 0.5, "familiarity": config.gathering_romance}, 0, now)
+
+
+## Were they at an evening gathering today?
+static func _gathered(person: PersonData, now: int) -> bool:
+	for activity in GATHERINGS:
+		if int(person.activity_log.get(activity, -1_000_000_000)) >= now - DAY:
+			return true
+	return false
+
+
+## Marrying out (PG.1): whoever has nobody they could become partners with
+## at home may find someone in another settlement; they become partners, and
+## the one of the larger settlement goes to live in the other.
+func _marry_out(now: int) -> void:
+	if relationships == null or settlements == null or settlements.size() < 2 or config.marry_out_chance_per_day <= 0.0:
+		return
+	var year := Config.time.ticks_per_year()
+	# The free grown-ups of each settlement, once (only they matter, and they
+	# are few: comparing everyone with everyone was dear — M21).
+	var free := {} # settlement id -> Array[PersonData]
+	for person in people.all_people():
+		if person.partner_id == 0 and _grown(person, now) and not (migration != null and migration.travelling(person.id)):
+			if not free.has(person.settlement_id):
+				free[person.settlement_id] = []
+			(free[person.settlement_id] as Array).append(person)
+	var ids_of: Array = free.keys()
+	ids_of.sort()
+	for settlement_id: int in ids_of:
+		var home := settlements.get_settlement(settlement_id)
+		if home == null or home.fire() == null:
+			continue
+		var mine: Array = free[settlement_id]
+		mine.sort_custom(func(a: PersonData, b: PersonData) -> bool: return a.id < b.id)
+		for person: PersonData in mine:
+			if person.partner_id != 0 or _stage(person, now) != PersonData.LifeStage.ADULT 					or person.age_years(now, year) > config.lonely_until_years or _could_pair_with_any(person, mine, now):
+				continue
+			var best: PersonData = null
+			var best_drawn := -1.0
+			var linked := false
+			for other_id: int in ids_of:
+				if other_id == settlement_id:
+					continue
+				var theirs := settlements.get_settlement(other_id)
+				if theirs == null or theirs.fire() == null 						or Vector2(theirs.fire().tile - home.fire().tile).length() > config.marry_out_reach:
+					continue
+				for other: PersonData in free[other_id]:
+					if other.partner_id != 0 or other.sex == person.sex 							or absi(other.age_years(now, year) - person.age_years(now, year)) > config.partner_most_years_apart 							or relationships.is_family(person.id, other.id) or relationships.close_kin(person.id, other.id):
+						continue
+					var drawn := SocialActs.chemistry(person, other)
+					if drawn > best_drawn:
+						best_drawn = drawn
+						best = other
+						linked = _trade_between(settlement_id, other_id)
+			if best == null:
+				continue
+			if rng.randf() >= config.marry_out_chance_per_day * (config.marry_out_trade_boost if linked else 1.0):
+				continue
+			# The one of the larger settlement goes, unless the other has a home of
+			# their own to bring them to (Households.form_couple decides).
+			var theirs := settlements.get_settlement(best.settlement_id)
+			var first := best if home.member_count() >= theirs.member_count() else person
+			var second := person if first == best else best
+			var was := {person.id: person.settlement_id, best.id: best.settlement_id}
+			partner(first, second, now)
+			counts["married_out"] = int(counts.get("married_out", 0)) + 1
+			for moved: PersonData in [person, best]:
+				if moved.settlement_id != int(was[moved.id]) and migration != null:
+					migration.send_to(moved, int(was[moved.id]), settlements.get_settlement(moved.settlement_id), now)
+
+
+## Could they become partners with anyone free at home (see lonely_one)?
+func _could_pair_with_any(person: PersonData, free_here: Array, now: int) -> bool:
+	var year := Config.time.ticks_per_year()
+	for other: PersonData in free_here:
+		if other.id != person.id and other.partner_id == 0 and other.sex != person.sex 				and absi(other.age_years(now, year) - person.age_years(now, year)) <= config.partner_most_years_apart 				and not (relationships.is_family(person.id, other.id) or relationships.close_kin(person.id, other.id)):
+			return true
+	return false
+
+
+func _trade_between(a: int, b: int) -> bool:
+	return trade != null and (trade.routes.has("%d>%d" % [a, b]) or trade.routes.has("%d>%d" % [b, a]))
 
 
 ## The settlement someone belongs to (M12.3).
@@ -387,12 +504,13 @@ func _children(now: int) -> void:
 			if now - int(carrying.get("since", now)) >= config.carry_days * DAY:
 				give_birth(mother, now)
 			continue
-		if may_conceive(mother, now) and rng.randf() < config.conceive_chance_per_day:
+		if may_conceive(mother, now) and rng.randf() < config.conceive_chance_per_day * conceive_share(mother):
 			conceive(mother, now)
 
 
 ## May she have a child now: a woman with a partner, young enough, her last
-## child not too recent, a roof with room and food enough.
+## child not too recent, a roof with room. (How well fed they are makes it
+## likelier or less likely: `conceive_share`.)
 func may_conceive(mother: PersonData, now: int) -> bool:
 	if mother.sex != PersonData.Sex.FEMALE or _stage(mother, now) != PersonData.LifeStage.ADULT \
 			or mother.age_years(now, Config.time.ticks_per_year()) > config.fertile_until_years:
@@ -404,12 +522,29 @@ func may_conceive(mother: PersonData, now: int) -> bool:
 		var born_at: Variant = birth_tick_of(child)
 		if born_at != null and now - int(born_at) < config.child_gap_days * DAY:
 			return false
-	var stores := _settlement_of(mother)
-	if stores != null and (stores.is_short() or stores.days_of_food() < config.food_days_for_child):
-		return false
 	if households != null and mother.home_building_id != 0 and households.room(mother.home_building_id) <= 0:
 		return false
 	return true
+
+
+## How much of the day's chance of a child there is, by how well fed her
+## settlement is (0 … 1): in full with food for `food_days_for_child` days,
+## less and less towards none in store, little while it rations, none with
+## the stores empty (PG.3: it was a wall — a day's food and no shortage —
+## and growth stopped at it).
+func conceive_share(mother: PersonData) -> float:
+	var stores := _settlement_of(mother)
+	if stores == null:
+		return 1.0
+	match stores.shortage:
+		Settlement.Shortage.EMPTY:
+			return 0.0
+		Settlement.Shortage.SHORT:
+			return config.short_conceive_share
+	if config.food_days_for_child <= 0.0:
+		return 1.0
+	var fed := clampf(stores.days_of_food() / config.food_days_for_child, 0.0, 1.0)
+	return lerpf(config.hungry_conceive_share, 1.0, fed)
 
 
 func conceive(mother: PersonData, now: int) -> void:
