@@ -58,6 +58,8 @@ var settlements: Settlements
 var farming: Farming
 ## The animals (may be null: there are none to hunt).
 var fauna: AnimalSystem
+## The boats (FB3).
+var boats: BoatSystem
 ## The weather (may be null: there is none).
 var weather: WeatherSystem
 ## What people are to each other (may be null: nobody is anything to anyone).

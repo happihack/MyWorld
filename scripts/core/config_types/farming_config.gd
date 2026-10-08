@@ -40,8 +40,10 @@ extends ConfigBase
 @export_range(1, 1440) var settle_minutes: int = 60
 
 @export_group("Harvest")
-## Units of grain a plot yields in fertile soil with a healthy crop.
-@export_range(1, 100) var yield_units: int = 6
+## Units of grain a plot yields in fertile soil with a healthy crop. (12: at 6
+## a farmer's year — one harvest a plot — fed about one person; the owner,
+## 2026-10-07: food is short, farming should feed more than the farmer.)
+@export_range(1, 100) var yield_units: int = 12
 ## What a harvest takes out of the soil's fertility (0 … 255), what a day
 ## of lying fallow gives back, and the least a plot is worn down to.
 @export_range(0, 255) var fertility_cost: int = 18

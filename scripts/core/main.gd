@@ -95,6 +95,7 @@ func _ready() -> void:
 	world_view.show_world(session.world, session.props, session.start, session.loose)
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
+	world_view.show_boats(session.boats)
 	world_view.show_weather(session.weather, session.clock)
 	world_view.show_disasters(session.disasters, session.clock, session.world)
 	world_view.show_knowledge(session.knowledge)
@@ -264,6 +265,7 @@ func _process(delta: float) -> void:
 	if water_button != null:
 		water_button.fill = session.water.carried / WaterTool.BUCKET
 	_advance_follow(delta)
+	_fish_signs(delta)
 	_slow_for_disasters()
 	session.watch_followed(follow.person_id if follow.is_following() else 0)
 	_update_locate()
@@ -1271,6 +1273,62 @@ func _on_person_worked(person_id: int, kind: StringName, target_id: int) -> void
 	world_view.effects().play(answer)
 	if kind == &"tree" or kind == &"build" or kind == &"craft":
 		AudioManager.play_at(&"knock", answer.position, -13.0, 0.85 if kind == &"tree" else 1.1)
+
+
+## Fish showing themselves (FB1): now and then, where the water near the
+## view is rich, a ring spreads where one came up — where they run, two, and
+## more often. Only close enough to see it.
+const FISH_SIGN_SECONDS := 1.6
+const FISH_SIGN_REACH := 24.0
+const FISH_SIGN_FROM_DISTANCE := 60.0
+var _fish_sign_wait := 0.0
+var _fish_rng := RandomNumberGenerator.new()
+
+
+func _fish_signs(delta: float) -> void:
+	if session == null or not session.is_active or session.fauna == null:
+		return
+	_fish_sign_wait -= delta
+	if _fish_sign_wait > 0.0:
+		return
+	_fish_sign_wait = FISH_SIGN_SECONDS * _fish_rng.randf_range(0.6, 1.4)
+	var rig := world_view.camera_rig()
+	if rig.distance() > FISH_SIGN_FROM_DISTANCE:
+		return
+	var pivot := rig.pivot()
+	var near: Vector2i = WorldCoords.world2d_to_tile(Vector2(pivot.x, pivot.z))
+	var waters := session.fauna.waters
+	var choices: Array = []
+	var total := 0.0
+	for entry: Array in waters.cells_near(near, FISH_SIGN_REACH):
+		var middle := FishWaters.middle_of(entry[0])
+		var rich := waters.richness_at(middle)
+		if rich < 0.5:
+			continue
+		choices.append([entry[0], rich])
+		total += rich
+	if choices.is_empty():
+		return
+	var roll := _fish_rng.randf() * total
+	var cell: Vector2i = choices[-1][0]
+	for choice: Array in choices:
+		roll -= float(choice[1])
+		if roll <= 0.0:
+			cell = choice[0]
+			break
+	for attempt in 6:
+		var tile := cell * FishWaters.CELL + Vector2i(_fish_rng.randi_range(0, FishWaters.CELL - 1), _fish_rng.randi_range(0, FishWaters.CELL - 1))
+		var depth := session.world.get_water(tile) if session.world.is_in_bounds(tile) else 0.0
+		if depth < 0.15:
+			continue
+		var at := Vector3(tile.x + _fish_rng.randf_range(0.2, 0.8), session.world.get_height(tile) * session.world.height_step + depth,
+			tile.y + _fish_rng.randf_range(0.2, 0.8))
+		var effects := world_view.effects()
+		effects.ring(at, 0.32, 1.1, WorldEffects.WATER_RING)
+		if cell == waters.run_cell():
+			effects.ring(at + Vector3(0.25, 0.0, 0.1), 0.22, 0.8, WorldEffects.WATER_RING)
+			_fish_sign_wait *= 0.35 # (where they run, they show themselves often)
+		return
 
 
 ## The on-device benchmark (M21.1): the camera's fixed way over the world,

@@ -102,7 +102,8 @@ func _init() -> void:
 			[DrinkStep.TYPE, DrinkStep.new()], [SleepStep.TYPE, SleepStep.new()], [WorkStep.TYPE, WorkStep.new()],
 			[SocializeStep.TYPE, SocializeStep.new()], [RestStep.TYPE, RestStep.new()],
 			[ReactStep.TYPE, ReactStep.new()], [TellStep.TYPE, TellStep.new()], [StoreStep.TYPE, StoreStep.new()],
-			[HuntStep.TYPE, HuntStep.new()], [FireStoryStep.TYPE, FireStoryStep.new()]]:
+			[HuntStep.TYPE, HuntStep.new()], [FireStoryStep.TYPE, FireStoryStep.new()],
+			[BoatStep.TYPE, BoatStep.new()]]:
 		_steps[String(step[0])] = step[1]
 	# Building (M12.1): one handler, three kinds of step.
 	var build := BuildStep.new()
@@ -778,8 +779,8 @@ func _on_blocked(person_id: int) -> void:
 ## happen, and is logged as a fault. Nobody is left standing there for ever.
 func _rescue_if_stranded(person_id: int) -> void:
 	var person := ctx.people.get_person(person_id)
-	if person == null or ctx.pathfinder.can_stand(person.position):
-		return
+	if person == null or person.aboard != 0 or ctx.pathfinder.can_stand(person.position):
+		return # (in a boat, on the water: not stranded — FB3)
 	var ground := ctx.pathfinder.standable_near(person.position, 1, STRANDED_SEARCH)
 	if ground.is_empty():
 		return
@@ -797,7 +798,7 @@ func _rescue_if_stranded(person_id: int) -> void:
 func _step_out_of_water() -> void:
 	var deep := Pathfinder.WADE_DEPTH * ctx.world.height_step
 	for person in ctx.people.all_people():
-		if not person.has_flag(PersonData.FLAG_INDOORS) and ctx.world.get_water(person.position) > deep:
+		if not person.has_flag(PersonData.FLAG_INDOORS) and person.aboard == 0 and ctx.world.get_water(person.position) > deep:
 			_rescue_if_stranded(person.id)
 
 

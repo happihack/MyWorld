@@ -164,15 +164,46 @@ func test_someone_takes_up_farming() -> void:
 	session.settlement.step(session.clock.tick + Settlement.FARMER_CHECK_MINUTES)
 	assert_eq(taken, [[farmer.id, &"farmer"]], "the same one again")
 	assert_eq(farming.farmer_count(), 1)
-	# Too small a band keeps to gathering; nobody is taken from a trade of one.
+	# Too few to spare keeps to what it does: the others in food trades (never
+	# taken from), two left in others — not enough.
 	farmer.occupation_id = &"woodcutter"
 	var kept := 0
 	for p in session.people.all_people():
-		if p.occupation_id == &"woodcutter" or p.occupation_id == &"forager":
+		if p.occupation_id == &"woodcutter" or p.occupation_id == &"forager" or p.occupation_id == &"builder":
 			kept += 1
 			if kept > 2:
-				p.occupation_id = &"builder"
-	assert_null(session.settlement.ensure_farmer(session.clock.tick), "two gatherers are not enough")
+				p.occupation_id = &"hunter"
+	assert_null(session.settlement.ensure_farmer(session.clock.tick), "two who could be spared are not enough")
+	# (From anywhere: a builder, a toolmaker as much as a gatherer — the owner, 2026-10-07.)
+	kept = 0
+	for p in session.people.all_people():
+		if p.occupation_id == &"hunter" and ctx.stage_of(p) == PersonData.LifeStage.ADULT:
+			kept += 1
+			if kept <= 2:
+				p.occupation_id = &"toolmaker" if kept == 1 else &"builder"
+	var from_trade := session.settlement.ensure_farmer(session.clock.tick)
+	assert_not_null(from_trade, "now enough, from other trades")
+	assert_eq(from_trade.occupation_id, &"farmer")
+
+
+func test_more_farmers_as_the_settlement_grows() -> void:
+	# (One farmer, whatever the size of the village, was why food ran short:
+	# one more for every so many people.)
+	var own := session.settlement
+	var farmer := _farmer()
+	assert_not_null(farmer)
+	assert_eq(own.farmers_wanted(), clampi(own.member_count() / Settlement.FARMERS_PER_PEOPLE, 1, Settlement.FARMERS_MOST))
+	# A bigger settlement: newcomers, gatherers all.
+	for i in Settlement.FARMERS_PER_PEOPLE * 2:
+		session.spawn_person(own.fire().tile)
+	var wanted: int = own.farmers_wanted()
+	assert_true(wanted >= 2, "more people, more farmers wanted (%d people)" % own.member_count())
+	var taken := 0
+	while own.ensure_farmer(_winter_tick()) != null and taken < 10:
+		taken += 1
+	assert_eq(farming.farmer_count(), wanted, "taken up — in any season, once there is a first")
+	assert_null(own.ensure_farmer(session.clock.tick), "and no more")
+	assert_eq(farming.plots_wanted(), wanted * config.plots_per_farmer, "a field for each")
 
 
 # --- plots ----------------------------------------------------------------------------------------
@@ -616,7 +647,16 @@ func test_a_farmer_sows_tends_and_reaps() -> void:
 	behavior.set_plan(farmer, &"work", &"purpose", Planner.plan(&"work", farmer, ctx), 2.0)
 	assert_eq(BehaviorSystem.current_step(farmer).get("type"), "walk_to")
 	waited = 0.0
-	while session.stored(&"grain") < bears and waited < 240.0:
+	var armful := ctx.carry_capacity(&"grain")
+	while session.stored(&"grain") < mini(bears, armful) and waited < 240.0:
+		_run(1.0)
+		waited += 1.0
+	# (A plot bears more than an armful: back for the rest — the next working day.)
+	waited = 0.0
+	while session.stored(&"grain") < bears and waited < 600.0:
+		if farmer.current_action.get("activity", "") != "work":
+			_calm(farmer)
+			behavior.set_plan(farmer, &"work", &"purpose", Planner.plan(&"work", farmer, ctx), 2.0)
 		_run(1.0)
 		waited += 1.0
 	assert_eq(session.stored(&"grain"), bears, "the harvest is in the stores")

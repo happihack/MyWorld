@@ -2306,6 +2306,24 @@ Switches (off — the game as it was): `ResourcesConfig.winter_no_berries` (bush
 **First measurements (40 years watched, seeds 7 / 12345):** born 18 → 24 and 17 → 40; couples 8 → 11 (3 married out) and 6 → 23 (11 married out); people at year 40: 38 → 36 (fewer lonely, so fewer newcomers: 22 → 10) and 25 → 40 (8 starved: growth reached the food limit). **Five seeds × 100 years (2026-10-07, all PASSED):** people at year 100 — seed 7: 73 (was 38 in the M19 round), 99: 75 (58), 4242: 57 (29), 2026: 76 (57), 12345: 111 (58); on average ~78 against ~48 (+60%), about 1.9% a year over the century — fast to year ~50 (~3%), then levelling off near 70–80 as food runs out (0.2–0.5 days in store, rationing much of the time). Couples 66–102 a world (34–69 married out); born 94–158; newcomers 40–49. The cost of growth: deaths from hunger 4–17 a world (were 0–7) and much more illness (crowded roofs). **Next, to grow past the food limit without starving:** more food (option 8), daughter settlements sooner (option 9), homes ready sooner (option 7) — the owner's choice.
 **Exit:** five seeds × 300 years: no world dies out; growth of the order of 1–2% a year until food limits it; offline aging within tolerance of watched.
 
+### PG.5 More food: fishers and farmers (option 8, the owner 2026-10-07) — built, the long round not run
+- Fish: a river held one fish per 5 water tiles (all of it fed a village like two berry bushes); now one per tile. Boats hold a catch. One fisher more per 10 people (up to 4) while the water is not fished down. 3 seeds × 20 yrs: 200–450 fish a year where it was ~77; a fisher brings in ~6 food a day.
+- Farming: a plot yields 12 grain (was 6: a farmer's year fed about one person); a farmer now brings in ~4 food a day. One farmer per 6 people (up to 6) — rarely reached: settlements have 6–8 adults, and a new farmer is taken only from a gathering trade of two or more.
+- Farmers and fishers may be taken from any trade (the owner, 2026-10-07) — never from another food trade, the last woodcutter, or the last builder while something is being built. 3 seeds × 20 yrs: food brought in over the run — grain 3500–5500, fish 2800–5000; stores 2.5–3 days at year 20; people 20 / 19 / 25.
+- Population in 20-year single-seed runs moved both ways (18 / 17 / 23 against 24 / 11 / 39): within the noise of one run. **Open:** the five-seed × 100-year round to judge it; adult labour as the limit (who may be taken from which trade).
+
+---
+
+## FISHING & BOATS (FB) — the owner's request (2026-10-07)
+
+The full plan, audit and caveats: `fishing_and_boats_plan.md` (bible §18.2a). **Decisions (owner, 2026-10-07, all as recommended):** D1 drowning rarely, in the worst cases only; D2 the hand lifts empty moored boats only; D3 a lake/coast template later (with FB7); D4 the planner weighs ferry against bridge; D5 boats are the builder's work for now; D6 FB1–FB4 first.
+
+- [x] **FB1 Fish where they are** — fish by 8-tile cells (more in pools, less in shallows and fast water), seasons, a spring run, overfishing and the bad fishing year, fishers going where the fishing is good, rings and jumping fish.
+- [x] **FB2 Boats as things** — boats built at the landing (1 / 2 / 3 by tier), drawn from their own data, worn and mended, torn loose and drifting in floods, saved. *(BoatData / BoatSystem / BoatsView; a builder makes them, or a fisher when there is no builder — a soak found landings boatless for want of one; older worlds' landings get the boat they showed.)*
+- [x] **FB3 Boats on the water** — a water way-finder by draught, motion with the current, people aboard, laid up in ice. *(WaterPaths: A* over water deep enough, not over ice, no mast under a bridge; people aboard sit in the boat and are not "stranded".)*
+- [x] **FB4 Fishing from boats** — out to good water, fish, home before storms; rare swamping (D1); offline rates. *(BoatStep; out only when there is water worth going to; drowning only in a storm on high water, 5% of the swamped. Soaks 2026-10-07, 20 yrs × seeds 2/3/12345 and 8 yrs × 12345: boats built and used — about 1.4 real trips a day — none lost. Phone check 2026-10-07 → boats drawn bigger, moored at real water, floating with the river, gliding smoothly, the crew seated in them (no legs, no walking). Fish as food: a river held one fish per 5 water tiles — about two berry bushes' worth for a village; now one per tile; a boat holds a catch (canoe 10) carried in from the landing; one fisher more per 10 people (up to 4) while the water is not fished down. Soaks: 200–450 fish a year where it was ~77.)*
+- [ ] FB5 Gear · FB6 Crossing & carrying · FB7 Far shore · FB8 The hand · FB9 History & tuning — after FB1–FB4.
+
 ---
 
 ## M22 — ROBUST SAVE SYSTEM — built (2026-10-05), phone torture pending

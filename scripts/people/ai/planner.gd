@@ -456,19 +456,32 @@ static func _craft_work(person: PersonData, ctx: AiContext) -> Array:
 		TradeStep.craft(shop.id, shop.tile, config.craft_minutes)]
 
 
-## Fishing (M19.5): to the bank (or the landing's boat), fish a while, and home
+## Fishing (M19.5): to the bank (or out in the landing's boat: FB4), fish a while, and home
 ## to the stores with the catch ([]: no water near, or no fish in it).
 static func _fish_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
 	if ctx.fauna == null or ctx.fauna.fish < 1.0 or ctx.places == null:
 		return []
+	# A catch left in a boat at the landing: carried to the stores first (FB4).
+	var stores: Variant = ctx.places.storage_tile(&"fish")
+	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+	if ctx.boats != null and own != null and own.planner != null and stores != null and person.carrying_amount == 0:
+		for landing_id in own.planner.standing_near(PropData.Kind.LANDING):
+			if BoatStep.laden_at(ctx.boats, landing_id) != null:
+				var landing := ctx.props.get_prop(landing_id)
+				return [WalkToStep.make(landing.tile, person.sub_tile_offset), BoatStep.unload(landing_id),
+					WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 	var spot := ctx.places.fishing_spot(person)
 	if spot.is_empty():
 		return []
-	var fishing := WorkStep.make(&"fish", 0, spot["at"], snappedf(rng.randf_range(60.0, 120.0), 1.0))
-	fishing["fish"] = true
-	fishing["landing"] = int(spot["landing"])
+	var minutes := snappedf(rng.randf_range(60.0, 120.0), 1.0)
+	var fishing: Dictionary
+	if int(spot["landing"]) != 0:
+		fishing = BoatStep.make(int(spot["landing"]), minutes) # (out in the landing's boat: FB4)
+	else:
+		fishing = WorkStep.make(&"fish", 0, spot["at"], minutes)
+		fishing["fish"] = true
+		fishing["landing"] = 0
 	var steps := [WalkToStep.make(spot["stand"], person.sub_tile_offset), fishing]
-	var stores: Variant = ctx.places.storage_tile(&"fish")
 	if stores != null:
 		steps.append(WalkToStep.make(stores, STORE_STAND))
 		steps.append(StoreStep.make())

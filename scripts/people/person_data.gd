@@ -23,7 +23,7 @@ const FLAG_DYED := 1 << 6
 
 ## How someone holds themselves while doing something (what the view shows).
 ## (Plans store poses by number: append, never reorder.)
-enum Pose { IDLE, WORK, EAT, TALK, SLEEP, STARTLE, KNEEL, WAVE, JUMP, CROUCH, YELL, SHRUG }
+enum Pose { IDLE, WORK, EAT, TALK, SLEEP, STARTLE, KNEEL, WAVE, JUMP, CROUCH, YELL, SHRUG, SEATED }
 
 ## How many skin, hair and clothing colours an appearance can index (the
 ## palettes themselves belong to the rendering, M4.2).
@@ -81,6 +81,10 @@ var sub_tile_offset := Vector2(0.5, 0.5)
 var facing := 0.0
 ## How closely this person is simulated right now. Runtime only, never saved.
 var sim_tier := 3
+## Runtime only (FB3): the boat they are in (0: none), and how far above the
+## ground of their tile they sit in it.
+var aboard := 0
+var aboard_height := 0.0
 ## Runtime only: set by whatever they are doing, shown by their view.
 var pose: Pose = Pose.IDLE
 ## Runtime only: the sign above their head (&"" = none; see PeopleView.EMOTES).

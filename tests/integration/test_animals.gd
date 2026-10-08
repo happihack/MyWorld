@@ -432,20 +432,27 @@ func test_young_are_born_and_the_old_die() -> void:
 	assert_eq(births.size(), 0)
 	assert_eq(animals.count(&"deer"), 1)
 	# Fish: taken, and back in days — never more than the water holds.
+	# (FB1: fish are where the water is — taken where one fishes; the rest stay.)
 	var holds := fauna.fish_capacity
 	fauna.fish = holds
-	assert_eq(fauna.take_fish(5), 5)
+	var richest := FishWaters.middle_of(fauna.waters.all_cells()[0][0])
+	var there := fauna.waters.stock_at(richest)
+	assert_eq(fauna.take_fish(5, richest), 5)
 	assert_near(fauna.fish, holds - 5.0, 0.001)
-	assert_eq(fauna.take_fish(100000), floori(holds - 5.0))
+	assert_eq(fauna.take_fish(100000, richest), floori(there - 5.0), "that water fished out")
+	assert_true(fauna.fish > holds - there - 0.001, "the rest of the river untouched")
+	for entry: Array in fauna.waters.all_cells():
+		fauna.take_fish(100000, FishWaters.middle_of(entry[0]))
 	var low := fauna.fish
 	for day in 3:
 		session.clock.tick += 1440
 		fauna.advance_to(session.clock.tick)
-	assert_true(fauna.fish > low + holds * 0.4, "they come back (%.1f)" % fauna.fish)
+	assert_true(fauna.fish > low + holds * 0.1, "they come back — slowly, fished this hard (%.1f)" % fauna.fish)
 	for day in 40:
 		session.clock.tick += 1440
 		fauna.advance_to(session.clock.tick)
-	assert_true(fauna.fish <= holds + 0.001 and fauna.fish > holds * 0.98)
+	assert_true(fauna.fish > holds * 0.9, "back (%.1f of %.1f)" % [fauna.fish, holds])
+	assert_true(fauna.fish <= holds * FishWaters.RUN_SHARE, "never more than the water holds (a run aside)")
 
 
 func test_animal_population_bounds() -> void:

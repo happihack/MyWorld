@@ -126,6 +126,8 @@ var disasters: DisasterSystem
 var species: SpeciesLibrary
 var animals: AnimalRegistry
 var fauna: AnimalSystem
+## The boats (FB2): built at the landings, worn, torn loose and lost.
+var boats: BoatSystem
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## What has happened in this world, and what led to what (data/events).
@@ -193,6 +195,8 @@ var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
 var _saved_disasters: Dictionary = {}
+## (null: a world from before boats were things — its landings get theirs.)
+var _saved_boats: Variant = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
 var _saved_governance: Dictionary = {}
@@ -218,6 +222,7 @@ func _init() -> void:
 	piles = PileStore.new()
 	farming = Farming.new()
 	fauna = AnimalSystem.new()
+	boats = BoatSystem.new()
 	weather = WeatherSystem.new()
 	disasters = DisasterSystem.new()
 	events = EventLog.new()
@@ -287,6 +292,13 @@ func _init() -> void:
 	migration.set_out.connect(func(journey: Dictionary) -> void:
 		chronicle.on_set_out(journey, settlements.get_settlement(int(journey["from"]))))
 	migration.founded.connect(chronicle.on_founded_by)
+	# Where the fish are (FB1): a run, a bad year.
+	fauna.waters.run_began.connect(chronicle.on_fish_run)
+	fauna.waters.bad_year.connect(chronicle.on_bad_fishing_year)
+	# The boats (FB2): the first of a kind, one lost.
+	boats.boat_built.connect(chronicle.on_boat_built)
+	boats.boat_lost.connect(chronicle.on_boat_lost)
+	boats.swamped.connect(_on_boat_swamped)
 	migration.joining.connect(func(journey: Dictionary) -> void:
 		var from := settlements.get_settlement(int(journey["from"]))
 		var to := settlements.get_settlement(int(journey["target"]))
@@ -530,6 +542,7 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	_saved_planner = {}
 	_saved_traffic = {}
 	_saved_disasters = {}
+	_saved_boats = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -610,6 +623,7 @@ func load_from(data: Dictionary) -> bool:
 		if typeof((state as Dictionary).get("traffic")) == TYPE_DICTIONARY:
 			_saved_traffic = state["traffic"]
 		_saved_disasters = state["disasters"] if typeof((state as Dictionary).get("disasters")) == TYPE_DICTIONARY else {}
+		_saved_boats = state["boats"] if typeof((state as Dictionary).get("boats")) == TYPE_DICTIONARY else null
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -777,6 +791,7 @@ func to_dict() -> Dictionary:
 			"planner": planner.to_dict(),
 			"traffic": traffic.to_dict(),
 			"disasters": disasters.to_dict(),
+			"boats": boats.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -861,6 +876,8 @@ func _process(delta: float) -> void:
 		var t := Time.get_ticks_usec() if profiling else 0
 		simulation.advance(delta)
 		t = _timed(&"people", t)
+		if not clock.is_paused():
+			boats.step(delta * clock.speed_multiplier())
 		advance_systems()
 		if profiling:
 			_profile_frames += 1
@@ -962,6 +979,8 @@ func advance_systems() -> void:
 	t = _timed(&"governance", t)
 	fauna.advance_to(clock.tick - STAGGER_FAUNA)
 	t = _timed(&"fauna", t)
+	boats.advance_to(clock.tick - STAGGER_BOATS)
+	t = _timed(&"boats", t)
 	stats.advance_to(clock.tick - STAGGER_STATS)
 	t = _timed(&"stats", t)
 
@@ -979,6 +998,44 @@ const STAGGER_TECHNOLOGY := 48
 const STAGGER_RELATIONSHIPS := 54
 const STAGGER_LEARNING := 60
 const STAGGER_CULTURE := 66
+const STAGGER_BOATS := 72
+
+
+## The boats (FB2), as saved — or, in a world from before, one at each
+## landing that showed one.
+func _bind_boats() -> void:
+	boats.bind(world, props, ids, clock.tick)
+	boats.settlements = settlements
+	boats.construction = construction
+	boats.weather = weather
+	boats.hydrology = hydrology
+	boats.is_frozen = pathfinder.is_frozen
+	boats.current = water.current_at
+	boats.rng = rng.stream(&"boats")
+	boats.waters = fauna.waters
+	boats.people = people
+	boats.paths.is_ice = pathfinder.is_ice
+	boats.paths.is_bridge = func(tile: Vector2i) -> bool:
+		var there := props.prop_at(tile)
+		return there != null and there.kind == PropData.Kind.BRIDGE
+	if typeof(_saved_boats) == TYPE_DICTIONARY:
+		var unusable := boats.from_dict(_saved_boats)
+		if unusable > 0:
+			Log.warn(Log.Category.LOAD, "Some saved boats were unusable and skipped", {"boats": unusable})
+	else:
+		boats.adopt_landings(clock.tick)
+	_saved_boats = {}
+
+
+## A boat swamped in a storm (FB4): told; whoever did not reach the bank drowned
+## (after the turn they were living: nobody dies in the middle of a step).
+func _on_boat_swamped(boat: BoatData, drowned: Array) -> void:
+	chronicle.on_boat_swamped(boat, drowned.size())
+	for id: int in drowned:
+		(func() -> void:
+			var person := people.get_person(id)
+			if person != null and is_active:
+				lifecycle.die(person, Lifecycle.CAUSE_ACCIDENT, clock.tick)).call_deferred()
 
 
 ## What nature does is noticed too (and people make of it what they will):
@@ -1232,6 +1289,8 @@ func _activate() -> void:
 	ai.resources = resources
 	ai.places.resources = resources
 	ai.places.nodes = nodes
+	ai.places.waters = fauna.waters
+	ai.places.boats = boats
 	# The weather: where the save left it (a world from before there was any
 	# begins under a clear sky, now).
 	var level := world.get_height(start.settlement_tile) if start != null and start.campfire_id != 0 else 0
@@ -1298,6 +1357,7 @@ func _activate() -> void:
 	if species == null:
 		species = SpeciesLibrary.load_from()
 	animals = AnimalRegistry.new(spatial)
+	fauna.waters_current = water.current_at
 	fauna.bind(world, props, people, animals, species, ids, start, rng.stream(&"animals"), pathfinder)
 	var lost := fauna.from_dict(_saved_animals)
 	if lost > 0:
@@ -1307,6 +1367,7 @@ func _activate() -> void:
 		ids.reserve_above(animal.id)
 	fauna.seed_world(clock.tick)
 	ai.fauna = fauna
+	ai.boats = boats
 	settlements.clear()
 	settlement = null
 	if start != null and start.campfire_id != 0:
@@ -1576,6 +1637,7 @@ func _activate() -> void:
 		own.governance = governance
 	ai.trade = trade
 	_apply_storehouses()
+	_bind_boats()
 	ai.construction = construction
 	interactions.construction = construction
 	ai.planner = planner
@@ -1760,6 +1822,8 @@ func add_settlement(info: WorldSetup.StartInfo, saved: Dictionary = {}, saved_pl
 	var its_places := Places.new(world, props, people, pathfinder, info)
 	its_places.resources = resources
 	its_places.nodes = nodes
+	its_places.waters = fauna.waters
+	its_places.boats = boats
 	its_places.relationships = relationships
 	its_places.clock = clock
 	its_places.memories = memories

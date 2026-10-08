@@ -511,20 +511,62 @@ func fish_near() -> bool:
 
 ## With fish to be had and nobody fishing: one of the gatherers takes it up (M19.5).
 func ensure_fisher(now: int) -> PersonData:
-	if occupations == null or not occupations.has_def(&"fisher") or fisher_count() > 0 or not fish_near():
+	if occupations == null or not occupations.has_def(&"fisher") or not fish_near():
 		return null
-	return _take_up(&"fisher", _config.fisher_from_gatherers, now)
+	if fisher_count() >= fishers_wanted():
+		return null
+	return _take_up(&"fisher", _config.fisher_from_gatherers if fisher_count() == 0 else 2, now, true)
+
+
+## How many fishers the settlement wants (FB4): one — and one more for every
+## FISHERS_PER_PEOPLE people, up to FISHERS_MOST, while the water near is not
+## fished down (a soak, 2026-10-07: one fisher fed a village of 34 a sixth
+## of what a fisher could).
+const FISHERS_PER_PEOPLE := 10
+const FISHERS_MOST := 4
+## The water near is fished down below this share of what it holds: no more fishers.
+const FISHED_DOWN := 0.4
+
+
+func fishers_wanted() -> int:
+	var wanted := clampi(1 + member_count() / FISHERS_PER_PEOPLE, 1, FISHERS_MOST)
+	if wanted > 1 and fauna != null and fire() != null:
+		var stock := 0.0
+		var room := 0.0
+		var reach := Config.settlement.fish_reach + FishWaters.CELL
+		for entry: Array in fauna.waters.all_cells(): # (the fished-out ones too)
+			var middle := FishWaters.middle_of(entry[0])
+			if Vector2(middle - fire().tile).length() <= reach:
+				stock += float(entry[1])
+				room += fauna.waters.capacity_at(middle)
+		if room <= 0.0 or stock < room * FISHED_DOWN:
+			wanted = 1
+	return wanted
 
 
 ## A settlement of gatherers with nobody farming: in a season for sowing,
 ## the one of them best suited to it takes it up (from the trade that has
-## the most people, so that no work is left without anyone). Returns who,
-## or null.
+## the most people, so that no work is left without anyone) — and as it
+## grows, more (farmers_wanted). Returns who, or null.
 func ensure_farmer(now: int) -> PersonData:
-	if farming == null or occupations == null or not occupations.has_def(&"farmer") or not farming.sowing_time(now) \
-			or farming.farmer_count() > 0:
+	if farming == null or occupations == null or not occupations.has_def(&"farmer"):
 		return null
-	return _take_up(&"farmer", _config.farmer_from_gatherers, now)
+	var farmers := farming.farmer_count()
+	# (The first in a season for sowing; more as the settlement grows, any time.)
+	if farmers >= farmers_wanted() or (farmers == 0 and not farming.sowing_time(now)):
+		return null
+	return _take_up(&"farmer", _config.farmer_from_gatherers if farmers == 0 else 2, now, true)
+
+
+## How many farmers a settlement that farms wants: one for every
+## FARMERS_PER_PEOPLE people (at least one), up to FARMERS_MOST (the owner, 2026-10-07:
+## one farmer, whatever the size of the village, was why food ran short).
+const FARMERS_PER_PEOPLE := 6
+const FARMERS_MOST := 6
+
+
+func farmers_wanted() -> int:
+	return clampi(member_count() / FARMERS_PER_PEOPLE, 1, FARMERS_MOST)
 
 
 ## Likewise with game about and nobody hunting.
@@ -594,14 +636,24 @@ func ensure_hunter(now: int) -> PersonData:
 ## One of the gatherers takes up `occupation`: the one it suits best, from
 ## the trade with the most people (which keeps at least one). Null if
 ## there are fewer than `least` gatherers or no trade can spare anyone.
-func _take_up(occupation: StringName, least: int, now: int) -> PersonData:
+## `from_anywhere` (the food trades — the owner, 2026-10-07: "they should be
+## able to come from anywhere"): from any trade but the food trades, and from
+## a trade of one too when none has two — never the last woodcutter (the
+## fire), nor the last builder while something is being built.
+const FOOD_TRADES: Array[StringName] = [&"farmer", &"fisher", &"hunter"]
+
+
+func _take_up(occupation: StringName, least: int, now: int, from_anywhere: bool = false) -> PersonData:
 	var farmer := occupations.get_def(occupation)
 	var by_trade := {}
 	for person in members():
 		var def := occupations.get_def(person.occupation_id)
 		if def == null or def.placeholder or not farmer.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
 			continue
-		if def.work_target != &"tree" and def.work_target != &"bush":
+		if from_anywhere:
+			if person.occupation_id == occupation or FOOD_TRADES.has(person.occupation_id) or def.work_target == &"":
+				continue
+		elif def.work_target != &"tree" and def.work_target != &"bush":
 			continue
 		if not by_trade.has(person.occupation_id):
 			by_trade[person.occupation_id] = []
@@ -615,8 +667,18 @@ func _take_up(occupation: StringName, least: int, now: int) -> PersonData:
 		gatherers += people.size()
 		if people.size() > largest.size():
 			largest = people
-	if gatherers < least or largest.size() < 2:
+	if gatherers < least:
 		return null
+	if largest.size() < 2:
+		# (Every trade down to one: from anywhere, one of those can still be spared.)
+		largest = []
+		if from_anywhere:
+			for trade: StringName in trades:
+				if trade == &"woodcutter" or (trade == &"builder" and construction != null and not construction.projects_of(id).is_empty()):
+					continue
+				largest.append_array(by_trade[trade])
+		if largest.is_empty():
+			return null
 	var best: PersonData = null
 	for person: PersonData in largest:
 		if best == null or farmer.affinity(person.traits) > farmer.affinity(best.traits) \

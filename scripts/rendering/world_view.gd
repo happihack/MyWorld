@@ -44,6 +44,7 @@ var _highlight: PickHighlight
 var _effects: WorldEffects
 var _loose: LooseObjectRegistry
 var _loose_view: LooseObjectsView
+var _boats_view: BoatsView
 var _people_view: PeopleView
 var _chunk_order: Array[Vector2i] = []
 var _water_cursor := 0
@@ -94,6 +95,10 @@ func _ready() -> void:
 	_loose_view.name = "LooseObjects"
 	_loose_view.setup(_prop_library, _prop_material)
 	add_child(_loose_view)
+	_boats_view = BoatsView.new()
+	_boats_view.name = "Boats"
+	_boats_view.setup(_prop_material)
+	add_child(_boats_view)
 	_ambient = AmbientLife.new()
 	_ambient.name = "AmbientLife"
 	add_child(_ambient)
@@ -265,6 +270,7 @@ func clear() -> void:
 	_highlight.clear()
 	_effects.clear()
 	_loose_view.clear()
+	_boats_view.clear()
 	_world = null
 	_props = null
 	_loose = null
@@ -330,6 +336,16 @@ func chunk_view(coord: Vector2i) -> ChunkView:
 ## What has views, and builds them as the camera moves (M13.1).
 func chunk_streamer() -> ChunkStreamer:
 	return _streamer
+
+
+## Shows the boats (FB2).
+func show_boats(boats: BoatSystem) -> void:
+	_boats_view.show_boats(_world, boats)
+	_people_view.seat_of = _boats_view.seat_for # (people aboard sit where the boat is drawn)
+
+
+func boats_view() -> BoatsView:
+	return _boats_view
 
 
 func loose_view() -> LooseObjectsView:
@@ -614,6 +630,7 @@ func refresh_dirty_chunks() -> int:
 			rebuilt += 1
 	if reseat_loose:
 		_loose_view.reseat() # loose objects lie on the terrain too
+		_boats_view.reseat()
 	return rebuilt
 
 

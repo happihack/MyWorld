@@ -65,16 +65,23 @@ const REFUGE := 3
 const LAST_PAIR := 2
 ## A new world's herds keep at least this far from the settlement.
 const SETTLEMENT_CLEARANCE := 12.0
-## One fish per so many tiles of water is what a water holds, and the share
-## of what is missing that comes back in a day.
-const WATER_TILES_PER_FISH := 5.0
-const FISH_REGROWTH := 0.2
 
 var registry: AnimalRegistry
 var species: SpeciesLibrary
-## Fish in the water (see SpeciesDef.aggregate), and how many it holds.
-var fish := 0.0
-var fish_capacity := 0.0
+## Where the fish are, cell by cell (FB1): see FishWaters.
+var waters := FishWaters.new()
+## Which way the water at a tile runs (WaterSim.current_at; set before bind).
+var waters_current: Callable
+## All the fish in the water (see SpeciesDef.aggregate), and how many it holds
+## (the cells together; setting it shares it out by what each cell holds).
+var fish: float:
+	get:
+		return waters.total()
+	set(value):
+		waters.set_total(value)
+var fish_capacity: float:
+	get:
+		return waters.total_capacity()
 ## True once the world has been given its animals (an older world is given
 ## them when it is opened).
 var seeded := false
@@ -293,11 +300,10 @@ func missed(animal_id: int, from: Vector2, now: int) -> void:
 	startle_one(animal_id, from, now)
 
 
-## Takes up to `amount` fish out of the water. Returns how many.
-func take_fish(amount: int) -> int:
-	var got := mini(amount, floori(fish))
-	fish -= got
-	return got
+## Takes up to `amount` fish out of the water — at `tile` (its cell, FB1),
+## or where there are most. Returns how many.
+func take_fish(amount: int, tile: Variant = null) -> int:
+	return waters.take(amount, tile)
 
 
 # --- telling ---------------------------------------------------------------------------------------
@@ -319,7 +325,7 @@ func debug_text() -> String:
 
 
 func to_dict() -> Dictionary:
-	return {"seeded": seeded, "fish": fish, "last_tick": last_tick, "day": _day, "births": _births.duplicate(),
+	return {"seeded": seeded, "fish": fish, "waters": waters.to_dict(), "last_tick": last_tick, "day": _day, "births": _births.duplicate(),
 		"next_group": _next_group, "journeys": _journeys.duplicate(),
 		"animals": registry.to_dict() if registry != null else {}}
 
@@ -328,8 +334,11 @@ func to_dict() -> Dictionary:
 ## records were unusable.
 func from_dict(data: Dictionary) -> int:
 	seeded = bool(data.get("seeded", false))
-	var water := float(data.get("fish", 0.0))
-	fish = clampf(water, 0.0, maxf(fish_capacity, 0.0)) if is_finite(water) else 0.0
+	var by_cell: Variant = data.get("waters")
+	if typeof(by_cell) != TYPE_DICTIONARY or not waters.from_dict(by_cell):
+		# (Before FB1 the box held one stock: shared out by what each cell holds.)
+		var water := float(data.get("fish", 0.0))
+		fish = clampf(water, 0.0, maxf(fish_capacity, 0.0)) if is_finite(water) else 0.0
 	last_tick = int(data["last_tick"]) if typeof(data.get("last_tick")) == TYPE_INT else -1_000_000
 	_day = int(data["day"]) if typeof(data.get("day")) == TYPE_INT else -1_000_000
 	_births = {}
@@ -677,7 +686,7 @@ func _one_day(now: int) -> void:
 		var def := species.get_def(id)
 		if def.aggregate:
 			# Fish come back towards what the water holds.
-			fish = minf(fish + (fish_capacity - fish) * FISH_REGROWTH, fish_capacity)
+			waters.advance_day(now, _rng)
 			continue
 		var all := registry.of_species(id)
 		# The old die.
@@ -913,17 +922,8 @@ func _die(animal: AnimalData, cause: StringName) -> void:
 # --- setting up -------------------------------------------------------------------------------------
 
 func _count_water() -> void:
-	var tiles := 0
-	if _world != null:
-		for coord in _world.chunk_coords():
-			var chunk := _world.get_chunk(coord, false)
-			if chunk == null:
-				continue
-			for depth in chunk.water:
-				if depth > 0.0:
-					tiles += 1
-	fish_capacity = tiles / WATER_TILES_PER_FISH
-	fish = minf(fish, fish_capacity)
+	# (What each cell of water holds: FishWaters, FB1.)
+	waters.bind(_world, waters_current)
 
 
 ## Somewhere for a group to live: open ground they can stand on, away from

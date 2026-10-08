@@ -724,12 +724,32 @@ static func _grave() -> Template:
 ## turned by the prop's rotation), on two posts — and the boat moored beside
 ## it, as the settlement has come to build them: a raft of lashed logs, a
 ## dugout canoe, a boat of planks, a boat with a mast and sail.
-static func _landing(boat: int) -> Template:
+## A landing: the jetty (its boats are things of their own now, drawn by the
+## BoatsView — FB2; `boat` stays in the key for older worlds).
+static func _landing(_boat: int) -> Template:
 	var t := Template.new()
 	for z: float in [0.25, -0.05, -0.35]:
 		_box(t, Vector3(0.0, 0.10, z), Vector3(0.20, 0.025, 0.13), _rgba(TRUNK if int(z * 20.0) % 2 == 0 else TRUNK_DARK, 0.0), 0.0)
 	for x: float in [-0.17, 0.17]:
 		_box(t, Vector3(x, 0.07, -0.42), Vector3(0.025, 0.07, 0.025), _rgba(TRUNK_DARK, 0.0), 0.0)
+	return t
+
+
+## A boat of `kind` (PropData.Boat) about its middle, its keel a little under
+## the water line, along Z (FB2).
+static func boat_template(kind: int) -> Template:
+	var t := Template.new()
+	_boat_parts(t, kind)
+	for i in t.vertices.size():
+		t.vertices[i] += BOAT_CENTRE
+	return t
+
+
+## (Where a boat lay in the landing's frame, and how deep it sits.)
+const BOAT_CENTRE := Vector3(-0.42, -0.035, 0.12)
+
+
+static func _boat_parts(t: Template, boat: int) -> void:
 	match boat:
 		PropData.Boat.RAFT:
 			for i in 4:
@@ -747,7 +767,6 @@ static func _landing(boat: int) -> Template:
 			if boat == PropData.Boat.SAIL:
 				_box(t, Vector3(0.42, 0.42, -0.14), Vector3(0.012, 0.30, 0.012), _rgba(TRUNK, 0.0), 0.0) # the mast
 				_box(t, Vector3(0.42, 0.45, -0.06), Vector3(0.006, 0.20, 0.08), _rgba(WALL.lightened(0.3), 0.0), 0.0) # the sail
-	return t
 
 
 ## A cemetery: a fenced plot (its gate to the south), a headstone and a mound

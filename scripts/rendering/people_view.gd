@@ -71,6 +71,9 @@ var reduced_motion := false:
 var _world: WorldData
 ## For the bridges people walk over (M12.2).
 var props: PropRegistry
+## Callable(person) -> [feet, facing, paddling] or null: where someone aboard
+## a boat sits, as the boat is drawn (BoatsView.seat_for — FB3).
+var seat_of: Callable
 var _people: PersonRegistry
 var _clock: GameClock
 var _occupations: OccupationLibrary
@@ -329,6 +332,10 @@ func refresh(delta: float) -> void:
 		if person == null:
 			continue
 		var feet := ground_position(person)
+		# In a boat (FB3): where the boat, as drawn, has them sit.
+		var seat: Variant = seat_of.call(person) if person.aboard != 0 and seat_of.is_valid() else null
+		if seat != null:
+			feet = seat[0]
 		# Someone indoors (asleep at home) is there, but not to be seen.
 		var indoors := person.has_flag(PersonData.FLAG_INDOORS)
 		var wants_view := _bodies_shown and person.sim_tier >= MIN_TIER_FOR_VIEW and not indoors
@@ -346,8 +353,11 @@ func refresh(delta: float) -> void:
 				view.palette = _palette_of(person)
 				view.dress(person, now, year, Config.people, _occupations)
 			if view != null:
-				view.advance(delta, feet, person.facing)
 				view.set_pose(person.pose)
+				if seat != null:
+					view.sit_at(feet, seat[1], seat[2])
+				else:
+					view.advance(delta, feet, person.facing)
 				view.set_load(person.carrying if person.carrying_amount > 0 else &"")
 				view.set_selected(id == _selected_id, _body_material, _selected_material)
 		elif view != null:
@@ -407,6 +417,8 @@ func ground_position(person: PersonData) -> Vector3:
 	var bridge := props.prop_at(person.position) if props != null else null
 	if bridge != null and bridge.kind == PropData.Kind.BRIDGE and bridge.variant >= PropData.BRIDGE_DONE:
 		y = Crossing.deck_y(_world, props, bridge)
+	if person.aboard != 0:
+		y += person.aboard_height # (in a boat: on the water — FB3)
 	return Vector3(at.x, y, at.y)
 
 

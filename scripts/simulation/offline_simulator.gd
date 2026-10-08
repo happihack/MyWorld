@@ -292,14 +292,46 @@ func _hunt(own: Settlement, share: float) -> void:
 func _fish(own: Settlement, share: float) -> void:
 	if own.fauna == null or not own.fish_near():
 		return
-	var landing := not _s.construction.standing(PropData.Kind.LANDING).is_empty()
+	# (Out in a boat if one is tied up at a landing of theirs — FB4: further out, to better water.)
+	var boat := _boat_of(own)
+	var landing := boat != null
 	var iced := _s.pathfinder != null and _s.pathfinder.is_frozen()
 	var amount := FISH_PER_DAY * share * WorkStep.catch_factor(own, landing) / (WorkStep.ICE_FACTOR if iced else 1.0)
 	var units := mini(_whole(amount), own.stockpile.room(&"fish"))
-	var got := own.fauna.take_fish(units) if units > 0 else 0
+	# (From the richest water within reach of the fire, as a fisher would go — FB1.)
+	var got := 0
+	if units > 0:
+		var reach: float = BoatSystem.FISHING_REACH if landing else Config.settlement.fish_reach + FishWaters.CELL
+		for entry: Array in own.fauna.waters.cells_near(own.fire().tile, reach):
+			got += own.fauna.waters.take(units - got, FishWaters.middle_of(entry[0]))
+			if got >= units:
+				break
 	if got > 0:
+		own.fauna.waters.note_catch(own.id, got, _s.clock.tick)
 		own.stockpile.add(&"fish", got)
 		own.note_produced(&"fish", got)
+	if boat != null:
+		boat.trips += 1
+		boat.caught += got
+		# (Out in a storm, now and then swamped.)
+		if _s.weather != null and _s.weather.state == WeatherSystem.STORM and _rng.randf() < OFFLINE_SWAMP:
+			_s.boats.swamp(boat, _s.clock.tick)
+
+
+## A storm day's chance that a boat out fishing is swamped (FB4).
+const OFFLINE_SWAMP := 0.15
+
+
+## The best boat tied up at a landing of `own` (null: none).
+func _boat_of(own: Settlement) -> BoatData:
+	if _s.boats == null or own.planner == null:
+		return null
+	var best: BoatData = null
+	for id in own.planner.standing_near(PropData.Kind.LANDING):
+		for boat in _s.boats.boats_of(id):
+			if boat.state == BoatData.State.MOORED and (best == null or boat.kind > best.kind):
+				best = boat
+	return best
 
 
 ## A farmer's day: the field's tasks as they come (sowing, tending, clearing),

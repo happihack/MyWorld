@@ -61,6 +61,13 @@ var memories: MemoryStore
 ## owns the world; without them every node is as good as another).
 var resources: ResourceLibrary
 var nodes: ResourceNodes
+## Where the fish are (FB1): a fisher goes where the water is rich.
+var waters: FishWaters
+## The boats (FB2): a landing is fished from only with a boat tied up at it.
+var boats: BoatSystem
+## How many tiles further a fisher walks for water full of fish rather than
+## fished out (FB1).
+const RICH_WATER_PULL := 10.0
 ## How many times as far as usual people go for berries (more than 1 when
 ## the settlement is short of food; see Settlement).
 var forage_reach := 1.0
@@ -330,22 +337,26 @@ func fishing_bank(from: Vector2i) -> Variant:
 	if _pathfinder == null or not _pathfinder.is_bound():
 		return null
 	var best: Variant = null
-	var best_distance := float(WATER_RADIUS * WATER_RADIUS)
+	var best_cost := INF
 	for water: Vector2i in _shore_near(from, clock.tick if clock != null else -1):
-		var distance := float((water - from).length_squared())
-		if distance >= best_distance:
+		var distance := Vector2(water - from).length()
+		if distance > WATER_RADIUS:
+			continue
+		# (Further for good fishing: the water's fish weigh against the walk — FB1.)
+		var cost := distance - (RICH_WATER_PULL * minf(waters.richness_at(water), 1.0) if waters != null else 0.0)
+		if cost >= best_cost:
 			continue
 		for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
 			var bank := water + step
 			if _pathfinder.can_stand(bank) and _world.get_water(bank) <= 0.0 and not near_out_of_reach(bank, 1):
 				best = bank
-				best_distance = distance
+				best_cost = cost
 				break
 	return best
 
 
 ## Where a fisher fishes (M19.5): from the end of the settlement's landing, if
-## one stands near (from its boat), else from the bank nearest home.
+## one stands near with a boat at it (FB2), else from the bank nearest home.
 ## {"stand": Vector2i, "at": Vector2i (the water), "landing": prop id (0: the bank)} — {} if nowhere.
 func fishing_spot(person: PersonData) -> Dictionary:
 	var home: Variant = home_tile(person)
@@ -356,7 +367,7 @@ func fishing_spot(person: PersonData) -> Dictionary:
 			if prop.kind == PropData.Kind.LANDING and Vector2(prop.tile - center).length() <= WORK_RADIUS * 1.5 \
 					and (nearest == null or (prop.tile - center).length_squared() < (nearest.tile - center).length_squared()):
 				nearest = prop
-		if nearest != null and not near_out_of_reach(nearest.tile, 0):
+		if nearest != null and not near_out_of_reach(nearest.tile, 0) and (boats == null or boats.worth_going_out(nearest.id)):
 			return {"stand": nearest.tile, "at": water_beside(nearest.tile, nearest.tile), "landing": nearest.id}
 	var bank: Variant = fishing_bank(center)
 	if bank == null:

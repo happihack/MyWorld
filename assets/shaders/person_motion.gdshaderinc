@@ -17,7 +17,7 @@ instance uniform float stoop = 0.0;
 instance uniform float busy = 0.0;
 
 // What the body is showing (PersonView.ACT): 0 nothing, 1 startled, 2 kneeling,
-// 3 waving, 4 jumping, 5 crouching, 6 crying out, 7 shrugging.
+// 3 waving, 4 jumping, 5 crouching, 6 crying out, 7 shrugging, 8 seated in a boat.
 instance uniform float act = 0.0;
 
 // 1 = full motion; lower with "reduced motion".
@@ -100,6 +100,14 @@ vec3 person_motion(vec3 vertex, vec2 uv, float time) {
 		float shrug = 0.5 + 0.5 * sin(time * 3.2 + phase) * motion;
 		vertex.y += shrugging * shrug * (along * 0.12 + upper * 0.012);
 		vertex.z += shrugging * shrug * along * side * 0.07;
+		// Seated in a boat (FB3): the legs folded away under the hips, the body
+		// down so the hips are where the feet were — the hull hides the rest.
+		float seated = acting(8.0);
+		float leg = 1.0 - step(0.3, h);
+		vertex.y = mix(vertex.y, max(vertex.y, 0.3) - 0.3, seated);
+		vertex.x -= seated * leg * vertex.x * 0.6;
+		vertex.z -= seated * leg * vertex.z * 0.3;
+		lean += seated * 0.05;
 	}
 	vertex.x += lean * h * h;
 	vertex.y -= stoop * 0.35 * h * h;

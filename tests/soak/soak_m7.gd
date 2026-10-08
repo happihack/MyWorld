@@ -101,6 +101,12 @@ func _run() -> void:
 	var longest_low := 0
 	var low_stretches := 0
 	var start_tick: int = s.clock.tick
+	var fisher_doing := {} # (what the fishers are at, hour by hour: "activity / step" -> hours)
+	# Food brought in, by kind (into piles: the stores), and the people in each trade, day by day.
+	var brought := {}
+	s.piles.stored.connect(func(resource: StringName, amount: int, _pile: int) -> void:
+		brought[resource] = int(brought.get(resource, 0)) + amount)
+	var trade_days := {}
 	var started := Time.get_ticks_msec()
 	print("SOAK %d years (%d days) of seed %d: %d people" % [years, years * days_per_year, seed_value, people_at_start])
 	for day in years * days_per_year:
@@ -132,6 +138,18 @@ func _run() -> void:
 				s.stories.advance_to(s.clock.tick)
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
+				s.boats.advance_to(s.clock.tick) # (FB2: built, worn, mended, torn loose)
+				for fisher in s.people.all_people():
+					if fisher.occupation_id == &"fisher":
+						var steps: Variant = fisher.current_action.get("steps")
+						var index := int(fisher.current_action.get("index", 0))
+						var step_type := str(steps[index].get("type", "")) if typeof(steps) == TYPE_ARRAY and index < (steps as Array).size() else ""
+						var doing := "%s / %s" % [fisher.current_action.get("activity", "-"), step_type]
+						if step_type == "boat":
+							doing += " " + str(steps[index].get("phase", "?"))
+						elif step_type == "walk_to" and index + 1 < (steps as Array).size():
+							doing += " (then %s)" % str(steps[index + 1].get("type", ""))
+						fisher_doing[doing] = int(fisher_doing.get(doing, 0)) + 1
 				var food_days: float = s.settlement.days_of_food()
 				least_food_days = minf(least_food_days, food_days)
 				if food_days < low_below:
@@ -141,6 +159,9 @@ func _run() -> void:
 					longest_low = maxi(longest_low, low_for)
 				else:
 					low_for = 0
+		for worker in s.people.all_people():
+			if worker.life_stage(s.clock.tick, config.time.ticks_per_year(), config.people) == PersonData.LifeStage.ADULT:
+				trade_days[worker.occupation_id] = int(trade_days.get(worker.occupation_id, 0)) + 1
 		# The day's checks.
 		var now: int = s.clock.tick
 		if day == 0 and absi(now - start_tick - 1440) > 2:
@@ -168,7 +189,7 @@ func _run() -> void:
 				_problem("day %d: %s has been at '%s' for %d days" % [day, person.given_name,
 					person.current_action.get("activity", ""), (now - int(changed[person.id])) / 1440])
 				changed[person.id] = now # (said once)
-			if not s.pathfinder.can_stand(person.position) and not person.has_flag(1 << 4):
+			if not s.pathfinder.can_stand(person.position) and not person.has_flag(1 << 4) and person.aboard == 0: # (in a boat: FB3)
 				var there: Variant = s.props.prop_at(person.position)
 				_problem("day %d: %s (#%d, age %d) stands where nobody can stand (%s: %s, water %.2f) at '%s'" % [day,
 					person.given_name, person.id, person.age_years(now, config.time.ticks_per_year()), person.position,
@@ -246,6 +267,54 @@ func _run() -> void:
 				boats.append(boat)
 	print("SOAK fishing: %d fishers, %d fish in the stores, %.0f of %.0f in the water, %d landings, knows %s" % [fishers, stored_fish,
 		s.fauna.fish, s.fauna.fish_capacity, s.construction.standing(PropData.Kind.LANDING).size(), ", ".join(boats) if not boats.is_empty() else "no boats"])
+	# The boats (FB2–FB4): how many, what kinds, how used, how many lost.
+	var boat_kinds := {}
+	var trips := 0
+	var caught := 0
+	for boat in s.boats.all_boats():
+		boat_kinds[boat.kind] = int(boat_kinds.get(boat.kind, 0)) + 1
+		trips += boat.trips
+		caught += boat.caught
+	# Fish caught (from the waters' own count), year by year, and what the fishers did with their hours.
+	var by_year := PackedStringArray()
+	for year in range(1, years + 2):
+		var in_year := 0
+		for own in s.settlements.all():
+			in_year += s.fauna.waters.caught(own.id, year)
+		by_year.append(str(in_year))
+	print("SOAK fish caught by year: %s" % ", ".join(by_year))
+	var food_parts := PackedStringArray()
+	for resource: StringName in brought:
+		var def: ResourceDef = s.resources.get_def(resource)
+		if def != null and def.nutrition > 0.0:
+			food_parts.append("%s %d (%.0f food)" % [resource, brought[resource], brought[resource] * def.nutrition])
+	print("SOAK food brought in: %s" % ", ".join(food_parts))
+	var trade_parts := PackedStringArray()
+	for trade: StringName in trade_days:
+		trade_parts.append("%s %d" % [trade, trade_days[trade]])
+	print("SOAK adult worker-days by trade: %s" % ", ".join(trade_parts))
+	var farm_parts := PackedStringArray()
+	for own in s.settlements.all():
+		if own.farming != null:
+			own.farming.use_start(own.start_info()) # (one record for all: pointed at each in turn, as the game does)
+			farm_parts.append("%s: %d people, %d farmers (wanted %d), %d plots, %d harvests" % [own.display_name(), own.member_count(),
+				own.farming.farmer_count(), own.farmers_wanted(), own.farming.plot_count(), own.farming.harvest_count()])
+	print("SOAK farming: %s" % "; ".join(farm_parts))
+	var fishers_now := 0
+	for person in s.people.all_people():
+		if person.occupation_id == &"fisher":
+			fishers_now += 1
+	print("SOAK fishers now %d in %d settlements" % [fishers_now, s.settlements.all().size()])
+	var doings: Array = fisher_doing.keys()
+	doings.sort_custom(func(x: String, y: String) -> bool: return int(fisher_doing[x]) > int(fisher_doing[y]))
+	var top := PackedStringArray()
+	for doing: String in doings.slice(0, 12):
+		top.append("%s %d h" % [doing, fisher_doing[doing]])
+	print("SOAK fishers' hours: %s" % "; ".join(top))
+	print("SOAK boats: launched for nothing %d (no water to go to %d, no way %d)" % [s.boats.idle_trips, s.boats.no_water, s.boats.no_way])
+	print("SOAK boats: %d %s  trips %d  caught offline %d  built %d  carried off %d  fell apart %d  swamped %d" % [s.boats.size(), str(boat_kinds),
+		trips, caught, s.events.count_of(&"boat_built"), s.events.count_of(&"boat_carried_off"),
+		s.events.count_of(&"boat_fell_apart"), s.events.count_of(&"boat_swamped")])
 	print("SOAK least food in store %.2f days (below %.1f days %d times, for %d minutes at the longest)  hungriest anyone was %.2f  worst health %.2f" % [
 		least_food_days, low_below, low_stretches, longest_low, hungriest, worst_health])
 	print("SOAK looked up %d  decisions %d" % [s.behavior.skipped + s.behavior.decisions, s.behavior.decisions])

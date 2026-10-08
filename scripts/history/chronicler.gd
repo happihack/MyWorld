@@ -90,7 +90,14 @@ const TYPE_BOX_RESEARCH := &"box_research"
 const TYPE_CLUE := &"mystery_clue"
 const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
+## Where the fish are (FB1).
+const TYPE_FISH_RUN := &"fish_run"
+const TYPE_BAD_FISHING := &"bad_fishing_year"
 const TYPE_MOVED_TO := &"moved_to"
+const TYPE_BOAT_BUILT := &"boat_built"
+const TYPE_BOAT_SWAMPED := &"boat_swamped"
+const TYPE_BOAT_CARRIED_OFF := &"boat_carried_off"
+const TYPE_BOAT_FELL_APART := &"boat_fell_apart"
 ## How much a death matters: this, and this much more for someone who mattered (HistoricalPerson.significance).
 const OBITUARY_BASE := 0.45
 const OBITUARY_WEIGHT := 0.5
@@ -671,6 +678,54 @@ func on_joining(journey: Dictionary, from_name: String, to_name: String) -> void
 
 
 ## A settlement has nobody left: it is abandoned (M12.5).
+## The fish are running up a stretch of the river (and someone has fished there).
+func on_fish_run(at: Vector2i) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_FISH_RUN, {"position": Places.middle_of(at), "settlement": _settlement_id()})
+
+
+## A settlement caught far fewer fish last year than it is used to.
+func on_bad_fishing_year(settlement_id: int, caught: int, usual: float) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_BAD_FISHING, {"place": place, "caught": caught, "usual": roundi(usual), "settlement": settlement_id,
+		"position": _fire_place()})
+
+
+## A settlement built its first boat of a kind (FB2).
+func on_boat_built(boat: BoatData) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(boat.settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_BOAT_BUILT, {"place": place, "boat": boat_name(boat.kind), "kind": boat.kind, "settlement": boat.settlement_id,
+		"position": boat.position})
+
+
+## A boat is gone (FB2): carried off by the water, or fallen apart.
+func on_boat_lost(boat: BoatData, why: StringName) -> void:
+	if not _writing() or why == &"swamped":
+		return
+	var place: String = settlement_names.call(boat.settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_BOAT_CARRIED_OFF if why == &"carried_off" else TYPE_BOAT_FELL_APART,
+		{"place": place, "boat": boat_name(boat.kind), "settlement": boat.settlement_id, "position": boat.position})
+
+
+## A boat swamped in a storm (FB4); `drowned` of its crew did not reach the bank.
+func on_boat_swamped(boat: BoatData, drowned: int) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(boat.settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_BOAT_SWAMPED, {"place": place, "boat": boat_name(boat.kind), "drowned": drowned,
+		"settlement": boat.settlement_id, "position": boat.position})
+
+
+## A boat's kind, as told ("raft", "canoe" …).
+static func boat_name(kind: int) -> String:
+	return MemoryText.translate("BOAT_NAME_%d" % kind)
+
+
 func on_abandoned(settlement_id: int, place: String, at: Vector2i) -> void:
 	if not _writing():
 		return

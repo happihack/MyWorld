@@ -52,7 +52,7 @@ const BUSY := {
 ## What each pose makes the body show (see person_motion.gdshaderinc "act").
 const ACT := {
 	PersonData.Pose.STARTLE: 1.0, PersonData.Pose.KNEEL: 2.0, PersonData.Pose.WAVE: 3.0, PersonData.Pose.JUMP: 4.0,
-	PersonData.Pose.CROUCH: 5.0, PersonData.Pose.YELL: 6.0, PersonData.Pose.SHRUG: 7.0,
+	PersonData.Pose.CROUCH: 5.0, PersonData.Pose.YELL: 6.0, PersonData.Pose.SHRUG: 7.0, PersonData.Pose.SEATED: 8.0,
 }
 var _shown_act := -1.0
 # Standing where the person stands, turned as they are turned: nothing to do
@@ -202,6 +202,21 @@ func _show_poke(delta: float) -> void:
 	_body.scale = shape
 	_accessory.scale = shape
 	_load.scale = shape
+
+
+## In a boat (FB3): sits exactly where the boat (as drawn) has them — no
+## gliding after it, no walking; the arms at the paddle while it moves.
+func sit_at(at: Vector3, facing: float, paddling: bool) -> void:
+	position = at
+	rotation.y = -facing
+	_velocity = Vector3.ZERO
+	_at_rest = false
+	walk = 0.0
+	_show_walk()
+	var arms := 0.55 if paddling else 0.0
+	if arms != _shown_busy:
+		_shown_busy = arms
+		_body.set_instance_shader_parameter(&"busy", arms)
 
 
 ## Follows the person: glides to `target` (their feet) and turns to `facing`

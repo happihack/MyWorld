@@ -118,13 +118,58 @@ func test_the_catch_by_ice_boat_and_net() -> void:
 	assert_true(WorkStep.catch_factor(own, true) > raft, "from a canoe: more again")
 	own.learn(&"nets", 0, session.clock.tick)
 	assert_true(WorkStep.catch_factor(own, false) > 1.0, "nets help even from the bank")
-	# The fish run out where they are taken too hard.
-	session.fauna.fish = 1.0
+	# The fish run out where they are taken too hard (FB1: there, not everywhere).
+	var waters := session.fauna.waters
+	var at := FishWaters.middle_of(waters.all_cells()[0][0])
+	session.fauna.fish = 0.0
+	waters.set_stock(at, 1.0)
 	var fisher := _fisher()
-	var step := {"effort": 0.0, "at": Vector2i.ZERO}
+	var step := {"effort": 0.0, "at": at}
 	assert_false(WorkStep.catch_fish(ctx, fisher, step, 100) and fisher.carrying_amount > 1)
 	assert_eq(fisher.carrying_amount, 1, "the last fish")
 	assert_true(WorkStep.catch_fish(ctx, fisher, step, 100), "fished out")
+
+
+func test_fishers_go_where_the_fishing_is_good() -> void:
+	# (FB1: fish are where the water is; a fisher walks a little further for
+	# water full of fish rather than fish where it is fished out.)
+	var places := session.settlement.places()
+	var fire := session.settlement.fire().tile
+	var waters := session.fauna.waters
+	var near: Variant = places.fishing_bank(fire)
+	assert_not_null(near)
+	# The water by the nearest bank fished out; another, a little further, full.
+	var near_water: Vector2i = near
+	for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		if session.world.get_water(near_water + step) > 0.0:
+			near_water = near_water + step
+	waters.set_total(0.0)
+	# The nearest other stretch of water (its shore within a short walk more).
+	var rich_cell: Variant = null
+	var nearest := INF
+	for water in session.pathfinder.shore_tiles():
+		var cell := FishWaters.cell_of(water)
+		var distance := Vector2(water - fire).length()
+		if cell != FishWaters.cell_of(near_water) and distance < nearest:
+			nearest = distance
+			rich_cell = cell
+	assert_not_null(rich_cell, "another stretch of water within reach")
+	assert_true(nearest - Vector2(near_water - fire).length() < Places.RICH_WATER_PULL, "a short walk further")
+	waters.set_stock(FishWaters.middle_of(rich_cell), waters.capacity_at(FishWaters.middle_of(rich_cell)))
+	var chosen: Variant = places.fishing_bank(fire)
+	assert_not_null(chosen)
+	var beside_rich := false
+	for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		if FishWaters.cell_of(chosen + step) == rich_cell and session.world.get_water(chosen + step) > 0.0:
+			beside_rich = true
+	assert_true(beside_rich or Vector2(chosen - near).length() > 0.5, "not the fished-out water (%s, the nearest %s)" % [chosen, near])
+	# And what is caught is counted for the settlement, by the year.
+	var fisher := _fisher()
+	var at := FishWaters.middle_of(rich_cell)
+	var step_data := {"effort": 0.0, "at": at}
+	WorkStep.catch_fish(ctx, fisher, step_data, 60)
+	assert_true(fisher.carrying_amount > 0)
+	assert_eq(waters.caught(session.settlement.id, Config.time.year_of(session.clock.tick)), fisher.carrying_amount)
 
 
 func test_boats_are_discoveries_and_the_landing_goes_on_the_bank() -> void:
@@ -167,6 +212,10 @@ func test_boats_are_discoveries_and_the_landing_goes_on_the_bank() -> void:
 	techs.apply_effects()
 	assert_eq(landing.variant, PropData.Boat.CANOE, "then a canoe")
 	assert_false(planner.landing_wanted(), "one is enough")
+	# (FB2: from the landing only with a boat tied up at it.)
+	var fisher_now := session.people.all_people().filter(func(x: PersonData) -> bool: return x.occupation_id == &"fisher")[0] as PersonData
+	assert_eq(int(ctx.places.fishing_spot(fisher_now)["landing"]), 0, "no boat yet: from the bank")
+	session.boats.add_boat(PropData.Boat.CANOE, landing, 0, own.id, session.clock.tick)
 	var fisher := session.people.all_people().filter(func(x: PersonData) -> bool: return x.occupation_id == &"fisher")[0] as PersonData
 	var spot := ctx.places.fishing_spot(fisher)
 	assert_eq(int(spot["landing"]), landing.id, "from the boat at the landing")
