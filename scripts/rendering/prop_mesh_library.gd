@@ -107,6 +107,7 @@ const PILE_COLORS := {
 	&"grain": Color(0.86, 0.72, 0.32), &"water": Color(0.35, 0.58, 0.85), &"clay": Color(0.66, 0.44, 0.32),
 	&"herbs": Color(0.40, 0.62, 0.36),
 	&"mushrooms": Color(0.74, 0.62, 0.48), &"roots": Color(0.55, 0.36, 0.24), &"nuts": Color(0.58, 0.42, 0.24),
+	&"hide": Color(0.55, 0.40, 0.28),
 }
 ## Looks of a prop that has been worked on (ResourceNodes.Look), as an
 ## offset to the key of the shape.

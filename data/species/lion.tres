@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"lion"
+diet = 1
+capacity = 1
+starting_groups = 0
+group_min = 1
+group_max = 1
+birth_rate = 0.0
+adult_days = 24
+lifespan_days = 5000
+walk_speed = 0.5
+run_speed = 2.2
+home_range = 14.0
+fear_radius = 3.0
+sleep_from = 10.0
+sleep_to = 17.0
+meat = 12
+prey = PackedStringArray("deer", "rabbit")
+hunts_every_days = 3.0
+pounce_success = 0.55
+per_prey = 0.0
+height = 0.36
+radius = 0.28
+color = Color(0.72, 0.56, 0.36, 1)
+shape = &"lion"
+visitor = true
+arrival_weight = 0.8
+habitat_trees = 0.6
+habitat_high = 1.8
+stay_days = 14.0
+strength = 6.0
+danger = 0.65
+aggression = 0.3
+hide = 1

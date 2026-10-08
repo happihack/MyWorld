@@ -144,9 +144,9 @@ func _target_of(pile: LooseObject) -> Picker.Result:
 func test_resources_are_defined_in_data() -> void:
 	var library := session.resources
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"meat", &"mushrooms", &"nuts", &"roots", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
+	assert_eq(library.ids(), [&"berries", &"clay", &"fish", &"grain", &"herbs", &"hide", &"meat", &"mushrooms", &"nuts", &"roots", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"grain", &"meat", &"mushrooms", &"nuts", &"roots"] as Array[StringName])
-	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"clay", &"stone", &"tools", &"wood"] as Array[StringName])
+	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"clay", &"hide", &"stone", &"tools", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.WATER), [&"water"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MEDICINE), [&"herbs"] as Array[StringName])
 	for id in library.ids():

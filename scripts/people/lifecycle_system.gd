@@ -26,6 +26,9 @@ const CAUSE_INJURY := &"injury"
 const CAUSE_STARVATION := &"starvation"
 const CAUSE_ACCIDENT := &"accident"
 const CAUSE_DISASTER := &"disaster"
+## Killed by a wild beast (PR3); drowned (a swamped boat, FB4).
+const CAUSE_MAULED := &"mauled"
+const CAUSE_DROWNED := &"drowned"
 const PREGNANT := &"pregnant"
 ## Grieving someone who died: {"id": "grief", "of": id, "since": tick, "strength": 0 … 1}.
 const GRIEF := &"grief"
@@ -151,7 +154,8 @@ func death_chance(person: PersonData, now: int) -> Array:
 		var kind := CAUSE_INJURY
 		for injury: Variant in person.injuries:
 			if typeof(injury) == TYPE_DICTIONARY and float(injury.get("severity", 0.0)) >= worst:
-				kind = CAUSE_INJURY if str(injury.get("kind", "")) == String(Health.FIGHT) else CAUSE_ACCIDENT
+				var injury_kind := str(injury.get("kind", ""))
+				kind = CAUSE_INJURY if injury_kind == String(Health.FIGHT) else (CAUSE_MAULED if injury_kind == String(Health.MAULED) else CAUSE_ACCIDENT)
 		parts[kind] = float(parts.get(kind, 0.0)) + config.injury_death_per_day * worst
 	var survive := 1.0
 	for cause: StringName in parts:

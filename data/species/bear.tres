@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"bear"
+diet = 1
+capacity = 1
+starting_groups = 0
+group_min = 1
+group_max = 1
+birth_rate = 0.0
+adult_days = 24
+lifespan_days = 5000
+walk_speed = 0.4
+run_speed = 1.5
+home_range = 10.0
+fear_radius = 2.5
+sleep_from = 21.0
+sleep_to = 5.0
+meat = 24
+prey = PackedStringArray("deer")
+hunts_every_days = 3.0
+pounce_success = 0.3
+per_prey = 0.0
+height = 0.6
+radius = 0.4
+color = Color(0.36, 0.24, 0.15, 1)
+shape = &"bear"
+visitor = true
+arrival_weight = 1.0
+season_weights = PackedFloat32Array(0.8, 1, 1.2, 0)
+habitat_trees = 1.5
+habitat_water = 1.5
+habitat_high = 0.3
+winter_sleep = true
+stay_days = 12.0
+strength = 10.0
+danger = 0.75
+aggression = 0.25
+hide = 2

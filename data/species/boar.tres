@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"boar"
+diet = 0
+capacity = 3
+starting_groups = 0
+group_min = 1
+group_max = 3
+birth_rate = 0.0
+adult_days = 24
+lifespan_days = 5000
+walk_speed = 0.45
+run_speed = 1.6
+home_range = 9.0
+fear_radius = 3.5
+meat = 14
+height = 0.32
+radius = 0.24
+color = Color(0.3, 0.24, 0.2, 1)
+shape = &"boar"
+visitor = true
+arrival_weight = 1.0
+season_weights = PackedFloat32Array(1, 1, 1, 0.6)
+habitat_trees = 1.2
+habitat_water = 0.6
+stay_days = 10.0
+strength = 6.0
+danger = 0.5
+aggression = 0.05
+hide = 1

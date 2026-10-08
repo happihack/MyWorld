@@ -95,6 +95,14 @@ const TYPE_FISH_RUN := &"fish_run"
 const TYPE_BAD_FISHING := &"bad_fishing_year"
 const TYPE_MOVED_TO := &"moved_to"
 const TYPE_BOAT_BUILT := &"boat_built"
+const TYPE_PREDATOR_SPOTTED := &"predator_spotted"
+const TYPE_PREDATOR_GONE := &"predator_gone"
+const TYPE_MAULED := &"mauled"
+const TYPE_HURT_IN_HUNT := &"hurt_in_hunt"
+const TYPE_PARTY_KILLED := &"party_killed"
+const TYPE_PARTY_KILLED_PACK := &"party_killed_pack"
+const TYPE_PARTY_ESCAPED := &"party_escaped"
+const TYPE_PARTY_BEATEN := &"party_beaten"
 const TYPE_BOAT_SWAMPED := &"boat_swamped"
 const TYPE_BOAT_CARRIED_OFF := &"boat_carried_off"
 const TYPE_BOAT_FELL_APART := &"boat_fell_apart"
@@ -485,8 +493,14 @@ func on_died(person_id: int, cause: StringName, causes: Array) -> WorldEvent:
 			why.append_array(_latest_of(person_id, [TYPE_FIGHT]))
 		Lifecycle.CAUSE_ACCIDENT:
 			why.append_array(_latest_of(person_id, [TYPE_INJURED]))
+		Lifecycle.CAUSE_MAULED:
+			why.append_array(_latest_of(person_id, [TYPE_MAULED, TYPE_HURT_IN_HUNT]))
 	var params := {"participants": [person_id], "cause": String(cause), "position": _place_of(person_id),
 		"settlement": _settlement_id()}
+	if cause == Lifecycle.CAUSE_MAULED:
+		# (By what: the beast of the attack.)
+		var attack := _log.get_event(why[-1]) if not why.is_empty() else null
+		params["beast"] = str(attack.text_params.get("beast", attack.text_params.get("beast_lower", ""))) if attack != null else ""
 	var record := _people.archive.get_record(person_id) if _people != null and _people.archive != null else null
 	if record != null:
 		params["significance"] = clampf(OBITUARY_BASE + OBITUARY_WEIGHT * minf(record.significance / Config.significance.important_from, 1.0),
@@ -719,6 +733,76 @@ func on_boat_swamped(boat: BoatData, drowned: int) -> void:
 	var place: String = settlement_names.call(boat.settlement_id) if settlement_names.is_valid() else ""
 	_log.record(TYPE_BOAT_SWAMPED, {"place": place, "boat": boat_name(boat.kind), "drowned": drowned,
 		"settlement": boat.settlement_id, "position": boat.position})
+
+
+## A big predator (a pack) seen near a settlement for the first time (PR2).
+func on_predator_spotted(species: StringName, at: Vector2, by_id: int, settlement_id: int) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_PREDATOR_SPOTTED, {"species": String(species), "beast": beast_name(species, true), "place": place,
+		"participants": [by_id], "settlement": settlement_id, "position": at})
+
+
+## Someone was attacked by a wild beast (PR3).
+func on_mauled(person_id: int, species: StringName, settlement_id: int) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_MAULED, {"species": String(species), "beast": beast_name(species, true).to_lower(), "place": place,
+		"participants": [person_id], "settlement": settlement_id, "position": _place_of(person_id)})
+
+
+## A hunting party is home (PR4): it killed the beast (`killed` of a pack), it got
+## away, or it drove them off. (Home at dusk with nothing done: not told.)
+func on_party_ended(party: Dictionary, outcome: StringName, killed: int) -> void:
+	if not _writing():
+		return
+	var species := StringName(str(party["species"]))
+	var type: StringName = TYPE_PARTY_KILLED
+	match outcome:
+		HuntingParties.KILLED:
+			type = TYPE_PARTY_KILLED
+		HuntingParties.ESCAPED:
+			type = TYPE_PARTY_ESCAPED
+		HuntingParties.BEATEN:
+			type = TYPE_PARTY_BEATEN
+		_:
+			return
+	var settlement_id := int(party["settlement"])
+	var place: String = settlement_names.call(settlement_id) if settlement_names.is_valid() else ""
+	var members: Array = [int(party["leader"])]
+	for id: int in party["members"]:
+		if not members.has(id):
+			members.append(id)
+	var params := {"species": String(species), "beast": beast_name(species, false), "beast_lower": beast_name(species, false).to_lower(),
+		"place": place, "participants": members, "settlement": settlement_id, "count": killed,
+		"position": party.get("at", _fire_place())}
+	if species == &"wolf" and outcome == HuntingParties.KILLED:
+		type = TYPE_PARTY_KILLED_PACK
+	_log.record(type, params, _latest_of(int(party["leader"]), [TYPE_PREDATOR_SPOTTED]))
+
+
+## Someone was hurt fighting a beast with the hunting party (recorded, not told).
+func on_hurt_in_hunt(person_id: int, species: StringName, _severity: float, settlement_id: int) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_HURT_IN_HUNT, {"species": String(species), "beast_lower": beast_name(species, false).to_lower(),
+		"participants": [person_id], "settlement": settlement_id, "position": _place_of(person_id)})
+
+
+## One seen near a settlement has gone back to the wilds, nobody the worse.
+func on_predator_gone(species: StringName, settlement_id: int) -> void:
+	if not _writing():
+		return
+	var place: String = settlement_names.call(settlement_id) if settlement_names.is_valid() else ""
+	_log.record(TYPE_PREDATOR_GONE, {"species": String(species), "beast": beast_name(species, false), "place": place,
+		"settlement": settlement_id, "position": _fire_place()})
+
+
+## "A bear", "A pack of wolves" (`indefinite`) — or "The bear", "The wolves".
+static func beast_name(species: StringName, indefinite: bool) -> String:
+	return MemoryText.translate("BEAST_%s_%s" % [String(species).to_upper(), "A" if indefinite else "THE"])
 
 
 ## A boat's kind, as told ("raft", "canoe" …).

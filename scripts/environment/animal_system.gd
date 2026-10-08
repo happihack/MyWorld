@@ -18,6 +18,10 @@ signal born(animal_id: int, species: StringName)
 signal fled(animal_id: int)
 ## A group has set out for other ground (in autumn, in spring).
 signal migrated(species: StringName, group: int, to: Vector2)
+## A big predator (or a pack) has come near a settlement (PR1) — not yet seen.
+signal arrived(species: StringName, group: int, at: Vector2)
+## It has gone back to the wilds.
+signal left(species: StringName, group: int)
 
 const STEP_MINUTES := 30
 ## When time comes a minute at a time (the running game), animals that are
@@ -65,6 +69,16 @@ const REFUGE := 3
 const LAST_PAIR := 2
 ## A new world's herds keep at least this far from the settlement.
 const SETTLEMENT_CLEARANCE := 12.0
+## Big predators (PR1, the owner 2026-10-08): about one to a settlement every
+## one to three game years where the land suits them best — ARRIVAL_PER_DAY
+## times how well it suits (0.3 … 1) — none in a world's first year, and only
+## one at a time near a settlement. They come to ARRIVE_FROM … ARRIVE_TO
+## tiles from its fire, and keep FIRE_CLEAR from any burning fire.
+const ARRIVAL_PER_DAY := 0.028
+const ARRIVE_FROM := 18.0
+const ARRIVE_TO := 36.0
+const ONE_AT_A_TIME := 45.0
+const FIRE_CLEAR := 6.0
 
 var registry: AnimalRegistry
 var species: SpeciesLibrary
@@ -114,6 +128,13 @@ var _wade := 0.24
 var _shores: Dictionary = {} # group -> Vector2 (where they drink) or Vector2.INF
 var _unreached: Dictionary = {} # group -> the tick a hunter found no way to it
 var _hurried := 0 # how many are running or hunting (as of the last step)
+## The big predators near the settlements: group -> {"until": tick (it moves on)}.
+var _visits: Dictionary = {}
+## Big predators brought to bay by a hunting party (PR4): group -> until (tick).
+## They neither run nor wander: they turn and fight.
+var _held: Dictionary = {}
+## Callable(fire tile) -> int: how many live at that settlement (none: no visitors come).
+var settlement_people: Callable
 
 
 ## `pathfinder` (optional): so that a new world's herds live where people
@@ -151,6 +172,8 @@ func seed_world(now: int) -> void:
 		if def.aggregate:
 			fish = fish_capacity * 0.8
 			continue
+		if def.visitor:
+			continue # (they come later: PR1)
 		for group in def.starting_groups:
 			var home: Variant = _find_home(def)
 			if home == null:
@@ -320,13 +343,13 @@ func debug_text() -> String:
 			if def.aggregate:
 				parts.append("%s %d/%d" % [id, floori(fish), floori(fish_capacity)])
 			else:
-				parts.append("%s %d/%d" % [id, count(id), _capacity(def)])
+				parts.append("%s %d" % [id, count(id)] if def.visitor else "%s %d/%d" % [id, count(id), _capacity(def)])
 	return "animals: %s" % ("  ".join(parts) if not parts.is_empty() else "none")
 
 
 func to_dict() -> Dictionary:
 	return {"seeded": seeded, "fish": fish, "waters": waters.to_dict(), "last_tick": last_tick, "day": _day, "births": _births.duplicate(),
-		"next_group": _next_group, "journeys": _journeys.duplicate(),
+		"next_group": _next_group, "journeys": _journeys.duplicate(), "visits": _visits.duplicate(true),
 		"animals": registry.to_dict() if registry != null else {}}
 
 
@@ -342,6 +365,12 @@ func from_dict(data: Dictionary) -> int:
 	last_tick = int(data["last_tick"]) if typeof(data.get("last_tick")) == TYPE_INT else -1_000_000
 	_day = int(data["day"]) if typeof(data.get("day")) == TYPE_INT else -1_000_000
 	_births = {}
+	_visits = {}
+	var visits: Variant = data.get("visits")
+	if typeof(visits) == TYPE_DICTIONARY:
+		for group: Variant in visits:
+			if typeof(visits[group]) == TYPE_DICTIONARY:
+				_visits[int(str(group))] = {"until": int(visits[group].get("until", 0))}
 	var carried: Variant = data.get("births")
 	if typeof(carried) == TYPE_DICTIONARY:
 		for key: Variant in carried:
@@ -413,6 +442,12 @@ func _step(minutes: int, now: int) -> void:
 
 func _live(animal: AnimalData, def: SpeciesDef, minutes: int, now: int, hour: float, about: Array,
 		hunters: Array[AnimalData]) -> void:
+	if _held.has(animal.group):
+		if now < int(_held[animal.group]):
+			animal.state = AnimalData.State.GRAZE # (standing its ground)
+			animal.state_until = now + minutes
+			return
+		_held.erase(animal.group)
 	# What frightens them comes before everything.
 	if animal.state != AnimalData.State.FLEE:
 		var threat := _threat(animal, def, about, hunters)
@@ -449,6 +484,11 @@ func _live(animal: AnimalData, def: SpeciesDef, minutes: int, now: int, hour: fl
 
 ## What the animal turns to after standing a while.
 func _decide(animal: AnimalData, def: SpeciesDef, now: int, hour: float) -> void:
+	# (A bear sleeps the winter through, where it is.)
+	if def.winter_sleep and Config.time.season_of(now) == Seasons.WINTER:
+		animal.state = AnimalData.State.SLEEP
+		animal.state_until = now + TimeConfig.MINUTES_PER_DAY
+		return
 	if def.sleeps_at(hour):
 		# Home first, if they are far from it (they sleep where they live).
 		if animal.position.distance_to(animal.home) > def.home_range and animal.state != AnimalData.State.WANDER:
@@ -478,6 +518,8 @@ func _decide(animal: AnimalData, def: SpeciesDef, now: int, hour: float) -> void
 	# Somewhere else within where the group lives.
 	for attempt in 6:
 		var to := _scatter(animal.home, def.home_range)
+		if def.visitor and _near_fire(to):
+			continue # (big predators keep off the fires)
 		if _can_stand(WorldCoords.world2d_to_tile(to)):
 			animal.state = AnimalData.State.WANDER
 			animal.target = to
@@ -556,6 +598,8 @@ func _prey_for(animal: AnimalData, def: SpeciesDef) -> AnimalData:
 	for other in registry.all_animals():
 		if not def.preys_on(other.species):
 			continue
+		if def.visitor and (_near_fire(other.position) or other.position.distance_to(animal.home) > def.home_range * 2.0):
+			continue # (not by the people's fires; not far from where it stays)
 		if best == null or other.position.distance_squared_to(animal.position) < best.position.distance_squared_to(animal.position):
 			best = other
 	return best
@@ -682,12 +726,15 @@ func _one_day(now: int) -> void:
 		_migrate(now)
 	elif Config.time.day_of_season(now) == JOURNEY_OVER_DAY and not _journeys.is_empty():
 		_end_journeys(now, false)
+	_visitors_day(now)
 	for id in species.ids():
 		var def := species.get_def(id)
 		if def.aggregate:
 			# Fish come back towards what the water holds.
 			waters.advance_day(now, _rng)
 			continue
+		if def.visitor:
+			continue # (they are not born here, nor grow old here: PR1)
 		var all := registry.of_species(id)
 		# The old die.
 		var grown: Array[AnimalData] = []
@@ -909,6 +956,188 @@ func _capacity(def: SpeciesDef) -> int:
 	for id in def.prey:
 		prey += registry.count(StringName(id))
 	return clampi(floori(prey * def.per_prey), 1, def.capacity)
+
+
+# --- big predators (PR1) ------------------------------------------------------------------------------
+
+## Is this one a big predator, come from the wilds?
+func is_visitor(animal: AnimalData) -> bool:
+	var def := species.get_def(animal.species) if species != null and animal != null else null
+	return def != null and def.visitor
+
+
+## The big predators about now.
+func visitors() -> Array[AnimalData]:
+	var out: Array[AnimalData] = []
+	if registry == null or species == null:
+		return out
+	for animal in registry.all_animals():
+		if is_visitor(animal):
+			out.append(animal)
+	return out
+
+
+## Within FIRE_CLEAR of a settlement's fire?
+func _near_fire(at: Vector2) -> bool:
+	for tile in settlement_tiles:
+		if at.distance_to(Vector2(tile) + Vector2(0.5, 0.5)) < FIRE_CLEAR:
+			return true
+	return false
+
+
+## Each day: those whose stay is over go back to the wilds; and now and then
+## one comes to a settlement.
+func _visitors_day(now: int) -> void:
+	for group: int in _visits.keys():
+		if now >= int(_visits[group]["until"]):
+			_send_off(group)
+	if now < Config.time.ticks_per_year() or settlement_tiles.is_empty():
+		return # (none in a world's first year)
+	for fire in settlement_tiles:
+		if settlement_people.is_valid() and int(settlement_people.call(fire)) <= 0:
+			continue
+		var near := false
+		for other in visitors():
+			if other.position.distance_to(Vector2(fire)) < ONE_AT_A_TIME:
+				near = true
+				break
+		if near:
+			continue
+		# (The dice first — only on the rare day they fall is a place looked
+		# for: after a long time away hundreds of days are lived at once.)
+		if _rng.randf() >= ARRIVAL_PER_DAY:
+			continue
+		var place: Array = _visitor_place(fire, now)
+		if place.is_empty():
+			continue
+		# (Where the land suits a predator well, they come more often.)
+		if _rng.randf() < clampf(float(place[2]) / 2.0, 0.3, 1.0):
+			bring(place[0], place[1], now)
+
+
+## The likeliest predator for a settlement now and where it would come:
+## [species, where, how well it suits] — [] if none (no land for them, the season).
+func _visitor_place(fire: Vector2i, now: int) -> Array:
+	var season := Config.time.season_of(now)
+	var floor_level := _world.get_height(fire) if _world.is_in_bounds(fire) else 0
+	var kinds: Array[SpeciesDef] = []
+	for id in species.ids():
+		var def := species.get_def(id)
+		if def.visitor and def.arrival_weight > 0.0 and def.comes_in(season) > 0.0:
+			kinds.append(def)
+	if kinds.is_empty():
+		return []
+	var best := {} # species id -> [score, where]
+	for attempt in 48:
+		var turn := _rng.randf() * TAU
+		var reach := _rng.randf_range(ARRIVE_FROM, ARRIVE_TO)
+		var at := Vector2(fire) + Vector2(0.5, 0.5) + Vector2.RIGHT.rotated(turn) * reach
+		var tile := WorldCoords.world2d_to_tile(at)
+		if not _can_stand(tile) or _world.get_water(tile) > 0.0 or _from_people(at) < SETTLEMENT_CLEARANCE:
+			continue
+		for def in kinds:
+			var score := PredatorHabitat.score(_world, _props, def, tile, floor_level)
+			if not best.has(def.id) or score > float(best[def.id][0]):
+				best[def.id] = [score, at]
+	if best.is_empty():
+		return []
+	# Which kind: by how well its best place suits it, how often it comes, the season.
+	var total := 0.0
+	var weights := {}
+	for def in kinds:
+		if not best.has(def.id):
+			continue
+		var weight: float = maxf(float(best[def.id][0]), 0.05) * def.arrival_weight * def.comes_in(season)
+		weights[def.id] = weight
+		total += weight
+	if total <= 0.0:
+		return []
+	var roll := _rng.randf() * total
+	for id: StringName in weights:
+		roll -= float(weights[id])
+		if roll <= 0.0:
+			return [id, best[id][1], best[id][0]]
+	var last: StringName = weights.keys()[-1]
+	return [last, best[last][1], best[last][0]]
+
+
+## A big predator (a pack of wolves) comes to `at` and stays a while.
+## Returns them (empty if the species is unknown or not a visitor).
+func bring(species_id: StringName, at: Vector2, now: int) -> Array[AnimalData]:
+	var out: Array[AnimalData] = []
+	var def := species.get_def(species_id) if species != null else null
+	if def == null or not def.visitor:
+		return out
+	var group := _next_group
+	_next_group += 1
+	var size := _rng.randi_range(def.group_min, def.group_max)
+	for i in size:
+		var animal := spawn(species_id, _scatter(at, 1.2) if i > 0 else at, at, group,
+			now - def.adult_days * 2 * TimeConfig.MINUTES_PER_DAY)
+		if animal != null:
+			animal.fed_tick = now
+			out.append(animal)
+	if out.is_empty():
+		return out
+	_visits[group] = {"until": now + roundi(def.stay_days * _rng.randf_range(0.6, 1.4) * TimeConfig.MINUTES_PER_DAY)}
+	arrived.emit(species_id, group, at)
+	return out
+
+
+## Back to the wilds (the stay is over).
+func _send_off(group: int) -> void:
+	var kind: StringName = &""
+	for animal in registry.all_animals():
+		if animal.group == group:
+			kind = animal.species
+			registry.remove(animal.id)
+	_visits.erase(group)
+	if kind != &"":
+		left.emit(kind, group)
+
+
+## A hunting party has brought it to bay (PR4): it stands and fights until
+## `until` — or is let go (`until` 0).
+func hold(group: int, until: int) -> void:
+	if until <= 0:
+		_held.erase(group)
+	else:
+		_held[group] = until
+
+
+func is_held(group: int) -> bool:
+	return _held.has(group)
+
+
+## The animals of a group (a pack).
+func of_group(group: int) -> Array[AnimalData]:
+	var out: Array[AnimalData] = []
+	if registry != null:
+		for animal in registry.all_animals():
+			if animal.group == group:
+				out.append(animal)
+	return out
+
+
+## Killed by people (a hunting party, PR4). Returns its species (&"": no such animal).
+func slay(animal_id: int) -> StringName:
+	var animal := registry.get_animal(animal_id) if registry != null else null
+	if animal == null:
+		return &""
+	var kind := animal.species
+	_die(animal, &"slain")
+	return kind
+
+
+## The rest of a pack makes off for good (its numbers broken).
+func send_off(group: int) -> void:
+	_held.erase(group)
+	_send_off(group)
+
+
+## Until when a group of big predators stays (a tick; 0: not one, or gone).
+func stays_until(group: int) -> int:
+	return int(_visits.get(group, {}).get("until", 0))
 
 
 func _die(animal: AnimalData, cause: StringName) -> void:

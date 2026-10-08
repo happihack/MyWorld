@@ -61,7 +61,8 @@ func test_untouched_world_saves_only_the_start() -> void:
 	# (What is saved of a pristine world: its people, the piles it began with, its animals.)
 	# (… and, since M12.3–M12.4, the empty books of migration and trade.)
 	# (… and, since M18, the seeded mysteries and their stones.)
-	assert_true(SaveManager.last_save_info["bytes"] < 7200, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
+	# (… and, since FB2 and PR2–PR4, the empty books of boats, beasts seen and hunting parties.)
+	assert_true(SaveManager.last_save_info["bytes"] < 7400, "a pristine world is tiny (%d B)" % SaveManager.last_save_info["bytes"])
 
 
 func test_reload_reproduces_the_world_exactly() -> void:

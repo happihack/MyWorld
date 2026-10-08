@@ -94,7 +94,7 @@ func _hunter() -> PersonData:
 
 func test_species_are_defined_in_data() -> void:
 	assert_eq(species.problems.size(), 0, str(species.problems))
-	assert_eq(species.ids(), [&"deer", &"fish", &"fox", &"rabbit"] as Array[StringName])
+	assert_eq(species.ids(), [&"bear", &"boar", &"deer", &"fish", &"fox", &"lion", &"rabbit", &"wolf"] as Array[StringName])
 	var deer := species.get_def(&"deer")
 	var rabbit := species.get_def(&"rabbit")
 	var fox := species.get_def(&"fox")

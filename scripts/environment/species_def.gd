@@ -63,8 +63,38 @@ enum Diet { GRAZER, PREDATOR, FISH }
 @export_range(0.05, 3.0, 0.01) var height: float = 0.6
 @export_range(0.05, 2.0, 0.01) var radius: float = 0.3
 @export var color: Color = Color(0.6, 0.45, 0.3)
-## Which shape it is drawn with (AnimalMeshLibrary): "deer", "rabbit", "fox".
+## Which shape it is drawn with (AnimalMeshLibrary): "deer", "rabbit", "fox",
+## "bear", "wolf", "lion", "boar".
 @export var shape: StringName = &""
+
+@export_group("Big predator")
+## A visitor (PR1: bear, wolf, mountain lion, boar): never there from the
+## start and never born in the box — it comes now and then from the wilds to
+## where its kind of land is near a settlement, stays a while, and goes again
+## (or is killed). Not bound by its prey's numbers.
+@export var visitor: bool = false
+## How often it comes, against the other visitors (where the land suits all alike).
+@export_range(0.0, 10.0, 0.05) var arrival_weight: float = 1.0
+## How much each season brings it (spring, summer, autumn, winter).
+@export var season_weights: PackedFloat32Array = PackedFloat32Array([1.0, 1.0, 1.0, 1.0])
+## The land it likes, as weights on what is around (PredatorHabitat): trees,
+## water near, high or rocky ground, open grass.
+@export_range(0.0, 5.0, 0.05) var habitat_trees: float = 0.0
+@export_range(0.0, 5.0, 0.05) var habitat_water: float = 0.0
+@export_range(0.0, 5.0, 0.05) var habitat_high: float = 0.0
+@export_range(0.0, 5.0, 0.05) var habitat_open: float = 0.0
+## Sleeps the winter through (a bear in its den).
+@export var winter_sleep: bool = false
+## Game days it stays near a settlement before it moves on, if left alone.
+@export_range(1.0, 120.0, 0.5) var stay_days: float = 10.0
+## How much it takes to bring it down (hits by a hunting party, PR4), how
+## badly it wounds (0 … 1 of a grave injury), and how ready it is to go for
+## a person (0 never … 1 whenever it can, PR3).
+@export_range(0.5, 50.0, 0.5) var strength: float = 3.0
+@export_range(0.0, 1.0, 0.01) var danger: float = 0.4
+@export_range(0.0, 1.0, 0.01) var aggression: float = 0.0
+## Hides one gives (PR5).
+@export_range(0, 20) var hide: int = 0
 
 
 ## Are young born in this season?
@@ -78,8 +108,13 @@ func mating_boost() -> float:
 	return 4.0 / mating_seasons.size() if not mating_seasons.is_empty() else 1.0
 
 
+## Hunted by a hunter, one alone (a big predator takes a party: PR4).
 func is_hunted() -> bool:
-	return meat > 0 and not aggregate
+	return meat > 0 and not aggregate and not visitor
+
+
+func comes_in(season: int) -> float:
+	return season_weights[season] if season >= 0 and season < season_weights.size() else 1.0
 
 
 func preys_on(species: StringName) -> bool:
@@ -105,6 +140,6 @@ func validate() -> PackedStringArray:
 		problems.append("%s: it cannot amble faster than it runs" % id)
 	if adult_days >= lifespan_days:
 		problems.append("%s: it must live longer than it takes to grow up" % id)
-	if diet == Diet.PREDATOR and prey.is_empty():
+	if diet == Diet.PREDATOR and prey.is_empty() and not visitor:
 		problems.append("%s: a predator needs prey" % id)
 	return problems

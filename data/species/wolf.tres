@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="SpeciesDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/environment/species_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"wolf"
+diet = 1
+capacity = 6
+starting_groups = 0
+group_min = 3
+group_max = 5
+birth_rate = 0.0
+adult_days = 24
+lifespan_days = 5000
+walk_speed = 0.55
+run_speed = 2.0
+home_range = 16.0
+fear_radius = 4.0
+sleep_from = 10.0
+sleep_to = 17.0
+meat = 6
+prey = PackedStringArray("deer", "rabbit")
+hunts_every_days = 2.0
+pounce_success = 0.5
+per_prey = 0.0
+height = 0.42
+radius = 0.25
+color = Color(0.52, 0.52, 0.54, 1)
+shape = &"wolf"
+visitor = true
+arrival_weight = 0.7
+season_weights = PackedFloat32Array(1, 0.8, 1, 1.6)
+habitat_trees = 0.8
+habitat_water = 0.3
+habitat_open = 1.2
+stay_days = 8.0
+strength = 3.0
+danger = 0.45
+aggression = 0.35
+hide = 1

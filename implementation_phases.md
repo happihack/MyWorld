@@ -2326,6 +2326,22 @@ The full plan, audit and caveats: `fishing_and_boats_plan.md` (bible §18.2a). *
 
 ---
 
+## PREDATORS, HUNTING PARTIES & WEAPONS (PR) — the owner's request (2026-10-08)
+
+The full plan, audit and caveats: `predators_and_weapons_plan.md` (bible §12, §13.3 Safety, §14). **Decisions (the owner, 2026-10-08):** bear, wolf, mountain lion (= cougar) and wild boar; about one sighting per settlement every 1–3 game years, none in a world's first year, one at a time; attacks mostly wound, death rare (~1 per 25 parties); **parties of 2–4**, hunters first, some refuse, some volunteer; the hand may shoo, not lift or kill; hide as a new resource; **PR1–PR5 first with a fixed stone spear, then weapons (PR6)**. Weapons: made things (the toolmaker's spears, then bows), counting in war too, Archery now, metal points tied to ore.
+
+- [x] **PR1 Predators in the land** — species with habitat (by 8-tile cell: tree cover, water, rock, height), aggression, strength, season; rare arrival from the edges; roaming, hunting deer, the bear's winter sleep, wolf packs; drawn; saved.
+- [x] **PR2 Seen and feared** — a PREDATOR stimulus; spotting by sight; the alarm and the run to the fire; the sighting toast ("A bear has been seen near … — a hunting party is gathering"); children and elders keep near; fire keeps predators off.
+- [x] **PR3 Attacks** — chance attacks on the lone, the edge, the dusk; a MAULED injury; rare death with its own chronicle line; others react.
+- [x] **PR4 The hunting party** — choosing 2–4 (refusals, volunteers); gather → arm → track → fight (rounds) → butcher → home; outcome events and toasts; offline odds.
+- [x] **PR5 The kill** — a carcass; butchering; meat and hide; stories and standing.
+- [ ] **PR6 Weapons** (after W1–W4) — weapon kinds made by the toolmaker; taken by hunters and parties; hit, damage, reach; Archery; arms in war; the bow drawn.
+- [ ] **PR7 Tuning** — soaks: sightings per settlement-year, attacks, deaths, party wins, the effect on population; offline parity.
+
+**Built 2026-10-08 (PR1–PR5).** Visitors (never seeded nor born: deer are 10 to a box — they come, stay ~8–14 days, go). PredatorHabitat (trees, water, high ground, open grass) chooses who comes where; PredatorWatch (sight 10 tiles by day / 4 at night, less in trees; the seer and those within 8 run for the fire; children and the old called back; attacks on the lone by species' hour; MAULED injury; CAUSE_MAULED; drowning now CAUSE_DROWNED, not "a fall"); HuntingParties (2–4, hunters first, the timid may refuse; gather, track, bring to bay, rounds; stone spear; packs break at half; home at dusk, out again next day; meat laid out at the kill and carried home, hides to the stores; memories; away: the fight lived at once). The M7 soak now advances the animals at all (it never had: herds, fish, predators were frozen in every soak before). **Soaks (3 seeds × 20 yrs):** sightings 9 / 15 / 18; parties won ~75–80% (killed 15 / 22 / 24, got away 3–5, beaten 1–3); deaths by beasts 0. Hunt wounds are recorded quietly (they were each told: up to 46 toasts in 20 years); wolves came most (open valley): their weight 1.0 → 0.7.
+
+---
+
 ## M22 — ROBUST SAVE SYSTEM — built (2026-10-05), phone torture pending
 
 **Goal:** The player trusts their world will never disappear. (P:M22, S§56–57, B§31.9)

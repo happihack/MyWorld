@@ -174,6 +174,7 @@ func _day_step() -> void:
 		_eat(own, share)
 	_court(share)
 	_arrive()
+	_beasts(share, next)
 	_s.advance_systems()
 	_s.behavior.announce()
 	days += 1
@@ -316,6 +317,37 @@ func _fish(own: Settlement, share: float) -> void:
 		# (Out in a storm, now and then swamped.)
 		if _s.weather != null and _s.weather.state == WeatherSystem.STORM and _rng.randf() < OFFLINE_SWAMP:
 			_s.boats.swamp(boat, _s.clock.tick)
+
+
+## Big predators while away (PR1–PR4): a beast near a settlement is seen this
+## often a day; once known, it attacks someone (its aggression × AWAY_ATTACK a
+## day) — and a party goes after it, the fight lived at once.
+const AWAY_SEEN := 0.6
+const AWAY_ATTACK := 0.25
+
+
+func _beasts(share: float, now: int) -> void:
+	if _s.predators == null or _s.parties == null:
+		return
+	var groups := {}
+	for beast in _s.fauna.visitors():
+		if not groups.has(beast.group):
+			groups[beast.group] = beast
+	for group: int in groups:
+		var beast: AnimalData = groups[group]
+		var own := _s.settlements.nearest(beast.tile())
+		if own == null or own.fire() == null or own.members().is_empty() 				or beast.position.distance_to(Vector2(own.fire().tile)) > AnimalSystem.ONE_AT_A_TIME:
+			continue
+		var folk := own.members()
+		if _s.predators.known(group).is_empty():
+			if _rng.randf() < AWAY_SEEN * share:
+				_s.predators.seen(beast, folk[_rng.randi_range(0, folk.size() - 1)], now)
+			continue
+		var def := _s.species.get_def(beast.species)
+		if def != null and _rng.randf() < def.aggression * AWAY_ATTACK * share:
+			_s.predators.attack(beast, folk[_rng.randi_range(0, folk.size() - 1)], now)
+		if not _s.fauna.of_group(group).is_empty():
+			_s.parties.resolve_away(group, own.id, beast.species, now)
 
 
 ## A storm day's chance that a boat out fishing is swamped (FB4).

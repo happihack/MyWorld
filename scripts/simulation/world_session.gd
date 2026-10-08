@@ -128,6 +128,10 @@ var animals: AnimalRegistry
 var fauna: AnimalSystem
 ## The boats (FB2): built at the landings, worn, torn loose and lost.
 var boats: BoatSystem
+## Big predators seen, and the alarm (PR2).
+var predators: PredatorWatch
+## The hunting parties sent after them (PR4).
+var parties: HuntingParties
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## What has happened in this world, and what led to what (data/events).
@@ -197,6 +201,8 @@ var _saved_traffic: Dictionary = {}
 var _saved_disasters: Dictionary = {}
 ## (null: a world from before boats were things — its landings get theirs.)
 var _saved_boats: Variant = {}
+var _saved_predators: Dictionary = {}
+var _saved_parties: Dictionary = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
 var _saved_governance: Dictionary = {}
@@ -223,6 +229,8 @@ func _init() -> void:
 	farming = Farming.new()
 	fauna = AnimalSystem.new()
 	boats = BoatSystem.new()
+	predators = PredatorWatch.new()
+	parties = HuntingParties.new()
 	weather = WeatherSystem.new()
 	disasters = DisasterSystem.new()
 	events = EventLog.new()
@@ -299,6 +307,17 @@ func _init() -> void:
 	boats.boat_built.connect(chronicle.on_boat_built)
 	boats.boat_lost.connect(chronicle.on_boat_lost)
 	boats.swamped.connect(_on_boat_swamped)
+	parties.ended.connect(chronicle.on_party_ended)
+	parties.wounded.connect(chronicle.on_hurt_in_hunt)
+	# Big predators (PR2): seen — told; gone back to the wilds — told, if they had been seen.
+	predators.spotted.connect(func(kind: StringName, _group: int, at: Vector2, by_id: int, settlement_id: int) -> void:
+		chronicle.on_predator_spotted(kind, at, by_id, settlement_id))
+	predators.attacked.connect(func(person_id: int, kind: StringName, _severity: float, _killed: bool, settlement_id: int) -> void:
+		chronicle.on_mauled(person_id, kind, settlement_id))
+	fauna.left.connect(func(kind: StringName, group: int) -> void:
+		var seen := predators.known(group)
+		if not seen.is_empty():
+			chronicle.on_predator_gone(kind, int(seen["settlement"])))
 	migration.joining.connect(func(journey: Dictionary) -> void:
 		var from := settlements.get_settlement(int(journey["from"]))
 		var to := settlements.get_settlement(int(journey["target"]))
@@ -543,6 +562,8 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	_saved_traffic = {}
 	_saved_disasters = {}
 	_saved_boats = {}
+	_saved_predators = {}
+	_saved_parties = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -624,6 +645,8 @@ func load_from(data: Dictionary) -> bool:
 			_saved_traffic = state["traffic"]
 		_saved_disasters = state["disasters"] if typeof((state as Dictionary).get("disasters")) == TYPE_DICTIONARY else {}
 		_saved_boats = state["boats"] if typeof((state as Dictionary).get("boats")) == TYPE_DICTIONARY else null
+		_saved_predators = state["predators"] if typeof((state as Dictionary).get("predators")) == TYPE_DICTIONARY else {}
+		_saved_parties = state["parties"] if typeof((state as Dictionary).get("parties")) == TYPE_DICTIONARY else {}
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -792,6 +815,8 @@ func to_dict() -> Dictionary:
 			"traffic": traffic.to_dict(),
 			"disasters": disasters.to_dict(),
 			"boats": boats.to_dict(),
+			"predators": predators.to_dict(),
+			"parties": parties.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -981,6 +1006,9 @@ func advance_systems() -> void:
 	t = _timed(&"fauna", t)
 	boats.advance_to(clock.tick - STAGGER_BOATS)
 	t = _timed(&"boats", t)
+	predators.advance_to(clock.tick)
+	parties.advance_to(clock.tick)
+	t = _timed(&"predators", t)
 	stats.advance_to(clock.tick - STAGGER_STATS)
 	t = _timed(&"stats", t)
 
@@ -1035,7 +1063,7 @@ func _on_boat_swamped(boat: BoatData, drowned: Array) -> void:
 		(func() -> void:
 			var person := people.get_person(id)
 			if person != null and is_active:
-				lifecycle.die(person, Lifecycle.CAUSE_ACCIDENT, clock.tick)).call_deferred()
+				lifecycle.die(person, Lifecycle.CAUSE_DROWNED, clock.tick)).call_deferred()
 
 
 ## What nature does is noticed too (and people make of it what they will):
@@ -1366,6 +1394,9 @@ func _activate() -> void:
 	for animal in animals.all_animals():
 		ids.reserve_above(animal.id)
 	fauna.seed_world(clock.tick)
+	fauna.settlement_people = func(fire: Vector2i) -> int:
+		var own := settlements.nearest(fire) if settlements != null else null
+		return own.member_count() if own != null else 0
 	ai.fauna = fauna
 	ai.boats = boats
 	settlements.clear()
@@ -1646,6 +1677,37 @@ func _activate() -> void:
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)
+	predators.bind(clock.tick)
+	predators.fauna = fauna
+	predators.people = people
+	predators.behavior = behavior
+	predators.settlements = settlements
+	predators.props = props
+	predators.day_log = day_log
+	predators.rng = rng.stream(&"predators")
+	predators.kill = func(person: PersonData, cause: StringName) -> void:
+		# (After the turn being lived: nobody dies in the middle of a step.)
+		(func() -> void:
+			if is_active and people.has_person(person.id):
+				lifecycle.die(person, cause, clock.tick)).call_deferred()
+	predators.from_dict(_saved_predators)
+	_saved_predators = {}
+	parties.bind(clock.tick)
+	parties.fauna = fauna
+	parties.people = people
+	parties.behavior = behavior
+	parties.settlements = settlements
+	parties.watch = predators
+	parties.day_log = day_log
+	parties.rng = rng.stream(&"hunting_parties")
+	parties.kill = predators.kill
+	parties.piles = piles
+	var remember := func(person: PersonData, subject: StringName, importance: float) -> void:
+		lifecycle.remember_life(person, subject, clock.tick, importance)
+	parties.remember = remember
+	predators.remember = remember
+	parties.from_dict(_saved_parties)
+	_saved_parties = {}
 	perception.bind(ai)
 	behavior.from_dict(_saved_behavior)
 	_saved_behavior = {}

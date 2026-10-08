@@ -49,6 +49,10 @@ const SPECIES_NAMES := {
 	&"rabbit": "Rabbit",
 	&"fox": "Fox",
 	&"fish": "Fish",
+	&"bear": "Bear",
+	&"wolf": "Wolf",
+	&"lion": "Mountain lion",
+	&"boar": "Wild boar",
 }
 
 ## What an animal is doing (AnimalData.State).

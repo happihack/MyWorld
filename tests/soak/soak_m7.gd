@@ -139,6 +139,9 @@ func _run() -> void:
 			if i % 10 == 0:
 				s.soil.advance_to(s.clock.tick)
 				s.boats.advance_to(s.clock.tick) # (FB2: built, worn, mended, torn loose)
+				s.fauna.advance_to(s.clock.tick) # (the herds, the fish — and the big predators, PR1)
+				s.predators.advance_to(s.clock.tick) # (PR2–PR3: seen, feared, attacks)
+				s.parties.advance_to(s.clock.tick) # (PR4: the hunting parties)
 				for fisher in s.people.all_people():
 					if fisher.occupation_id == &"fisher":
 						var steps: Variant = fisher.current_action.get("steps")

@@ -16,6 +16,8 @@ const ILLNESS := &"illness"
 const FIGHT := &"fight"
 const FALL := &"fall"
 const CUT := &"cut"
+## Torn by a wild beast (PR3).
+const MAULED := &"mauled"
 ## Kinds of illness.
 const BAD_WATER := &"bad_water"
 const CROWDING := &"crowding"
