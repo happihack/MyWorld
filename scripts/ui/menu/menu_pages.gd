@@ -369,6 +369,9 @@ static func population_lines(s: WorldSession) -> PackedStringArray:
 	var ages := 0
 	for p in s.people.all_people():
 		var stage := p.life_stage(s.clock.tick, year_ticks, Config.people)
+		# (The young count with the children, as in the people list's "Children".)
+		if stage == PersonData.LifeStage.ADOLESCENT:
+			stage = PersonData.LifeStage.CHILD
 		counts[stage] = int(counts.get(stage, 0)) + 1
 		if p.sex == PersonData.Sex.MALE:
 			men += 1

@@ -10,6 +10,7 @@ const EFFECTS := {
 	&"drought": [&"food", &"grass", &"water"],
 	&"flood": [&"water", &"food", &"health"],
 	&"storm": [&"wood", &"buildings"],
+	&"blizzard": [&"wood", &"buildings"],
 	&"cold_snap": [&"health", &"mood"],
 	&"heat_wave": [&"mood", &"water"],
 	&"food_shortage": [&"population", &"mood", &"health"],

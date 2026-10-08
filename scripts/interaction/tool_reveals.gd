@@ -57,7 +57,7 @@ func reveal(id: StringName, now: int, quiet: bool = false) -> bool:
 func on_weather(state: StringName, now: int, quiet: bool = false) -> void:
 	if state == WeatherSystem.RAIN or state == WeatherSystem.HEAVY_RAIN or state == WeatherSystem.STORM:
 		reveal(RAIN, now, quiet)
-	if state == WeatherSystem.STORM:
+	if state == WeatherSystem.STORM or state == WeatherSystem.BLIZZARD:
 		reveal(WIND, now, quiet)
 
 

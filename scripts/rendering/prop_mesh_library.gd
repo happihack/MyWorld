@@ -156,6 +156,7 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.KILN, 0)] = _kiln()
 	_templates[_key(PropData.Kind.HERB_RACK, 0)] = _herb_rack()
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
+	_templates[_key(PropData.Kind.BORDER_STONES, 0)] = _border_stones()
 	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
 	_templates[_key(PropData.Kind.STONE_CIRCLE, 0)] = _stone_circle()
 	_templates[_key(PropData.Kind.SHRINE, 0)] = _shrine()
@@ -203,7 +204,7 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _wood_pile()
 			&"stone":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _stone_pile()
-			&"tools":
+			&"tools", &"spears", &"bows":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
@@ -654,6 +655,17 @@ static func _record_stone(tallies: bool) -> Template:
 		for row in 3:
 			for mark in 5:
 				_box(t, Vector3(-0.12 + mark * 0.05, 0.62 - row * 0.15, -0.062), Vector3(0.006, 0.04, 0.004), _rgba(STONE_DARK.darkened(0.4), 0.0))
+	return t
+
+
+## Border stones (FC6): a short row of rough standing stones set where two
+## settlements made peace, on the ground they fought over.
+static func _border_stones() -> Template:
+	var t := Template.new()
+	for i in 3:
+		var tall := 0.18 + 0.06 * float((i * 2) % 3)
+		_box(t, Vector3(-0.30 + i * 0.30, tall, 0.02 * (i % 2)), Vector3(0.07, tall, 0.05),
+			_rgba(STONE if i != 1 else STONE_DARK, 0.0), 0.25 * (i - 1))
 	return t
 
 

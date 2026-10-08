@@ -7,7 +7,7 @@ extends ConfigBase
 
 @export_group("Shelter")
 ## How strongly each kind of weather drives people indoors, 0 … 1.
-@export var pull_by_weather: Dictionary = {&"rain": 0.4, &"heavy_rain": 0.7, &"storm": 1.0, &"snow": 0.4}
+@export var pull_by_weather: Dictionary = {&"rain": 0.4, &"heavy_rain": 0.7, &"storm": 1.0, &"snow": 0.4, &"blizzard": 1.0}
 ## The cold does too: from this temperature down (°C), fully so many degrees below it — at most this much.
 @export_range(-30.0, 20.0, 0.5) var cold_pull_from: float = 0.0
 @export_range(1.0, 40.0, 0.5) var cold_pull_span: float = 12.0
@@ -68,5 +68,5 @@ func validate() -> PackedStringArray:
 	_check(p, deep_cold <= cold_from, "deep_cold must not be warmer than cold_from")
 	_check(p, heat_slow < 1.0, "heat_slow must leave some work")
 	for kind: Variant in pull_by_weather:
-		_check(p, WeatherSystem.STATES.has(StringName(str(kind))), "pull_by_weather: %s is no weather" % kind)
+		_check(p, WeatherSystem.ALL.has(StringName(str(kind))), "pull_by_weather: %s is no weather" % kind)
 	return p

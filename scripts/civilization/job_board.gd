@@ -139,7 +139,7 @@ func refresh(settlement: Settlement, now: int) -> void:
 			wanted.append([BUILD, &"", &"site", minf(pressing, 1.0), 0.0, 0.0])
 		if settlement.trade != null and settlement.trade.has_offer(settlement.id):
 			wanted.append([TRADE, &"", &"trade", Config.trade.trade_priority, 0.0, 0.0])
-		if settlement.workshop() != null and settlement.tools_wanted():
+		if settlement.workshop() != null and settlement.craft_wanted():
 			wanted.append([CRAFT, &"", &"workshop", Config.trade.trade_priority, 0.0, 0.0])
 		# The fire is always there to be kept.
 		if settlement.fire() != null:

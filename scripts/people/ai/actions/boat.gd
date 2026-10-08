@@ -182,7 +182,7 @@ static func _follow(ctx: AiContext, person: PersonData, boat: BoatData) -> void:
 
 
 static func _stormy(ctx: AiContext) -> bool:
-	return ctx.weather != null and ctx.weather.state == WeatherSystem.STORM
+	return ctx.weather != null and ctx.weather.is_storm()
 
 
 static func _late(ctx: AiContext) -> bool:

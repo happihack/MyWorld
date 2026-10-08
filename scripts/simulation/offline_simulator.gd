@@ -41,6 +41,8 @@ const FOOD_WORK: Array[StringName] = [&"bush", &"game", &"fish", &"field"]
 const STEP_AT_MINUTE := 12 * 60
 const FIELD_TASKS_PER_DAY := 6
 const BUILD_MINUTES_PER_DAY := 300.0
+## What a toolmaker makes in a day's work at the workshop (tools, weapons: PR6).
+const CRAFTS_PER_DAY := 4.0
 ## The units of their own work a day that make someone better at it (WorkStep:
 ## Config.trade.skill_per_unit for each).
 const SKILL_UNITS_PER_DAY := 4.0
@@ -254,6 +256,8 @@ func _work(own: Settlement, share: float, now: int) -> void:
 				_farm(own, person, share, now)
 			&"site":
 				_build(own, person, own_share, now)
+			&"workshop":
+				_craft(own, own_share)
 		# Better at it for the day's work (as they would be, a unit at a time: WorkStep).
 		var key := String(person.occupation_id)
 		person.skills[key] = minf(float(person.skills.get(key, 0.0)) + Config.trade.skill_per_unit * SKILL_UNITS_PER_DAY * share, 1.0)
@@ -319,11 +323,21 @@ func _hunt(own: Settlement, share: float) -> void:
 		return
 	var def := own.fauna.species.get_def(quarry.species)
 	var meat := maxf(float(def.meat) if def != null else 1.0, 1.0)
-	if _rng.randf() < RATES[&"game"][&"meat"] * share / meat:
+	# (Better armed, more often home with something: PR6.)
+	var armed := 1.0 + float(Weapons.stat(Weapons.best_in(own), "hit"))
+	if _rng.randf() < RATES[&"game"][&"meat"] * armed * share / meat:
 		var got := mini(own.fauna.hunted(quarry.id), own.stockpile.room(&"meat"))
 		if got > 0:
 			own.stockpile.add(&"meat", got)
 			own.note_produced(&"meat", got)
+
+
+func _craft(own: Settlement, share: float) -> void:
+	if own.workshop() == null:
+		return
+	for i in _whole(CRAFTS_PER_DAY * share):
+		if not own.craft(null):
+			return
 
 
 func _fish(own: Settlement, share: float) -> void:
@@ -351,7 +365,7 @@ func _fish(own: Settlement, share: float) -> void:
 		boat.trips += 1
 		boat.caught += got
 		# (Out in a storm, now and then swamped.)
-		if _s.weather != null and _s.weather.state == WeatherSystem.STORM and _rng.randf() < OFFLINE_SWAMP:
+		if _s.weather != null and _s.weather.is_storm() and _rng.randf() < OFFLINE_SWAMP:
 			_s.boats.swamp(boat, _s.clock.tick)
 
 

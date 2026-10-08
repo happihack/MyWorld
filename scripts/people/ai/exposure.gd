@@ -13,6 +13,7 @@ extends RefCounted
 const COLD := &"cold"
 const RAIN := &"rain"
 const STORM := &"storm"
+const BLIZZARD := &"blizzard"
 const SNOW := &"snow"
 
 
@@ -45,6 +46,8 @@ static func reason(weather: WeatherSystem, now: int, config: ExposureConfig = nu
 	match weather.state:
 		WeatherSystem.STORM:
 			return STORM
+		WeatherSystem.BLIZZARD:
+			return BLIZZARD
 		WeatherSystem.SNOW:
 			return SNOW
 	return RAIN

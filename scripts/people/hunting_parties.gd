@@ -8,8 +8,9 @@ extends RefCounted
 ## to the stores, its hide. At dusk they come home; if it is still about,
 ## they go out again in the morning.
 ##
-## Weapons are a stone spear for now (D7): every member is armed alike. PR6
-## makes weapons things the toolmaker makes.
+## Weapons (PR6): each member takes the best the stores have (Weapons; the
+## leader first) and brings it back — unless it broke, or they fell. Without
+## one, a sharpened stick of their own.
 
 ## Phases of a party.
 const GATHER := &"gather"
@@ -55,16 +56,13 @@ const ABLE_HEALTH := 0.6
 const TIMID := -0.35
 const REFUSE := 0.5
 ## The fight. A member's thrust: STRIKE_BASE + STRIKE_SKILL × hunter skill +
-## the spear's SPEAR_HIT; a hit does SPEAR_DAMAGE. The beast strikes back at
+## their weapon's hit; a hit does its damage. The beast strikes back at
 ## one of them: BEAST_HIT_BASE + BEAST_HIT_DANGER × its danger; the wound its
-## danger × 0.35 … 1, less SPEAR_GUARD (the spear keeps it off). Now and then
+## danger × 0.35 … 1, less their weapon's guard (it keeps it off). Now and then
 ## (GRAVE_CHANCE a hit) a wound is grave — its danger and more — and the
 ## worst of those kill (KILL_FROM, KILL_SHARE: the owner, death rare).
 const STRIKE_BASE := 0.35
 const STRIKE_SKILL := 0.4
-const SPEAR_HIT := 0.1
-const SPEAR_DAMAGE := 1.0
-const SPEAR_GUARD := 0.3
 const BEAST_HIT_BASE := 0.3
 const BEAST_HIT_DANGER := 0.4
 const GRAVE_CHANCE := 0.03
@@ -170,7 +168,10 @@ func form(group: int, settlement_id: int, species: StringName, now: int) -> Dict
 		ids.append(person.id)
 	var party := {"id": _next_id, "settlement": settlement_id, "group": group, "species": String(species),
 		"leader": chosen[0].id, "members": ids, "phase": GATHER, "since": now, "strength": strength, "full": strength,
-		"hurt": [], "killed": 0, "pack": fauna.of_group(group).size(), "meat": 0, "hides": 0}
+		"hurt": [], "killed": 0, "pack": fauna.of_group(group).size(), "meat": 0, "hides": 0, "arms": {}}
+	var arms := Weapons.take(own, chosen.size())
+	for i in chosen.size():
+		party["arms"][str(chosen[i].id)] = String(arms[i])
 	_next_id += 1
 	_parties.append(party)
 	for person in chosen:
@@ -314,8 +315,11 @@ func _round(party: Dictionary, beasts: Array[AnimalData], members: Array[PersonD
 			continue # (not up with it yet)
 		up += 1
 		var skill := float(person.skills.get("hunter", 0.0))
-		if rng.randf() < STRIKE_BASE + STRIKE_SKILL * skill + SPEAR_HIT:
-			party["strength"] = float(party["strength"]) - SPEAR_DAMAGE
+		var weapon := weapon_of(party, person.id)
+		if rng.randf() < STRIKE_BASE + STRIKE_SKILL * skill + float(Weapons.stat(weapon, "hit")):
+			party["strength"] = float(party["strength"]) - float(Weapons.stat(weapon, "damage"))
+		if Weapons.used(weapon, rng):
+			party["arms"][str(person.id)] = "" # (broken)
 	if up == 0:
 		party["idle"] = int(party.get("idle", 0)) + 1
 		if int(party["idle"]) >= OUT_OF_REACH_ROUNDS:
@@ -353,7 +357,7 @@ func _round(party: Dictionary, beasts: Array[AnimalData], members: Array[PersonD
 		return
 	var victim: PersonData = near[rng.randi_range(0, near.size() - 1)]
 	if rng.randf() < BEAST_HIT_BASE + BEAST_HIT_DANGER * def.danger:
-		var severity := def.danger * rng.randf_range(0.35, 1.0) * (1.0 - SPEAR_GUARD)
+		var severity := def.danger * rng.randf_range(0.35, 1.0) * (1.0 - float(Weapons.stat(weapon_of(party, victim.id), "guard")))
 		if rng.randf() < GRAVE_CHANCE:
 			severity = def.danger + GRAVE_MORE
 		severity = clampf(severity, 0.05, 1.0)
@@ -431,6 +435,10 @@ func _go_home(party: Dictionary, now: int, outcome: StringName) -> void:
 		if int(party["hides"]) > 0:
 			own.stockpile.add(&"hide", int(party["hides"]))
 		own.note_produced(&"meat", int(party["meat"]))
+	# (Their weapons back into the stores.)
+	if own != null:
+		Weapons.give_back(own, (party.get("arms", {}) as Dictionary).values())
+	party["arms"] = {}
 	_lead(party, now)
 	ended.emit(party, outcome, int(party["killed"]))
 
@@ -446,6 +454,7 @@ func _lead(party: Dictionary, now: int) -> void:
 	var members := _members(party)
 	for i in members.size():
 		var person := members[i]
+		person.armed = &"" if phase == HOME else Weapons.stat(weapon_of(party, person.id), "carried")
 		var steps: Array = []
 		match phase:
 			GATHER:
@@ -479,7 +488,14 @@ func _drop_the_fallen(party: Dictionary) -> void:
 	for id: int in party["members"]:
 		if people.has_person(id):
 			still.append(id)
+		else:
+			(party.get("arms", {}) as Dictionary).erase(str(id)) # (lost with them)
 	party["members"] = still
+
+
+## What a member has in hand (Weapons kind; NONE: a stick of their own).
+static func weapon_of(party: Dictionary, person_id: int) -> StringName:
+	return StringName(str((party.get("arms", {}) as Dictionary).get(str(person_id), "")))
 
 
 func _members(party: Dictionary) -> Array[PersonData]:

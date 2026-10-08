@@ -4,11 +4,11 @@ extends ActionStep
 ## half as far) and, within reach, throw. A hit kills — the hunter takes
 ## up the meat; a miss sends it running, and that hunt is over.
 ##   {"type": "hunt", "animal": int, "minutes": float, "elapsed": float,
-##    "target": Vector2i (where one is headed), "thrown": bool}
+##    "target": Vector2i (where one is headed), "thrown": bool, "weapon": Weapons kind}
 
 const TYPE := &"hunt"
-## Tiles from which a spear is thrown.
-const REACH := 2.6
+## (Tiles from which it is thrown, or shot, and how much better it hits: by
+## the weapon taken from the stores — Weapons, PR6.)
 ## If the quarry has moved this far from where one is headed, one heads for it anew.
 const RETARGET := 2.0
 ## How likely a throw is to hit: for a beginner, and for someone skilled.
@@ -23,9 +23,13 @@ static func make(animal_id: int) -> Dictionary:
 	return {"type": String(TYPE), "animal": animal_id, "minutes": GIVE_UP_MINUTES, "elapsed": 0.0}
 
 
-func begin(ctx: AiContext, person: PersonData, _step: Dictionary) -> void:
+func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	person.pose = PersonData.Pose.IDLE
 	ctx.take_walk_result(person.id)
+	# The best weapon in the stores (PR6; none: a sharpened stick of their own).
+	if not step.has("weapon"):
+		step["weapon"] = String(Weapons.best_in(_own(ctx, person)))
+	person.armed = Weapons.stat(StringName(step["weapon"]), "carried")
 
 
 func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float) -> Status:
@@ -35,12 +39,17 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	if tick(step, minutes):
 		return Status.FAILED # it got away
 	var distance := person.world2d().distance_to(animal.position)
-	if distance <= REACH:
+	var weapon := StringName(str(step.get("weapon", "")))
+	if distance <= float(Weapons.stat(weapon, "reach")):
 		ctx.movement.stop(person.id)
 		ctx.face(person, animal.position)
 		person.pose = PersonData.Pose.WORK
 		var skill := clampf(float(person.skills.get(SKILL, 0.0)), 0.0, 1.0)
-		if ctx.rng.randf() < lerpf(HIT_UNSKILLED, HIT_SKILLED, skill):
+		if Weapons.used(weapon, ctx.rng):
+			var own := _own(ctx, person)
+			if own != null:
+				own.stockpile.take(weapon, 1) # (broken)
+		if ctx.rng.randf() < lerpf(HIT_UNSKILLED, HIT_SKILLED, skill) + float(Weapons.stat(weapon, "hit")):
 			var kind := animal.species
 			var meat := ctx.fauna.hunted(animal.id)
 			if meat > 0:
@@ -75,7 +84,12 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 func end(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	ctx.movement.stop(person.id)
 	ctx.take_walk_result(person.id)
+	person.armed = &""
 	super.end(ctx, person, step)
+
+
+static func _own(ctx: AiContext, person: PersonData) -> Settlement:
+	return ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
 
 
 func needs_state(_step: Dictionary) -> Needs.State:

@@ -215,7 +215,7 @@ func _each_day(now: int) -> void:
 	paths.clear_cache() # (the water may have changed)
 	_routes.clear()
 	_build(now)
-	var stormy := (weather != null and weather.state == WeatherSystem.STORM) or (hydrology != null and hydrology.high_water)
+	var stormy := (weather != null and weather.is_storm()) or (hydrology != null and hydrology.high_water)
 	var frozen: bool = is_frozen.is_valid() and bool(is_frozen.call())
 	for boat in all_boats():
 		# Fish left in the hull spoil (as fish do: within two days) — half of them a day.

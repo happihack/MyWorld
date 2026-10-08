@@ -119,7 +119,7 @@ func dress(person: PersonData, now_tick: int, ticks_per_year: int, config: Peopl
 	# People do not breathe and step in unison.
 	_body.set_instance_shader_parameter(&"phase", float((person.id * 2654435761) & 0xFFFF) / 65535.0 * TAU)
 	var def := occupations.get_def(person.occupation_id) if occupations != null else null
-	accessory = def.accessory if def != null else &""
+	accessory = PersonMeshLibrary.accessory_for(person, def)
 	_accessory.mesh = PersonMeshLibrary.accessory(accessory)
 	_accessory.visible = _accessory.mesh != null
 

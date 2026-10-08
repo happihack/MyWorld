@@ -36,6 +36,7 @@ const TYPE_FIRE_OUT := &"fire_out"
 const TYPE_FIRE_RELIT := &"fire_relit"
 const TYPE_PLAYER := &"player_intervention"
 const TYPE_STORM := &"storm"
+const TYPE_BLIZZARD := &"blizzard"
 const TYPE_DROUGHT := &"drought"
 const TYPE_HEAT_WAVE := &"heat_wave"
 const TYPE_COLD_SNAP := &"cold_snap"
@@ -314,11 +315,14 @@ func on_harvest_thin(crop_id: int) -> void:
 
 # --- the weather ----------------------------------------------------------------------------------
 
-## The weather has changed: a storm is worth a line.
+## The weather has changed: a storm (or a blizzard) is worth a line.
 func on_weather_changed(_old: StringName, now: StringName) -> void:
-	if not _writing() or now != WeatherSystem.STORM:
+	if not _writing():
 		return
-	_log.record(TYPE_STORM, {})
+	if now == WeatherSystem.STORM:
+		_log.record(TYPE_STORM, {})
+	elif now == WeatherSystem.BLIZZARD:
+		_log.record(TYPE_BLIZZARD, {})
 
 
 ## A drought, a heat wave or a cold snap has begun (or is over).
@@ -613,8 +617,8 @@ func on_building_damaged(building_id: int, why: StringName) -> void:
 	var causes: Array = []
 	if why == &"flood" and flood_id() != 0:
 		causes = [flood_id()]
-	elif why == &"storm":
-		var storms := _log.of_type(TYPE_STORM)
+	elif why == &"storm" or why == &"blizzard":
+		var storms := _log.of_type(TYPE_BLIZZARD if why == &"blizzard" else TYPE_STORM)
 		if not storms.is_empty():
 			causes = [storms[-1].id]
 	_log.record(TYPE_BUILDING_DAMAGED, {"building": UIText.prop_name(building.kind).to_lower(), "kind": String(why),

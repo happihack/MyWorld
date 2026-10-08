@@ -33,7 +33,7 @@ const SPECS := {
 ## (`variant` of a pile; PropMeshLibrary has a shape for each). Part of the
 ## save format: append, never reorder.
 const PILE_RESOURCES: Array[StringName] = [&"wood", &"stone", &"berries", &"meat", &"fish", &"grain", &"water", &"clay", &"herbs", &"tools",
-	&"mushrooms", &"roots", &"nuts", &"hide"]
+	&"mushrooms", &"roots", &"nuts", &"hide", &"spears", &"bows"]
 ## A fallen fruit of this variant is a nut (resource "nuts"; others are berries).
 const NUT_VARIANT := 1
 

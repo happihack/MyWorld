@@ -49,12 +49,15 @@ const WAR_WITHIN_YEARS := 3
 const RAID_TAKES := 0.3
 ## A leader fierce enough to raid (their aggression, -1 … 1).
 const FIERCE := 0.2
-## A battle on a day of war (the chance), the share of each side who may fall.
+## A battle on a day of war (the chance), the share of each side who may fall
+## (more against the better armed, fewer for them: Weapons.WAR_EDGE).
 const BATTLE_CHANCE := 0.12
 const FALL_CHANCE := 0.07
 ## Peace once this many have fallen, or this long has passed (days).
 const PEACE_AFTER_FALLEN := 3
 const PEACE_AFTER_DAYS := 60
+## A walked battle not told within this long (minutes) is let go (FC6).
+const PENDING_MOST := 4 * 24 * 60
 ## A revolution: when this share stand against the leader's belief (the chance a day).
 const AGAINST := 0.6
 const REVOLUTION_CHANCE := 0.01
@@ -70,6 +73,10 @@ var trade: TradeSystem
 ## it will be made by people, and told when it is over — see raid_done).
 ## Unset (or false: away from the box), a raid is made at once.
 var walk_raid := Callable()
+## Walks a battle (FC6): Callable(a, b, fallen: Array, heroes: Array) -> bool
+## (true: it will be fought on a meeting ground and told when it is over — see
+## battle_done). Unset (or false: away from the box), a battle is at once.
+var walk_battle := Callable()
 ## Kills a person (session: Lifecycle.die): Callable(person_id, cause, causes).
 var kill := Callable()
 ## The event id of a settlement's latest shortage (for causes): Callable(settlement_id) -> int (0: none).
@@ -233,37 +240,76 @@ func raid_done(raider_id: int, victim_id: int, taken: int, leader: int, causes: 
 ## A day of war: perhaps a battle; peace once it has cost enough, or lasted long enough.
 func _wage(a: Settlement, b: Settlement, record: Dictionary, now: int) -> void:
 	var war: Dictionary = record["war"]
+	# (A battle still to be fought, or being fought: FC6. Not for ever.)
+	if war.has("pending") and now - int(war["pending"]) < PENDING_MOST:
+		return
+	war.erase("pending")
 	var roll := float(posmod(hash([a.id, b.id, _day, "battle"]), 1000)) / 1000.0
 	if roll < BATTLE_CHANCE:
 		var fallen: Array = []
 		var heroes: Array = []
-		for own in [a, b]:
+		# Each side's grown, and how well they are armed (PR6, W2: the better
+		# armed lose fewer and take more).
+		var sides := {}
+		for own: Settlement in [a, b]:
 			var fighters: Array = own.members().filter(func(p: PersonData) -> bool:
 				return p.life_stage(now, Config.time.ticks_per_year(), Config.people) == PersonData.LifeStage.ADULT)
 			fighters.sort_custom(func(x: PersonData, y: PersonData) -> bool: return x.id < y.id)
+			sides[own.id] = [fighters, Weapons.arms_of(own, fighters.size())]
+		for own: Settlement in [a, b]:
+			var fighters: Array = sides[own.id][0]
+			var theirs: float = sides[(b if own == a else a).id][1]
+			var edge := clampf(1.0 + Weapons.WAR_EDGE * (theirs - float(sides[own.id][1])), 0.3, 2.0)
 			var bravest: PersonData = null
 			for person: PersonData in fighters:
 				var fate := float(posmod(hash([person.id, _day, "fall"]), 1000)) / 1000.0
-				if fate < FALL_CHANCE * (1.0 - 0.5 * maxf(ReactionTable.lean(person.traits, Traits.Axis.BRAVERY), 0.0)):
+				if fate < FALL_CHANCE * edge * (1.0 - 0.5 * maxf(ReactionTable.lean(person.traits, Traits.Axis.BRAVERY), 0.0)):
 					fallen.append(person.id)
 				elif bravest == null or Traits.value(person.traits, Traits.Axis.BRAVERY) > Traits.value(bravest.traits, Traits.Axis.BRAVERY):
 					bravest = person
 			if bravest != null:
 				heroes.append(bravest.id)
-		battle.emit(a.id, b.id, fallen, heroes)
-		# (The fallen died of this battle — told just now: its id is noted.)
-		var of_it := int(war.get("battle", 0)) if int(war.get("battle", 0)) > 0 else int(war["event"])
-		for id: int in fallen:
-			if kill.is_valid():
-				kill.call(id, CAUSE_WAR, [of_it] if of_it > 0 else [])
-		war["fallen"] = int(war["fallen"]) + fallen.size()
+			Weapons.worn_in_battle(own, float(posmod(hash([own.id, _day, "worn"]), 1000)) / 1000.0)
+		if walk_battle.is_valid() and bool(walk_battle.call(a.id, b.id, fallen, heroes)):
+			war["pending"] = now
+			return # (fought where it can be seen: told when it is over)
+		_fought(a.id, b.id, fallen, heroes)
+	_peace_if_due(a.id, b.id, now)
+
+
+## A walked battle is over (FC6): told, and its fallen die of it.
+func battle_done(a: int, b: int, fallen: Array, heroes: Array) -> void:
+	var record := pair(a, b)
+	if (record["war"] as Dictionary).is_empty():
+		return
+	(record["war"] as Dictionary).erase("pending")
+	_fought(a, b, fallen, heroes)
+	_peace_if_due(a, b, _day * TimeConfig.MINUTES_PER_DAY)
+
+
+func _fought(a: int, b: int, fallen: Array, heroes: Array) -> void:
+	var war: Dictionary = pair(a, b)["war"]
+	battle.emit(a, b, fallen, heroes)
+	# (The fallen died of this battle — told just now: its id is noted.)
+	var of_it := int(war.get("battle", 0)) if int(war.get("battle", 0)) > 0 else int(war.get("event", 0))
+	for id: Variant in fallen:
+		if kill.is_valid():
+			kill.call(int(id), CAUSE_WAR, [of_it] if of_it > 0 else [])
+	war["fallen"] = int(war.get("fallen", 0)) + fallen.size()
+
+
+func _peace_if_due(a: int, b: int, now: int) -> void:
+	var record := pair(a, b)
+	var war: Dictionary = record["war"]
+	if war.is_empty() or war.has("pending"):
+		return
 	if int(war["fallen"]) >= PEACE_AFTER_FALLEN or now - int(war["since"]) >= PEACE_AFTER_DAYS * TimeConfig.MINUTES_PER_DAY:
 		record["war"] = {}
 		record["border"] = true
 		record["tension"] = DISPUTE_AT * 0.5
 		record["raids"] = []
 		record["raid_events"] = []
-		peace.emit(a.id, b.id, int(war["fallen"]))
+		peace.emit(a, b, int(war["fallen"]))
 
 
 ## The event that told of a step (the session fills it in, for the causes of the next).

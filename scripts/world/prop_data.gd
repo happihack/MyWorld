@@ -9,7 +9,7 @@ extends RefCounted
 
 ## (Saved by number: append, never reorder.)
 enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
-	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED, MUSHROOM, ROOTS }
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED, MUSHROOM, ROOTS, BORDER_STONES }
 ## Wild food that grows on the ground (the owner, 2026-10-06), foraged like a
 ## bush: mushrooms on damp ground in and by the woods, roots in the meadows.
 const FORAGE: Array[int] = [Kind.BUSH, Kind.MUSHROOM, Kind.ROOTS]
@@ -56,6 +56,7 @@ const PICK_BODY := {
 	Kind.KILN: [0.70, 0.44],
 	Kind.HERB_RACK: [0.70, 0.40],
 	Kind.RECORD_STONE: [0.80, 0.30],
+	Kind.BORDER_STONES: [0.45, 0.40],
 	Kind.STONE_CIRCLE: [0.60, 0.48],
 	Kind.SHRINE: [0.70, 0.36],
 	Kind.CEMETERY: [0.50, 0.95],
@@ -174,7 +175,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING, Kind.WOODSHED:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING, Kind.WOODSHED, Kind.BORDER_STONES:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

@@ -28,3 +28,25 @@ func test_the_weightier_shows() -> void:
 	assert_true(Signs.flash(person, Signs.HURT, 3), "as weighty: the new one")
 	Signs.clear(person)
 	assert_eq(Signs.shown(person, 4), Signs.EXCLAIM)
+
+
+func test_a_village_is_not_a_sea_of_hearts() -> void:
+	# (FC8: light signs a settlement may show in an hour; weighty ones always.)
+	Signs.reset_rates()
+	var shown := 0
+	for i in 10:
+		var person := PersonData.new()
+		person.settlement_id = 7
+		shown += 1 if Signs.flash(person, Signs.LOVE, 60 * 50 + i) else 0
+	assert_eq(shown, int(Signs.RATE_PER_HOUR[Signs.LOVE]), "so many hearts an hour")
+	var elsewhere := PersonData.new()
+	elsewhere.settlement_id = 8
+	assert_true(Signs.flash(elsewhere, Signs.LOVE, 60 * 50 + 20), "another settlement's own")
+	var next_hour := PersonData.new()
+	next_hour.settlement_id = 7
+	assert_true(Signs.flash(next_hour, Signs.LOVE, 60 * 51), "and more the next hour")
+	for i in 10:
+		var hurt := PersonData.new()
+		hurt.settlement_id = 7
+		assert_true(Signs.flash(hurt, Signs.HURT, 60 * 51 + i), "hurt is never held back")
+	Signs.reset_rates()

@@ -41,6 +41,12 @@ const EMOTE_SIZE := 0.22
 const EMOTE_MIN_ON_SCREEN := 46.0
 ## A sign pops up in this long.
 const EMOTE_POP_SECONDS := 0.18
+## At most this many signs at once (FC8, the owner's sign budget): the
+## weightiest, whoever is selected first, then the nearest to the camera; a
+## sign already up keeps its place against an equal one (no flicker).
+const SIGN_BUDGET := 12
+const SIGN_NEAR_WEIGHT := 0.2
+const SIGN_KEEP := 3.0
 ## The dots of an observed person's way.
 const TRAIL_DOT := 0.09
 const TRAIL_COLOR := Color(1.0, 0.92, 0.66, 0.85)
@@ -107,6 +113,7 @@ var _emote_sprites: Dictionary = {} # person id -> Sprite3D
 var _emote_ages: Dictionary = {} # person id -> seconds shown
 var _emote_spare: Array[Sprite3D] = []
 var _marker_transforms: Array[Transform3D] = [] # as written to the MultiMesh (for queries)
+var _wanted_signs: Array = [] # [score, person id, sign, head] this frame (SIGN_BUDGET)
 var _bodies_shown := true
 var _refreshes := 0
 
@@ -326,6 +333,8 @@ func refresh(delta: float) -> void:
 	var marker_scale := MARKER_SIZE * units_per_px
 	_marker_transforms.clear()
 	var in_turns := _ids.size() > IN_TURNS_FROM
+	var eye := _rig.camera_transform().origin
+	_wanted_signs.clear()
 	for id in _ids:
 		# Someone with nothing drawn (no body, no marker, no sign) is looked at
 		# every NOTHING_DRAWN_EVERY-th frame only, in turns: whether they have
@@ -377,7 +386,9 @@ func refresh(delta: float) -> void:
 		if sign != &"" and not indoors:
 			var head := (view.position if view != null and wants_view else feet) \
 				+ Vector3(0, PersonMeshLibrary.ADULT_HEIGHT * (view.scale.y / PersonMeshLibrary.ADULT_HEIGHT if view != null and wants_view else 1.0), 0)
-			_show_emote(id, sign, head, maxf(EMOTE_SIZE, EMOTE_MIN_ON_SCREEN * units_per_px), delta)
+			var score := Signs.weight(sign) * 10.0 - head.distance_to(eye) * SIGN_NEAR_WEIGHT \
+				+ (1000.0 if id == _selected_id else 0.0) + (SIGN_KEEP if _emote_sprites.has(id) else 0.0)
+			_wanted_signs.append([score, id, sign, head])
 		elif _emote_sprites.has(id):
 			_drop_emote(id)
 		if _marker_alpha > 0.0 and not indoors:
@@ -392,9 +403,17 @@ func refresh(delta: float) -> void:
 			marked += 1
 	multimesh.visible_instance_count = marked
 	_markers.visible = marked > 0
-	if _emote_sprites.size() > 0:
+	# The signs: no more than the budget.
+	_wanted_signs.sort_custom(func(x: Array, y: Array) -> bool: return x[0] > y[0] or (x[0] == y[0] and x[1] < y[1]))
+	var shown := {}
+	var sign_size := maxf(EMOTE_SIZE, EMOTE_MIN_ON_SCREEN * units_per_px)
+	for i in mini(SIGN_BUDGET, _wanted_signs.size()):
+		var wanted: Array = _wanted_signs[i]
+		_show_emote(wanted[1], wanted[2], wanted[3], sign_size, delta)
+		shown[wanted[1]] = true
+	if _emote_sprites.size() > shown.size():
 		for id: int in _emote_sprites.keys():
-			if not _people.has_person(id):
+			if not shown.has(id):
 				_drop_emote(id)
 	_marker_material.albedo_color.a = _marker_alpha
 	# The ring under whoever is selected: with their body, or where they are
@@ -497,7 +516,7 @@ func _palette_of(person: PersonData) -> int:
 
 func _accessory_of(person: PersonData) -> StringName:
 	var def := _occupations.get_def(person.occupation_id) if _occupations != null else null
-	return def.accessory if def != null else &""
+	return PersonMeshLibrary.accessory_for(person, def)
 
 
 func _on_person_added(id: int) -> void:

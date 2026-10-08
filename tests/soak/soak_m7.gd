@@ -144,6 +144,7 @@ func _run() -> void:
 				s.parties.advance_to(s.clock.tick) # (PR4: the hunting parties)
 				s.assemblies.advance_to(s.clock.tick) # (FC7: disputes and revolutions, seen)
 				s.raids.advance_to(s.clock.tick) # (FC5: raids walked)
+				s.wars.advance_to(s.clock.tick) # (FC6: battles in the open)
 				for fisher in s.people.all_people():
 					if fisher.occupation_id == &"fisher":
 						var steps: Variant = fisher.current_action.get("steps")

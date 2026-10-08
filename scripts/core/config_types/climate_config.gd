@@ -26,7 +26,7 @@ extends ConfigBase
 @export_range(0.0, 24.0, 0.25) var warmest_hour: float = 15.0
 ## What each kind of weather adds (°C).
 @export var state_temperature: Dictionary = {
-	&"clear": 1.0, &"cloudy": -0.5, &"rain": -2.5, &"heavy_rain": -3.5, &"storm": -4.0, &"wind": -1.5, &"snow": -3.0, &"fog": -1.0,
+	&"clear": 1.0, &"cloudy": -0.5, &"rain": -2.5, &"heavy_rain": -3.5, &"storm": -4.0, &"wind": -1.5, &"snow": -3.0, &"fog": -1.0, &"blizzard": -6.0,
 }
 ## Warmer and colder air comes and goes over days: by up to this much
 ## (°C) either way, changing over about this many days.
@@ -43,17 +43,18 @@ extends ConfigBase
 
 @export_group("Sky")
 ## What falls in an hour (units; a day with `rain_day_from` of them is a rainy day).
-@export var precipitation: Dictionary = {&"rain": 1.0, &"heavy_rain": 2.5, &"storm": 3.0, &"snow": 0.7}
+@export var precipitation: Dictionary = {&"rain": 1.0, &"heavy_rain": 2.5, &"storm": 3.0, &"snow": 0.7, &"blizzard": 1.4}
 @export_range(0.0, 100.0, 0.1) var rain_day_from: float = 2.0
 ## How much of the sky is covered (0 … 1), and how foggy it is.
 @export var cloud_cover: Dictionary = {
-	&"clear": 0.08, &"cloudy": 0.65, &"rain": 0.85, &"heavy_rain": 1.0, &"storm": 1.0, &"wind": 0.3, &"snow": 0.85, &"fog": 0.55,
+	&"clear": 0.08, &"cloudy": 0.65, &"rain": 0.85, &"heavy_rain": 1.0, &"storm": 1.0, &"wind": 0.3, &"snow": 0.85, &"fog": 0.55, &"blizzard": 1.0,
 }
-@export var fog: Dictionary = {&"fog": 1.0, &"rain": 0.12, &"heavy_rain": 0.3, &"storm": 0.3, &"snow": 0.3}
+@export var fog: Dictionary = {&"fog": 1.0, &"rain": 0.12, &"heavy_rain": 0.3, &"storm": 0.3, &"snow": 0.3, &"blizzard": 0.55}
 ## How hard the wind blows (0 … 1): the least and the most, for each kind of weather.
 @export var wind_speed: Dictionary = {
 	&"clear": Vector2(0.05, 0.3), &"cloudy": Vector2(0.15, 0.4), &"rain": Vector2(0.2, 0.5), &"heavy_rain": Vector2(0.35, 0.65),
 	&"storm": Vector2(0.75, 1.0), &"wind": Vector2(0.6, 0.9), &"snow": Vector2(0.1, 0.45), &"fog": Vector2(0.0, 0.1),
+	&"blizzard": Vector2(0.75, 1.0),
 }
 ## The wind turns by up to this many degrees from one look at the weather to the next.
 @export_range(0.0, 180.0, 1.0) var wind_turn_degrees: float = 50.0

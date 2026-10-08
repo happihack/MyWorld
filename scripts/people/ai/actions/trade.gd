@@ -76,7 +76,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	if not time_up:
 		return Status.RUNNING
 	if ctx.settlement != null:
-		ctx.settlement.make_tool(person)
+		ctx.settlement.craft(person)
 	return Status.DONE
 
 

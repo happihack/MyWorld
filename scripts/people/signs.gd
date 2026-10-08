@@ -31,15 +31,32 @@ const MINUTES := {
 	ANGRY: 8, SAD: 25, LOVE: 12, HURT: 15, ILL: 15, HUNGRY: 15, TIRED: 10, EXCLAIM: 4, NOTE: 8, QUESTION: 6,
 }
 const DEFAULT_MINUTES := 8
+## How many flashes of a light kind one settlement may show in a game hour
+## (FC8: a big village is not a sea of hearts). The weighty kinds — anger,
+## hurt, grief, alarm — are never held back.
+const RATE_PER_HOUR := {LOVE: 3, NOTE: 4, TIRED: 3, QUESTION: 4, HUNGRY: 4, ILL: 4}
+
+static var _rate_hour := -1
+static var _rate_counts: Dictionary = {} # "settlement:sign" -> flashes this hour
 
 
 ## `person` shows `sign` for a while from `now` (`minutes` < 0: its usual
-## length) — unless a weightier one is already showing.
+## length) — unless a weightier one is already showing, or their settlement
+## has shown enough of that kind this hour (RATE_PER_HOUR).
 static func flash(person: PersonData, sign: StringName, now: int, minutes: int = -1) -> bool:
 	if person == null or sign == &"":
 		return false
 	if person.flash != &"" and now < person.flash_until and weight(person.flash) > weight(sign):
 		return false
+	if RATE_PER_HOUR.has(sign):
+		var hour := floori(now / 60.0)
+		if hour != _rate_hour:
+			_rate_hour = hour
+			_rate_counts.clear()
+		var key := "%d:%s" % [person.settlement_id, sign]
+		if int(_rate_counts.get(key, 0)) >= int(RATE_PER_HOUR[sign]):
+			return false
+		_rate_counts[key] = int(_rate_counts.get(key, 0)) + 1
 	person.flash = sign
 	person.flash_until = now + (minutes if minutes >= 0 else int(MINUTES.get(sign, DEFAULT_MINUTES)))
 	return true
@@ -70,6 +87,12 @@ static func state_of(person: PersonData) -> StringName:
 	if Health.worst_injury(person) > 0.15:
 		return HURT
 	return &""
+
+
+## Forget how many of each kind were shown this hour (a new world, a test).
+static func reset_rates() -> void:
+	_rate_hour = -1
+	_rate_counts.clear()
 
 
 ## No more flash (a person who is gone, or a test).

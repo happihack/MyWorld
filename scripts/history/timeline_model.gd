@@ -16,7 +16,7 @@ const FILTER_DISASTERS := &"disasters"
 ## What the player did.
 const FILTER_PLAYER := &"player"
 const FILTERS: Array[StringName] = [FILTER_ALL, FILTER_MAJOR, FILTER_PEOPLE, FILTER_DISASTERS, FILTER_PLAYER]
-const DISASTERS: Array[StringName] = [&"flood", &"drought", &"storm", &"cold_snap", &"heat_wave", &"food_shortage",
+const DISASTERS: Array[StringName] = [&"flood", &"drought", &"storm", &"blizzard", &"cold_snap", &"heat_wave", &"food_shortage",
 	&"stores_empty", &"crop_failure", &"crop_frozen", &"poor_harvest", &"fire_out", &"stores_flooded", &"home_moved",
 	&"high_water", &"seed_grain_eaten", &"earthquake", &"eclipse", &"tornado", &"blood_water", &"meteor_storm"]
 

@@ -42,7 +42,7 @@ const WICKER_DARK := Color(0.55, 0.42, 0.20)
 const STONE := Color(0.56, 0.56, 0.58)
 const PARCHMENT := Color(0.90, 0.84, 0.66)
 
-const ACCESSORIES: Array[StringName] = [&"staff", &"basket", &"axe", &"hoe", &"spear", &"scroll", &"rod"]
+const ACCESSORIES: Array[StringName] = [&"staff", &"basket", &"axe", &"hoe", &"spear", &"scroll", &"rod", &"bow"]
 
 # Mask colours for the body mesh: COLOR.rgb = cloth / skin / hair, COLOR.a = shade.
 const _TUNIC := Color(1, 0, 0, 1.0)
@@ -62,6 +62,14 @@ static func body() -> ArrayMesh:
 	if _body == null:
 		_body = _build_body()
 	return _body
+
+
+## What someone is drawn carrying: what they took up to hunt or fight with
+## (PR6), else their trade's own thing.
+static func accessory_for(person: PersonData, def: OccupationDef) -> StringName:
+	if person.armed != &"":
+		return person.armed
+	return def.accessory if def != null else &""
 
 
 ## The mesh of something carried ("staff", "basket", "axe"); null for
@@ -236,6 +244,11 @@ static func _build_accessory(kind: StringName) -> ArrayMesh:
 		&"rod": # a fishing rod (M19.5): a long, thin pole held out ahead, its line hanging
 			PropMeshLibrary._box(t, Vector3(0.12, 0.62, 0.42), Vector3(0.008, 0.008, 0.32), _plain(WOOD), 0.0)
 			PropMeshLibrary._box(t, Vector3(0.12, 0.40, 0.73), Vector3(0.003, 0.22, 0.003), _plain(PARCHMENT), 0.0)
+		&"bow": # held upright in the left hand (PR6): a bent stave and its string
+			PropMeshLibrary._box(t, Vector3(0.17, 0.50, -0.27), Vector3(0.014, 0.11, 0.014), _plain(WOOD))
+			PropMeshLibrary._box(t, Vector3(0.14, 0.68, -0.27), Vector3(0.012, 0.08, 0.012), _plain(WOOD))
+			PropMeshLibrary._box(t, Vector3(0.14, 0.32, -0.27), Vector3(0.012, 0.08, 0.012), _plain(WOOD))
+			PropMeshLibrary._box(t, Vector3(0.10, 0.50, -0.27), Vector3(0.003, 0.25, 0.003), _plain(PARCHMENT), 0.0)
 		&"axe": # carried over the right shoulder
 			PropMeshLibrary._box(t, Vector3(-0.02, 0.675, 0.20), Vector3(0.20, 0.014, 0.014), _plain(WOOD))
 			PropMeshLibrary._box(t, Vector3(-0.19, 0.695, 0.20), Vector3(0.03, 0.06, 0.02), _plain(STONE))

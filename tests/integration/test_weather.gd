@@ -97,12 +97,12 @@ func test_weather_transitions() -> void:
 	own_clock.tick = _midnight(0)
 	own.advance_to(own_clock.tick)
 	for i in steps:
-		var from := own.state
+		var from := _as_chained(own.state)
 		own_clock.tick += step
 		var season := Config.time.season_of(own_clock.tick)
 		own.advance_to(own_clock.tick)
 		var row: Dictionary = followed[season].get(from, {})
-		row[own.state] = int(row.get(own.state, 0)) + 1
+		row[_as_chained(own.state)] = int(row.get(_as_chained(own.state), 0)) + 1
 		followed[season][from] = row
 	assert_true(steps >= 28_000, "%d looks at the sky" % steps)
 	assert_true(changes[0] > steps / 4 and changes[0] < steps, "it changes, and it stays (%d changes)" % changes[0])
@@ -344,6 +344,37 @@ func _by_water(tile: Vector2i) -> bool:
 		if session.world.bounds.has_point(tile + offset) and session.world.get_water(tile + offset) > 0.0:
 			return true
 	return false
+
+
+## A blizzard is a storm in the cold: the chain knows it as a storm.
+static func _as_chained(state: StringName) -> StringName:
+	return WeatherSystem.STORM if state == WeatherSystem.BLIZZARD else state
+
+
+func test_a_storm_in_the_cold_is_a_blizzard() -> void:
+	# (The owner, 2026-10-08: "storm in freezing temperatures should be a blizzard".)
+	var own := _alone(31)
+	var days := Config.time.days_per_year()
+	var blizzards := 0
+	var storms := 0
+	for step in 40 * days * (DAY / climate.step_minutes):
+		own._clock.tick = _midnight(0) + step * climate.step_minutes
+		own.advance_to(own._clock.tick)
+		if own.since_tick != own._clock.tick:
+			continue # (not a fresh look)
+		var felt := WeatherSystem.base_temperature(own.since_tick, climate) + own.air_mass(own.since_tick) 			+ climate.value_for(climate.state_temperature, WeatherSystem.STORM)
+		if own.state == WeatherSystem.BLIZZARD:
+			assert_true(felt <= climate.snow_below + 1.0, "a blizzard at %.1f degrees" % felt)
+			assert_true(own.is_snowing() and not own.is_raining() and own.is_storm(), "snow, on a storm's wind")
+			assert_true(own.wind_speed >= 0.75, "a storm's wind")
+			blizzards += 1
+		elif own.state == WeatherSystem.STORM:
+			assert_true(felt > climate.snow_below - 1.0, "a storm at %.1f degrees" % felt)
+			assert_true(own.is_raining() and not own.is_snowing())
+			storms += 1
+	assert_true(blizzards > 5 and storms > 50, "%d blizzards, %d storms" % [blizzards, storms])
+	assert_eq(MemoryText.translate("WEATHER_BLIZZARD"), "Blizzard")
+	assert_eq(MemoryText.translate("EVENT_BLIZZARD"), "A blizzard is sweeping in")
 
 
 func test_what_falls_is_snow_when_it_is_cold() -> void:

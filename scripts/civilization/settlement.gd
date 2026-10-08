@@ -283,6 +283,27 @@ func make_tool(_person: PersonData) -> bool:
 	return true
 
 
+## What the toolmaker makes next (PR6): tools while they are wanted (and there
+## is wood for them), else the weapon most wanted (&"": nothing).
+func next_craft() -> StringName:
+	if tools_wanted() and stockpile.available(&"wood") >= Config.trade.tool_wood:
+		return &"tools"
+	return Weapons.most_wanted(self)
+
+
+## Is there work at the workshop: tools or weapons wanted?
+func craft_wanted() -> bool:
+	return tools_wanted() or Weapons.most_wanted(self) != Weapons.NONE
+
+
+## Something is made at the workshop: what is wanted next. False: nothing was.
+func craft(person: PersonData) -> bool:
+	var kind := next_craft()
+	if kind == &"tools":
+		return make_tool(person)
+	return kind != Weapons.NONE and Weapons.make(self, kind)
+
+
 ## A tool has worn out in use.
 func wear_tool() -> void:
 	if stockpile.take(&"tools", 1) > 0:
@@ -320,7 +341,7 @@ func ensure_scientist(now: int) -> PersonData:
 
 ## Someone makes tools, once there is a workshop and tools are wanted.
 func ensure_toolmaker(now: int) -> PersonData:
-	if occupations == null or not occupations.has_def(&"toolmaker") or workshop() == null or not tools_wanted():
+	if occupations == null or not occupations.has_def(&"toolmaker") or workshop() == null or not craft_wanted():
 		return null
 	for person in members():
 		if person.occupation_id == &"toolmaker":

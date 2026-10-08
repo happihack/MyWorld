@@ -35,6 +35,7 @@ const PROP_NAMES := {
 	PropData.Kind.KILN: "Kiln",
 	PropData.Kind.HERB_RACK: "Herb rack",
 	PropData.Kind.RECORD_STONE: "Record stone",
+	PropData.Kind.BORDER_STONES: "Border stones",
 	PropData.Kind.STONE_CIRCLE: "Stone circle",
 	PropData.Kind.SHRINE: "Shrine",
 	PropData.Kind.CEMETERY: "Cemetery",

@@ -11,6 +11,8 @@ extends RefCounted
 
 const DISPUTE := &"dispute"
 const REVOLUTION := &"revolution"
+## Peace (FC6): the leaders meet on the meeting ground, talk, and part friends.
+const PEACE := &"peace"
 ## How often it looks (game minutes); between which hours it stages anything.
 const CHECK_MINUTES := 10
 const FROM_HOUR := 8.0
@@ -45,6 +47,10 @@ func dispute(a: int, b: int, now: int) -> void:
 	_pending.append([DISPUTE, a, b, now])
 
 
+func peace(a: int, b: int, now: int) -> void:
+	_pending.append([PEACE, a, b, now])
+
+
 func revolution(settlement_id: int, deposed_id: int, now: int) -> void:
 	_pending.append([REVOLUTION, settlement_id, deposed_id, now])
 
@@ -67,12 +73,15 @@ func advance_to(now: int) -> void:
 		_pending.erase(entry)
 		if StringName(entry[0]) == DISPUTE:
 			stage_dispute(int(entry[1]), int(entry[2]))
+		elif StringName(entry[0]) == PEACE:
+			stage_dispute(int(entry[1]), int(entry[2]), true)
 		else:
 			stage_revolution(int(entry[1]), int(entry[2]))
 
 
-## The leaders (and one each) meet halfway, talk, argue, go home. Returns who went.
-func stage_dispute(a_id: int, b_id: int) -> Array[PersonData]:
+## The leaders (and one each) meet halfway, talk, argue, go home — or, making
+## peace, talk and part with a wave. Returns who went.
+func stage_dispute(a_id: int, b_id: int, making_peace: bool = false) -> Array[PersonData]:
 	var went: Array[PersonData] = []
 	var a := settlements.get_settlement(a_id)
 	var b := settlements.get_settlement(b_id)
@@ -93,12 +102,14 @@ func stage_dispute(a_id: int, b_id: int) -> Array[PersonData]:
 				var spot := Planner._beside(meet, person.position, ctx)
 				steps = [WalkToStep.make(spot, Vector2(0.5, 0.5), 1.1),
 					ReactStep.make(PersonData.Pose.TALK, Signs.SPEECH, TALK_MINUTES, Vector2(other.fire().tile)),
-					ReactStep.make(PersonData.Pose.YELL, Signs.ANGRY, ARGUE_MINUTES, Vector2(other.fire().tile)),
+					ReactStep.make(PersonData.Pose.WAVE, Signs.NOTE, ARGUE_MINUTES, Vector2(other.fire().tile)) if making_peace \
+						else ReactStep.make(PersonData.Pose.YELL, Signs.ANGRY, ARGUE_MINUTES, Vector2(other.fire().tile)),
 					WalkToStep.make(Planner._beside(own.fire().tile, spot, ctx))]
 			else:
 				# (No way between them: each speaks against the others at home.)
 				steps = [WalkToStep.make(Planner._beside(own.fire().tile, person.position, ctx)),
-					ReactStep.make(PersonData.Pose.YELL, Signs.ANGRY, ARGUE_MINUTES, Vector2(other.fire().tile))]
+					ReactStep.make(PersonData.Pose.TALK if making_peace else PersonData.Pose.YELL,
+						Signs.SPEECH if making_peace else Signs.ANGRY, ARGUE_MINUTES, Vector2(other.fire().tile))]
 			behavior.set_plan(person, BehaviorSystem.ACTIVITY_CALLED, REASON, steps, 7.0)
 			went.append(person)
 	return went

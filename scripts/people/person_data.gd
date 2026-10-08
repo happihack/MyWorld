@@ -89,6 +89,9 @@ var aboard_height := 0.0
 ## them (Signs.flash), and the tick it goes.
 var flash: StringName = &""
 var flash_until := 0
+## Runtime only (PR6): what they have in hand out hunting or with a party, as
+## drawn (PersonMeshLibrary: &"spear", &"bow"; &"": their trade's own thing).
+var armed: StringName = &""
 ## Runtime only: set by whatever they are doing, shown by their view.
 var pose: Pose = Pose.IDLE
 ## Runtime only: the sign above their head (&"" = none; see PeopleView.EMOTES).

@@ -446,16 +446,18 @@ static func _trade_work(person: PersonData, ctx: AiContext) -> Array:
 	return steps
 
 
-## A toolmaker's work (M12.4): at the workshop, while tools are wanted and
-## there is wood and stone to make them of.
+## A toolmaker's work (M12.4): at the workshop, while tools — or weapons
+## (PR6) — are wanted and there is what to make them of.
 static func _craft_work(person: PersonData, ctx: AiContext) -> Array:
 	if ctx.settlement == null:
 		return []
 	var shop := ctx.settlement.workshop()
 	var config := Config.trade
-	if shop == null or not ctx.settlement.tools_wanted() or ctx.settlement.stockpile.available(&"wood") < config.tool_wood:
+	var kind := ctx.settlement.next_craft()
+	if shop == null or kind == &"":
 		return []
-	if ctx.settlement.stockpile.available(&"stone") < config.tool_stone:
+	var stone := config.tool_stone if kind == &"tools" else int((Weapons.MATERIALS.get(kind, {}) as Dictionary).get(&"stone", 0))
+	if ctx.settlement.stockpile.available(&"stone") < stone:
 		# No stone in store: stone fetched for it (lying about, or broken from rocky ground).
 		var getting := _stone_steps(shop.tile, ctx)
 		var stores: Variant = ctx.places.storage_tile(&"stone")

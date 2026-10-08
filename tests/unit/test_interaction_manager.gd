@@ -101,6 +101,7 @@ func test_each_kind_of_prop_answers_in_its_own_way() -> void:
 		PropData.Kind.KILN: InteractionResponse.BUILDING_KNOCK,
 		PropData.Kind.HERB_RACK: InteractionResponse.BUSH_RUSTLE,
 		PropData.Kind.RECORD_STONE: InteractionResponse.ROCK_WOBBLE,
+		PropData.Kind.BORDER_STONES: InteractionResponse.ROCK_WOBBLE,
 		PropData.Kind.STONE_CIRCLE: InteractionResponse.RUIN_HUM,
 		PropData.Kind.SHRINE: InteractionResponse.RUIN_HUM,
 		PropData.Kind.CEMETERY: InteractionResponse.DUST,

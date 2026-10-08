@@ -138,6 +138,8 @@ var parties: HuntingParties
 var assemblies: Assemblies
 ## Raids walked (FC5).
 var raids: RaidParties
+## War fought in the open (FC6).
+var wars: WarParties
 ## How long the player has stayed with one person (the OBSERVER achievement).
 var observer: ObserverWatch
 ## What has happened in this world, and what led to what (data/events).
@@ -211,6 +213,7 @@ var _saved_predators: Dictionary = {}
 var _saved_parties: Dictionary = {}
 var _saved_assemblies: Dictionary = {}
 var _saved_raids: Dictionary = {}
+var _saved_wars: Dictionary = {}
 var _saved_migration: Dictionary = {}
 var _saved_trade: Dictionary = {}
 var _saved_governance: Dictionary = {}
@@ -241,6 +244,7 @@ func _init() -> void:
 	parties = HuntingParties.new()
 	assemblies = Assemblies.new()
 	raids = RaidParties.new()
+	wars = WarParties.new()
 	weather = WeatherSystem.new()
 	disasters = DisasterSystem.new()
 	events = EventLog.new()
@@ -379,6 +383,7 @@ func _init() -> void:
 		assemblies.revolution(id, deposed_id, clock.tick))
 	raids.done.connect(func(raid: Dictionary, taken: int, was_repelled: bool) -> void:
 		conflicts.raid_done(int(raid["raider"]), int(raid["victim"]), taken, int(raid["leader"]), raid["causes"], was_repelled))
+	wars.ended.connect(conflicts.battle_done)
 	conflicts.repelled.connect(func(raider: int, victim: int, leader: int, causes: Array) -> void:
 		chronicle.on_conflict(&"raid_repelled", raider, victim, [leader] if leader != 0 else [], causes))
 	conflicts.dispute.connect(func(a: int, b: int, causes: Array) -> void:
@@ -400,7 +405,11 @@ func _init() -> void:
 			conflicts.note_event(a, b, "battle", e.id))
 	conflicts.peace.connect(func(a: int, b: int, fallen: int) -> void:
 		var war := chronicle.latest_between(&"war_begun", a, b)
-		chronicle.on_conflict(&"peace", a, b, [], [war] if war > 0 else [], {"fallen": fallen}))
+		chronicle.on_conflict(&"peace", a, b, [], [war] if war > 0 else [], {"fallen": fallen})
+		# (FC6: border stones where they fought; the leaders meet there, seen.)
+		border_stones(a, b)
+		if walking_raids:
+			assemblies.peace(a, b, clock.tick))
 	conflicts.revolution.connect(func(id: int, deposed_id: int) -> void:
 		chronicle.on_conflict(&"revolution", id, id, [deposed_id], []))
 	# Stories (M19.2): looked for yearly, and soon after anything momentous.
@@ -459,10 +468,10 @@ func _init() -> void:
 				if prop.is_building() and harmed:
 					construction.damage(prop.id, Config.construction.flood_damage, &"flood", clock.tick))
 	weather.changed.connect(func(_old: StringName, now: StringName) -> void:
-		if now == WeatherSystem.STORM and is_active:
+		if (now == WeatherSystem.STORM or now == WeatherSystem.BLIZZARD) and is_active:
 			for prop in props.buildings():
 				if prop.is_building():
-					construction.damage(prop.id, Config.construction.storm_damage, &"storm", clock.tick))
+					construction.damage(prop.id, Config.construction.storm_damage, now, clock.tick))
 	culture.formed.connect(chronicle.on_cultural_memory)
 	culture.myth_formed.connect(chronicle.on_myth)
 	households = Households.new()
@@ -603,6 +612,7 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	_saved_parties = {}
 	_saved_assemblies = {}
 	_saved_raids = {}
+	_saved_wars = {}
 	var explicit := seed_value != 0
 	for attempt in MAX_SEED_ATTEMPTS:
 		world_seed = seed_value if explicit else RngStreams.new_world_seed()
@@ -688,6 +698,7 @@ func load_from(data: Dictionary) -> bool:
 		_saved_parties = state["parties"] if typeof((state as Dictionary).get("parties")) == TYPE_DICTIONARY else {}
 		_saved_assemblies = state["assemblies"] if typeof((state as Dictionary).get("assemblies")) == TYPE_DICTIONARY else {}
 		_saved_raids = state["raids"] if typeof((state as Dictionary).get("raids")) == TYPE_DICTIONARY else {}
+		_saved_wars = state["wars"] if typeof((state as Dictionary).get("wars")) == TYPE_DICTIONARY else {}
 		if typeof((state as Dictionary).get("construction")) == TYPE_DICTIONARY:
 			_saved_construction = state["construction"]
 		if typeof((state as Dictionary).get("planner")) == TYPE_DICTIONARY:
@@ -860,6 +871,7 @@ func to_dict() -> Dictionary:
 			"parties": parties.to_dict(),
 			"assemblies": assemblies.to_dict(),
 			"raids": raids.to_dict(),
+			"wars": wars.to_dict(),
 			"soil": soil.to_dict(),
 			"vegetation": vegetation.to_dict(),
 			"perception": {"next_stimulus_id": behavior.ctx.next_stimulus_id if behavior.ctx != null else 1},
@@ -1038,7 +1050,8 @@ func system_steps() -> Array:
 				predators.advance_to(clock.tick)
 				parties.advance_to(clock.tick)
 				assemblies.advance_to(clock.tick)
-				raids.advance_to(clock.tick)],
+				raids.advance_to(clock.tick)
+				wars.advance_to(clock.tick)],
 			[&"stats", func() -> void: stats.advance_to(clock.tick - STAGGER_STATS)],
 		]
 	return _system_steps
@@ -1234,6 +1247,31 @@ func spawn_person(near: Vector2i, stage: PersonData.LifeStage = PersonData.LifeS
 		"occupation": person.occupation_id})
 	EventBus.person_born.emit(person.id)
 	return person
+
+
+## Border stones (FC6) where two settlements have made peace: beside the
+## ground they met on between their fires (or the middle, with no way between
+## them) — once. Returns them (null: none set).
+func border_stones(a: int, b: int) -> PropData:
+	var one := settlements.get_settlement(a)
+	var two := settlements.get_settlement(b)
+	if one == null or two == null or one.fire() == null or two.fire() == null or pathfinder == null:
+		return null
+	var ground: Variant = wars.meeting_ground(one, two)
+	var at: Vector2i = ground if ground != null else WorldCoords.world2d_to_tile((Vector2(one.fire().tile) + Vector2(two.fire().tile)) * 0.5)
+	for prop in props.of_kind(PropData.Kind.BORDER_STONES):
+		if Vector2(prop.tile - at).length() <= 4.0:
+			return null # (set already, at an earlier peace)
+	for tile: Vector2i in pathfinder.standable_near(at, 8, 3):
+		if tile == at or props.has_prop_at(tile):
+			continue
+		var stones := PropData.new()
+		stones.id = ids.next_id()
+		stones.kind = PropData.Kind.BORDER_STONES
+		stones.tile = tile
+		if props.add(stones):
+			return stones
+	return null
 
 
 ## Debug: someone dies, of `cause`, as anyone dies (see Lifecycle.die). Those
@@ -1772,6 +1810,18 @@ func _activate() -> void:
 	# (Raids are walked while the box is watched; away, they are made at once: M20.)
 	conflicts.walk_raid = func(raider: int, victim: int, leader: int, causes: Array) -> bool:
 		return walking_raids and raids.queue(raider, victim, leader, causes, clock.tick)
+	wars.bind(clock.tick)
+	Signs.reset_rates()
+	wars.people = people
+	wars.behavior = behavior
+	wars.settlements = settlements
+	wars.pathfinder = pathfinder
+	wars.rng = rng.stream(&"wars")
+	wars.from_dict(_saved_wars)
+	_saved_wars = {}
+	# (Battles too: fought in the open while watched, at once away — FC6.)
+	conflicts.walk_battle = func(a: int, b: int, fallen: Array, heroes: Array) -> bool:
+		return walking_raids and wars.queue(a, b, fallen, heroes, clock.tick)
 	perception.bind(ai)
 	behavior.from_dict(_saved_behavior)
 	_saved_behavior = {}

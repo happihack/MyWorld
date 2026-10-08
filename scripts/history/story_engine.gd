@@ -49,7 +49,7 @@ const SOON_DAYS := 2
 const REINTERPRET_CHANCE := 0.2
 const OLD_YEARS := 20
 ## Event types whose names are the story's (the first that heads a chain names it).
-const NAMED: Array[StringName] = [&"drought", &"flood", &"food_shortage", &"crop_failure", &"storm", &"cold_snap", &"heat_wave",
+const NAMED: Array[StringName] = [&"drought", &"flood", &"food_shortage", &"crop_failure", &"storm", &"blizzard", &"cold_snap", &"heat_wave",
 	&"war_begun", &"raid", &"migration", &"settlement_founded", &"high_water", &"person_died", &"myth_formed", &"tradition_formed",
 	&"knowledge_learned", &"player_intervention", &"schism", &"revolution"]
 

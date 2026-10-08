@@ -32,8 +32,13 @@ const HEAVY_RAIN := &"heavy_rain"
 const STORM := &"storm"
 const WIND := &"wind"
 const SNOW := &"snow"
+## A storm when it is freezing (the owner, 2026-10-08): snow, not rain, on a
+## storm's wind — never chosen by the chain, only made of a storm in the cold.
+const BLIZZARD := &"blizzard"
 const FOG := &"fog"
 const STATES: Array[StringName] = [CLEAR, CLOUDY, RAIN, HEAVY_RAIN, STORM, WIND, SNOW, FOG]
+## Every weather there can be: the chain's, and the blizzard made of a storm.
+const ALL: Array[StringName] = [CLEAR, CLOUDY, RAIN, HEAVY_RAIN, STORM, WIND, SNOW, FOG, BLIZZARD]
 
 const DROUGHT := &"drought"
 const HEAT_WAVE := &"heat_wave"
@@ -137,7 +142,7 @@ func advance_to(tick: int) -> void:
 ## Holds the weather at `kind` until `until_tick` (the chain stands still
 ## meanwhile): what the player's tools do, and tests.
 func hold(kind: StringName, until_tick: int) -> void:
-	if not STATES.has(kind):
+	if not ALL.has(kind):
 		return
 	if _clock != null:
 		advance_to(_clock.tick)
@@ -165,7 +170,12 @@ func is_raining() -> bool:
 
 
 func is_snowing() -> bool:
-	return state == SNOW
+	return state == SNOW or state == BLIZZARD
+
+
+## A storm, or a blizzard: the wind that does damage and drives people in.
+func is_storm() -> bool:
+	return state == STORM or state == BLIZZARD
 
 
 ## How much falls in an hour right now (rain or snow; 0 if nothing does).
@@ -328,9 +338,9 @@ func from_dict(data: Dictionary) -> void:
 	if data.is_empty():
 		return
 	var saved := StringName(str(data.get("state", CLEAR)))
-	state = saved if STATES.has(saved) else CLEAR
+	state = saved if ALL.has(saved) else CLEAR
 	var before := StringName(str(data.get("previous", state)))
-	previous = before if STATES.has(before) else state
+	previous = before if ALL.has(before) else state
 	since_tick = _int(data.get("since"), 0)
 	_step = _int(data.get("step"), -1)
 	_held_until = _int(data.get("held_until"), -1)
@@ -370,11 +380,14 @@ func _do_step(index: int) -> void:
 			return
 		_held_until = -1
 	var season := Config.time.season_of(now)
-	var next := _follow(state, season, index)
-	# What falls when it is cold is snow; snow in the warm is rain.
+	var next := _follow(STORM if state == BLIZZARD else state, season, index)
+	# What falls when it is cold is snow; snow in the warm is rain. A storm in
+	# the cold is a blizzard.
 	var cold := base_temperature(now, _config) + air_mass(now) + _config.value_for(_config.state_temperature, next) 		<= _config.snow_below
 	if cold and (next == RAIN or next == HEAVY_RAIN):
 		next = SNOW
+	elif cold and next == STORM:
+		next = BLIZZARD
 	elif not cold and next == SNOW:
 		next = RAIN
 	# The wind: turning a little, as strong as the weather has it.
@@ -436,14 +449,18 @@ func _note_temperature(tick: int) -> void:
 	_coldest[day] = minf(float(_coldest.get(day, INF)), now)
 
 
+## A blizzard lays snow down this many times as fast as snow.
+const BLIZZARD_SNOW := 2.0
+
+
 ## Snow and frost over the `hours` that have passed under the weather as
 ## it is: snow lies down while it snows and melts in the warm (and in the
 ## rain); the ground freezes in the cold and thaws in the warm.
 func _note_ground(tick: int, hours: float) -> void:
 	var seasons := Config.seasons
 	var warmth := temperature(tick)
-	if state == SNOW:
-		snow_cover += seasons.snow_per_hour * hours
+	if is_snowing():
+		snow_cover += seasons.snow_per_hour * hours * (BLIZZARD_SNOW if state == BLIZZARD else 1.0)
 	if warmth > 0.0:
 		snow_cover -= seasons.melt_per_degree_hour * warmth * hours
 	if is_raining():

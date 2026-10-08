@@ -304,3 +304,28 @@ func test_shaking_a_tree_turns_heads() -> void:
 	assert_eq(session.behavior.reactions, noticed, "each of them made something of it")
 	assert_true(people_view.emote_count() >= 0)
 	assert_has(main.debug_overlay._sections.keys() if "_sections" in main.debug_overlay else [&"perception"], &"perception")
+
+
+func test_no_more_than_a_dozen_signs_at_once() -> void:
+	# (FC8: the sign budget — the weightiest; the one selected always.)
+	var person := _someone()
+	while session.people.all_people().size() < 20:
+		var more := session.spawn_person(person.position + Vector2i(1, 1))
+		more.set_flag(PersonData.FLAG_INDOORS, false)
+		session.behavior.set_plan(more, BehaviorSystem.ACTIVITY_CALLED, BehaviorSystem.ACTIVITY_CALLED, [RestStep.make(600.0)])
+	await _look_at(person.world2d(), 30.0)
+	var everyone := session.people.all_people()
+	for p in everyone:
+		p.emote = Signs.SPEECH
+	everyone[0].emote = Signs.EXCLAIM
+	await wait_frames(3)
+	assert_eq(people_view.emote_count(), PeopleView.SIGN_BUDGET, "a dozen at most, of %d" % everyone.size())
+	assert_eq(people_view.emote_of(everyone[0].id), Signs.EXCLAIM, "the weightiest among them")
+	var last := everyone[-1]
+	people_view.set_selected(last.id)
+	await wait_frames(3)
+	assert_eq(people_view.emote_of(last.id), Signs.SPEECH, "the one selected always")
+	assert_eq(people_view.emote_count(), PeopleView.SIGN_BUDGET)
+	for p in everyone:
+		p.emote = &""
+
