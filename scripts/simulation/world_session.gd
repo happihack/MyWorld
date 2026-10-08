@@ -994,69 +994,57 @@ func advance_systems() -> void:
 	# each such system a few minutes after the one before — so that it does
 	# not all fall on the one frame at midnight: profiling, 2026-10-06.)
 	var t := Time.get_ticks_usec() if profiling else 0
-	knowledge.advance_to(clock.tick - STAGGER_KNOWLEDGE)
-	t = _timed(&"knowledge", t)
-	learning.advance_to(clock.tick - STAGGER_LEARNING)
-	t = _timed(&"learning", t)
-	technology.advance_to(clock.tick - STAGGER_TECHNOLOGY)
-	t = _timed(&"technology", t)
-	cultures.advance_to(clock.tick)
-	t = _timed(&"cultures", t)
-	faith.advance_to(clock.tick)
-	t = _timed(&"faith", t)
-	lexicon.advance_to(clock.tick)
-	t = _timed(&"lexicon", t)
-	anomaly_archive.advance_to(clock.tick)
-	t = _timed(&"anomaly_archive", t)
-	science.advance_to(clock.tick)
-	t = _timed(&"science", t)
-	mysteries.advance_to(clock.tick)
-	t = _timed(&"mysteries", t)
-	conflicts.advance_to(clock.tick)
-	t = _timed(&"conflicts", t)
-	stories.advance_to(clock.tick)
-	t = _timed(&"stories", t)
-	weather.advance_to(clock.tick)
-	t = _timed(&"weather", t)
-	disasters.advance_to(clock.tick)
-	t = _timed(&"disasters", t)
-	soil.advance_to(clock.tick - STAGGER_SOIL)
-	t = _timed(&"soil", t)
-	_look_for_powers()
-	t = _timed(&"powers", t)
-	if nodes.due(clock.tick - STAGGER_NODES):
-		nodes.settle(clock.tick - STAGGER_NODES)
-	t = _timed(&"nodes", t)
-	settlements.step(clock.tick)
-	t = _timed(&"settlements", t)
-	relationships.settle(clock.tick - STAGGER_RELATIONSHIPS)
-	t = _timed(&"relationships", t)
-	lifecycle.advance_to(clock.tick - STAGGER_LIFECYCLE)
-	t = _timed(&"lifecycle", t)
-	culture.advance_to(clock.tick - STAGGER_CULTURE)
-	t = _timed(&"culture", t)
-	construction.advance_to(clock.tick)
-	t = _timed(&"construction", t)
-	traffic.advance_to(clock.tick)
-	t = _timed(&"traffic", t)
-	migration.advance_to(clock.tick)
-	t = _timed(&"migration", t)
-	trade.advance_to(clock.tick)
-	t = _timed(&"trade", t)
-	governance.advance_to(clock.tick - STAGGER_GOVERNANCE)
-	t = _timed(&"governance", t)
-	fauna.advance_to(clock.tick - STAGGER_FAUNA)
-	t = _timed(&"fauna", t)
-	boats.advance_to(clock.tick - STAGGER_BOATS)
-	t = _timed(&"boats", t)
-	predators.advance_to(clock.tick)
-	parties.advance_to(clock.tick)
-	assemblies.advance_to(clock.tick)
-	raids.advance_to(clock.tick)
-	t = _timed(&"predators", t)
-	stats.advance_to(clock.tick - STAGGER_STATS)
-	t = _timed(&"stats", t)
+	for entry: Array in system_steps():
+		(entry[1] as Callable).call()
+		t = _timed(entry[0], t)
 
+
+## Everything advance_systems does, in order, as named steps — so that the
+## time away can be lived a step at a time between frames (the opening
+## stuttered behind a whole day of them: the owner, 2026-10-08).
+func system_steps() -> Array:
+	if _system_steps.is_empty():
+		_system_steps = [
+			[&"knowledge", func() -> void: knowledge.advance_to(clock.tick - STAGGER_KNOWLEDGE)],
+			[&"learning", func() -> void: learning.advance_to(clock.tick - STAGGER_LEARNING)],
+			[&"technology", func() -> void: technology.advance_to(clock.tick - STAGGER_TECHNOLOGY)],
+			[&"cultures", func() -> void: cultures.advance_to(clock.tick)],
+			[&"faith", func() -> void: faith.advance_to(clock.tick)],
+			[&"lexicon", func() -> void: lexicon.advance_to(clock.tick)],
+			[&"anomaly_archive", func() -> void: anomaly_archive.advance_to(clock.tick)],
+			[&"science", func() -> void: science.advance_to(clock.tick)],
+			[&"mysteries", func() -> void: mysteries.advance_to(clock.tick)],
+			[&"conflicts", func() -> void: conflicts.advance_to(clock.tick)],
+			[&"stories", func() -> void: stories.advance_to(clock.tick)],
+			[&"weather", func() -> void: weather.advance_to(clock.tick)],
+			[&"disasters", func() -> void: disasters.advance_to(clock.tick)],
+			[&"soil", func() -> void: soil.advance_to(clock.tick - STAGGER_SOIL)],
+			[&"powers", func() -> void: _look_for_powers()],
+			[&"nodes", func() -> void:
+				if nodes.due(clock.tick - STAGGER_NODES):
+					nodes.settle(clock.tick - STAGGER_NODES)],
+			[&"settlements", func() -> void: settlements.step(clock.tick)],
+			[&"relationships", func() -> void: relationships.settle(clock.tick - STAGGER_RELATIONSHIPS)],
+			[&"lifecycle", func() -> void: lifecycle.advance_to(clock.tick - STAGGER_LIFECYCLE)],
+			[&"culture", func() -> void: culture.advance_to(clock.tick - STAGGER_CULTURE)],
+			[&"construction", func() -> void: construction.advance_to(clock.tick)],
+			[&"traffic", func() -> void: traffic.advance_to(clock.tick)],
+			[&"migration", func() -> void: migration.advance_to(clock.tick)],
+			[&"trade", func() -> void: trade.advance_to(clock.tick)],
+			[&"governance", func() -> void: governance.advance_to(clock.tick - STAGGER_GOVERNANCE)],
+			[&"fauna", func() -> void: fauna.advance_to(clock.tick - STAGGER_FAUNA)],
+			[&"boats", func() -> void: boats.advance_to(clock.tick - STAGGER_BOATS)],
+			[&"predators", func() -> void:
+				predators.advance_to(clock.tick)
+				parties.advance_to(clock.tick)
+				assemblies.advance_to(clock.tick)
+				raids.advance_to(clock.tick)],
+			[&"stats", func() -> void: stats.advance_to(clock.tick - STAGGER_STATS)],
+		]
+	return _system_steps
+
+
+var _system_steps: Array = []
 
 ## How many game minutes after midnight each system that works once a day
 ## does it (see advance_systems).

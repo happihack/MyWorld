@@ -181,8 +181,8 @@ func test_the_technology_page() -> void:
 	var told := MenuPages.technology(session)
 	assert_has(told["age"], "Now: ")
 	var known: PackedStringArray = told["known"]
-	assert_eq(known[0], "Fire, Foraging, Planting: known from the beginning")
-	assert_eq(known[1], "Year 1 · Pottery — worked out by %s" % session.people.name_of(inventor.id))
+	assert_eq(known[0], "Year 1 · Pottery — worked out by %s" % session.people.name_of(inventor.id), "the newest first")
+	assert_eq(known[-1], "Fire, Foraging, Planting: known from the beginning", "what all knew from the start last")
 	# Close to something: said vaguely.
 	for person in own.members():
 		var held := Knowledge.of(person)

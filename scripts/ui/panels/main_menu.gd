@@ -429,7 +429,9 @@ func _show() -> void:
 			var firsts := _session.significance.firsts() if _session.significance != null else ([] as Array[WorldEvent])
 			if firsts.is_empty():
 				_line(MemoryText.translate("MENU_NOTHING_YET"))
-			add_paged(Array(firsts), func(event: Variant) -> void:
+			var latest_first := Array(firsts)
+			latest_first.reverse() # (the newest first, as every list through time)
+			add_paged(latest_first, func(event: Variant) -> void:
 				_small(EventText.line(event, _session.people, _session.events)))
 		PAGE_RELATIONSHIPS:
 			_title.text = MemoryText.translate("MENU_RELATIONSHIPS")

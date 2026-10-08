@@ -68,6 +68,9 @@ var _save_failed_told_msec := 0
 const SAVE_FAILED_TELL_GAP_MSEC := 5 * 60 * 1000
 ## Living the time away (one catch-up at a time).
 var _catching_up := false
+## The time away has been lived (the opening waits for it: played while the
+## days were being lived, it stuttered — the owner, 2026-10-08).
+signal caught_up
 ## Shorter absences are not lived (a quick look away; tests reopening a world).
 const CATCH_UP_FROM_SECONDS := 60
 ## How much of a frame the catch-up may take (microseconds).
@@ -184,7 +187,7 @@ func _ready() -> void:
 	SensorManager.tilt_changed.connect(func(tilt: Vector2) -> void:
 		if tilt.length() >= TILT_NOTICED:
 			ui_root.hints().note_tilt())
-	_begin_opening()
+	open_when_caught_up()
 	ui_root.home_pressed.connect(go_home)
 	ui_root.disaster_requested.connect(bring_down)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
@@ -744,7 +747,24 @@ func _on_gesture(gesture: Gesture) -> void:
 ## Opening shot: the box on its table, then down to where the people live —
 ## close enough that dragging explores. With reduced motion the view simply
 ## starts there.
+## The opening once the time away is lived — not over the top of it.
+func open_when_caught_up() -> void:
+	if _catching_up:
+		caught_up.connect(_begin_opening, CONNECT_ONE_SHOT)
+	else:
+		_begin_opening()
+
+
+## Is the opening (the box opening, the glide down) under way?
+func opening_begun() -> bool:
+	return intro != null or _opening_started
+
+
+var _opening_started := false
+
+
 func _begin_opening() -> void:
+	_opening_started = true
 	if unfolded_from.has_area():
 		# The box has unfolded: the whole box, its walls moving out, and history's word for it.
 		world_view.camera_rig().frame_box(false)
@@ -1107,13 +1127,16 @@ func catch_up(seconds: int) -> Dictionary:
 		if not is_inside_tree():
 			break
 	var summary := simulator.finish()
+	Log.info(Log.Category.WORLD, "The time away lived", {"seconds": seconds, "game_days": summary.get("days", 0),
+		"ms": Time.get_ticks_msec() - started})
+	# (Saved while the box is still settling: the save's moment is not the
+	# opening's first frame.)
+	SaveManager.save_world(session, &"caught_up")
 	if overlay != null:
 		overlay.close()
 	session.set_process(true)
 	_catching_up = false
-	Log.info(Log.Category.WORLD, "The time away lived", {"seconds": seconds, "game_days": summary.get("days", 0),
-		"ms": Time.get_ticks_msec() - started})
-	SaveManager.save_world(session, &"caught_up")
+	caught_up.emit()
 	if seconds >= OfflineSimulator.TELL_FROM_SECONDS and WhileYouWereGone.worth_telling(summary):
 		_away = summary
 		_tell_away.call_deferred()

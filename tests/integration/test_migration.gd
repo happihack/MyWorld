@@ -381,6 +381,38 @@ func test_marrying_out() -> void:
 	assert_eq(session.lifecycle.counts.get("married_out", 0), before, "nobody else is lonely here")
 
 
+func test_a_couple_with_no_roof_yet_is_of_one_settlement() -> void:
+	# (Soak seed 7, year 81: married across settlements before the one they
+	# went to had a home free, each stayed of their own; the household was
+	# then given a home and one of them lived in another settlement's hut.)
+	var own := _found()
+	var huts := own.start_info().hut_ids.duplicate()
+	own.start_info().hut_ids.clear()
+	var fire := session.settlement.fire().tile
+	var a := session.spawn_person(fire + Vector2i(1, 1))
+	var b := session.spawn_person(fire + Vector2i(1, 1))
+	a.settlement_id = own.id
+	b.settlement_id = session.settlement.id
+	a.household_id = 0
+	b.household_id = 0
+	session.households.form_couple(a, b, session.clock.tick, session.ids.next_id())
+	assert_eq(a.home_building_id, 0, "no home free there yet")
+	assert_eq(b.settlement_id, own.id, "of one settlement: the household's")
+	# And one who moves in with someone living alone without a roof.
+	var c := session.spawn_person(fire + Vector2i(1, 1))
+	var d := session.spawn_person(fire + Vector2i(1, 1))
+	c.settlement_id = own.id
+	d.settlement_id = session.settlement.id
+	c.household_id = session.ids.next_id()
+	session.households._records[c.household_id] = {"home": 0, "founded": session.clock.tick}
+	c.home_building_id = 0
+	d.household_id = 0
+	session.households.form_couple(c, d, session.clock.tick, session.ids.next_id())
+	assert_eq(d.household_id, c.household_id, "moved in with them")
+	assert_eq(d.settlement_id, own.id, "and is of their settlement")
+	own.start_info().hut_ids.assign(huts)
+
+
 func test_a_camps_lonely_get_newcomers() -> void:
 	var own := _found()
 	# Someone of the camp without anyone there to pair with is lonely — whoever lives at the first.

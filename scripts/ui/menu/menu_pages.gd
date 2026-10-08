@@ -189,7 +189,7 @@ static func build(menu: MainMenu, page: StringName, entry: Array) -> bool:
 				menu.add_entry(row[1], func() -> void: menu.person_chosen.emit(id))
 		STORIES:
 			menu.set_title(MemoryText.translate("MENU_STORIES"))
-			var eras := s.events.of_type(&"era_entered")
+			var eras := newest_first(s.events.of_type(&"era_entered"))
 			if not eras.is_empty():
 				menu.add_heading(MemoryText.translate("STORIES_ERAS"))
 				for e in eras:
@@ -558,9 +558,11 @@ static func government(s: WorldSession) -> Array:
 ## What the world has come to believe: its shared memories and myths, in words.
 static func beliefs(s: WorldSession) -> PackedStringArray:
 	var out := PackedStringArray()
+	var found: Array = []
 	for type: StringName in [&"myth_formed", &"cultural_memory", &"faith_founded", &"schism", &"myth_spread"]:
-		for e in s.events.of_type(type):
-			out.append(EventText.line(e, s.people, s.events))
+		found.append_array(s.events.of_type(type))
+	for e: WorldEvent in newest_first(found):
+		out.append(EventText.line(e, s.people, s.events))
 	return out
 
 
@@ -586,7 +588,7 @@ static func box_knowledge(s: WorldSession) -> Dictionary:
 			hypotheses.append(MemoryText.translate("BOX_HYP_" + kind.to_upper()).format({
 				"sure": MemoryText.translate(ScienceSystem.confidence_word(float(h["confidence"]))),
 				"part": MemoryText.translate("PART_" + part.to_upper()) if part != "" else ""}))
-	for e in s.events.of_type(&"mystery_clue"):
+	for e: WorldEvent in newest_first(s.events.of_type(&"mystery_clue")):
 		clues.append(EventText.line(e, s.people, s.events))
 	return {"state": state, "hypotheses": hypotheses, "clues": clues}
 
@@ -652,9 +654,19 @@ static func faith_lines(s: WorldSession, own: Settlement) -> PackedStringArray:
 ## What has been found: regions, the Edge, what was worked out — [[text, XZ or INF], …].
 static func discoveries(s: WorldSession) -> Array:
 	var out: Array = []
+	var found: Array = []
 	for type: StringName in [&"region_found", &"knowledge_learned", &"resource_discovered"]:
-		for e in s.events.of_type(type):
-			out.append([EventText.line(e, s.people, s.events), e.position if e.position != Vector2.INF else Vector2.INF])
+		found.append_array(s.events.of_type(type))
+	for e: WorldEvent in newest_first(found):
+		out.append([EventText.line(e, s.people, s.events), e.position if e.position != Vector2.INF else Vector2.INF])
+	return out
+
+
+## Events, the newest first — the latest year at the top (the owner, 2026-10-08:
+## every list through time reads newest to oldest).
+static func newest_first(events: Array) -> Array:
+	var out := events.duplicate()
+	out.sort_custom(func(a: WorldEvent, b: WorldEvent) -> bool: return a.tick > b.tick or (a.tick == b.tick and a.id > b.id))
 	return out
 
 
@@ -672,7 +684,8 @@ static func _beyond_the_beginning(s: WorldSession) -> bool:
 
 
 ## The Technology page (M16.3): the age now; what is known, when, and who
-## worked it out (or where it came from), the oldest first; what they are
+## worked it out (or where it came from), the newest first (what all knew
+## from the start last); what they are
 ## close to, vaguely. {"age": String, "known": PackedStringArray, "close": PackedStringArray}
 static func technology(s: WorldSession) -> Dictionary:
 	var out := {"age": "", "known": PackedStringArray(), "close": PackedStringArray()}
@@ -689,6 +702,7 @@ static func technology(s: WorldSession) -> Dictionary:
 			if not told.has(kind):
 				told[kind] = e
 	var start := PackedStringArray()
+	var dated: Array = [] # [tick, line]
 	var seen := {}
 	for own in s.settlements.all():
 		for entry: Array in s.technology.known_by(own):
@@ -703,11 +717,14 @@ static func technology(s: WorldSession) -> Dictionary:
 			var e: WorldEvent = told.get(String(id))
 			var who := s.people.name_of(e.participants[0]) if e != null and not e.participants.is_empty() else ""
 			var line := "TECH_KNOWN_LINE" if e == null or e.type == &"knowledge_learned" else "TECH_KNOWN_FROM"
-			known.append(MemoryText.translate(line).format({
+			dated.append([int(entry[1]), MemoryText.translate(line).format({
 				"year": HistoryText.year_of(int(entry[1])), "tech": tech_name(id),
-				"name": who if who != "" else MemoryText.translate("EVENT_SOMEONE"), "place": str(e.text_params.get("place", "")) if e != null else ""}))
+				"name": who if who != "" else MemoryText.translate("EVENT_SOMEONE"), "place": str(e.text_params.get("place", "")) if e != null else ""})])
+	dated.sort_custom(func(a: Array, b: Array) -> bool: return a[0] > b[0] or (a[0] == b[0] and String(a[1]) < String(b[1])))
+	for row: Array in dated:
+		known.append(row[1])
 	if not start.is_empty():
-		known.insert(0, MemoryText.translate("TECH_FROM_START").format({"techs": ", ".join(start)}))
+		known.append(MemoryText.translate("TECH_FROM_START").format({"techs": ", ".join(start)}))
 	out["known"] = known
 	var close := {}
 	for own in s.settlements.all():

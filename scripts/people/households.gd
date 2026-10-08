@@ -135,11 +135,14 @@ func form_couple(a: PersonData, b: PersonData, now: int, new_id: int) -> int:
 	_records[new_id] = {"home": home, "founded": now}
 	var old: Array[int] = [a.household_id, b.household_id]
 	var own := settlements.of_home(home) if settlements != null else null
+	# (A couple of two settlements lives in one — a's, if it has no home free yet:
+	# else, given one later, the other would live under another settlement's roof.)
+	var settlement_id := own.id if own != null else a.settlement_id
 	for person: PersonData in [a, b] + along:
 		person.household_id = new_id
 		person.home_building_id = home
-		if own != null:
-			person.settlement_id = own.id # (a couple of two settlements lives in one)
+		if settlements != null:
+			person.settlement_id = settlement_id
 	for id in old:
 		_forget_if_empty(id)
 	return new_id
@@ -329,6 +332,12 @@ func _move_in(person: PersonData, household_id: int, _now: int) -> void:
 	var own := settlements.of_home(person.home_building_id) if settlements != null else null
 	if own != null:
 		person.settlement_id = own.id
+	elif settlements != null:
+		# (No roof of theirs yet: of the settlement of those they join.)
+		for other in members(household_id):
+			if other != person:
+				person.settlement_id = other.settlement_id
+				break
 	if was != household_id:
 		_forget_if_empty(was)
 

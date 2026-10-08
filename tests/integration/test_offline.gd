@@ -199,3 +199,64 @@ func test_away_in_the_game_is_lived_and_told() -> void:
 	assert_true((await main.catch_up(20) as Dictionary).is_empty())
 	get_tree().unload_current_scene()
 	await wait_frames(2)
+
+
+func test_lived_in_pieces_is_the_same() -> void:
+	# (The time away is lived a piece at a time between frames — each
+	# settlement's work, each one's day and planner, each system — so that no
+	# frame waits for a whole day: the opening stuttered. The world it comes to
+	# is the same as lived in one go.)
+	var first := _world()
+	assert_true(SaveManager.save_world(first, &"test"))
+	var world_id := first.world_id
+	first.queue_free()
+	await wait_frames(1)
+	var results: Array = []
+	var calls := 0
+	for n in 2:
+		var s := _opened(world_id)
+		var sim := OfflineSimulator.new(s)
+		if n == 0:
+			sim.run(4 * DAY)
+		else:
+			sim.begin(4 * DAY)
+			while not sim.step(1): # (a budget of a microsecond: a piece a call)
+				calls += 1
+			sim.finish()
+		var people := PackedStringArray()
+		for person in s.people.all_people():
+			people.append("%d:%s:%.3f" % [person.id, person.given_name, person.health])
+		results.append([s.clock.tick, people, s.settlement.stockpile.amounts(), s.events.size()])
+		s.queue_free()
+		await wait_frames(1)
+	assert_eq(results[0], results[1], "the same world, lived in pieces")
+	assert_true(calls >= 4 * 20, "in many pieces (%d)" % calls)
+
+
+func test_the_opening_waits_for_the_time_away() -> void:
+	AudioManager.ensure_sounds()
+	var first := _world()
+	SaveManager.save_world(first, &"test")
+	first.queue_free()
+	await wait_frames(2)
+	get_tree().change_scene_to_file("res://scenes/main/main.tscn")
+	await wait_frames(4)
+	var main := get_tree().current_scene
+	main.get_node("UIRoot").quit_action = func() -> void: pass
+	main._opening_started = false
+	if main.intro != null:
+		main.intro = null
+	main.catch_up(6 * 3600) # (not awaited: as the game opens)
+	main.open_when_caught_up()
+	await wait_frames(2)
+	assert_true(main._catching_up, "still living the time away")
+	assert_false(main.opening_begun(), "and the opening waits")
+	await main.caught_up
+	assert_true(main.opening_begun(), "then it opens")
+	await wait_frames(3) # (what happened is told: then closed)
+	var ui: UIRoot = main.get_node("UIRoot")
+	if ui.while_you_were_gone() != null:
+		ui.while_you_were_gone().close()
+	await wait_frames(2)
+	get_tree().unload_current_scene()
+	await wait_frames(2)

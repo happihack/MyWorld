@@ -126,15 +126,23 @@ func begin(minutes: int) -> void:
 	_s.movement.stop_all()
 
 
-## Lives day-steps until `budget_usec` has gone by (a frame's worth: the box
-## settles while the screen keeps moving). True once the time away is lived.
+## Lives the time away a piece at a time until `budget_usec` has gone by (a
+## frame's worth: the box settles while the screen keeps moving). A day is
+## lived in pieces — each settlement's work, the meals, each settlement's day
+## and its planner, the rest — so that no frame waits for a whole day (a
+## day of a 100-person world was 0.27 s on a PC, about three times that on
+## the phone: the opening stuttered, the owner 2026-10-08). True once the time
+## away is lived.
 func step(budget_usec: int) -> bool:
 	var started := Time.get_ticks_usec()
-	while _s.clock.tick < end_tick:
-		_day_step()
+	while _s.clock.tick < end_tick or not _pieces.is_empty():
+		if _pieces.is_empty():
+			_plan_day()
+		var piece: Callable = _pieces.pop_front()
+		piece.call()
 		if Time.get_ticks_usec() - started >= budget_usec:
 			break
-	return _s.clock.tick >= end_tick
+	return _s.clock.tick >= end_tick and _pieces.is_empty()
 
 
 ## How far through the time away it is, 0 … 1.
@@ -162,22 +170,48 @@ func _heard(event: WorldEvent) -> void:
 	_events.append(event.id)
 
 
-## One day-step: to the next noon (or the end of the time away).
-func _day_step() -> void:
+## The pieces of the day being lived (Callables), in order.
+var _pieces: Array[Callable] = []
+
+
+## One day-step (to the next noon, or the end of the time away), as pieces.
+func _plan_day() -> void:
 	var now := _s.clock.tick
 	var to_noon := posmod(STEP_AT_MINUTE - Config.time.minute_of_day(now), TimeConfig.MINUTES_PER_DAY)
 	var next := mini(now + (to_noon if to_noon > 0 else TimeConfig.MINUTES_PER_DAY), end_tick)
 	var share := float(next - now) / float(TimeConfig.MINUTES_PER_DAY)
 	for own in _s.settlements.all().duplicate():
-		_work(own, share, now)
-	_s.clock.jump_to(next)
-	_s.fauna.skip_to(next) # (only the herds' days: nobody watches them graze)
+		_pieces.append(func() -> void:
+			if _s.settlements.all().has(own):
+				_work(own, share, now))
+	_pieces.append(func() -> void:
+		_s.clock.jump_to(next)
+		_s.fauna.skip_to(next)) # (only the herds' days: nobody watches them graze)
+	_pieces.append(func() -> void:
+		for own in _s.settlements.all().duplicate():
+			_eat(own, share)
+		_court(share)
+		_arrive()
+		_beasts(share, next))
+	# Each settlement's day and its planner, a piece each (the costliest part:
+	# advance_systems then finds them done — they live a tick once).
 	for own in _s.settlements.all().duplicate():
-		_eat(own, share)
-	_court(share)
-	_arrive()
-	_beasts(share, next)
-	_s.advance_systems()
+		_pieces.append(func() -> void:
+			if not _s.settlements.all().has(own):
+				return
+			if own.farming != null:
+				own.farming.use_start(own.start_info())
+			own.step(next)
+			if own.planner != null:
+				own.planner.advance_to(next))
+	# The systems' days, a piece each (as advance_systems would, in its order).
+	for entry: Array in _s.system_steps():
+		_pieces.append(entry[1])
+	_pieces.append(_end_day)
+
+
+## The end of the day: what is told, the day counted.
+func _end_day() -> void:
 	_s.behavior.announce()
 	days += 1
 	if _notable_since(_quiet_since):
