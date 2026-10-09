@@ -25,4 +25,6 @@ func _ready() -> void:
 		"path": ProjectSettings.globalize_path(Config.save.save_root),
 		"latest_world": SaveManager.find_latest_world_id(),
 	})
+	# (The sounds are made once the splash has played: it stuttered beside them.)
+	AudioManager.hold_synthesis(true)
 	get_tree().change_scene_to_file.call_deferred(SPLASH_SCENE)

@@ -71,22 +71,33 @@ func _ready() -> void:
 	var tween := create_tween()
 	tween.tween_property(_card, "modulate:a", 1.0, FADE_IN)
 	if _atlas != null:
-		tween.tween_callback(func() -> void: _playing = true)
-		tween.tween_interval(MASCOT_FRAMES / MASCOT_FPS)
-	tween.tween_interval(HOLD)
-	tween.tween_property(_card, "modulate:a", 0.0, FADE_OUT)
-	tween.tween_callback(go_on)
+		tween.tween_callback(func() -> void: _playing = true) # (and _process ends it: _ending)
+	else:
+		tween.tween_callback(_ending)
 
 
+## The animation, a frame at a time — never more than one frame on in one go,
+## and no more time than a frame's worth counted at once: a moment the
+## phone is slow is a moment's pause, never frames jumped over (the owner,
+## 2026-10-08: "1 or 2 hiccups").
 func _process(delta: float) -> void:
 	if not _playing or _atlas == null:
 		return
-	_time += delta
-	var frame := mini(int(_time * MASCOT_FPS), MASCOT_FRAMES - 1)
+	_time += minf(delta, 1.0 / MASCOT_FPS)
+	var frame := mini(mini(int(_time * MASCOT_FPS), _frame + 1), MASCOT_FRAMES - 1)
 	if frame != _frame:
 		_show_frame(frame)
 	if frame >= MASCOT_FRAMES - 1:
 		_playing = false
+		_ending()
+
+
+## The last frame held a moment, then away.
+func _ending() -> void:
+	var tween := create_tween()
+	tween.tween_interval(HOLD)
+	tween.tween_property(_card, "modulate:a", 0.0, FADE_OUT)
+	tween.tween_callback(go_on)
 
 
 func uses_custom_picture() -> bool:
@@ -107,6 +118,7 @@ func go_on() -> void:
 	if _gone:
 		return
 	_gone = true
+	AudioManager.hold_synthesis(false)
 	next_action.call()
 
 

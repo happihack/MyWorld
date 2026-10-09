@@ -34,6 +34,12 @@ var _sounds: Dictionary = {} # id -> AudioStream
 var _from_files: Dictionary = {} # id -> true for sounds loaded from assets
 var _ready_to_play := false
 var _synth_task := -1
+## While held (the splash playing — 2026-10-08), the sounds are not made yet:
+## making them takes a core for a second or more on a phone, and the
+## splash's animation stuttered. Boot holds it; the splash lets it go.
+var _synthesis_held := false
+const SYNTHESIS_AFTER := 0.25
+var _synthesis_started := false
 var _placeholders: Dictionary = {} # handed over by the worker when it is done
 var _synth_ms := 0
 var _world_voices: Array[AudioStreamPlayer3D] = []
@@ -69,7 +75,8 @@ func _ready() -> void:
 	_build_voices()
 	apply_volumes()
 	Settings.setting_changed.connect(_on_setting_changed)
-	_synth_task = WorkerThreadPool.add_task(_make_placeholders, false, "Placeholder sounds")
+	# (A moment later: Boot has had its say by then — hold_synthesis.)
+	get_tree().create_timer(SYNTHESIS_AFTER).timeout.connect(_begin_synthesis)
 
 
 func _process(delta: float) -> void:
@@ -261,9 +268,26 @@ func is_ready() -> bool:
 	return _ready_to_play
 
 
+## Holds back (or lets go) the making of the sounds — see _synthesis_held.
+func hold_synthesis(held: bool) -> void:
+	_synthesis_held = held
+	if not held:
+		_begin_synthesis()
+
+
+func _begin_synthesis() -> void:
+	if _synthesis_held or _synthesis_started or _ready_to_play:
+		return
+	_synthesis_started = true
+	_synth_task = WorkerThreadPool.add_task(_make_placeholders, false, "Placeholder sounds")
+
+
 ## Makes sure the sounds exist, waiting for the worker if needed (tests; the
 ## game simply plays nothing until they are ready).
 func ensure_sounds() -> void:
+	if not _ready_to_play and not _synthesis_started:
+		_synthesis_held = false
+		_begin_synthesis()
 	if _synth_task >= 0:
 		WorkerThreadPool.wait_for_task_completion(_synth_task)
 		_synth_task = -1
