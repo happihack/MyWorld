@@ -57,13 +57,11 @@ func test_the_first_opening() -> void:
 	assert_true(ui.visible, "the HUD back")
 	assert_true(view.people_view().visible)
 	assert_true(ui.hints().is_completed(HintDirector.INTRO))
-	# At rest above the one it came down to.
+	# At rest above the main settlement, as Home shows it (2026-10-08).
 	var session: WorldSession = main.get_node("WorldSession")
-	var person := session.people.get_person(main.get("_intro_person"))
-	assert_not_null(person)
-	var at := view.people_view().ground_position(person)
-	assert_near(rig.distance(), BoxIntro.REST_DISTANCE, 0.5)
-	assert_true(Vector2(rig.pivot().x, rig.pivot().z).distance_to(Vector2(at.x, at.z)) < 2.0, "on them")
+	var fire := session.settlements.home().fire().tile
+	assert_near(rig.distance(), Config.camera.home_distance, 0.5)
+	assert_true(Vector2(rig.pivot().x, rig.pivot().z).distance_to(Vector2(fire) + Vector2(0.5, 0.5)) < 2.0, "on the settlement")
 	# No "Something lives inside." (the owner, 2026-10-05): nothing is said.
 	ui.hints().advance(0.1)
 	assert_ne(ui.hints().current(), HintDirector.INSIDE)
@@ -81,7 +79,7 @@ func test_a_touch_skips_it() -> void:
 	assert_null(main.get("intro"), "skipped")
 	assert_eq(answered[0], 0, "that touch only ended the opening (what was under it has moved)")
 	assert_false(view.box_frame().lid().visible)
-	assert_near(view.camera_rig().distance(), BoxIntro.REST_DISTANCE, 0.5, "at rest above someone")
+	assert_near(view.camera_rig().distance(), Config.camera.home_distance, 0.5, "at rest above the settlement")
 
 
 func test_every_time() -> void:
@@ -103,7 +101,7 @@ func test_with_reduced_motion_it_is_simply_the_end() -> void:
 	var main := await _open_main()
 	assert_null(main.get("intro"), "no opening to watch")
 	assert_true((main.get_node("UIRoot") as UIRoot).hints().is_completed(HintDirector.INTRO))
-	assert_near((main.get_node("WorldView") as WorldView).camera_rig().distance(), BoxIntro.REST_DISTANCE, 0.5)
+	assert_near((main.get_node("WorldView") as WorldView).camera_rig().distance(), Config.camera.home_distance, 0.5)
 
 
 func test_the_menu_glows_at_the_first_event() -> void:

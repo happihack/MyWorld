@@ -13,7 +13,7 @@ const FADE := Vector2(0.0, 1.2)
 const LID := Vector2(0.6, 2.4)
 const DESCENT := Vector2(2.0, 5.4)
 const LENGTH := 5.6
-## Where the camera comes to rest above them (tiles).
+## Where the camera comes to rest (tiles), unless told otherwise (play).
 const REST_DISTANCE := 18.0
 ## The figures inside (people, animals) are seen once the lid is this far open
 ## (their far-off markers would show through it).
@@ -24,6 +24,7 @@ var _frame: BoxFrame
 var _hints: HintDirector
 ## Where the one they come down to is now (Callable -> Vector3).
 var _target: Callable
+var _rest_distance := REST_DISTANCE
 var _overlay: ColorRect
 var _layer: CanvasLayer
 var _time := 0.0
@@ -40,7 +41,8 @@ var _figures: Array[Node3D] = []
 ## on stands now (followed as they walk). `hud` is hidden until the end, and
 ## `figures` (people, animals) until the lid is open.
 func play(rig: CameraRig, frame: BoxFrame, hints: HintDirector, target: Callable, reduced_motion: bool,
-		hud: CanvasLayer = null, figures: Array[Node3D] = []) -> void:
+		hud: CanvasLayer = null, figures: Array[Node3D] = [], rest_distance: float = REST_DISTANCE) -> void:
+	_rest_distance = rest_distance
 	_hud = hud
 	_figures = figures
 	if _hud != null:
@@ -111,7 +113,7 @@ func _apply() -> void:
 	if descent > 0.0:
 		var to: Vector3 = _target.call() if _target.is_valid() else _from_pivot
 		# (Distance eased in proportion: the descent feels even all the way down.)
-		var distance := _from_distance * pow(REST_DISTANCE / _from_distance, descent)
+		var distance := _from_distance * pow(_rest_distance / _from_distance, descent)
 		_rig.focus_on(_from_pivot.lerp(to, descent), distance, false)
 
 

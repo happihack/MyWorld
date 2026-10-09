@@ -84,8 +84,6 @@ const CATCH_UP_SLICE_USEC := 20000
 var unfolded_from := Rect2i()
 ## The first opening of the box (VS.4; null once it is over, or if it was seen).
 var intro: BoxIntro
-## Whom the first opening comes down to (chosen when the camera starts down).
-var _intro_person := 0
 ## The touch that skipped the first opening does nothing else (until it lifts).
 var _swallowing_touch := false
 ## How long the ☰ glows at the first event (seconds).
@@ -822,20 +820,20 @@ func _play_intro() -> void:
 		_opening_done())
 	var figures: Array[Node3D] = [world_view.people_view(), world_view.animals_view()]
 	intro.play(world_view.camera_rig(), world_view.box_frame(), ui_root.hints(), _intro_target,
-		bool(Settings.get_value(&"accessibility/reduced_motion")), ui_root, figures)
+		bool(Settings.get_value(&"accessibility/reduced_motion")), ui_root, figures, Config.camera.home_distance)
 
 
-## Where the one the first opening comes down to stands now: someone walking
-## (a grown-up if there is one), chosen when it is first asked.
+## Where the opening comes down to: the main settlement — its fire — seen
+## as Home shows it (the owner, 2026-10-08: the lid opens and the camera
+## zooms in to the main settlement; then what was missed is lived).
 func _intro_target() -> Vector3:
-	var person := session.people.get_person(_intro_person)
-	if person == null:
-		_intro_person = someone_walking()
-		person = session.people.get_person(_intro_person)
-	if person == null:
-		var tile := session.start.settlement_tile
-		return Vector3(tile.x + 0.5, session.world.get_height(tile) * session.world.height_step, tile.y + 0.5)
-	return world_view.people_view().ground_position(person)
+	var home := session.settlements.home() if session.settlements != null else null
+	var tile := session.start.settlement_tile
+	if home != null and home.fire() != null:
+		tile = home.fire().tile
+	elif home != null:
+		tile = home.start_info().settlement_tile
+	return Vector3(tile.x + 0.5, session.world.get_height(tile) * session.world.height_step, tile.y + 0.5)
 
 
 ## Someone on their way somewhere, a grown-up first, nearest the fire first;
