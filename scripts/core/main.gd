@@ -71,6 +71,10 @@ var _catching_up := false
 ## The time away has been lived (the opening waits for it: played while the
 ## days were being lived, it stuttered — the owner, 2026-10-08).
 signal caught_up
+## The opening (the box opening, the glide down, the unfold) is over — or was skipped.
+signal opening_finished
+var _away_seconds := 0
+var _opening_over := false
 ## Shorter absences are not lived (a quick look away; tests reopening a world).
 const CATCH_UP_FROM_SECONDS := 60
 ## How much of a frame the catch-up may take (microseconds).
@@ -92,9 +96,13 @@ const TILT_NOTICED := 0.25
 
 func _ready() -> void:
 	_open_world()
-	# The time away, lived before the world is shown (M20).
-	catch_up(OfflineSimulator.seconds_away(_saved_unix, int(Time.get_unix_time_from_system()),
-		int(Settings.get_value(&"time/last_seen_unix"))))
+	# The time away (M20): lived once the opening is over — the box opens and
+	# the camera comes down first, then the days away are lived and told (the
+	# owner, 2026-10-08). Measured now: what the world saves meanwhile is not
+	# taken for the moment it was left.
+	_away_seconds = OfflineSimulator.seconds_away(_saved_unix, int(Time.get_unix_time_from_system()),
+		int(Settings.get_value(&"time/last_seen_unix")))
+	_note_seen()
 	world_view.show_world(session.world, session.props, session.start, session.loose)
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
@@ -188,7 +196,8 @@ func _ready() -> void:
 	SensorManager.tilt_changed.connect(func(tilt: Vector2) -> void:
 		if tilt.length() >= TILT_NOTICED:
 			ui_root.hints().note_tilt())
-	open_when_caught_up()
+	opening_finished.connect(func() -> void: catch_up(_away_seconds), CONNECT_ONE_SHOT)
+	_begin_opening()
 	ui_root.home_pressed.connect(go_home)
 	ui_root.disaster_requested.connect(bring_down)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
@@ -748,12 +757,16 @@ func _on_gesture(gesture: Gesture) -> void:
 ## Opening shot: the box on its table, then down to where the people live —
 ## close enough that dragging explores. With reduced motion the view simply
 ## starts there.
-## The opening once the time away is lived — not over the top of it.
-func open_when_caught_up() -> void:
-	if _catching_up:
-		caught_up.connect(_begin_opening, CONNECT_ONE_SHOT)
-	else:
-		_begin_opening()
+## The opening is over (once): what was missed is lived next.
+func _opening_done() -> void:
+	if _opening_over:
+		return
+	_opening_over = true
+	opening_finished.emit()
+
+
+func opening_over() -> bool:
+	return _opening_over
 
 
 ## Is the opening (the box opening, the glide down) under way?
@@ -770,6 +783,7 @@ func _begin_opening() -> void:
 		# The box has unfolded: the whole box, its walls moving out, and history's word for it.
 		world_view.camera_rig().frame_box(false)
 		world_view.animate_unfold(unfolded_from, Config.world.unfold_seconds)
+		get_tree().create_timer(Config.world.unfold_seconds).timeout.connect(_opening_done)
 		var moved := session.events.of_type(&"edge_moved")
 		if not moved.is_empty():
 			var notice := Notice.new()
@@ -779,6 +793,7 @@ func _begin_opening() -> void:
 			NotificationManager.offer_notice(notice)
 		return
 	if session.start == null or session.start.campfire_id == 0:
+		_opening_done()
 		return
 	# The box opens every time the world is opened, as it did the first time
 	# (the owner, 2026-10-05); a touch skips it.
@@ -788,6 +803,7 @@ func _begin_opening() -> void:
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):
 		var tile := session.start.settlement_tile
 		world_view.camera_rig().focus_on(Vector3(tile.x + 0.5, 0.0, tile.y + 0.5), Config.camera.home_distance, false)
+		_opening_done()
 		return
 	get_tree().create_timer(OPENING_HOLD_SECONDS).timeout.connect(_opening_glide)
 
@@ -802,7 +818,8 @@ func _play_intro() -> void:
 	intro.finished.connect(func() -> void:
 		_player_has_touched = false
 		intro.queue_free()
-		intro = null)
+		intro = null
+		_opening_done())
 	var figures: Array[Node3D] = [world_view.people_view(), world_view.animals_view()]
 	intro.play(world_view.camera_rig(), world_view.box_frame(), ui_root.hints(), _intro_target,
 		bool(Settings.get_value(&"accessibility/reduced_motion")), ui_root, figures)
@@ -851,8 +868,22 @@ func _on_first_event(_event: WorldEvent) -> void:
 func _opening_glide() -> void:
 	# Not if the player (or anything else) has already taken the camera.
 	if _player_has_touched or not world_view.camera_rig().is_framed():
+		_opening_done()
 		return
 	go_home()
+	# (Over once the camera has come to rest: the zoom done.)
+	var rig := world_view.camera_rig()
+	for i in GLIDE_MOST_FRAMES:
+		await get_tree().process_frame
+		if not is_inside_tree():
+			return
+		if i > 2 and not rig.is_moving():
+			break
+	_opening_done()
+
+
+## The glide down is over by then whatever the camera does (frames).
+const GLIDE_MOST_FRAMES := 600
 
 
 func _on_world_touched(_position: Vector2) -> void:
@@ -1074,7 +1105,11 @@ func _open_world() -> void:
 	var plan := SaveManager.take_open_next()
 	match String(plan.get("kind", "")):
 		"new":
-			session.create_new(0, int(plan.get("size", 0)))
+			# (A land of its own: the one chosen, or any of them.)
+			var land := StringName(str(plan.get("land", "")))
+			if land == &"":
+				land = WorldSession.LANDS[randi() % WorldSession.LANDS.size()]
+			session.create_new(0, int(plan.get("size", 0)), land)
 			SaveManager.save_world(session, &"new_world")
 			return
 		"loaded": # a backup gone back to: it is the world now (and what was is a backup)

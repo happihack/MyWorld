@@ -19,6 +19,10 @@ signal unfolded(old_bounds: Rect2i, new_bounds: Rect2i)
 
 const FORMAT_KEYS: PackedStringArray = ["world_id", "world_seed", "created_unix", "clock", "ids", "rng"]
 const DEFAULT_TEMPLATE_ID := &"river_valley"
+## The lands a new world may be (2026-10-08: terraced, and more of them). The
+## first worlds' river valley (DEFAULT_TEMPLATE_ID) stays as it was for them —
+## and for the tests and soaks, which make their worlds by seed.
+const LANDS: Array[StringName] = [&"broad_valley", &"lake_country", &"open_plains", &"highlands", &"forest_vale", &"river_bluffs"]
 const TEMPLATE_DIR := "res://data/worldgen/"
 ## A random seed whose world is not livable is re-rolled up to this many times.
 const MAX_SEED_ATTEMPTS := 8
@@ -575,7 +579,7 @@ func _init() -> void:
 
 ## Starts a brand-new world. seed_value 0 picks a random seed and re-rolls it
 ## until the world is livable; an explicit seed is always used as given.
-func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
+func create_new(seed_value: int = 0, size_tiles: int = 0, land: StringName = &"") -> void:
 	if is_active:
 		shutdown()
 	_start_size = size_tiles
@@ -583,7 +587,7 @@ func create_new(seed_value: int = 0, size_tiles: int = 0) -> void:
 	unfold_pending = false
 	created_unix = int(Time.get_unix_time_from_system())
 	clock = GameClock.new(Config.time)
-	template_id = DEFAULT_TEMPLATE_ID
+	template_id = land if land != &"" and ResourceLoader.exists("%s%s.tres" % [TEMPLATE_DIR, land]) else DEFAULT_TEMPLATE_ID
 	history = PlayerHistory.new()
 	observer.reset()
 	_saved_behavior = {}

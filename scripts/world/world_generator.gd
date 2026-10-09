@@ -45,6 +45,8 @@ var _salt_bush: int
 var _salt_mushroom: int
 var _salt_roots: int
 var _salt_prop: int
+var _salt_mountain: int
+var _salt_knoll: int
 
 # Prop densities as chances out of HashNoise.ONE.
 var _tree_chance: int
@@ -90,6 +92,8 @@ func _init(seed_value: int, start_template: StartTemplate, world_config: WorldCo
 	_salt_mushroom = _salt(&"gen.mushroom")
 	_salt_roots = _salt(&"gen.roots")
 	_salt_prop = _salt(&"gen.prop")
+	_salt_mountain = _salt(&"gen.mountain")
+	_salt_knoll = _salt(&"gen.knoll")
 	_tree_chance = roundi(template.tree_density * HashNoise.ONE)
 	_rock_chance = roundi(template.rock_density * HashNoise.ONE)
 	_bush_chance = roundi(template.bush_density * HashNoise.ONE)
@@ -298,6 +302,8 @@ func _sample(x: int, y: int, river_x: int, river_half: int, out: PackedInt32Arra
 		level = template.floor_level - 2
 	elif is_bank:
 		level = template.floor_level - 1
+	elif template.terrain_style == StartTemplate.Style.TERRACED:
+		level = _terraced_level(x, y, x * FP + FP / 2 - river_x, d + warp)
 	else:
 		# Hills differ in height: scale = 1 - variation * ridge noise.
 		var ridge := HashNoise.value2(x, y, template.hill_variation_period, _salt_ridge)
@@ -355,6 +361,54 @@ func _sample(x: int, y: int, river_x: int, river_half: int, out: PackedInt32Arra
 	elif terrain == ChunkData.Terrain.DIRT:
 		vegetation = 20
 	out[S_VEGETATION] = vegetation
+
+
+## The height of dry land in a TERRACED world (2026-10-08): the valley floor
+## flat; then broad shelves `terrace_levels` high, the rise held back at the
+## foot (terrace_ease) so the lowest shelves are the widest, one side of the
+## river higher than the other if the land is so (side_balance), the shelves
+## of different hills of different heights; and, far from the river and only
+## where the mountain noise says, mountains on top (rough, in single steps).
+## `across`: signed distance from the river centre (FP tiles); `from_river`:
+## the warped distance (the foot of the land wanders in and out).
+func _terraced_level(x: int, y: int, across: int, from_river: int) -> int:
+	var rise := clampi((from_river - _valley_half) * _T_ONE / maxi(_hill_run, 1), 0, _T_ONE)
+	var ease := roundi(template.terrace_ease * _T_ONE)
+	rise = (rise * (_T_ONE - ease) + rise * rise / _T_ONE * ease) / _T_ONE
+	var side := _T_ONE + roundi(template.side_balance * _T_ONE) * (1 if across > 0 else -1)
+	side = clampi(side, 0, 2 * _T_ONE)
+	var ridge := HashNoise.value2(x, y, template.hill_variation_period, _salt_ridge)
+	var hill_scale := _T_ONE - _hill_variation * ridge / HashNoise.ONE
+	var hill := template.hill_height_levels * FP * rise / _T_ONE * side / _T_ONE * hill_scale / _T_ONE
+	# (A little noise, so the shelf edges wander; none on the shelves themselves.)
+	var wobble := (HashNoise.value2(x, y, template.terrain_noise_period, _salt_terrain) - HashNoise.ONE / 2) * FP / HashNoise.ONE
+	var step := template.terrace_levels * FP
+	# Knolls: mounds and mesas in patches, not at the water's edge.
+	var knoll := 0
+	if template.knoll_amount > 0.0 and from_river > _river_half + _bank_width + 4 * FP:
+		var patch := HashNoise.fbm2(x, y, template.knoll_period, 2, _salt_knoll)
+		var at := _patch_threshold(template.knoll_amount)
+		knoll = template.knoll_height_levels * FP * HashNoise.smoothstep_fixed(at, at + HashNoise.ONE / 10, patch) / _T_ONE
+	var shelves := maxi(maxi(hill, knoll) + wobble, 0) / step * step
+	# Mountains: far out, in patches.
+	var begins := _valley_half + roundi(_hill_run * template.mountain_from)
+	var far := HashNoise.smoothstep_fixed(begins, begins + _hill_run, from_river)
+	var mountain := 0
+	if far > 0 and template.mountain_amount > 0.0:
+		var blob := HashNoise.fbm2(x, y, template.mountain_period, 2, _salt_mountain)
+		var threshold := _patch_threshold(template.mountain_amount)
+		var mask := HashNoise.smoothstep_fixed(threshold, threshold + HashNoise.ONE / 6, blob)
+		if mask > 0:
+			var rough := (HashNoise.fbm2(x, y, maxi(template.terrain_noise_period / 2, 2), 2, _salt_terrain) - HashNoise.ONE / 2) * _hill_rough / (HashNoise.ONE / 2)
+			mountain = maxi(template.mountain_height_levels * FP * mask / _T_ONE * far / _T_ONE + rough * mask / _T_ONE, 0)
+	var h := template.floor_level * FP + shelves + mountain
+	return (h + FP / 2) / FP
+
+
+## Where patch noise (fbm: most of it near the middle) is cut so that about
+## `amount` of the land is in a patch: 0.5 at the middle, less above it.
+static func _patch_threshold(amount: float) -> int:
+	return roundi((0.5 + (0.5 - clampf(amount, 0.0, 1.0)) * 0.4) * HashNoise.ONE)
 
 
 func _salt(stream: StringName) -> int:

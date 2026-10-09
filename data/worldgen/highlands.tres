@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="StartTemplate" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/start_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"highlands"
+display_name = "Highlands"
+terrain_style = 1
+floor_level = 3
+hill_height_levels = 6
+valley_half_width_tiles = 10.0
+hill_run_tiles = 22.0
+terrace_levels = 2
+terrace_ease = 0.5
+mountain_amount = 0.5
+mountain_height_levels = 6
+rock_level = 10
+snow_level = 13
+hill_roughness_levels = 2.0
+rock_density = 0.05
+knoll_amount = 0.3
+knoll_height_levels = 3
+mountain_from = 0.2

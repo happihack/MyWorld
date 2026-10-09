@@ -178,3 +178,71 @@ func test_generation_is_fast_enough() -> void:
 	_load_all(w)
 	var ms := Time.get_ticks_msec() - t0
 	assert_true(ms < 1500, "64x64 world took %d ms on this machine" % ms)
+
+
+# --- the terraced lands (2026-10-08) -------------------------------------------------------------
+
+func _land_world(land: StringName, seed_value: int, size: int = 64) -> WorldData:
+	var world := WorldData.create_centered(size, config.chunk_size)
+	world.set_generator(WorldGenerator.new(seed_value, load("res://data/worldgen/%s.tres" % land), config))
+	return world
+
+
+func test_the_lands_are_sound() -> void:
+	# Every land a new world may be: well defined, the river whole, the land
+	# mostly usable, little bare rock, no dry hole below the floor.
+	for land in WorldSession.LANDS:
+		var template_now: StartTemplate = load("res://data/worldgen/%s.tres" % land)
+		assert_eq(template_now.validate(), PackedStringArray(), String(land))
+		assert_eq(template_now.terrain_style, StartTemplate.Style.TERRACED, String(land))
+		for seed_value: int in [1, 7, 42]:
+			var w := _land_world(land, seed_value)
+			var grass := 0
+			var rock := 0
+			var total := w.bounds.size.x * w.bounds.size.y
+			for y in range(w.bounds.position.y, w.bounds.end.y):
+				for x in range(w.bounds.position.x, w.bounds.end.x):
+					var tile := Vector2i(x, y)
+					var kind := w.get_terrain(tile)
+					grass += 1 if kind == ChunkData.Terrain.GRASS else 0
+					rock += 1 if kind == ChunkData.Terrain.ROCK or kind == ChunkData.Terrain.SNOW else 0
+					var wet := kind == ChunkData.Terrain.RIVERBED or kind == ChunkData.Terrain.SAND
+					if not wet and w.get_height(tile) < template_now.floor_level:
+						fail("%s seed %d: dry land below the floor at %s" % [land, seed_value, tile])
+						return
+			assert_true(grass * 100 / total >= 55, "%s seed %d: %d%% grass" % [land, seed_value, grass * 100 / total])
+			assert_true(rock * 100 / total <= 15, "%s seed %d: %d%% rock (the mountains not in the way)" % [land, seed_value, rock * 100 / total])
+
+
+func test_the_lowest_shelves_are_broad() -> void:
+	# (The owner: the steps at the foot of the hills were too narrow.) Walking
+	# out from the river, the first step up comes after a broad floor, and the
+	# next after a broad shelf — not a stair of one-tile steps.
+	for land in WorldSession.LANDS:
+		var gen := WorldGenerator.new(7, load("res://data/worldgen/%s.tres" % land), config)
+		var w := WorldData.create_centered(96, config.chunk_size)
+		w.set_generator(gen)
+		var widths: Array[int] = []
+		for y in range(-40, 41, 8):
+			var river := roundi(gen.river_center_x(y))
+			for way: int in [-1, 1]:
+				var last := w.get_height(Vector2i(river + way * 6, y))
+				var since := 0
+				for step in range(7, 46):
+					var h := w.get_height(Vector2i(river + way * step, y))
+					since += 1
+					if h != last:
+						if since > 0 and last > 0:
+							widths.append(since)
+						since = 0
+						last = h
+					if widths.size() > 0 and step > 30:
+						break
+		var narrow := widths.filter(func(n: int) -> bool: return n <= 1).size()
+		assert_true(widths.is_empty() or narrow * 100 / widths.size() <= 25,
+			"%s: %d of %d steps one tile wide %s" % [land, narrow, widths.size(), str(widths)])
+
+
+func test_a_classic_world_stays_classic() -> void:
+	# (The worlds made before the lands keep their ground: see GOLDEN.)
+	assert_eq(template.terrain_style, StartTemplate.Style.CLASSIC)

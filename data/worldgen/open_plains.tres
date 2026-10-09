@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="StartTemplate" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/start_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"open_plains"
+display_name = "Open Plains"
+terrain_style = 1
+floor_level = 3
+hill_height_levels = 3
+valley_half_width_tiles = 20.0
+hill_run_tiles = 30.0
+terrace_levels = 1
+terrace_ease = 0.8
+mountain_amount = 0.0
+mountain_height_levels = 0
+tree_density = 0.32
+bush_density = 0.016
+forest_period_tiles = 26
+rock_level = 12
+snow_level = 15
+meander_amplitude_tiles = 13.0
+meander_period_tiles = 40
+knoll_amount = 0.35
+knoll_height_levels = 2
+knoll_period = 20

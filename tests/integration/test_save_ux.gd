@@ -152,7 +152,7 @@ func test_a_new_world_and_back_to_the_first() -> void:
 	await _press(menu, "Continue another world")
 	assert_eq(menu.page(), MainMenu.PAGE_WORLDS)
 	assert_eq(menu.entries().size(), 1)
-	assert_true(menu.entries()[0].text.begins_with("Seed 12345 · Year 1"), menu.entries()[0].text)
+	assert_true(menu.entries()[0].text.contains("Seed 12345 · Year 1"), menu.entries()[0].text) # (after its land: "River Valley · Seed …")
 	menu.entries()[0].pressed.emit()
 	main = await _after_switch()
 	assert_eq((main.get_node("WorldSession") as WorldSession).world_id, first_id)

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="StartTemplate" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/start_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"forest_vale"
+display_name = "Forest Vale"
+terrain_style = 1
+floor_level = 3
+hill_height_levels = 5
+valley_half_width_tiles = 12.0
+hill_run_tiles = 24.0
+terrace_levels = 2
+terrace_ease = 0.6
+mountain_amount = 0.15
+mountain_height_levels = 4
+tree_density = 0.85
+forest_period_tiles = 24
+bush_density = 0.012
+rock_level = 11
+snow_level = 14
+knoll_amount = 0.25
+knoll_height_levels = 2
+mountain_from = 0.4

@@ -153,3 +153,17 @@ func test_quit_from_the_world() -> void:
 	EventBus.save_completed.disconnect(noted)
 	assert_true(quit[0], "out of the game")
 	assert_eq(reasons, [&"quit"], "the world saved first")
+
+
+func test_a_new_world_is_one_of_the_lands() -> void:
+	SaveManager.open_next = {"kind": "new", "size": MainMenu.NEW_WORLD_SIZES[0]}
+	get_tree().change_scene_to_file("res://scenes/main/main.tscn")
+	await wait_frames(4)
+	var session: WorldSession = get_tree().current_scene.get_node("WorldSession")
+	assert_has(WorldSession.LANDS, session.template_id, "a land of its own")
+	# Its land is in its save, and in the list of worlds.
+	SaveManager.save_world(session, &"test")
+	var listed := SaveManager.worlds()
+	assert_eq(listed[0]["land"], String(session.template_id))
+	assert_true(MainMenu.world_text(listed[0], int(Time.get_unix_time_from_system())).begins_with(
+		MemoryText.translate("LAND_" + String(session.template_id).to_upper())), "named in the list")

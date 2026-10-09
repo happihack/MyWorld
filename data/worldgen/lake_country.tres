@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="StartTemplate" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/start_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"lake_country"
+display_name = "Lake Country"
+terrain_style = 1
+floor_level = 3
+hill_height_levels = 4
+valley_half_width_tiles = 13.0
+hill_run_tiles = 24.0
+terrace_levels = 2
+terrace_ease = 0.5
+mountain_amount = 0.12
+mountain_height_levels = 4
+meander_amplitude_tiles = 8.0
+meander_period_tiles = 34
+pond_extra_width_tiles = 10.0
+pond_period_tiles = 34
+pond_amount = 0.7
+river_half_width_tiles = 1.8
+tree_density = 0.55
+bush_density = 0.014
+rock_level = 11
+snow_level = 14
+knoll_amount = 0.2
+knoll_height_levels = 2
+mountain_from = 0.6

@@ -233,6 +233,7 @@ func _prepare(session: WorldSession, reason: StringName) -> Dictionary:
 		"save_version": SAVE_VERSION,
 		"world_id": session.world_id,
 		"world_seed": session.world_seed,
+		"land": String(session.template_id),
 		"created_unix": session.created_unix,
 		"saved_unix": int(Time.get_unix_time_from_system()),
 		"game_tick": session.clock.tick,
@@ -416,7 +417,7 @@ func worlds() -> Array[Dictionary]:
 		for file_name in _candidate_files():
 			var header := SaveContainer.read_header(world_dir(world_id).path_join(file_name))
 			if header.ok:
-				out.append({"world_id": world_id, "seed": int(header.header.get("world_seed", 0)),
+				out.append({"world_id": world_id, "seed": int(header.header.get("world_seed", 0)), "land": str(header.header.get("land", "")),
 					"saved_unix": int(header.header.get("saved_unix", 0)), "game_tick": int(header.header.get("game_tick", 0))})
 				break
 	return out

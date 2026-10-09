@@ -10,6 +10,7 @@ func _init() -> void:
 	var years := 30
 	var dir := "C:/tmp/wiab_shots"
 	var like_soak := OS.get_cmdline_user_args().has("--like-soak")
+	var land := &""
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--seed="):
 			seed_value = int(arg.get_slice("=", 1))
@@ -17,6 +18,8 @@ func _init() -> void:
 			years = int(arg.get_slice("=", 1))
 		elif arg.begins_with("--dir="):
 			dir = arg.get_slice("=", 1)
+		elif arg.begins_with("--land="):
+			land = StringName(arg.get_slice("=", 1))
 	await process_frame
 	var config: Variant = root.get_node("Config")
 	DirAccess.make_dir_recursive_absolute(dir.path_join("saves"))
@@ -25,7 +28,7 @@ func _init() -> void:
 	var Session: Variant = load("res://scripts/simulation/world_session.gd")
 	var s: Variant = Session.new()
 	root.add_child(s)
-	s.create_new(seed_value)
+	s.create_new(seed_value, 0, land)
 	s.set_process(false)
 	s.loose_system.set_process(false)
 	s.water.set_process(false)

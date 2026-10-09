@@ -233,7 +233,9 @@ func test_lived_in_pieces_is_the_same() -> void:
 	assert_true(calls >= 4 * 20, "in many pieces (%d)" % calls)
 
 
-func test_the_opening_waits_for_the_time_away() -> void:
+func test_the_time_away_waits_for_the_opening() -> void:
+	# (The owner, 2026-10-08: the box opens and the camera comes down first;
+	# then the days away are lived and told.)
 	AudioManager.ensure_sounds()
 	var first := _world()
 	SaveManager.save_world(first, &"test")
@@ -243,16 +245,15 @@ func test_the_opening_waits_for_the_time_away() -> void:
 	await wait_frames(4)
 	var main := get_tree().current_scene
 	main.get_node("UIRoot").quit_action = func() -> void: pass
-	main._opening_started = false
-	if main.intro != null:
-		main.intro = null
-	main.catch_up(6 * 3600) # (not awaited: as the game opens)
-	main.open_when_caught_up()
-	await wait_frames(2)
-	assert_true(main._catching_up, "still living the time away")
-	assert_false(main.opening_begun(), "and the opening waits")
+	main._away_seconds = 6 * 3600 # (as if left six hours ago)
+	assert_true(main.opening_begun(), "the opening first")
+	assert_false(main.opening_over())
+	assert_false(main._catching_up, "nothing lived yet")
+	await main.opening_finished
+	await wait_frames(1)
+	assert_true(main._catching_up, "then the time away")
 	await main.caught_up
-	assert_true(main.opening_begun(), "then it opens")
+	assert_false(main._catching_up)
 	await wait_frames(3) # (what happened is told: then closed)
 	var ui: UIRoot = main.get_node("UIRoot")
 	if ui.while_you_were_gone() != null:

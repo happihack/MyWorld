@@ -612,8 +612,10 @@ static func date_of(tick: int) -> String:
 
 ## A saved world in a line: "Seed 48213 · Year 3 · Spring · Day 4 · Saved 2 h ago".
 static func world_text(world: Dictionary, now_unix: int) -> String:
-	return MemoryText.translate("MENU_WORLD_ROW").format({"seed": int(world["seed"]), "date": date_of(int(world["game_tick"])),
+	var row := MemoryText.translate("MENU_WORLD_ROW").format({"seed": int(world["seed"]), "date": date_of(int(world["game_tick"])),
 		"saved": ago_text(int(world["saved_unix"]), now_unix)})
+	var land := str(world.get("land", ""))
+	return row if land == "" else "%s · %s" % [MemoryText.translate("LAND_" + land.to_upper()), row]
 
 
 ## A backup in a line: "Year 1 · Spring · Day 3 · Saved 4 min ago".

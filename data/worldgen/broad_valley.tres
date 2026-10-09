@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="StartTemplate" format=3]
+
+[ext_resource type="Script" path="res://scripts/world/start_template.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"broad_valley"
+display_name = "Broad Valley"
+terrain_style = 1
+floor_level = 3
+hill_height_levels = 6
+valley_half_width_tiles = 14.0
+hill_run_tiles = 26.0
+terrace_levels = 2
+terrace_ease = 0.6
+mountain_amount = 0.25
+mountain_height_levels = 5
+rock_level = 11
+snow_level = 14
+hill_roughness_levels = 1.6
+mountain_from = 0.3
+knoll_amount = 0.15
+knoll_height_levels = 2

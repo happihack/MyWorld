@@ -33,6 +33,33 @@ enum Shape { RIVER_VALLEY, ISLAND, MOUNTAIN_BASIN, FOREST_CLEARING, COASTAL_PLAI
 @export_range(0.0, 4.0, 0.1) var valley_roughness_levels: float = 0.5
 @export_range(0.0, 6.0, 0.1) var hill_roughness_levels: float = 2.4
 
+@export_group("Terraces")
+## How the land rises from the valley floor (the owner, 2026-10-08: the old
+## hills were too much mountain, and their steps too thin at the foot).
+## CLASSIC: the first worlds' rough hills — kept exactly for the worlds made
+## with it. TERRACED: broad flat shelves, widest at the foot, and mountains
+## only here and there, far from the river.
+enum Style { CLASSIC, TERRACED }
+@export var terrain_style: Style = Style.CLASSIC
+## Levels from one shelf to the next.
+@export_range(1, 4) var terrace_levels: int = 2
+## 0..1: how much the rise holds back at the foot (wider bottom shelves).
+@export_range(0.0, 1.0, 0.05) var terrace_ease: float = 0.6
+## -1..1: one side of the river higher than the other (0: both alike).
+@export_range(-1.0, 1.0, 0.05) var side_balance: float = 0.0
+## 0..1: how much of the far land rises into mountains.
+@export_range(0.0, 1.0, 0.05) var mountain_amount: float = 0.25
+## How many levels mountains rise above the hills.
+@export_range(0, 10) var mountain_height_levels: int = 5
+@export_range(8, 128) var mountain_period: int = 30
+## 0..1: where mountains begin, from the foot of the land (0) to its far edge
+## (1) — and beyond (the higher, the further out).
+@export_range(0.0, 2.0, 0.05) var mountain_from: float = 0.5
+## 0..1: knolls — flat-topped mounds and low mesas out on the land, in patches.
+@export_range(0.0, 1.0, 0.05) var knoll_amount: float = 0.0
+@export_range(1, 6) var knoll_height_levels: int = 2
+@export_range(6, 64) var knoll_period: int = 16
+
 @export_group("River")
 @export_range(0.5, 8.0, 0.1) var river_half_width_tiles: float = 1.6
 ## Width of the lowered, shallow-water bank on each side of the river.
@@ -65,6 +92,8 @@ func validate() -> PackedStringArray:
 	var p := PackedStringArray()
 	_check(p, floor_level >= 2, "floor_level must be >= 2 (room for the river bed below it)")
 	_check(p, floor_level + hill_height_levels <= 15, "floor_level + hill_height_levels must be <= 15")
+	_check(p, terrain_style != Style.TERRACED or floor_level + hill_height_levels + mountain_height_levels <= 15,
+		"floor_level + hill_height_levels + mountain_height_levels must be <= 15")
 	_check(p, rock_level <= snow_level, "rock_level must be <= snow_level")
 	_check(p, id != &"", "id must not be empty")
 	# Keeps consecutive river rows connected (centre shifts well under the river
