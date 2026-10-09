@@ -129,7 +129,7 @@ em { font-style: italic; }
 .feature__media img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform 0.8s ease; }
 .feature__media:hover img { transform: scale(1.03); }
 .feature__media--phone { background: none; border: 0; box-shadow: none; display: grid; place-items: center; overflow: visible; }
-.feature__media--phone img { aspect-ratio: auto; object-fit: contain; }
+.feature__media--phone img { aspect-ratio: auto; object-fit: contain; width: min(320px, 80%); }
 .feature__media--phone:hover img { transform: none; }
 .feature__text p { color: var(--muted); font-size: 1.05rem; }
 .ticks { list-style: none; padding: 0; margin: 1.4em 0 0; display: grid; gap: 0.7em; }
