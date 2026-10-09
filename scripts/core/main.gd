@@ -124,6 +124,7 @@ func _ready() -> void:
 	session.loose_system.bumped.connect(_on_object_bumped)
 	ui_root.context_action.connect(_on_context_action)
 	ui_root.world_requested.connect(switch_world)
+	ui_root.title_requested.connect(exit_to_title)
 	ui_root.benchmark_requested.connect(run_benchmark)
 	ui_root.person_action.connect(_on_person_action)
 	ui_root.person_chosen.connect(_on_person_chosen)
@@ -1160,6 +1161,17 @@ func _note_seen() -> void:
 ## Opens another world (VS.3): this one is saved first — or, with
 ## `erase_this`, erased for good — and the scene opens `plan` (see
 ## SaveManager.open_next) as it opens the newest world at launch.
+## To the main menu: the world saved and closed (2026-10-08).
+const TITLE_SCENE := "res://scenes/main/title.tscn"
+
+
+func exit_to_title() -> void:
+	if session.is_active:
+		SaveManager.save_world(session, &"to_menu")
+	SaveManager.attach(null) # (closing this world saves nothing more)
+	get_tree().change_scene_to_file.call_deferred(TITLE_SCENE)
+
+
 func switch_world(plan: Dictionary, erase_this: bool = false) -> void:
 	var leaving := session.world_id
 	if not erase_this and session.is_active:

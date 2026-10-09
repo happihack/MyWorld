@@ -27,6 +27,8 @@ signal event_chosen(event_id: int)
 signal disaster_requested(kind: StringName)
 ## Another world is to be opened (VS.3; see MainMenu.world_requested).
 signal world_requested(plan: Dictionary, erase_this: bool)
+## For the main menu (Main saves the world and goes there).
+signal title_requested
 ## The benchmark was asked for (the menu is closed: M21.1).
 signal benchmark_requested
 
@@ -393,6 +395,13 @@ func open_menu() -> MainMenu:
 		_tick()
 		close_all_panels()
 		open_history(_session))
+	menu.title_requested.connect(func() -> void:
+		_tick()
+		menu.close()
+		title_requested.emit())
+	menu.quit_requested.connect(func() -> void:
+		menu.close()
+		quit_game())
 	return menu
 
 
@@ -921,8 +930,13 @@ func _on_back_requested() -> void:
 		return
 	if close_top_panel():
 		return
-	# Nothing open, so back means "leave the game". Listeners of
-	# app_quit_requested (e.g. SaveManager) run synchronously before we quit.
+	# Nothing open, so back means "leave the game".
 	Log.info(Log.Category.UI, "Back with no open panels: quitting")
+	quit_game()
+
+
+## Out of the game. Listeners of app_quit_requested (e.g. SaveManager, which
+## saves the world) run synchronously before it quits.
+func quit_game() -> void:
 	EventBus.app_quit_requested.emit()
 	quit_action.call()

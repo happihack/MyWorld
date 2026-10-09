@@ -1,9 +1,10 @@
 extends Node
 ## Boot scene: runs once at startup after the autoloads (Log -> Config ->
 ## EventBus -> Settings -> SaveManager) are ready, records environment info,
-## then hands over to the Main scene (which continues or creates a world).
+## then hands over to the splash screen (then the main menu, then the world
+## chosen there: 2026-10-08).
 
-const MAIN_SCENE := "res://scenes/main/main.tscn"
+const SPLASH_SCENE := "res://scenes/main/splash.tscn"
 
 
 func _ready() -> void:
@@ -24,4 +25,4 @@ func _ready() -> void:
 		"path": ProjectSettings.globalize_path(Config.save.save_root),
 		"latest_world": SaveManager.find_latest_world_id(),
 	})
-	get_tree().change_scene_to_file.call_deferred(MAIN_SCENE)
+	get_tree().change_scene_to_file.call_deferred(SPLASH_SCENE)

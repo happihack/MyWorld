@@ -37,6 +37,10 @@ func _init() -> void:
 	DisplayServer.window_set_size(_size)
 	root.size = _size
 	await _frames(5)
+	if _set == "menus":
+		await _menus()
+		quit()
+		return
 	change_scene_to_file("res://scenes/main/main.tscn")
 	await _frames(20)
 	main = current_scene
@@ -134,6 +138,19 @@ func _phone() -> void:
 	ui.open_map()
 	await _shot("phone_map")
 	ui.close_all_panels()
+
+
+## The splash screen and the main menu (with this world saved: Continue).
+func _menus() -> void:
+	change_scene_to_file("res://scenes/main/splash.tscn")
+	await _frames(5)
+	current_scene.next_action = func() -> void: pass
+	await _shot("menu_splash", 70)
+	change_scene_to_file("res://scenes/main/title.tscn")
+	await _frames(5)
+	await _shot("menu_title", 20)
+	current_scene.show_page(&"new")
+	await _shot("menu_title_new", 10)
 
 
 func _fire() -> Vector3:

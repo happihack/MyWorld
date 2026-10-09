@@ -31,6 +31,9 @@ signal place_chosen(world_xz: Vector2)
 signal world_requested(plan: Dictionary, erase_this: bool)
 ## The player's own history was asked for (M11.4).
 signal history_requested
+## Leave the world: for the main menu (title_requested), or the game altogether.
+signal title_requested
+signal quit_requested
 
 const PAGE_ROOT := &"root"
 const PAGE_INDIVIDUALS := &"individuals"

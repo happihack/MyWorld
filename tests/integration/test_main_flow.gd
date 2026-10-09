@@ -35,7 +35,9 @@ func _touch(index: int, pos: Vector2, pressed: bool) -> void:
 
 
 func test_boot_hands_over_to_main_with_running_world() -> void:
-	var main := await _load_main("res://scenes/main/boot.tscn")
+	# (Boot → splash → main menu → the world: test_title_screen. Here, the world as the menu opens it.)
+	SaveManager.open_next = {"kind": "new", "size": MainMenu.NEW_WORLD_SIZES[0]}
+	var main := await _load_main()
 	assert_eq(main.name, "Main")
 	var session: WorldSession = main.get_node("WorldSession")
 	assert_true(session.is_active)

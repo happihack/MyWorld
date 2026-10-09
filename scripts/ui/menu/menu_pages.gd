@@ -114,6 +114,12 @@ static func sections(menu: MainMenu) -> Array:
 	if bool(Settings.get_value(&"debug/enabled")):
 		settings.append(["MENU_DEBUG", func() -> void: menu.open_page(DEBUG)])
 	out.append(["MENU_SETTINGS", settings])
+	# Leaving (2026-10-08): to the main menu, or out of the game — the world is saved either way.
+	var leave: Array = []
+	leave.append(["MENU_TO_TITLE", func() -> void: menu.title_requested.emit()])
+	leave.append(["MENU_QUIT", func() -> void:
+		menu.ask(MemoryText.translate("MENU_QUIT_ASK"), MemoryText.translate("MENU_QUIT_YES"), func() -> void: menu.quit_requested.emit())])
+	out.append(["MENU_LEAVE", leave])
 	return out.filter(func(section: Array) -> bool: return not (section[1] as Array).is_empty())
 
 
