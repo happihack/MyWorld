@@ -116,13 +116,16 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"water")
 	if workshop_wanted():
 		out.append(&"workshop")
-	if not crossing(now).is_empty():
-		out.append(&"bridge")
+	# (What knowing and believing call for before another bridge: a river
+	# world always has more water to cross, and its kilns, stone circles and
+	# shrines never had their turn — the 200-year soaks.)
 	for tag: String in LANDMARKS:
 		if landmark_wanted(tag):
 			out.append(StringName(tag))
 	if shrine_wanted():
 		out.append(&"shrine")
+	if not crossing(now).is_empty():
+		out.append(&"bridge")
 	if landing_wanted():
 		out.append(&"landing")
 	return out
@@ -410,7 +413,15 @@ func storage_short(now: int) -> bool:
 	for entry: Array in _spoiled:
 		if today - int(entry[0]) < _config.spoiled_days:
 			spoiled += int(entry[1])
+	# (The first once there are a few households — not only once food overflows,
+	# which a settlement always a little hungry never sees: the 200-year soaks.)
+	if stores == 0 and _settlement.member_count() >= FIRST_STORE_FROM:
+		return true
 	return (room < _config.storage_room_least or spoiled >= _config.spoiled_from) and stores < 1 + _settlement.member_count() / 12
+
+
+## A settlement of this many builds its first storehouse whatever its stores.
+const FIRST_STORE_FROM := 10
 
 
 ## A woodshed for wood and stone: once the food has a storehouse (wood is

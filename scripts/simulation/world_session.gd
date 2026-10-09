@@ -424,6 +424,7 @@ func _init() -> void:
 	science.hypothesis_formed.connect(chronicle.on_hypothesis)
 	science.stage_reached.connect(chronicle.on_box_research)
 	mysteries.clue_found.connect(func(id: StringName, step: int, person_id: int) -> void:
+		_learn_from_clue(person_id)
 		var def := mysteries.get_def(id)
 		var entry: Dictionary = mysteries.placed.get(id, {})
 		chronicle.on_clue(id, step, person_id, Vector2(entry.get("tile", Vector2i.ZERO)) + Vector2(0.5, 0.5),
@@ -1252,6 +1253,27 @@ func spawn_person(near: Vector2i, stage: PersonData.LifeStage = PersonData.LifeS
 		"occupation": person.occupation_id})
 	EventBus.person_born.emit(person.id)
 	return person
+
+
+## Something strange about the box found (a clue): the unexplained is learned
+## — much by who found it, a little by everyone they tell at home. (2026-10-09:
+## before, only the player's doings taught it, so a world left to itself never
+## came to natural philosophy, nor to science.)
+const CLUE_ANOMALY := 15.0
+const CLUE_ANOMALY_TOLD := 4.0
+
+
+func _learn_from_clue(person_id: int) -> void:
+	var finder := people.get_person(person_id)
+	if finder == null:
+		return
+	Knowledge.add(finder, Knowledge.Domain.ANOMALY, CLUE_ANOMALY)
+	var home := settlements.of(finder)
+	if home == null:
+		return
+	for person in home.members():
+		if person != finder:
+			Knowledge.add(person, Knowledge.Domain.ANOMALY, CLUE_ANOMALY_TOLD)
 
 
 ## Border stones (FC6) where two settlements have made peace: beside the

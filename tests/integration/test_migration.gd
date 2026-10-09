@@ -99,7 +99,7 @@ func _found() -> Settlement:
 func test_what_drives_people_away() -> void:
 	var first := session.settlement
 	assert_eq(float(migration.pressure(first, session.clock.tick)["total"]), 0.0, "a band this small sends nobody")
-	_grow(17)
+	_grow(Config.migration.least_people + 2) # (from 24 a settlement sends people out: 2026-10-09)
 	var push := migration.pressure(first, session.clock.tick)
 	assert_true(float(push["crowding"]) > 0.0, "the roofs are full (%s)" % push)
 	assert_true(float(push["adventure"]) > 0.0)
@@ -434,8 +434,8 @@ func test_tiers_and_the_fire_says_whose_it_is() -> void:
 	assert_eq(Settlements.tier_for(4), Settlements.Tier.CAMP)
 	assert_eq(Settlements.tier_for(10), Settlements.Tier.HAMLET)
 	assert_eq(Settlements.tier_for(30), Settlements.Tier.VILLAGE)
-	assert_eq(Settlements.tier_for(100), Settlements.Tier.TOWN)
-	assert_eq(Settlements.tier_for(500), Settlements.Tier.CITY)
+	assert_eq(Settlements.tier_for(60), Settlements.Tier.TOWN)
+	assert_eq(Settlements.tier_for(200), Settlements.Tier.CITY)
 	assert_eq(Settlements.tier_name(Settlements.Tier.HAMLET), "Hamlet")
 	var own := _found()
 	var target := Picker.Result.new()

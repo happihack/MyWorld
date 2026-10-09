@@ -5,13 +5,13 @@ extends ConfigBase
 
 @export_group("What drives people away")
 ## Only a settlement of at least this many sends anyone away.
-@export_range(2, 200) var least_people: int = 10
+@export_range(2, 200) var least_people: int = 24 # (10 split every hamlet before it could grow: the 200-year soaks)
 ## The roofs: from this few places left under them, crowding drives people
 ## (at no place left, as much as `crowding`).
 @export_range(0, 20) var crowded_from_spare: int = 2
 @export_range(0.0, 2.0, 0.01) var crowding: float = 0.6
 ## A settlement this big feels it whatever its roofs: as much as `size`.
-@export_range(2, 1000) var big_from: int = 20
+@export_range(2, 1000) var big_from: int = 60
 @export_range(0.0, 2.0, 0.01) var size: float = 0.4
 ## Food short this many days on end, as much as `scarcity`.
 @export_range(1, 60) var scarce_days: int = 4

@@ -12,7 +12,7 @@ enum Phase { PRIMITIVE, SETTLEMENT, AGRICULTURE, VILLAGES, CITIES, CIVILIZATION,
 const NAMES: Array[StringName] = [&"primitive", &"settlement", &"agriculture", &"villages", &"cities", &"civilization",
 	&"science", &"industry", &"advanced", &"box_investigation", &"outside"]
 ## Fields feed at least this share of what is brought in for the age of agriculture.
-const FARMS_FEED := 0.5
+const FARMS_FEED := 0.33 # (a half was never held for long: the 200-year soaks)
 const FOODS: Array[String] = ["berries", "grain", "meat", "fish"]
 ## What counts as a settlement's specialization (a village's workshops).
 const SPECIALIZED: Array[int] = [PropData.Kind.WORKSHOP, PropData.Kind.KILN, PropData.Kind.HERB_RACK]
