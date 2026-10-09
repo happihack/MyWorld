@@ -4,6 +4,9 @@ extends SceneTree
 ## stay alive, nobody gets stuck, and the world's books stay in order.
 ##
 ##   godot --headless --path . -s res://tests/soak/soak_m7.gd -- [--years=10] [--seed=12345] [--quiet] [--watchdog=seconds]
+##     [--land=broad_valley] (one of WorldSession.LANDS: a new world's land; else the classic valley)
+##     [--game-steps] (the world stepped as the game steps it — advance_systems — not the soak's own list)
+##     [--chronicle] (every ten years: where the world has got to, and what happened in those years)
 ##
 ## Since M10.2 people are born and die: the soak checks that the band neither
 ## dies out nor outgrows its roofs, and reports births, deaths, partners and
@@ -44,6 +47,9 @@ func _run() -> void:
 	var years := 10
 	var seed_value := 12345
 	var quiet := false
+	var land := &""
+	var game_steps := OS.get_cmdline_user_args().has("--game-steps")
+	var chronicle := OS.get_cmdline_user_args().has("--chronicle")
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--years="):
 			years = maxi(int(argument.get_slice("=", 1)), 1)
@@ -51,6 +57,8 @@ func _run() -> void:
 			seed_value = int(argument.get_slice("=", 1))
 		elif argument == "--quiet":
 			quiet = true
+		elif argument.begins_with("--land="):
+			land = StringName(argument.get_slice("=", 1))
 		elif argument.begins_with("--tag="):
 			ROOT = ROOT_BASE + "_" + argument.get_slice("=", 1).validate_filename()
 	var config: Node = root.get_node("Config")
@@ -67,7 +75,9 @@ func _run() -> void:
 	var session_script: GDScript = load("res://scripts/simulation/world_session.gd")
 	var s: Node = session_script.new()
 	root.add_child(s)
-	s.create_new(seed_value)
+	s.create_new(seed_value, 0, land)
+	print("SOAK land %s" % s.template_id)
+	var told := {} # (the chronicle: events already told, kinds of building already built)
 	s.set_process(false)
 	s.loose_system.set_process(false)
 	s.water.set_process(false)
@@ -121,6 +131,9 @@ func _run() -> void:
 			s.pathfinder.serve(1000000)
 			s.movement.step(1.0)
 			s.unfold_if_due() # (M13.2: the box may unfold)
+			if game_steps:
+				s.advance_systems()
+				continue
 			if s.nodes.due(s.clock.tick):
 				s.nodes.settle(s.clock.tick)
 			if i % 60 == 0:
@@ -219,6 +232,8 @@ func _run() -> void:
 			_problem("day %d: the event log holds %d events (%d at most)" % [day, s.events.size(), config.events.max_events])
 		if (day + 1) % days_per_year == 0:
 			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
+		if chronicle and (day + 1) % (days_per_year * 10) == 0:
+			_chronicle(s, (day + 1) / days_per_year, told)
 		if (day + 1) % days_per_season == 0 and not quiet:
 			print("SOAK year %d season %d  people %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f" % [
 				day / days_per_year + 1, (day % days_per_year) / days_per_season, alive, s.settlement.days_of_food(),
@@ -431,6 +446,50 @@ func _run() -> void:
 		for problem in _problems.slice(0, 40):
 			print("SOAK   " + problem)
 		quit(1)
+
+
+## Every ten years (--chronicle): where the world has got to — its people and
+## settlements, what stands, what is known, what is believed, what is studied,
+## its strife — and what happened in those years worth telling.
+const CHRONICLE_KINDS: Array[StringName] = [&"era_entered", &"knowledge_learned", &"knowledge_lost", &"knowledge_spread",
+	&"faith_founded", &"schism", &"myth_formed", &"myth_spread", &"tradition_formed", &"settlement_founded",
+	&"settlement_abandoned", &"migration", &"war_begun", &"battle", &"peace", &"raid", &"raid_repelled", &"revolution",
+	&"leadership", &"box_research", &"hypothesis", &"mystery_clue", &"trade_route", &"region_found", &"edge_moved",
+	&"became_important", &"renamed", &"first_farm", &"first_storage", &"earthquake", &"flood", &"drought", &"blizzard",
+	&"tornado", &"meteor_storm", &"eclipse", &"reinterpreted", &"dispute", &"cultural_memory"]
+const BUILDING_KINDS := {"huts": 3, "stores": 9, "wells": 10, "workshops": 11, "bridges": 12, "kilns": 13, "herb racks": 14,
+	"record stones": 15, "stone circles": 16, "shrines": 17, "cemeteries": 18, "landings": 19, "woodsheds": 20, "border stones": 23}
+
+
+func _chronicle(s: Node, year: int, told: Dictionary) -> void:
+	var text: Variant = load("res://scripts/ui/event_text.gd")
+	print("SOAK chronicle ===== year %d =====" % year)
+	print("SOAK chronicle people %d  |  %s" % [s.people.size(), s.settlements.debug_text()])
+	print("SOAK chronicle leaders  %s" % s.governance.debug_text())
+	var standing := PackedStringArray()
+	for name: String in BUILDING_KINDS:
+		var count: int = s.props.of_kind(BUILDING_KINDS[name]).size()
+		if count > 0:
+			standing.append("%s %d" % [name, count])
+	print("SOAK chronicle buildings  %s" % ", ".join(standing))
+	print("SOAK chronicle technology  %s" % s.technology.debug_text())
+	print("SOAK chronicle belief  %s  |  %s" % [s.faith.debug_text(), s.cultures.debug_text()])
+	print("SOAK chronicle science  %s  |  %s  |  %s" % [s.science.debug_text(), s.anomaly_archive.debug_text(), s.mysteries.debug_text()])
+	print("SOAK chronicle strife  %s" % s.conflicts.debug_text())
+	print("SOAK chronicle lives  %s  |  stories: %s" % [s.lifecycle.counts, s.stories.debug_text()])
+	var lines := 0
+	for event in s.events.all_events():
+		if told.has(event.id) or not CHRONICLE_KINDS.has(event.type):
+			continue
+		told[event.id] = true
+		print("SOAK chronicle   Y%d  %s" % [root.get_node("Config").time.year_of(event.tick),
+			text.text(event, s.people, s.events)])
+		lines += 1
+	for event in s.events.of_type(&"building_built"):
+		var kind := str(event.text_params.get("building", ""))
+		if kind != "" and not told.has("built:" + kind):
+			told["built:" + kind] = true
+			print("SOAK chronicle   Y%d  the first %s built" % [root.get_node("Config").time.year_of(event.tick), kind])
 
 
 func _problem(message: String) -> void:

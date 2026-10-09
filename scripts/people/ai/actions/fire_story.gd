@@ -59,7 +59,10 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		return Status.DONE if over else Status.RUNNING
 	var teller := ctx.people.get_person(int(step.get("teller", 0)))
 	if teller == null or not is_telling(ctx, teller) or teller.world2d().distance_to(person.world2d()) > EARSHOT:
-		return Status.DONE # (the story is over)
+		# (Over, once they have listened a while; not told at all when they came:
+		# failed — chosen again at once, it went round and round in one moment,
+		# deeper and deeper, until the engine's stack broke: soaks, 2026-10-09.)
+		return Status.DONE if float(step.get("elapsed", 0.0)) > 0.0 else Status.FAILED
 	ctx.face(person, teller.world2d())
 	return Status.DONE if tick(step, minutes) else Status.RUNNING
 

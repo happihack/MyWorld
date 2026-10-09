@@ -16,9 +16,17 @@ const MAX_WIDTH := 760.0
 ## How quitting is done (tests replace it).
 var quit_action: Callable = func() -> void: get_tree().quit()
 ## How a world is opened (tests replace it): the plan for Main.
-var open_action: Callable = func(plan: Dictionary) -> void:
-	SaveManager.open_next = plan
-	get_tree().change_scene_to_file(MAIN_SCENE)
+## (The game: a moment's covering screen at once, the game loaded behind it.)
+var open_action: Callable = func(plan: Dictionary) -> void: open_world(plan)
+
+## Opening a world (2026-10-08: a touch answered at once, never a frozen screen).
+var _opening := false
+var _opening_frames := 0
+var _cover: Control
+var _cover_icon: TextureRect
+var _cover_label: Label
+var _cover_text := ""
+var _cover_time := 0.0
 
 var _list: VBoxContainer
 var _page := ROOT
@@ -203,11 +211,97 @@ func _button_text(text: String, pressed: Callable) -> Button:
 	button.add_theme_font_size_override("font_size", UITheme.FONT_BODY)
 	for state: String in ["normal", "hover", "pressed", "focus"]:
 		button.add_theme_stylebox_override(state, _card(Color(0.07, 0.09, 0.12, 0.82 if state == "normal" else 0.95), UITheme.RIM))
+	# Felt and seen the moment a finger is down: a tick, and the button pressed in.
+	button.button_down.connect(func() -> void:
+		Haptics.pulse(Haptics.Strength.LIGHT)
+		button.pivot_offset = button.size * 0.5
+		button.create_tween().tween_property(button, "scale", Vector2(PRESSED_SCALE, PRESSED_SCALE), 0.06))
+	button.button_up.connect(func() -> void:
+		button.create_tween().tween_property(button, "scale", Vector2.ONE, 0.12))
 	button.pressed.connect(func() -> void:
 		AudioManager.play_ui(&"ui_tap")
 		pressed.call())
 	_list.add_child(button)
 	return button
+
+
+const PRESSED_SCALE := 0.95
+
+
+## Opens a world: the covering screen at once ("Opening the box…"), the game
+## loaded behind it while it breathes, then the game.
+func open_world(plan: Dictionary) -> void:
+	if _opening:
+		return
+	_opening = true
+	_opening_frames = 0
+	SaveManager.open_next = plan
+	_show_cover(MemoryText.translate("TITLE_MAKING" if str(plan.get("kind", "")) == "new" else "TITLE_OPENING"))
+	if ResourceLoader.load_threaded_request(MAIN_SCENE) != OK:
+		get_tree().change_scene_to_file.call_deferred(MAIN_SCENE)
+
+
+func is_opening() -> bool:
+	return _opening
+
+
+func _process(delta: float) -> void:
+	if not _opening or _cover == null:
+		return
+	_opening_frames += 1
+	_cover_time += delta
+	_cover.modulate.a = minf(_cover.modulate.a + delta / COVER_FADE, 1.0)
+	# (It breathes, and the dots go round: not frozen.)
+	var breath := 1.0 + 0.06 * sin(_cover_time * TAU / 1.4)
+	_cover_icon.scale = Vector2(breath, breath)
+	_cover_label.text = _cover_text + ".".repeat(1 + int(_cover_time * 3.0) % 3)
+	var status := ResourceLoader.load_threaded_get_status(MAIN_SCENE)
+	# (On only once the cover has been drawn a few times: the last frame before the world opens is it.)
+	if _opening_frames < COVER_FRAMES_FIRST:
+		return
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		set_process(false)
+		get_tree().change_scene_to_packed(ResourceLoader.load_threaded_get(MAIN_SCENE))
+	elif status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+		set_process(false)
+		get_tree().change_scene_to_file(MAIN_SCENE)
+
+
+const COVER_FADE := 0.15
+const COVER_FRAMES_FIRST := 3
+
+
+func _show_cover(text: String) -> void:
+	_cover_text = text.trim_suffix("…").trim_suffix("...")
+	_cover = Control.new()
+	_cover.name = "Opening"
+	_cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cover.mouse_filter = Control.MOUSE_FILTER_STOP # (nothing else pressed meanwhile)
+	_cover.modulate.a = 0.35
+	add_child(_cover)
+	var dark := ColorRect.new()
+	dark.color = Color(0.078, 0.094, 0.122, 1.0)
+	dark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_cover.add_child(dark)
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_FULL_RECT)
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 34)
+	_cover.add_child(column)
+	_cover_icon = TextureRect.new()
+	_cover_icon.texture = load("res://icon.svg")
+	_cover_icon.custom_minimum_size = Vector2(200, 200)
+	_cover_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_cover_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_cover_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_cover_icon.pivot_offset = Vector2(100, 100)
+	column.add_child(_cover_icon)
+	_cover_label = Label.new()
+	_cover_label.text = _cover_text + "."
+	_cover_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_cover_label.add_theme_font_size_override("font_size", UITheme.FONT_TITLE)
+	_cover_label.add_theme_color_override("font_color", UITheme.INK)
+	column.add_child(_cover_label)
 
 
 ## The choice to make first: gold.

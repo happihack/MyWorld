@@ -151,6 +151,9 @@ func _menus() -> void:
 	await _shot("menu_title", 20)
 	current_scene.show_page(&"new")
 	await _shot("menu_title_new", 10)
+	current_scene.show_page(&"root")
+	current_scene.choose(current_scene.choices()[0]) # (Continue: the covering screen)
+	await _shot("menu_opening", 12)
 
 
 func _fire() -> Vector3:

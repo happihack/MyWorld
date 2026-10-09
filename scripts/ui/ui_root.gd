@@ -937,6 +937,46 @@ func _on_back_requested() -> void:
 
 ## Out of the game. Listeners of app_quit_requested (e.g. SaveManager, which
 ## saves the world) run synchronously before it quits.
+## A covering screen over everything (a word, the box breathing), taking every
+## touch: while the world is saved and the main menu loaded (2026-10-09: a
+## pause with nothing to show for it). Returns it.
+func show_busy(text: String) -> Control:
+	var cover := Control.new()
+	cover.name = "Busy"
+	cover.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cover.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dark := ColorRect.new()
+	dark.color = Color(0.078, 0.094, 0.122, 1.0)
+	dark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dark.mouse_filter = Control.MOUSE_FILTER_STOP
+	cover.add_child(dark)
+	var column := VBoxContainer.new()
+	column.set_anchors_preset(Control.PRESET_FULL_RECT)
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 34)
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cover.add_child(column)
+	var icon := TextureRect.new()
+	icon.texture = load("res://icon.svg")
+	icon.custom_minimum_size = Vector2(200, 200)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(icon)
+	var label := Label.new()
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.add_theme_font_size_override("font_size", UITheme.FONT_TITLE)
+	label.add_theme_color_override("font_color", UITheme.INK)
+	column.add_child(label)
+	add_child(cover)
+	return cover
+
+
+func busy() -> Control:
+	return get_node_or_null("Busy")
+
+
 func quit_game() -> void:
 	EventBus.app_quit_requested.emit()
 	quit_action.call()

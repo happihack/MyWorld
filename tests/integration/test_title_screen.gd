@@ -129,15 +129,27 @@ func test_from_the_world_to_the_menu_and_back() -> void:
 	await wait_real_ms(Config.save.min_save_gap_ms + 100)
 	EventBus.save_completed.connect(noted)
 	menu.title_requested.emit()
+	assert_not_null(ui.busy(), "answered at once: \"Saving your world…\" over everything")
+	assert_eq(ui.busy().mouse_filter, Control.MOUSE_FILTER_STOP, "and nothing else pressed meanwhile")
+	for i in 60:
+		await wait_frames(1)
+		if get_tree().current_scene != null and get_tree().current_scene.name == "Title":
+			break
 	EventBus.save_completed.disconnect(noted)
 	assert_eq(reasons, [&"to_menu"], "saved on the way out")
-	await wait_frames(4)
+	await wait_frames(2)
 	var title := get_tree().current_scene
 	assert_eq(title.name, "Title")
 	assert_true(title is TitleScreen)
-	# Continue: the same world again.
+	# Continue: answered at once — the covering screen — then the same world again.
 	(title as TitleScreen).choose("Continue")
-	await wait_frames(4)
+	assert_true((title as TitleScreen).is_opening(), "answered at once")
+	assert_not_null(title.get_node_or_null("Opening"), "\"Opening the box…\" over the menu")
+	for i in 600:
+		await wait_frames(1)
+		if get_tree().current_scene != null and get_tree().current_scene.name == "Main":
+			break
+	await wait_frames(2)
 	assert_eq(get_tree().current_scene.name, "Main")
 	assert_eq(get_tree().current_scene.get_node("WorldSession").world_id, world_id)
 

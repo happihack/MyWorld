@@ -77,6 +77,15 @@ var reactions := 0
 
 var _steps: Dictionary = {} # step type (String) -> ActionStep
 var _begun: Dictionary = {} # person id -> the step Dictionary begin() was called for
+## Plans that ended the moment they began, one after another (person id ->
+## [tick, how many]): past INSTANT_PLANS_MOST in one moment, the person stands
+## a minute instead of choosing again — a plan whose every step is done at once,
+## chosen again and again, went round set_plan → _carry_on → _finish → _think →
+## set_plan a thousand calls deep and broke the engine's stack (soaks, 2026-10-08/09).
+var _instant: Dictionary = {}
+const INSTANT_PLANS_MOST := 8
+## How often it was stopped so, since the world opened (debug).
+var instant_loops_stopped := 0
 var _since_think: Dictionary = {} # person id -> game minutes since they last looked up
 var _since_weighed: Dictionary = {} # person id -> game minutes since they last weighed everything up
 var _loudest_then: Dictionary = {} # person id -> how loud their loudest need was when they did
@@ -683,6 +692,22 @@ func _carry_on(person: PersonData, minutes: float, known_step: Variant = null, k
 ## The plan has run its course.
 func _finish(person: PersonData) -> void:
 	var activity := activity_of(person)
+	if int(person.current_action.get("since", -1)) == ctx.now():
+		var seen: Array = _instant.get(person.id, [-1, 0])
+		var count: int = int(seen[1]) + 1 if int(seen[0]) == ctx.now() else 1
+		_instant[person.id] = [ctx.now(), count]
+		if count > INSTANT_PLANS_MOST:
+			_instant.erase(person.id)
+			instant_loops_stopped += 1
+			Log.warn(Log.Category.SIM, "Plans ending as they began, again and again: a minute's rest", {"person": person.id,
+				"activity": activity, "reason": person.current_action.get("reason", ""),
+				"steps": (person.current_action.get("steps", []) as Array).map(func(st: Variant) -> String:
+					return str((st as Dictionary).get("type", "?")) if typeof(st) == TYPE_DICTIONARY else "?")})
+			# (A step that takes time: set_plan carries it on, and it waits.)
+			set_plan(person, ACTIVITY_IDLE, &"routine", [RestStep.make(1.0)])
+			return
+	else:
+		_instant.erase(person.id)
 	if activity != &"":
 		person.activity_log[String(activity)] = ctx.now()
 	if StringName(activity) == &"explore":

@@ -1199,10 +1199,23 @@ const TITLE_SCENE := "res://scenes/main/title.tscn"
 
 
 func exit_to_title() -> void:
+	if _leaving:
+		return
+	_leaving = true
+	# (Answered at once: the covering screen drawn before the save and the load.)
+	Haptics.pulse(Haptics.Strength.LIGHT)
+	ui_root.show_busy(MemoryText.translate("TITLE_SAVING"))
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree():
+		return
 	if session.is_active:
 		SaveManager.save_world(session, &"to_menu")
 	SaveManager.attach(null) # (closing this world saves nothing more)
 	get_tree().change_scene_to_file.call_deferred(TITLE_SCENE)
+
+
+var _leaving := false
 
 
 func switch_world(plan: Dictionary, erase_this: bool = false) -> void:
