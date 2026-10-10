@@ -326,6 +326,18 @@ func on_dying(person_id: int) -> void:
 		lost.emit(own.id, person_id, worst, worst_share)
 
 
+## Something told at the fire, again and again — kept by the settlement as its
+## lore whether or not it writes (what is found at the box's edge outlives who
+## found it: 2026-10-09). Up to `most`.
+func keep_lore(own: Settlement, domain: int, amount: float, most: float = MOST) -> void:
+	if own == null or domain < 0 or domain >= COUNT or amount <= 0.0:
+		return
+	var kept: PackedFloat32Array = records.get(own.id, PackedFloat32Array())
+	kept.resize(COUNT)
+	kept[domain] = minf(kept[domain] + amount, most)
+	records[own.id] = kept
+
+
 ## A settlement is gone: its records with it.
 func forget_settlement(settlement_id: int) -> void:
 	records.erase(settlement_id)

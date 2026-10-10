@@ -48,7 +48,7 @@ func test_an_age_needs_only_its_own_rule() -> void:
 func test_the_first_storehouse_comes_with_a_few_households() -> void:
 	var planner := own.planner
 	var fire := own.fire().tile
-	while own.member_count() < SettlementPlanner.FIRST_STORE_FROM:
+	while own.member_count() < Config.construction.first_store_from:
 		session.spawn_person(fire + Vector2i(1, 1))
 	assert_true(planner.standing_near(PropData.Kind.STOREHOUSE).is_empty())
 	assert_has(planner.needs(session.clock.tick), &"storage", "a storehouse, though the stores are not full")
@@ -80,3 +80,32 @@ func test_the_box_teaches_the_unexplained() -> void:
 	var needed := session.technologies.get_def(&"natural_philosophy").knowledge_threshold
 	assert_true(session.learning.of_settlement(own, Knowledge.Domain.ANOMALY) >= needed,
 		"%.0f of %.0f" % [session.learning.of_settlement(own, Knowledge.Domain.ANOMALY), needed])
+
+
+func test_what_was_found_outlives_who_found_it() -> void:
+	var finder := own.members()[0]
+	for i in 3:
+		session._learn_from_clue(finder.id)
+	var kept := session.learning.of_settlement(own, Knowledge.Domain.ANOMALY)
+	# Gone — and everyone who heard it from them forgets it too: the lore remains.
+	for person in own.members():
+		person.knowledge.erase(Knowledge.KEY)
+	assert_true(session.learning.of_settlement(own, Knowledge.Domain.ANOMALY) >= 3 * WorldSession.CLUE_LORE - 0.1,
+		"the settlement keeps the lore (%.0f of %.0f)" % [session.learning.of_settlement(own, Knowledge.Domain.ANOMALY), kept])
+
+
+func test_a_hungry_settlement_sends_people_out_sooner() -> void:
+	var migration := session.migration
+	var fire := own.fire().tile
+	while own.member_count() < Config.migration.hungry_least + 2:
+		var a := session.spawn_person(fire + Vector2i(1, 1))
+		var b := session.spawn_person(fire + Vector2i(1, 1))
+		a.sex = PersonData.Sex.MALE
+		b.sex = PersonData.Sex.FEMALE
+		session.households.form_couple(a, b, session.clock.tick, session.ids.next_id())
+	assert_true(own.member_count() < Config.migration.least_people)
+	assert_eq(float(migration.pressure(own, session.clock.tick)["total"]), 0.0, "fed: too few to send anyone")
+	own.shortage = Settlement.Shortage.SHORT
+	own._low_since = session.clock.tick
+	session.clock.tick += (Config.migration.scarce_days + 1) * 1440
+	assert_true(float(migration.pressure(own, session.clock.tick)["scarcity"]) > 0.0, "hungry for days: some go")

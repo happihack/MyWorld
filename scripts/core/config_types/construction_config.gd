@@ -16,6 +16,9 @@ extends ConfigBase
 ## or this much has gone bad in the last few days (and there is none yet, or
 ## not enough).
 @export_range(0, 1000) var storage_room_least: int = 8
+## A settlement of this many keeps a storehouse whatever its stores — builds
+## its first, and builds again one that fell (the 200-year soaks, 2026-10-09).
+@export_range(1, 1000) var first_store_from: int = 6
 @export_range(0, 1000) var spoiled_from: int = 12
 @export_range(1, 30) var spoiled_days: int = 3
 ## A well when the nearest water to drink is farther than this from the fire (tiles).

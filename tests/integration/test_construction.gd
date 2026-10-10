@@ -53,6 +53,7 @@ func _knob(resource: Resource, knob: StringName, value: Variant) -> void:
 func _only(need: StringName) -> void:
 	_knob(Config.construction, &"homes_spare_least", -1000 if need != &"home" else 1000)
 	_knob(Config.construction, &"storage_room_least", -1000 if need != &"storage" else 1_000_000)
+	_knob(Config.construction, &"first_store_from", 1_000_000) # (a storehouse called for by the stores alone)
 	_knob(Config.construction, &"spoiled_from", 1_000_000)
 	_knob(Config.construction, &"well_from", 1_000_000 if need != &"water" else -1)
 	_knob(Config.construction, &"cut_off_least", 1_000_000 if need != &"bridge" else 12)

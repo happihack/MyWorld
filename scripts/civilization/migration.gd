@@ -121,7 +121,8 @@ func advance_to(now: int) -> void:
 func pressure(own: Settlement, now: int) -> Dictionary:
 	var out := {"total": 0.0, "crowding": 0.0, "size": 0.0, "scarcity": 0.0, "conflict": 0.0, "disaster": 0.0, "adventure": 0.0, "causes": []}
 	var members := own.members()
-	if members.size() < config.least_people:
+	var starving := own.shortage != Settlement.Shortage.NONE and own.short_since() >= 0 		and now - own.short_since() >= config.scarce_days * TimeConfig.MINUTES_PER_DAY
+	if members.size() < config.least_people and not (starving and members.size() >= config.hungry_least):
 		return out
 	var today := Config.time.day_index(now)
 	if _rested.has(own.id) and today - int(_rested[own.id]) < config.rest_days:

@@ -5,7 +5,9 @@ extends ConfigBase
 
 @export_group("What drives people away")
 ## Only a settlement of at least this many sends anyone away.
-@export_range(2, 200) var least_people: int = 24 # (10 split every hamlet before it could grow: the 200-year soaks)
+@export_range(2, 200) var least_people: int = 16 # (10 split every hamlet before it could grow; 24 kept one settlement starving on its own land: the 200-year soaks)
+## A settlement hungry for days on end sends people away from this many (to new land, before it starves).
+@export_range(2, 200) var hungry_least: int = 8
 ## The roofs: from this few places left under them, crowding drives people
 ## (at no place left, as much as `crowding`).
 @export_range(0, 20) var crowded_from_spare: int = 2

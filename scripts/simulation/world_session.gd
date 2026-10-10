@@ -1261,6 +1261,8 @@ func spawn_person(near: Vector2i, stage: PersonData.LifeStage = PersonData.LifeS
 ## came to natural philosophy, nor to science.)
 const CLUE_ANOMALY := 15.0
 const CLUE_ANOMALY_TOLD := 4.0
+## And what the settlement keeps of it, told at the fire after they are gone.
+const CLUE_LORE := 12.0
 
 
 func _learn_from_clue(person_id: int) -> void:
@@ -1274,6 +1276,7 @@ func _learn_from_clue(person_id: int) -> void:
 	for person in home.members():
 		if person != finder:
 			Knowledge.add(person, Knowledge.Domain.ANOMALY, CLUE_ANOMALY_TOLD)
+	learning.keep_lore(home, Knowledge.Domain.ANOMALY, CLUE_LORE)
 
 
 ## Border stones (FC6) where two settlements have made peace: beside the

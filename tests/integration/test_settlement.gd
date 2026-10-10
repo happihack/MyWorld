@@ -735,7 +735,7 @@ func test_a_month_of_housekeeping() -> void:
 	assert_true(days_with_food >= days - 3, "there is food in store (%d of %d days)" % [days_with_food, days])
 	assert_true(hungriest > 0.05, "nobody starves (%.2f)" % hungriest)
 	assert_true(felled_most >= 2, "wood is cut for the fire (%d)" % felled_most)
-	assert_true(felled_most <= 14, "the forest stands (%d)" % felled_most)
+	assert_true(felled_most <= 18, "the forest stands (%d)" % felled_most) # (and a storehouse is built in the first month now: 2026-10-09)
 	assert_true(stock.amount(&"berries") <= Config.resources.piles_per_resource * 24)
 	for p in people:
 		assert_true(p.carrying_amount <= ctx.carry_capacity(p.carrying) if p.carrying != &"" else true)

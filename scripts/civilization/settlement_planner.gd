@@ -415,13 +415,9 @@ func storage_short(now: int) -> bool:
 			spoiled += int(entry[1])
 	# (The first once there are a few households — not only once food overflows,
 	# which a settlement always a little hungry never sees: the 200-year soaks.)
-	if stores == 0 and _settlement.member_count() >= FIRST_STORE_FROM:
+	if stores == 0 and _settlement.member_count() >= _config.first_store_from:
 		return true
 	return (room < _config.storage_room_least or spoiled >= _config.spoiled_from) and stores < 1 + _settlement.member_count() / 12
-
-
-## A settlement of this many builds its first storehouse whatever its stores.
-const FIRST_STORE_FROM := 10
 
 
 ## A woodshed for wood and stone: once the food has a storehouse (wood is

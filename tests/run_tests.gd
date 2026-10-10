@@ -268,6 +268,10 @@ func _isolate_environment() -> void:
 	people.band_max_people = 8
 	people.band_min_households = 2
 	people.band_max_households = 3
+	# (And a storehouse from 10, as before: these bands of 6–8 would otherwise
+	# be off building one in the middle of what each test watches. The game's
+	# own — from 6 — is checked by test_progression.)
+	root.get_node("Config").construction.first_store_from = 10
 	root.get_node("Settings").use_path(_run_dir.path_join("settings.cfg"))
 
 
