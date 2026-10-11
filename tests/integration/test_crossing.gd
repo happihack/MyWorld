@@ -119,6 +119,25 @@ func test_a_crossing_bank_to_bank() -> void:
 	assert_true(placed.size() >= 5, "the deck and its posts")
 
 
+## A world opened again (loaded, or the box unfolded) builds its paths anew:
+## the bridges are still ways over (they were deep water nobody could stand
+## on — the 200-year soaks, 2026-10-10).
+func test_a_bridge_is_still_a_way_over_when_the_world_is_opened_again() -> void:
+	var fire := session.start.settlement_tile
+	var across := planner.crossing(session.clock.tick)
+	var tiles: Array = across["tiles"]
+	var step: Vector2i = tiles[1] - tiles[0]
+	var far_bank: Vector2i = tiles[-1] + step
+	for i in tiles.size():
+		_build(planner.plan(session.clock.tick))
+		_next_day()
+	assert_true(session.pathfinder.is_reachable(fire, far_bank), "over the bridge")
+	session.pathfinder.rebuild()
+	for tile: Vector2i in tiles:
+		assert_true(session.pathfinder.can_stand(tile), "its deck can still be stood on")
+	assert_true(session.pathfinder.is_reachable(fire, far_bank), "and still leads over")
+
+
 func test_a_one_tile_bridge_is_carried_on() -> void:
 	var across := planner.crossing(session.clock.tick)
 	var tiles: Array = across["tiles"]

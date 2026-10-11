@@ -50,6 +50,7 @@ func _run() -> void:
 	var land := &""
 	var game_steps := OS.get_cmdline_user_args().has("--game-steps")
 	var chronicle := OS.get_cmdline_user_args().has("--chronicle")
+	var plans := OS.get_cmdline_user_args().has("--plans")
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--years="):
 			years = maxi(int(argument.get_slice("=", 1)), 1)
@@ -232,6 +233,8 @@ func _run() -> void:
 			_problem("day %d: the event log holds %d events (%d at most)" % [day, s.events.size(), config.events.max_events])
 		if (day + 1) % days_per_year == 0:
 			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
+		if plans and (day + 1) % days_per_year == 0:
+			_plans(s, day / days_per_year + 1)
 		if chronicle and (day + 1) % (days_per_year * 10) == 0:
 			_chronicle(s, (day + 1) / days_per_year, told)
 		if (day + 1) % days_per_season == 0 and not quiet:
@@ -490,6 +493,67 @@ func _chronicle(s: Node, year: int, told: Dictionary) -> void:
 		if kind != "" and not told.has("built:" + kind):
 			told["built:" + kind] = true
 			print("SOAK chronicle   Y%d  the first %s built" % [root.get_node("Config").time.year_of(event.tick), kind])
+
+
+## What each settlement would build and what it is building (--plans): a line
+## a year — to see why nothing goes up. Reads only.
+func _plans(s: Node, year: int) -> void:
+	var now: int = s.clock.tick
+	var store: Array = s.construction.buildings.with_tag("storage")
+	for own in s.settlements.all():
+		if own.planner == null:
+			continue
+		var going := PackedStringArray()
+		for p: Dictionary in s.construction.projects_of(own.id):
+			going.append("%s %s %.0f%% (brought %.0f%%, wants %s, begun day %s)" % [p["kind"], p["def"], s.construction.progress(p) * 100.0,
+				s.construction.brought_share(p) * 100.0, s.construction.still_needed(p), p.get("begun", "?")])
+		print("SOAK plans year %d  %s: %d people, %d huts, stores %d (short %s, ground %s), sheds short %s, workshop wanted %s  |  %s  |  going: %s" % [
+			year, own.display_name(), own.member_count(), own.start_info().hut_ids.size(),
+			own.planner.standing_near(PropData.Kind.STOREHOUSE).size(), own.planner.storage_short(now),
+			"none" if store.is_empty() or own.planner.site_for(store[0]) == null else "found",
+			own.planner.material_storage_short(), own.planner.workshop_wanted(), own.stockpile.debug_text(),
+			", ".join(going) if not going.is_empty() else "nothing"])
+		if not store.is_empty() and own.planner.site_for(store[0]) == null and own.fire() != null:
+			print("SOAK plans year %d  %s has no ground: %s" % [year, own.display_name(), _no_ground(s, own)])
+
+
+## Why there is nowhere to build round a fire: the tiles in reach, by the
+## first thing that rules each out (as SettlementPlanner._buildable does).
+func _no_ground(s: Node, own: Variant) -> Dictionary:
+	var config: Node = root.get_node("Config")
+	var rules: Resource = config.construction
+	var fire: Vector2i = own.fire().tile
+	var from := fire + Vector2i(1, 0)
+	var why := {"flood_level": own.flood_level, "fire_ground": s.world.get_height(fire) * s.world.height_step,
+		"can_stand_beside_fire": s.pathfinder.can_stand(from)}
+	var reach: int = rules.site_farthest
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var distance := Vector2(dx, dy).length()
+			if distance < rules.site_nearest or distance > rules.site_farthest:
+				continue
+			var tile := fire + Vector2i(dx, dy)
+			var reason := "free but for graves, stores, people"
+			if not s.world.is_in_bounds(tile):
+				reason = "outside"
+			elif s.world.get_water(tile) > 0.0:
+				reason = "water"
+			elif s.world.get_height(tile) * s.world.height_step <= own.flood_level + 0.01:
+				reason = "flooded once"
+			elif s.world.get_terrain(tile) != ChunkData.Terrain.GRASS and s.world.get_terrain(tile) != ChunkData.Terrain.DIRT:
+				reason = "terrain %d" % s.world.get_terrain(tile)
+			elif not s.pathfinder.can_stand(tile):
+				reason = "cannot stand"
+			else:
+				for y in range(-rules.site_spacing, rules.site_spacing + 1):
+					for x in range(-rules.site_spacing, rules.site_spacing + 1):
+						var near: Variant = s.props.prop_at(tile + Vector2i(x, y))
+						if near != null and near.kind != PropData.Kind.GRAVE and not reason.begins_with("beside"):
+							reason = "beside prop kind %d" % near.kind
+				if not reason.begins_with("beside") and not s.pathfinder.is_reachable(from, tile):
+					reason = "cannot be walked to"
+			why[reason] = int(why.get(reason, 0)) + 1
+	return why
 
 
 func _problem(message: String) -> void:

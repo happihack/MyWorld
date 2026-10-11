@@ -614,6 +614,31 @@ func test_a_drought_costs_a_harvest() -> void:
 	assert_eq(EventText.text(shortage, session.people, events), "Food is running short after the failed crop")
 
 
+## While the settlement stays dry, how high the water once stood is slowly
+## forgotten (a mark that only rose left no ground to build on, for good:
+## the 200-year soaks, 2026-10-10) — a shallow flood in a few years.
+func test_the_flood_mark_fades_while_it_is_dry() -> void:
+	_go_to(days * 2 + 2, 11.0)
+	settlement.step(clock.tick)
+	var rate: float = Config.exposure.flood_mark_fades_per_year
+	assert_true(rate > 0.0)
+	var year := Config.time.ticks_per_year()
+	settlement.flood_level = rate * 2.5
+	clock.tick += year
+	settlement.step(clock.tick)
+	assert_near(settlement.flood_level, rate * 1.5, rate * 0.01, "a year on")
+	clock.tick += year * 2
+	settlement.step(clock.tick)
+	assert_near(settlement.flood_level, 0.0, 0.0001, "forgotten, and no lower")
+	# (Not at all, if the knob says so.)
+	Config.exposure.flood_mark_fades_per_year = 0.0
+	settlement.flood_level = 1.0
+	clock.tick += year
+	settlement.step(clock.tick)
+	Config.exposure.flood_mark_fades_per_year = rate
+	assert_near(settlement.flood_level, 1.0, 0.0001)
+
+
 func test_version_18_save_has_seen_no_flood() -> void:
 	var dir := SaveManager.world_dir(V18_ID)
 	DirAccess.make_dir_recursive_absolute(dir)

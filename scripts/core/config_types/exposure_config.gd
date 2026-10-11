@@ -53,6 +53,10 @@ extends ConfigBase
 ## A hut the water has stood in is rebuilt on higher ground: it costs this
 ## much wood (and the fire's wood for the day must be left), is looked for
 ## within so many tiles of the fire, and stands this far from the next building.
+## How high the water once stood is forgotten at this rate (world units of
+## height a game year) while the settlement stays dry: a shallow flood in a
+## few years, a deep one in a generation.
+@export_range(0.0, 1.0, 0.005) var flood_mark_fades_per_year: float = 0.02
 @export_range(0, 100) var move_wood: int = 8
 @export_range(2.0, 40.0, 0.5) var move_radius: float = 16.0
 @export_range(1, 6) var move_spacing: int = 2

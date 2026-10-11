@@ -183,6 +183,13 @@ func rebuild() -> void:
 				_prop_kind[id] = kind
 				_solid[id] = 1 if water == _DEEP or _is_solid_kind(kind) else 0
 				_astar.add_point(id, Vector2(x + 0.5, origin.y + ly + 0.5), 1.0)
+	# (A bridge's deck is dry ground at the level of its banks — read as a
+	# changed tile is: a world opened again, or unfolded, left its bridges deep
+	# water nobody could stand on or step onto — the 200-year soaks, 2026-10-10.)
+	if _props != null:
+		for bridge in _props.of_kind(PropData.Kind.BRIDGE):
+			if bridge.kind == PropData.Kind.BRIDGE and _bounds.has_point(bridge.tile):
+				_read(bridge.tile, _id(bridge.tile))
 	var height := _bounds.size.y
 	for id in count:
 		var tile := _tile(id)

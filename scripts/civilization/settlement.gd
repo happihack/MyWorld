@@ -980,12 +980,14 @@ func pending_moves() -> int:
 
 ## Once a game hour: is the water in the settlement? Then it is remembered
 ## how high it stood and which huts it stood in, everyone flooded out has
-## somewhere dry to go, and the flood takes of what lies in store.
+## somewhere dry to go, and the flood takes of what lies in store. While it
+## is dry, how high the water stood is slowly forgotten.
 func _flood(now: int) -> void:
 	@warning_ignore("integer_division")
 	var hour := now / 60
 	if hour == _flood_hour or world == null or _start == null:
 		return
+	var hours := hour - _flood_hour if _flood_hour > -1_000_000 and hour > _flood_hour else 1
 	_flood_hour = hour
 	var wet: Array[PropData] = []
 	for prop in buildings():
@@ -994,6 +996,11 @@ func _flood(now: int) -> void:
 	if wet.is_empty():
 		if _places != null:
 			_places.refuge = null
+		# (Dry: what is remembered of the water fades, year by year — a mark that
+		# only ever rose left a settlement on level land no ground to build on,
+		# for good: the 200-year soaks, 2026-10-10.)
+		if flood_level > 0.0:
+			flood_level = maxf(flood_level - Config.exposure.flood_mark_fades_per_year * float(hours) / float(Config.time.days_per_year() * 24), 0.0)
 		return
 	for prop in wet:
 		flood_level = maxf(flood_level, world.get_height(prop.tile) * world.height_step + world.get_water(prop.tile))

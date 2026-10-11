@@ -818,8 +818,12 @@ func _rescue_if_stranded(person_id: int) -> void:
 	if ctx.world != null and ctx.world.get_water(person.position) > Pathfinder.WADE_DEPTH * ctx.world.height_step:
 		waded_out += 1
 	else:
+		# (What stands there and what they were at: to find out why, when it happens.)
+		var on := ctx.props.prop_at(person.position) if ctx.props != null else null
 		Log.warn(Log.Category.AI, "Someone was stranded and has been moved to firm ground",
-			{"person": person.full_name(), "from": person.position, "to": ground[0]})
+			{"person": person.full_name(), "from": person.position, "to": ground[0],
+				"on": on.kind if on != null else -1, "water": ctx.world.get_water(person.position) if ctx.world != null else 0.0,
+				"doing": person.current_action.get("activity", "")})
 		rescues += 1
 	ctx.people.move(person_id, ground[0], Vector2(0.5, 0.5), person.facing)
 
