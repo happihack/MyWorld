@@ -540,7 +540,7 @@ func _no_ground(s: Node, own: Variant) -> Dictionary:
 				reason = "water"
 			elif s.world.get_height(tile) * s.world.height_step <= own.flood_level + 0.01:
 				reason = "flooded once"
-			elif s.world.get_terrain(tile) != ChunkData.Terrain.GRASS and s.world.get_terrain(tile) != ChunkData.Terrain.DIRT:
+			elif not [ChunkData.Terrain.GRASS, ChunkData.Terrain.DIRT, ChunkData.Terrain.ROAD].has(s.world.get_terrain(tile)):
 				reason = "terrain %d" % s.world.get_terrain(tile)
 			elif not s.pathfinder.can_stand(tile):
 				reason = "cannot stand"

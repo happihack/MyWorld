@@ -633,6 +633,33 @@ func test_the_band_builds_what_was_begun() -> void:
 		assert_true(session.pathfinder.can_stand(person.position), "nobody stands inside it")
 
 
+## Their own footpaths are ground to build on (worn paths had taken all the
+## room about the fire — the 200-year soaks, 2026-10-11); laid stones are not.
+func test_a_worn_path_can_be_built_on() -> void:
+	var hut := session.buildings.get_def(&"hut")
+	var first: Vector2i = planner.site_for(hut)
+	# Ground nobody walks is taken first.
+	session.world.set_terrain(first, ChunkData.Terrain.ROAD)
+	assert_ne(planner.site_for(hut), first, "open ground before a path")
+	session.world.set_terrain(first, ChunkData.Terrain.GRASS)
+	var fire := session.start.settlement_tile
+	var reach := Config.construction.site_farthest + 2
+	var open: Array[Vector2i] = []
+	for y in range(-reach, reach + 1):
+		for x in range(-reach, reach + 1):
+			var tile := fire + Vector2i(x, y)
+			var terrain := session.world.get_terrain(tile)
+			if terrain == ChunkData.Terrain.GRASS or terrain == ChunkData.Terrain.DIRT:
+				session.world.set_terrain(tile, ChunkData.Terrain.ROAD)
+				open.append(tile)
+	var site: Variant = planner.site_for(hut)
+	assert_not_null(site, "on a path worn by their own feet")
+	assert_eq(session.world.get_terrain(site), ChunkData.Terrain.ROAD)
+	for tile in open:
+		session.world.set_terrain(tile, ChunkData.Terrain.PAVED)
+	assert_null(planner.site_for(hut), "not on laid stones")
+
+
 func test_stone_lying_about_is_brought_to_the_site() -> void:
 	_only(&"")
 	var stones := func() -> int:

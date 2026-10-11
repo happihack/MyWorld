@@ -33,6 +33,9 @@ extends ConfigBase
 ## ground (height levels between its highest and lowest neighbour).
 @export_range(0.0, 10.0, 0.05) var site_distance_cost: float = 1.0
 @export_range(0.0, 10.0, 0.05) var site_unevenness_cost: float = 3.0
+## A worn path can be built on, but counts this much against a site (as tiles
+## from the fire): ground nobody walks is taken first.
+@export_range(0.0, 40.0, 0.05) var site_path_cost: float = 4.0
 
 @export_group("Building")
 ## How pressing building is on the job board (homes when the roofs are full: more).
