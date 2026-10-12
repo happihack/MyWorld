@@ -423,6 +423,9 @@ func _newcomers(now: int) -> void:
 		return
 	# (To a young camp's lonely they come more readily: it is to last, M12.)
 	var home_of_lonely := _settlement_of(lonely)
+	# (Nobody comes to live where there is not enough to eat.)
+	if home_of_lonely != null and home_of_lonely.shortage != Settlement.Shortage.NONE:
+		return
 	var boost := Config.migration.newcomer_boost if home_of_lonely != null and settlements != null and settlements.size() > 1 \
 		and home_of_lonely.member_count() < Config.migration.small_from else 1.0
 	if rng.randf() >= config.newcomer_chance_per_day * boost:

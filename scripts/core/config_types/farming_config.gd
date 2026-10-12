@@ -4,11 +4,13 @@ extends ConfigBase
 ## from day to day, and how much field a farmer keeps.
 
 @export_group("Fields")
-## Plots (tiles) of field one farmer keeps.
-@export_range(1, 64) var plots_per_farmer: int = 8
+## Plots (tiles) of field one farmer keeps. (14: at 8 a farmer fed themselves
+## and half another, the fields a fifth of what was eaten, and every world
+## lived at the edge of hunger — the 200-year soaks, 2026-10-12.)
+@export_range(1, 64) var plots_per_farmer: int = 14
 ## Fields lie between this many and this many tiles from the fire.
 @export_range(1, 32) var site_min_distance: int = 3
-@export_range(2, 64) var site_max_distance: int = 9
+@export_range(2, 64) var site_max_distance: int = 12
 ## Seasons (0 = spring) in which people sow.
 @export var sowing_seasons: PackedInt32Array = PackedInt32Array([0, 1])
 ## Nothing is sown that could not ripen before winter: counted with this

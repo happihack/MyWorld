@@ -737,6 +737,26 @@ func test_someone_comes_from_far_away() -> void:
 	assert_eq(session.people.size(), count + 2)
 
 
+## Nobody comes to live where there is not enough to eat (newcomers kept
+## coming to settlements that went hungry — the 200-year soaks, 2026-10-12).
+func test_nobody_comes_to_a_hungry_settlement() -> void:
+	_knob(config, &"newcomer_chance_per_day", 1.0)
+	for person in session.people.all_people():
+		if person.partner_id == 0 and _stage(person) == PersonData.LifeStage.ADULT:
+			_make_age(person, 10)
+	var lonely := session.spawn_person(session.start.settlement_tile)
+	lonely.sex = PersonData.Sex.FEMALE
+	_make_age(lonely, 20)
+	assert_true(life.lonely_one(session.clock.tick) == lonely)
+	var count := session.people.size()
+	session.settlement.shortage = Settlement.Shortage.SHORT
+	life._newcomers(session.clock.tick)
+	assert_eq(session.people.size(), count, "short of food: nobody")
+	session.settlement.shortage = Settlement.Shortage.NONE
+	life._newcomers(session.clock.tick)
+	assert_eq(session.people.size(), count + 1, "enough again: someone comes")
+
+
 func test_chemistry() -> void:
 	var a := people[0]
 	var b := people[1]

@@ -851,6 +851,17 @@ func _apply_reach() -> void:
 		_places.forage_reach = _config.forage_further_factor if shortage != Shortage.NONE else 1.0
 
 
+## How many days the food in store lasts, not counting the grain that would
+## be kept for seed were it not being eaten.
+func _days_beyond_seed() -> float:
+	var need := food_need_per_day()
+	var grain := _library.get_def(&"grain") if _library != null else null
+	if need <= 0.0 or farming == null or grain == null:
+		return days_of_food()
+	var seed := mini(farming.seed_wanted(), stockpile.available(&"grain"))
+	return maxf(stockpile.food() - seed * grain.nutrition, 0.0) / need
+
+
 ## Looks at what is in store: too little for some hours is a shortage
 ## (rationing, foraging further); nothing at all for some hours and the
 ## seed grain is eaten; enough again and it is over.
@@ -878,9 +889,13 @@ func _check_shortage(now: int) -> void:
 			elif _empty_since >= 0 and now - _empty_since >= _config.empty_after_minutes:
 				_set_shortage(Shortage.EMPTY)
 		Shortage.EMPTY:
-			if days >= _config.shortage_over_days:
+			# (The seed being eaten is not food come in: it does not end the
+			# shortage — or it was kept back again at once, uneaten, wherever
+			# the seed alone made a day's food. The 200-year soaks, 2026-10-12.)
+			var beyond := _days_beyond_seed() if seed_eaten else days
+			if beyond >= _config.shortage_over_days:
 				_set_shortage(Shortage.NONE)
-			elif days >= _config.shortage_below_days:
+			elif beyond >= _config.shortage_below_days:
 				_set_shortage(Shortage.SHORT)
 
 
