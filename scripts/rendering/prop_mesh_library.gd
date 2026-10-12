@@ -283,6 +283,23 @@ static func _broadleaf(radius: float, height: float, twist: float) -> Template:
 	_band(t, _ring(0.0, 0.085, 5, twist), _ring(trunk_top, 0.06, 5, twist), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.25))
 	# Canopy: a chunky blob — narrow bottom, wide middle, pointed top.
 	var c0 := trunk_top - 0.08
+	# The branches, inside it: what is left to see when the leaves are shed
+	# (the owner, 2026-10-12: a bare tree was a stump of a trunk). They sway
+	# as the leaves about them do, so they stay inside the canopy in summer.
+	var span := height - c0
+	var crown := Vector3(0.0, c0 + span * 0.72, 0.0)
+	_limb(t, Vector3(0.0, trunk_top - 0.02, 0.0), crown, 0.055, _rgba(TRUNK, 0.3), _rgba(TRUNK, 0.8))
+	for i in 4:
+		var angle := TAU * (i + twist + 0.25) / 4.0
+		var out := Vector3(cos(angle), 0.0, sin(angle))
+		var from := Vector3(0.0, c0 + span * (0.12 + 0.11 * i), 0.0)
+		var tip := from + out * radius * (0.6 - 0.07 * i) + Vector3(0.0, span * 0.3, 0.0)
+		_limb(t, from, tip, 0.035, _rgba(TRUNK, 0.35 + 0.08 * i), _rgba(TRUNK_DARK, 0.6 + 0.07 * i))
+		# A twig off each, halfway out and to one side.
+		var side := Vector3(-out.z, 0.0, out.x) * (1.0 if i % 2 == 0 else -1.0)
+		var fork := from.lerp(tip, 0.55)
+		_limb(t, fork, fork + (out * 0.25 + side) * radius * 0.3 + Vector3(0.0, span * 0.16, 0.0), 0.02,
+				_rgba(TRUNK_DARK, 0.5 + 0.07 * i), _rgba(TRUNK_DARK, 0.7 + 0.06 * i))
 	var canopy := t.vertices.size()
 	var bottom := _ring(c0, radius * 0.55, 6, twist)
 	var middle := _ring(c0 + (height - c0) * 0.42, radius, 6, twist + 0.5)
@@ -879,6 +896,18 @@ static func _grass_tuft() -> Template:
 
 static func _rgba(color: Color, sway: float) -> Color:
 	return Color(color.r, color.g, color.b, sway)
+
+
+## A branch: three-sided, as thick as `radius` at `from`, to a point at `to`.
+static func _limb(t: Template, from: Vector3, to: Vector3, radius: float, from_color: Color, to_color: Color) -> void:
+	var along := (to - from).normalized()
+	var across := along.cross(Vector3.RIGHT if absf(along.x) < 0.9 else Vector3.FORWARD).normalized()
+	var ring: Array[Vector3] = []
+	for i in 3:
+		ring.append(from + across.rotated(along, TAU * i / 3.0) * radius)
+	var middle := (from + to) * 0.5
+	for i in 3:
+		_tri_outward(t, ring[i], ring[(i + 1) % 3], to, from_color, from_color, to_color, middle)
 
 
 ## Points of a horizontal ring, counter-clockwise seen from above.

@@ -225,3 +225,25 @@ func test_what_is_a_leaf() -> void:
 		if carried > 0:
 			break
 	assert_true(carried > 0, "leaves in the meshes of the world")
+
+func test_a_tree_that_sheds_its_leaves_has_branches() -> void:
+	var library := PropMeshLibrary.new()
+	for variant in 2:
+		var tree := library.template_for(PropData.Kind.TREE, variant)
+		var top := 0.0
+		var wood_top := 0.0
+		var wood_wide := 0.0
+		var leaves_wide := 0.0
+		for i in tree.vertices.size():
+			var v := tree.vertices[i]
+			var wide := Vector2(v.x, v.z).length()
+			top = maxf(top, v.y)
+			if tree.leaf_of(i) > 0.9:
+				leaves_wide = maxf(leaves_wide, wide)
+			else:
+				wood_top = maxf(wood_top, v.y)
+				wood_wide = maxf(wood_wide, wide)
+		assert_true(wood_top > top * 0.7, "wood up into the crown (%.2f of %.2f)" % [wood_top, top])
+		assert_true(wood_wide > leaves_wide * 0.4, "and out to the sides (%.2f of %.2f)" % [wood_wide, leaves_wide])
+		assert_true(wood_wide < leaves_wide * 0.7, "inside the leaves while it has them")
+		assert_true(tree.vertices.size() / 3 <= 90, "still few triangles (%d)" % (tree.vertices.size() / 3))
