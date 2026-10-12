@@ -559,7 +559,7 @@ func _site_for(_def: BuildingDef, level_only: bool) -> Variant:
 			if taken.has(tile) or not _buildable(tile, grave_tiles) or (level_only and not on_level(tile)):
 				continue
 			var cost := distance * _config.site_distance_cost + _unevenness(tile) * _config.site_unevenness_cost
-			if _world.get_terrain(tile) == ChunkData.Terrain.ROAD:
+			if _world.get_terrain(tile) == ChunkData.Terrain.ROAD or _world.get_terrain(tile) == ChunkData.Terrain.PAVED:
 				cost += _config.site_path_cost
 			if cost < best_cost:
 				if _pathfinder != null and _pathfinder.is_bound() and not _pathfinder.is_reachable(fire.tile + Vector2i(1, 0), tile):
@@ -578,6 +578,10 @@ func _resting_tiles() -> Array[Vector2i]:
 	return out
 
 
+## Ground a building can stand on.
+const BUILT_ON: Array[ChunkData.Terrain] = [ChunkData.Terrain.GRASS, ChunkData.Terrain.DIRT, ChunkData.Terrain.ROAD, ChunkData.Terrain.PAVED]
+
+
 func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:
 	if not _world.is_in_bounds(tile) or _world.get_water(tile) > 0.0:
 		return false
@@ -585,8 +589,9 @@ func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:
 		return false # (where the river has been: no)
 	var terrain := _world.get_terrain(tile)
 	# (A worn path is ground like any other: their own footpaths took all the
-	# room about the fire — the 200-year soaks, 2026-10-11. Laid stones stay.)
-	if terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT and terrain != ChunkData.Terrain.ROAD:
+	# room about the fire — the 200-year soaks, 2026-10-11. One laid with stones
+	# too, at the owner's word, 2026-10-12: paving took the room in its turn.)
+	if not BUILT_ON.has(terrain):
 		return false
 	if _pathfinder != null and _pathfinder.is_bound() and not _pathfinder.can_stand(tile):
 		return false

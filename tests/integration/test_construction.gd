@@ -634,7 +634,7 @@ func test_the_band_builds_what_was_begun() -> void:
 
 
 ## Their own footpaths are ground to build on (worn paths had taken all the
-## room about the fire — the 200-year soaks, 2026-10-11); laid stones are not.
+## room about the fire — the 200-year soaks, 2026-10-11), and so are those laid with stones.
 func test_a_worn_path_can_be_built_on() -> void:
 	var hut := session.buildings.get_def(&"hut")
 	var first: Vector2i = planner.site_for(hut)
@@ -657,7 +657,13 @@ func test_a_worn_path_can_be_built_on() -> void:
 	assert_eq(session.world.get_terrain(site), ChunkData.Terrain.ROAD)
 	for tile in open:
 		session.world.set_terrain(tile, ChunkData.Terrain.PAVED)
-	assert_null(planner.site_for(hut), "not on laid stones")
+	site = planner.site_for(hut)
+	assert_not_null(site, "and on one laid with stones")
+	assert_eq(session.world.get_terrain(site), ChunkData.Terrain.PAVED)
+	# Never on sand or rock.
+	for tile in open:
+		session.world.set_terrain(tile, ChunkData.Terrain.SAND)
+	assert_null(planner.site_for(hut), "not on sand")
 
 
 func test_stone_lying_about_is_brought_to_the_site() -> void:
