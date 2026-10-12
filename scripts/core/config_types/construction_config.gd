@@ -36,6 +36,9 @@ extends ConfigBase
 ## A path (worn, or laid with stones) can be built on, but counts this much
 ## against a site (as tiles from the fire): ground nobody walks is taken first.
 @export_range(0.0, 40.0, 0.05) var site_path_cost: float = 4.0
+## A tree, a bush or other wild growth on a tile beside a site counts this much
+## against it (each; as tiles from the fire): clear ground is taken first.
+@export_range(0.0, 40.0, 0.05) var site_growth_cost: float = 1.0
 
 @export_group("Building")
 ## How pressing building is on the job board (homes when the roofs are full: more).

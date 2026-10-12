@@ -561,6 +561,7 @@ func _site_for(_def: BuildingDef, level_only: bool) -> Variant:
 			var cost := distance * _config.site_distance_cost + _unevenness(tile) * _config.site_unevenness_cost
 			if _world.get_terrain(tile) == ChunkData.Terrain.ROAD or _world.get_terrain(tile) == ChunkData.Terrain.PAVED:
 				cost += _config.site_path_cost
+			cost += _growth_beside(tile) * _config.site_growth_cost
 			if cost < best_cost:
 				if _pathfinder != null and _pathfinder.is_bound() and not _pathfinder.is_reachable(fire.tile + Vector2i(1, 0), tile):
 					continue
@@ -579,6 +580,8 @@ func _resting_tiles() -> Array[Vector2i]:
 
 
 ## Ground a building can stand on.
+## What grows by itself: a building may stand beside it (see `_buildable`).
+const GROWS_WILD: Array[int] = [PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.MUSHROOM, PropData.Kind.ROOTS]
 const BUILT_ON: Array[ChunkData.Terrain] = [ChunkData.Terrain.GRASS, ChunkData.Terrain.DIRT, ChunkData.Terrain.ROAD, ChunkData.Terrain.PAVED]
 
 
@@ -601,8 +604,13 @@ func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:
 			var near := props.prop_at(tile + Vector2i(x, y))
 			if near == null:
 				continue
-			if near.kind != PropData.Kind.GRAVE:
-				return false # (room around it: no tree or bush grows into its walls)
+			if near.kind == PropData.Kind.GRAVE:
+				continue
+			# (What grows wild may stand beside a building, not under it: the
+			# trees about the fire left a settlement of twelve with two huts and
+			# no ground for a third, so none grew to a town: the soaks, 2026-10-12.)
+			if (x == 0 and y == 0) or not GROWS_WILD.has(near.kind):
+				return false
 	for grave in graves:
 		if maxi(absi(grave.x - tile.x), absi(grave.y - tile.y)) < _config.site_grave_distance:
 			return false
@@ -613,6 +621,18 @@ func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:
 		if place != Vector2.INF and middle.distance_to(place) < 2.0:
 			return false
 	return true
+
+
+## How many of the tiles around `tile` have something growing wild on them.
+func _growth_beside(tile: Vector2i) -> int:
+	var count := 0
+	var props := _settlement.props()
+	for y in range(-_config.site_spacing, _config.site_spacing + 1):
+		for x in range(-_config.site_spacing, _config.site_spacing + 1):
+			var near := props.prop_at(tile + Vector2i(x, y))
+			if near != null and GROWS_WILD.has(near.kind):
+				count += 1
+	return count
 
 
 ## Height levels between the highest and the lowest of the tile and its neighbours.

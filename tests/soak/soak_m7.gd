@@ -548,7 +548,7 @@ func _no_ground(s: Node, own: Variant) -> Dictionary:
 				for y in range(-rules.site_spacing, rules.site_spacing + 1):
 					for x in range(-rules.site_spacing, rules.site_spacing + 1):
 						var near: Variant = s.props.prop_at(tile + Vector2i(x, y))
-						if near != null and near.kind != PropData.Kind.GRAVE and not reason.begins_with("beside"):
+						if near != null and near.kind != PropData.Kind.GRAVE and not reason.begins_with("beside") and (Vector2i(x, y) == Vector2i.ZERO or not [PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.MUSHROOM, PropData.Kind.ROOTS].has(near.kind)):
 							reason = "beside prop kind %d" % near.kind
 				if not reason.begins_with("beside") and not s.pathfinder.is_reachable(from, tile):
 					reason = "cannot be walked to"

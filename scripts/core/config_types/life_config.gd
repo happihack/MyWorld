@@ -36,11 +36,11 @@ extends ConfigBase
 ## settlement is makes it likelier or less likely (a soft rule, not a wall —
 ## the owner, 2026-10-07): in full with `food_days_for_child` days of food in
 ## store, `hungry_conceive_share` of it with none, `short_conceive_share` of
-## it while it rations, and not at all with the stores empty.
+## it while it rations, and not at all with the stores empty. (4 days, 0.1 and 0.05, where they were 2, 0.3 and 0.15: whatever more the fields gave was eaten by more people: the 200-year soaks, the owner's word 2026-10-12.)
 @export_range(0.0, 1.0, 0.001) var conceive_chance_per_day: float = 0.02
-@export_range(0.0, 60.0, 0.5) var food_days_for_child: float = 2.0
-@export_range(0.0, 1.0, 0.01) var hungry_conceive_share: float = 0.3
-@export_range(0.0, 1.0, 0.01) var short_conceive_share: float = 0.15
+@export_range(0.0, 60.0, 0.5) var food_days_for_child: float = 4.0
+@export_range(0.0, 1.0, 0.01) var hungry_conceive_share: float = 0.1
+@export_range(0.0, 1.0, 0.01) var short_conceive_share: float = 0.05
 @export_range(0, 500) var child_gap_days: int = 36
 ## How long a child is carried (game days).
 @export_range(1, 200) var carry_days: int = 18

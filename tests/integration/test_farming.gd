@@ -192,7 +192,7 @@ func test_more_farmers_as_the_settlement_grows() -> void:
 	var own := session.settlement
 	var farmer := _farmer()
 	assert_not_null(farmer)
-	assert_eq(own.farmers_wanted(), clampi(own.member_count() / Settlement.FARMERS_PER_PEOPLE, 1, Settlement.FARMERS_MOST))
+	assert_eq(own.farmers_wanted(), 1, "a band keeps one farmer")
 	# A bigger settlement: newcomers, gatherers all.
 	for i in Settlement.FARMERS_PER_PEOPLE * 2:
 		session.spawn_person(own.fire().tile)

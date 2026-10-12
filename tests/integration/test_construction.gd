@@ -666,6 +666,22 @@ func test_a_worn_path_can_be_built_on() -> void:
 	assert_null(planner.site_for(hut), "not on sand")
 
 
+func test_a_building_may_stand_beside_a_tree_not_under_it() -> void:
+	var hut := session.buildings.get_def(&"hut")
+	var first: Vector2i = planner.site_for(hut)
+	var tree := PropData.new()
+	tree.id = session.ids.next_id()
+	tree.kind = PropData.Kind.TREE
+	tree.tile = first + Vector2i(1, 0)
+	assert_true(session.props.add(tree))
+	assert_true(planner._buildable(first, []), "beside a tree: ground to build on")
+	assert_eq(planner._growth_beside(first), 1, "but it counts against the site")
+	assert_false(planner._buildable(tree.tile, []), "not where the tree stands")
+	# Beside a rock, or another building: not.
+	tree.kind = PropData.Kind.ROCK
+	assert_false(planner._buildable(first, []), "not beside a rock")
+
+
 func test_stone_lying_about_is_brought_to_the_site() -> void:
 	_only(&"")
 	var stones := func() -> int:

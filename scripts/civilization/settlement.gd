@@ -581,12 +581,15 @@ func ensure_farmer(now: int) -> PersonData:
 
 ## How many farmers a settlement that farms wants: one for every
 ## FARMERS_PER_PEOPLE people (at least one), up to FARMERS_MOST (the owner, 2026-10-07:
-## one farmer, whatever the size of the village, was why food ran short).
-const FARMERS_PER_PEOPLE := 6
-const FARMERS_MOST := 6
+## one farmer, whatever the size of the village, was why food ran short; 4 and 8, not 6 and 6, at the owner's word 2026-10-12: two farmers' fields did not carry 12 to 17 people to the next harvest). A settlement of fewer than FARMERS_ONE_BELOW keeps one: a band of eight cannot spare two from gathering.
+const FARMERS_PER_PEOPLE := 4
+const FARMERS_MOST := 8
+const FARMERS_ONE_BELOW := 12
 
 
 func farmers_wanted() -> int:
+	if member_count() < FARMERS_ONE_BELOW:
+		return 1
 	return clampi(member_count() / FARMERS_PER_PEOPLE, 1, FARMERS_MOST)
 
 
