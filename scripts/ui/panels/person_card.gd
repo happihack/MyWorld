@@ -72,6 +72,9 @@ var _memories_shown := PackedStringArray()
 ## full card, under the family).
 var _mood_bar: NeedBar
 var _calm_bar: NeedBar
+## The middle of the card, scrolling when the screen is short.
+var _middle_scroll: ScrollContainer
+var _middle: VBoxContainer
 var _health: Label
 var _people: VBoxContainer
 var _people_shown: Array = []
@@ -146,6 +149,27 @@ func _ready() -> void:
 	more.pressed.connect(func() -> void: set_state(State.HALF if _state == State.FULL else State.FULL))
 	_actions.add_child(more)
 	_buttons[&"more"] = more
+	# The middle of the card (who they are, their needs, their nature, what
+	# they remember) in a scroll of its own: on a short screen (held on its
+	# side, the owner, 2026-10-13) it scrolls rather than run off the top.
+	_middle_scroll = ScrollContainer.new()
+	_middle_scroll.name = "MiddleScroll"
+	_middle_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_middle_scroll.scroll_deadzone = int(UITheme.TOUCH_TARGET * 0.15)
+	_middle_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_middle = VBoxContainer.new()
+	_middle.name = "Middle"
+	_middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_middle_scroll.add_child(_middle)
+	var at := _about.get_index()
+	_body.add_child(_middle_scroll)
+	_body.move_child(_middle_scroll, at)
+	for node: Control in [_about, _health, _needs, _traits, _memory]:
+		var unique := node.unique_name_in_owner
+		node.get_parent().remove_child(node)
+		_middle.add_child(node)
+		node.owner = self
+		node.unique_name_in_owner = unique
 	get_viewport().size_changed.connect(layout)
 	_apply_state()
 
@@ -332,13 +356,19 @@ func layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
-	# The lower part (family, memories) takes the room there is and scrolls
-	# if that is not enough: the card never leaves the screen.
+	# The middle, and the lower part (family, memories), take the room there
+	# is and scroll if that is not enough: the card never leaves the screen.
+	_middle_scroll.custom_minimum_size.y = 0.0
 	_more_scroll.custom_minimum_size.y = 0.0
+	var rest := get_combined_minimum_size().y
+	var room := maxf(view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest, 0.0)
+	var middle := _middle.get_combined_minimum_size().y
 	if _more_scroll.visible:
-		var rest := get_combined_minimum_size().y
-		var room := view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest
-		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room, MORE_MIN_HEIGHT))
+		var middle_room := clampf(middle, 0.0, maxf(room * 0.45, MORE_MIN_HEIGHT))
+		_middle_scroll.custom_minimum_size.y = middle_room
+		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room - middle_room, MORE_MIN_HEIGHT))
+	elif _body.visible:
+		_middle_scroll.custom_minimum_size.y = clampf(middle, 0.0, maxf(room, MORE_MIN_HEIGHT))
 	reset_size()
 	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - size.y)
 
