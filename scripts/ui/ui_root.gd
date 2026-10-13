@@ -815,6 +815,12 @@ func show_disasters() -> void:
 	_disaster_bar.reset_size()
 	var button := _disaster_button.get_global_rect()
 	var rest := Vector2(button.position.x - CORNER_GAP - _disaster_bar.size.x, button.get_center().y - _disaster_bar.size.y * 0.5)
+	# On a screen held on its side the button is level with the row of tools:
+	# the disasters would slide out across them. Then they come out above the row.
+	if _tool_bar != null and _tool_bar.visible:
+		var tools := _tool_bar.get_global_rect().grow(CORNER_GAP)
+		if Rect2(rest, _disaster_bar.size).intersects(tools):
+			rest.y = tools.position.y - _disaster_bar.size.y
 	if _bar_slide != null:
 		_bar_slide.kill()
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):
