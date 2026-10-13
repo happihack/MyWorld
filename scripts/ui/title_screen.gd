@@ -38,8 +38,18 @@ var _cover_label: Label
 var _cover_text := ""
 var _cover_time := 0.0
 
+## The parts of the lid, laid out one way held upright and another on its side.
 var _column: VBoxContainer
+var _row: HBoxContainer
+var _left: VBoxContainer
+var _right: VBoxContainer
+var _name_part: Control
+var _opening_part: Control
+var _bubble_part: Control
+var _gap_part: Control
 var _list: VBoxContainer
+var _landscape := false
+var _content_width := 960.0
 var _page := ROOT
 var _reduced := false
 ## The mascot's wave.
@@ -54,47 +64,104 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_reduced = bool(Settings.get_value(&"accessibility/reduced_motion"))
+	_apply_scale()
+	get_window().size_changed.connect(_apply_scale)
 	_paint_lid()
 	_column = VBoxContainer.new()
 	_column.name = "Column"
 	_column.add_theme_constant_override("separation", 0)
 	add_child(_column)
-	_column.add_child(_name_block())
-	_column.add_child(_opening_block())
-	_column.add_child(_bubble_row())
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 16)
-	_column.add_child(gap)
+	_row = HBoxContainer.new()
+	_row.name = "Row"
+	_row.add_theme_constant_override("separation", 60)
+	_row.visible = false
+	add_child(_row)
+	_left = VBoxContainer.new()
+	_left.name = "Left"
+	_left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_left.add_theme_constant_override("separation", 0)
+	_row.add_child(_left)
+	_right = VBoxContainer.new()
+	_right.name = "Right"
+	_right.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right.alignment = BoxContainer.ALIGNMENT_CENTER
+	_right.add_theme_constant_override("separation", 0)
+	_row.add_child(_right)
+	_name_part = _name_block()
+	_opening_part = _opening_block()
+	_bubble_part = _bubble_row()
+	_gap_part = Control.new()
+	_gap_part.custom_minimum_size = Vector2(0, 16)
 	_list = VBoxContainer.new()
 	_list.name = "Choices"
 	_list.add_theme_constant_override("separation", 26)
-	_column.add_child(_list)
 	EventBus.back_requested.connect(_on_back)
 	resized.connect(_fit)
 	_fit()
 	show_page(ROOT)
 
 
-## The column down the middle, as wide as the screen allows.
+func _exit_tree() -> void:
+	if EventBus.back_requested.is_connected(_on_back):
+		EventBus.back_requested.disconnect(_on_back)
+	get_window().content_scale_factor = 1.0
+
+
+## A unit the same physical size however the phone is held (as the game's UIRoot does).
+func _apply_scale() -> void:
+	var window := get_window()
+	var base := Vector2(
+		ProjectSettings.get_setting("display/window/size/viewport_width", 1080),
+		ProjectSettings.get_setting("display/window/size/viewport_height", 1920))
+	var factor := UIRoot.ui_scale_for(Vector2(window.size), base)
+	if not is_equal_approx(window.content_scale_factor, factor):
+		window.content_scale_factor = factor
+
+
+## Held upright: one column down the middle. On its side: the name and the
+## opening at the left, the choices at the right. Either is held by its
+## anchors, so it is always the screen's height: the opening takes what the
+## rest leaves, however the labels wrapped at first.
 func _fit() -> void:
 	if _column == null:
 		return
-	# (Held by its anchors, so it is always the screen's height: the opening
-	# takes what the rest leaves, however the labels wrapped at first.)
-	var width := minf(MAX_WIDTH, maxf(size.x - 2.0 * EDGE, 300.0))
-	_column.anchor_left = 0.5
-	_column.anchor_right = 0.5
-	_column.anchor_top = 0.0
-	_column.anchor_bottom = 1.0
-	_column.offset_left = -width * 0.5
-	_column.offset_right = width * 0.5
-	_column.offset_top = 40.0
-	_column.offset_bottom = -40.0
+	_landscape = size.x > size.y
+	var width := minf(MAX_WIDTH * (2.0 if _landscape else 1.0), maxf(size.x - 2.0 * EDGE, 300.0))
+	var holder: Control = _row if _landscape else _column
+	_row.visible = _landscape
+	_column.visible = not _landscape
+	holder.anchor_left = 0.5
+	holder.anchor_right = 0.5
+	holder.anchor_top = 0.0
+	holder.anchor_bottom = 1.0
+	holder.offset_left = -width * 0.5
+	holder.offset_right = width * 0.5
+	holder.offset_top = 40.0
+	holder.offset_bottom = -40.0
+	_content_width = (width - 60.0) * 0.5 if _landscape else width
+	if _landscape:
+		_place([_name_part, _opening_part, _bubble_part], _left)
+		_place([_list], _right)
+	else:
+		_place([_name_part, _opening_part, _bubble_part, _gap_part, _list], _column)
 	# (A label that wraps must know its width, or it asks for the height of
 	# one word a line and the column runs off the screen.)
 	for label: Label in _wrapping:
 		if is_instance_valid(label):
-			label.custom_minimum_size.x = maxf(width - float(label.get_meta("reserve", 0.0)), 160.0)
+			label.custom_minimum_size.x = maxf(_content_width - float(label.get_meta("reserve", 0.0)), 160.0)
+
+
+## Puts `parts` in `holder`, in that order (moved from wherever they were).
+static func _place(parts: Array, holder: Control) -> void:
+	for part: Control in parts:
+		var parent := part.get_parent()
+		if parent == holder:
+			continue
+		if parent != null:
+			parent.remove_child(part)
+		holder.add_child(part)
+	for i in parts.size():
+		holder.move_child(parts[i], i)
 
 
 var _wrapping: Array[Label] = []
@@ -105,8 +172,7 @@ func _wraps(label: Label, reserve: float) -> Label:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.set_meta("reserve", reserve)
 	_wrapping.append(label)
-	if _column != null:
-		label.custom_minimum_size.x = maxf(_column.size.x - reserve, 160.0)
+	label.custom_minimum_size.x = maxf(_content_width - reserve, 160.0)
 	return label
 
 

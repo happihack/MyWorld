@@ -326,11 +326,23 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 	var menu: ContextMenu = CONTEXT_MENU.instantiate()
 	open_panel(menu)
 	menu.setup(UIText.subject_name(what), entries)
-	menu.place_near(anchor, Rect2(Vector2.ZERO, _panel_layer.get_viewport_rect().size))
+	menu.place_near(anchor, clear_of_hud())
 	menu.action_chosen.connect(func(action: StringName) -> void:
 		_tick()
 		context_action.emit(action, target))
 	return menu
+
+
+## The part of the screen a card next to the finger may use: clear of the
+## row of tools at the bottom, and of the column of buttons (and the minimap
+## beside it, on a screen held on its side) at the right.
+func clear_of_hud() -> Rect2:
+	var view := _panel_layer.get_viewport_rect().size
+	var bottom := view.y - (ToolBar.BOTTOM_MARGIN + ToolButton.SIZE + CORNER_GAP)
+	var right := view.x
+	if _minimap != null and _home_button != null:
+		right = view.x + minf(_minimap.offset_left, _home_button.offset_left) - CORNER_GAP
+	return Rect2(Vector2.ZERO, Vector2(maxf(right, view.x * 0.5), maxf(bottom, view.y * 0.5)))
 
 
 ## Who the camera follows, and who can be found (top of the screen).
