@@ -131,6 +131,9 @@ func layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
+	# Held on its side the screen is short (the owner, 2026-10-13: the card
+	# ran off the top): the counts go two to a row, and the list has what is left.
+	_counts.columns = 4 if view.x > view.y else 2
 	_scroll.custom_minimum_size.y = 0.0
 	var rest := get_combined_minimum_size().y
 	var room := minf(view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest, LIST_MAX_HEIGHT)
