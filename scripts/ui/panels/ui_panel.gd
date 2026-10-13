@@ -46,6 +46,18 @@ static func left_for(view: Vector2, width: float, margin: float) -> float:
 	return maxf((view.x - width) * 0.5, 0.0) if view.y > view.x else margin
 
 
+## On a screen held on its side the minimap is at the bottom left, under
+## where the cards come up: a card keeps above it (its side, the row of tools'
+## margin under it, and a gap).
+const LANDSCAPE_BOTTOM_CLEAR := 364.0
+
+
+## How far above the bottom of a screen of `view` a card sits, given the
+## `margin` it keeps held upright.
+static func bottom_for(view: Vector2, margin: float) -> float:
+	return maxf(margin, LANDSCAPE_BOTTOM_CLEAR) if view.x > view.y else margin
+
+
 func is_closing() -> bool:
 	return _closing
 

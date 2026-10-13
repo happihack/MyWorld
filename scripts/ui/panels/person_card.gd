@@ -337,10 +337,10 @@ func layout() -> void:
 	_more_scroll.custom_minimum_size.y = 0.0
 	if _more_scroll.visible:
 		var rest := get_combined_minimum_size().y
-		var room := view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest
+		var room := view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest
 		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room, MORE_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - size.y)
 
 
 # --- what is said about a person ----------------------------------------------------------------

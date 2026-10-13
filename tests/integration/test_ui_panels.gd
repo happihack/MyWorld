@@ -259,6 +259,9 @@ func test_cards_keep_even_margins_on_a_phone() -> void:
 	assert_eq(wide.x, 32.0)
 	assert_true(wide.x + wide.y < 960.0, "short of the middle (%.0f)" % (wide.x + wide.y))
 	assert_eq(UIPanel.left_for(Vector2(1920, 1080), 800.0, 32.0), 32.0)
+	# (And above the minimap, which is at the bottom left there.)
+	assert_eq(UIPanel.bottom_for(Vector2(1920, 1080), 308.0), UIPanel.LANDSCAPE_BOTTOM_CLEAR)
+	assert_eq(UIPanel.bottom_for(Vector2(1080, 1920), 308.0), 308.0)
 
 
 func test_inspecting_ground_and_water() -> void:
