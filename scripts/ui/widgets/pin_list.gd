@@ -38,6 +38,8 @@ func set_people(people: Array) -> void:
 		chip.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 		chip.add_theme_stylebox_override(&"normal", _chip_style())
 		chip.add_theme_stylebox_override(&"hover", _chip_style())
+		for state: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_hover_pressed_color", &"font_focus_color"]:
+			chip.add_theme_color_override(state, UITheme.CHALK)
 		chip.add_to_group(InputRouter.UI_BLOCKER_GROUP) # touches here never reach the world
 		chip.pressed.connect(func() -> void: chosen.emit(entry[0]))
 		add_child(chip)
@@ -61,11 +63,10 @@ func chips() -> Array[Button]:
 
 
 static func _chip_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.09, 0.12, 0.62)
+	# A chalk chip over the world, a star-yellow stroke down its left.
+	var style := HandDraw.chalk_box(16, UITheme.CHALK_FILL, UITheme.CHALK, 0.0, 22.0)
 	style.border_color = StarButton.LIT
 	style.border_width_left = 6
-	style.set_corner_radius_all(18)
 	style.content_margin_left = 22.0
 	style.content_margin_right = 22.0
 	return style

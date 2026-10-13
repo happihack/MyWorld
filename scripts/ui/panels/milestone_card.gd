@@ -99,13 +99,13 @@ static func heading_for(kind: StringName) -> String:
 
 ## The card's frame: gold, thick, glowing — it is not just another notice.
 static func style() -> StyleBoxFlat:
-	var frame := StyleBoxFlat.new()
-	frame.bg_color = UITheme.CARD
+	# A sheet of paper with a gold border drawn round it, and a glow.
+	var frame := HandDraw.paper_box(21, 40.0)
 	frame.border_color = GOLD
 	frame.set_border_width_all(6)
-	frame.set_corner_radius_all(30)
 	frame.shadow_color = Color(GOLD, 0.45)
 	frame.shadow_size = 26
+	frame.shadow_offset = Vector2.ZERO
 	frame.content_margin_left = 48.0
 	frame.content_margin_right = 48.0
 	frame.content_margin_top = 40.0

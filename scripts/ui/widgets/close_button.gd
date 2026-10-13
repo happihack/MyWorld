@@ -19,10 +19,13 @@ func _ready() -> void:
 	button_up.connect(queue_redraw)
 
 
+## The ink of the cross: dark on paper; a card over the world may ask for chalk.
+var ink: Color = UITheme.INK
+
+
 func _draw() -> void:
 	var center := size * 0.5
-	var arm := minf(size.x, size.y) * 0.16
+	var side := minf(size.x, size.y) * 0.44
 	if button_pressed:
-		draw_circle(center, minf(size.x, size.y) * 0.42, UITheme.PRESSED)
-	for direction: Vector2 in [Vector2(1, 1), Vector2(1, -1)]:
-		draw_line(center - direction * arm, center + direction * arm, UITheme.INK, 5.0, true)
+		draw_colored_polygon(HandDraw.circle_points(center, minf(size.x, size.y) * 0.42, 9, 0.0), UITheme.PRESSED)
+	HandIcons.draw(self, &"close", Rect2(center - Vector2(side, side), Vector2(side * 2.0, side * 2.0)), ink)

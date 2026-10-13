@@ -72,6 +72,13 @@ const MAX_WIDTH := 820.0
 const SLIDE_SECONDS := 0.18
 ## How far a section's entries are set in under its heading.
 const SECTION_INDENT := 56.0
+## The icon drawn beside each section's heading, and how big.
+const SECTION_ICONS := {
+	"MENU_WORLD": &"world", "MENU_PEOPLE": &"people", "MENU_CIVILIZATION": &"civilization",
+	"MENU_HISTORY": &"history", "MENU_PLAYER": &"player", "MENU_SETTINGS": &"settings",
+	"MENU_LEAVE": &"door",
+}
+const SECTION_ICON_SIZE := 64
 
 var _session: WorldSession
 var _stack: Array = [] # [page, argument, second argument]
@@ -107,7 +114,9 @@ func _init() -> void:
 	var header := HBoxContainer.new()
 	content.add_child(header)
 	_back = Button.new()
-	_back.text = "‹"
+	_back.text = ""
+	_back.icon = HandIcons.texture(&"back", 64)
+	_back.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_back.focus_mode = Control.FOCUS_NONE
 	_back.custom_minimum_size = Vector2(UITheme.TOUCH_TARGET * 0.7, UITheme.TOUCH_TARGET * 0.7)
 	_back.pressed.connect(back)
@@ -141,6 +150,12 @@ func _ready() -> void:
 		position.x = -size.x
 		_slide = create_tween()
 		_slide.tween_property(self, "position:x", rest, SLIDE_SECONDS).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+
+## A sheet of paper: ruled, taped on at the top.
+func _draw() -> void:
+	HandDraw.draw_rules(self, Rect2(Vector2(16.0, 0.0), size - Vector2(32.0, 0.0)))
+	HandDraw.draw_tape(self, Vector2(size.x * 0.5, 4.0), Vector2(240.0, 54.0), -2.0)
 
 
 func _process(_delta: float) -> void:
@@ -227,6 +242,9 @@ func _show() -> void:
 			for section: Array in MenuPages.sections(self):
 				var key: String = section[0]
 				var open := _open_section == key
+				# Written by hand: the section's icon, its name in the heading
+				# hand, a marker stroke over the one that is open, and a chevron
+				# that turns down with it.
 				var header := Button.new()
 				header.name = "Section_" + key
 				header.text = MemoryText.translate(key)
@@ -235,19 +253,34 @@ func _show() -> void:
 				header.mouse_filter = Control.MOUSE_FILTER_PASS # (a drag on it scrolls the list)
 				header.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 				header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				var chevron := Label.new()
+				header.add_theme_font_override(&"font", UITheme.display_font())
+				header.add_theme_font_size_override(&"font_size", UITheme.FONT_HEADING)
+				header.icon = HandIcons.texture(String(SECTION_ICONS.get(key, &"world")), SECTION_ICON_SIZE)
+				header.add_theme_constant_override(&"icon_max_width", SECTION_ICON_SIZE)
+				header.add_theme_constant_override(&"h_separation", 24)
+				if open:
+					header.draw.connect(func() -> void:
+						var font := UITheme.display_font()
+						var width := font.get_string_size(header.text, HORIZONTAL_ALIGNMENT_LEFT, -1, UITheme.FONT_HEADING).x
+						var left := UITheme.BUTTON_PAD + SECTION_ICON_SIZE + 24.0 - 10.0
+						var height := UITheme.FONT_HEADING * 0.62
+						HandDraw.draw_marker(header, Rect2(left, (header.size.y - height) * 0.5 + 4.0, width + 20.0, height)))
+				var chevron := TextureRect.new()
 				chevron.name = "Chevron"
-				chevron.text = "−" if open else "+"
+				chevron.texture = HandIcons.texture(&"chevron", 48)
+				chevron.modulate = UITheme.INK if open else UITheme.INK_DIM
 				chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-				chevron.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				chevron.add_theme_font_size_override(&"font_size", UITheme.FONT_TITLE)
-				chevron.add_theme_color_override(&"font_color", UITheme.INK_DIM)
+				chevron.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 				chevron.anchor_left = 1.0
 				chevron.anchor_right = 1.0
-				chevron.anchor_bottom = 1.0
-				chevron.offset_left = -UITheme.TOUCH_TARGET * 0.6
+				chevron.anchor_top = 0.5
+				chevron.anchor_bottom = 0.5
+				chevron.offset_left = -16.0 - 48.0
 				chevron.offset_right = -16.0
+				chevron.offset_top = -24.0
+				chevron.offset_bottom = 24.0
+				chevron.pivot_offset = Vector2(24.0, 24.0)
+				chevron.rotation_degrees = 90.0 if open else 0.0
 				header.add_child(chevron)
 				header.pressed.connect(func() -> void:
 					_open_section = "" if _open_section == key else key
@@ -264,8 +297,9 @@ func _show() -> void:
 				for item: Array in section[1]:
 					var inner := _make_entry(MemoryText.translate(item[0]), item[1])
 					# (Set in under its heading.)
+					# (From our theme, not the engine's: the entry is not in the panel yet.)
 					for state: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed", &"disabled"]:
-						var style := inner.get_theme_stylebox(state).duplicate() as StyleBox
+						var style := UITheme.get_theme().get_stylebox(state, &"Button").duplicate() as StyleBox
 						style.content_margin_left += SECTION_INDENT
 						inner.add_theme_stylebox_override(state, style)
 					body.add_child(inner)
@@ -830,13 +864,17 @@ func _volume(key: StringName) -> void:
 	row.add_child(label)
 	var value := Label.new()
 	value.text = "%d%%" % roundi(float(Settings.get_value(key)) * 100.0)
+	value.theme_type_variation = UITheme.NOTE
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	value.custom_minimum_size = Vector2(120.0, 0.0)
 	for by: float in [-VOLUME_STEP, VOLUME_STEP]:
 		var button := Button.new()
 		button.text = "−" if by < 0.0 else "+"
 		button.focus_mode = Control.FOCUS_NONE
 		button.custom_minimum_size = Vector2(UITheme.TOUCH_TARGET * 0.7, UITheme.TOUCH_TARGET * 0.7)
+		for state: StringName in [&"normal", &"hover", &"focus"]:
+			button.add_theme_stylebox_override(state, HandDraw.ink_chip(hash(key) % 300 + (1 if by < 0.0 else 2), 8.0))
 		button.pressed.connect(func() -> void:
 			Settings.set_value(key, snappedf(clampf(float(Settings.get_value(key)) + by, 0.0, 1.0), VOLUME_STEP))
 			AudioManager.play_ui(&"ui_tap")

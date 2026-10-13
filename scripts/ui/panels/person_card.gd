@@ -116,17 +116,22 @@ func _ready() -> void:
 	_people = VBoxContainer.new()
 	_people.name = "People"
 	_family.add_sibling(_people)
-	_actions.add_theme_constant_override(&"separation", 0)
+	_actions.add_theme_constant_override(&"separation", 10)
+	var seed := 40
 	for entry: Array in [[ACTION_OBSERVE, "Observe"], [ACTION_TOUCH, "Touch"], [ACTION_FOLLOW, "Follow"], [ACTION_FOCUS, "Focus"]]:
 		var button := Button.new()
 		button.text = entry[1]
 		button.focus_mode = Control.FOCUS_NONE
+		_chip(button, seed)
+		seed += 1
 		if entry[0] == ACTION_OBSERVE or entry[0] == ACTION_FOLLOW:
-			# On or off: shown by a rim around the word, not by another word
+			# On or off: shown by the chip filled in, not by another word
 			# (five words have to fit in a row).
 			button.toggle_mode = true
 			button.add_theme_stylebox_override(&"pressed", _on_style())
 			button.add_theme_stylebox_override(&"hover_pressed", _on_style())
+			for state: StringName in [&"font_pressed_color", &"font_hover_pressed_color"]:
+				button.add_theme_color_override(state, UITheme.PAPER)
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_action_pressed.bind(entry[0]))
@@ -135,6 +140,7 @@ func _ready() -> void:
 	var more := Button.new()
 	more.text = "More"
 	more.focus_mode = Control.FOCUS_NONE
+	_chip(more, seed)
 	more.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	more.pressed.connect(func() -> void: set_state(State.HALF if _state == State.FULL else State.FULL))
@@ -535,16 +541,18 @@ func _on_action_pressed(which: StringName) -> void:
 	action.emit(which, _person_id)
 
 
-## The look of a button whose action is going on.
+## A chip drawn in ink round an action, a little off level.
+static func _chip(button: Button, seed: int) -> void:
+	var chip := HandDraw.ink_chip(seed, 12.0)
+	for state: StringName in [&"normal", &"hover", &"focus"]:
+		button.add_theme_stylebox_override(state, chip)
+	button.add_theme_font_size_override(&"font_size", UITheme.FONT_BODY - 4)
+	HandDraw.tilt(button, HandDraw.tilt_for(seed, 1.5))
+
+
+## The look of a button whose action is going on: filled in.
 static func _on_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(1.0, 0.82, 0.36, 0.16)
-	style.border_color = StarButton.LIT
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(20)
-	style.content_margin_left = UITheme.BUTTON_PAD
-	style.content_margin_right = UITheme.BUTTON_PAD
-	return style
+	return HandDraw.ink_chip(44, 12.0, true)
 
 
 ## The header is a handle: a tap toggles between the short card and the

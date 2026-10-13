@@ -123,12 +123,13 @@ func point_of(world_xz: Vector2) -> Vector2:
 
 func _draw() -> void:
 	if not _open or map.texture == null:
-		draw_circle(size * 0.5, size.x * 0.5 - 2.0, HomeButton.BACKDROP)
+		HandDraw.chalk_circle(self, size * 0.5, size.x * 0.5 - 7.0, UITheme.CHALK, UITheme.CHALK_WIDTH, 6, HomeButton.BACKDROP)
 		return
 	var rect := map_rect()
 	draw_rect(Rect2(Vector2.ZERO, size), HomeButton.BACKDROP)
 	draw_texture_rect(map.texture, rect, false)
-	draw_rect(rect, HomeButton.RING, false, 2.0)
+	# A frame drawn round it by hand.
+	draw_style_box(HandDraw.chalk_box(6, Color(0, 0, 0, 0), UITheme.CHALK, UITheme.CHALK_WIDTH * 0.7, 28.0), rect.grow(3.0))
 	for mark in _markers:
 		var at := point_of(mark[1])
 		match StringName(mark[0]):

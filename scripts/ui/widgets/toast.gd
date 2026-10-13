@@ -24,16 +24,12 @@ func _init() -> void:
 	theme = UITheme.get_theme()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	add_to_group(InputRouter.UI_BLOCKER_GROUP) # touches here never reach the world
-	var style := StyleBoxFlat.new()
-	style.bg_color = UITheme.CARD
-	style.border_color = UITheme.RIM
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(26)
+	# A slip of paper, a little off level.
+	var style := HandDraw.paper_box(17, 14.0)
 	style.content_margin_left = 30.0
 	style.content_margin_right = 18.0
-	style.content_margin_top = 14.0
-	style.content_margin_bottom = 14.0
 	add_theme_stylebox_override(&"panel", style)
+	HandDraw.tilt(self, HandDraw.tilt_for(17, 1.2))
 
 
 func _ready() -> void:
@@ -41,9 +37,12 @@ func _ready() -> void:
 	_locate.text = MemoryText.translate("EVENT_LOCATE")
 	_locate.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.72)
 	_locate.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
-	# (A chip, like the banner's: something to press.)
-	for state: StringName in [&"normal", &"hover"]:
-		_locate.add_theme_stylebox_override(state, FollowBanner._style(false))
+	# (An ink chip: something to press.)
+	var chip := HandDraw.chalk_box(18, Color(0, 0, 0, 0), UITheme.INK, 4.0, UITheme.TOUCH_TARGET * 0.36)
+	chip.content_margin_left = 24.0
+	chip.content_margin_right = 24.0
+	for state: StringName in [&"normal", &"hover", &"pressed", &"hover_pressed"]:
+		_locate.add_theme_stylebox_override(state, chip)
 	_locate.add_to_group(InputRouter.UI_BLOCKER_GROUP)
 	_locate.pressed.connect(func() -> void:
 		locate_pressed.emit(notice)
