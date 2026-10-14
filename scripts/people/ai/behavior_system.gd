@@ -666,11 +666,6 @@ func _carry_on(person: PersonData, minutes: float, known_step: Variant = null, k
 		return
 	if not is_same(_begun.get(person.id), step_now):
 		_begun[person.id] = step_now
-		# Indoors only for as long as the step that took them in lasts (its
-		# begin says so again): nobody is left unseen for want of a bed to
-		# wake from (the owner, 2026-10-14: a flood took the huts, and those
-		# asleep in them went on being "indoors" for weeks, out and about).
-		person.set_flag(PersonData.FLAG_INDOORS, false)
 		handler.begin(ctx, person, step_now)
 	match handler.update(ctx, person, step_now, minutes):
 		ActionStep.Status.DONE:
@@ -761,6 +756,12 @@ func _think(person: PersonData, current: StringName) -> Brain.Decision:
 	if current_step(person).is_empty():
 		set_plan(person, ACTIVITY_IDLE, &"routine", [RestStep.make(IDLE_MINUTES)])
 	return decision
+
+
+## Ends what the person is doing, leaving nothing behind (for whoever takes
+## people out of their days from outside: the time away, M20).
+func stop(person: PersonData) -> void:
+	_drop(person)
 
 
 ## Ends what the person is doing, leaving nothing behind.

@@ -21,9 +21,9 @@ static func make() -> Dictionary:
 
 func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	person.pose = PersonData.Pose.SLEEP
-	# Indoors — unless they are flooded out of their hut: then they sleep in
-	# the open, to be seen.
-	person.set_flag(PersonData.FLAG_INDOORS, ctx.places == null or not ctx.places.is_flooded_out(person))
+	# Indoors — when they are at a hut of theirs to be in (not flooded out of
+	# it, not without one): else they sleep in the open, to be seen.
+	person.set_flag(PersonData.FLAG_INDOORS, ctx.places == null or ctx.places.is_at_home(person))
 	if not person.has_flag(PersonData.FLAG_INDOORS):
 		Signs.flash(person, Signs.TIRED, ctx.now()) # (asleep out of doors, worn out: FC3)
 	# A child put to bed for the night (not taken up again after a load).
