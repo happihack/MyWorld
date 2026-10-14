@@ -319,15 +319,14 @@ func test_what_is_not_possible_is_not_chosen() -> void:
 	var decision := Brain.decide(child, ctx)
 	assert_eq(decision.scores[&"work"], -1.0, "children have no work to go to")
 	assert_ne(decision.activity, &"work")
-	# No home: no bed, no going home.
+	# No home: no going home — but a bed in the open, until a hut stands (the owner, 2026-10-14).
 	var person := _adult()
 	_content(person)
 	person.needs[Needs.Need.SLEEP] = 0.0
 	person.home_building_id = 0
 	decision = Brain.decide(person, ctx)
-	assert_eq(decision.scores[&"sleep"], -1.0)
+	assert_true(decision.scores[&"sleep"] > -1.0, "sleep is still to be had")
 	assert_eq(decision.scores[&"go_home"], -1.0)
-	assert_ne(decision.activity, &"sleep")
 	# Barred for now (it has just failed): not that either.
 	_content(person)
 	person.needs[Needs.Need.THIRST] = 0.0
