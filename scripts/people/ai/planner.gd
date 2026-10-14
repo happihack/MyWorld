@@ -126,6 +126,10 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var stores: Variant = ctx.places.storage_tile(person.carrying)
 				if stores != null:
 					return [WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+			# An apprentice (F3): much of the time with their mentor, at their work.
+			var learning := _with_mentor(person, ctx, rng)
+			if not learning.is_empty():
+				return learning
 			# What the job board has for them (their own trade first; what is
 			# pressing, whoever they are) — or, with nothing posted, their trade.
 			var target := def.work_target
@@ -528,6 +532,22 @@ static func _craft_work(person: PersonData, ctx: AiContext) -> Array:
 		return getting + [WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 	return [WalkToStep.make(_beside(shop.tile, person.position, ctx), person.sub_tile_offset),
 		TradeStep.craft(shop.id, shop.tile, config.craft_minutes)]
+
+
+## An apprentice goes to their mentor while the mentor is at work, and keeps
+## by them a while, watching and helping (F3) — this often ([]: not now).
+const WITH_MENTOR := 0.6
+
+
+static func _with_mentor(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	if person.mentor_id == 0 or ctx.people == null or rng.randf() >= WITH_MENTOR:
+		return []
+	var mentor := ctx.people.get_person(person.mentor_id)
+	if mentor == null or BehaviorSystem.activity_of(mentor) != &"work" or mentor.aboard != 0:
+		return []
+	var walk := WalkToStep.make(_beside(mentor.position, person.position, ctx), person.sub_tile_offset)
+	walk["toward"] = mentor.id
+	return [walk, SocializeStep.make(mentor.id, snappedf(rng.randf_range(30.0, 60.0), 1.0))]
 
 
 ## Fishing (M19.5): to the bank (or out in the landing's boat: FB4), fish a while, and home

@@ -13,3 +13,11 @@ labor = 200
 capacity = 0
 tags = PackedStringArray("records")
 tech = &"writing"
+category = PackedStringArray("knowledge")
+workers = {
+"scientist": 0
+}
+site = &"level"
+limit_per_settlement = 1
+min_population = 6
+historic = true

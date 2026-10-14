@@ -1181,6 +1181,46 @@ func shortage_causes() -> Array:
 
 # --- people -----------------------------------------------------------------------------------------
 
+## Careers (F6): the first apprentice of a trade in a settlement, a master
+## made, an expert's trade given up in old age, a trade gone with its last.
+func on_apprenticed(person_id: int, mentor_id: int, occupation: StringName) -> void:
+	if _writing():
+		_log.record(&"apprenticed", {"occupation": String(occupation), "participants": [person_id, mentor_id],
+				"position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+func on_mastered(person_id: int, occupation: StringName) -> void:
+	if _writing():
+		_log.record(&"trade_mastered", {"occupation": String(occupation), "participants": [person_id],
+				"position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+func on_retired(person_id: int, occupation: StringName) -> void:
+	if _writing():
+		_log.record(&"retired", {"occupation": String(occupation), "participants": [person_id],
+				"position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+func on_trade_lost(person_id: int, occupation: StringName) -> void:
+	if _writing():
+		_log.record(&"trade_lost", {"occupation": String(occupation), "participants": [person_id],
+				"position": _place_of(person_id), "settlement": _settlement_id()})
+
+
+## A building built anew as another, where it stood (F4, F6).
+func on_building_upgraded(project: Dictionary, _building_id: int, from_def: StringName) -> void:
+	if _writing():
+		_log.record(&"building_upgraded", {"building": str(project["def"]), "old_building": String(from_def),
+				"participants": ConstructionSystem.builders_of(project), "position": Places.middle_of(project["tile"]),
+				"settlement": _settlement_id()})
+
+
+## A building has come to be called by a name (F5–F6): "the Old Workshop".
+func on_building_named(_building_id: int, name: String, tile: Vector2i) -> void:
+	if _writing():
+		_log.record(&"building_named", {"title": name, "position": Places.middle_of(tile), "settlement": _settlement_id()})
+
+
 func on_took_up(person_id: int, occupation: StringName) -> void:
 	if not _writing():
 		return

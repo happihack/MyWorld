@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"forager"
-life_stages = Array[int]([1, 2])
+life_stages = Array[int]([1, 2, 3])
 starting_share = 1.0
 trait_weights = {
 "ADVENTURE": 0.5,
@@ -15,3 +15,13 @@ accessory = &"basket"
 work_target = &"bush"
 placeholder = false
 routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")
+family = &"gather"
+workplaces = PackedStringArray()
+requires = {}
+teaches = {
+"nature": 0.5,
+"medicine": 0.12
+}
+elder_keeps = true
+danger = 0.05
+evening_topic = &"plants"

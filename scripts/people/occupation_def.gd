@@ -34,6 +34,31 @@ extends Resource
 ## never an order.
 @export var routine: PackedStringArray = PackedStringArray()
 
+@export_group("Buildings & villagers (F1)")
+## The generalist family it belongs to (craft, build, heal, herd, food_prep,
+## gather, …): a specialist splits off it when there is work enough (F2).
+@export var family: StringName = &""
+## Where the work is: building ids (BuildingDef); `work_target` stays for the
+## gathering trades.
+@export var workplaces: PackedStringArray = PackedStringArray()
+## What must be so before anyone takes it up: {"tech": id, "building": id,
+## "tier": Settlements.Tier, "population": people} (any of them).
+@export var requires: Dictionary = {}
+## What a day of it teaches (points at middling skill): Knowledge domain name
+## ("nature", "craft", …) -> points.
+@export var teaches: Dictionary = {}
+## Kept into old age (lighter work: F3) — or given up for the elder's.
+@export var elder_keeps: bool = false
+## How dangerous the work is (0 … 1): mishaps at it.
+@export_range(0.0, 1.0, 0.01) var danger: float = 0.0
+## What they talk about at the fire in the evening (§41).
+@export var evening_topic: StringName = &""
+## Staffing (F2): taken up when wanted, in this order among the staffed trades
+## (0: never by staffing), by this demand rule (Settlement.demand_of).
+@export_range(0, 100) var staffing_order: int = 0
+@export var demand: StringName = &""
+const DEMANDS: Array[StringName] = [&"farm", &"hunt", &"fish", &"build", &"trade", &"craft", &"science"]
+
 var _routine_ready := false
 var _slot_hours := PackedFloat32Array()
 var _slot_ids: Array[StringName] = []
@@ -143,4 +168,26 @@ func validate() -> PackedStringArray:
 	for axis_name: Variant in trait_weights:
 		if not Traits.Axis.has(str(axis_name)):
 			problems.append("%s: unknown trait axis '%s'" % [id, axis_name])
+	for domain: Variant in teaches:
+		if not Knowledge.NAMES.has(StringName(str(domain))):
+			problems.append("%s: teaches an unknown domain '%s'" % [id, domain])
+		elif float(teaches[domain]) < 0.0:
+			problems.append("%s: teaches less than nothing of %s" % [id, domain])
+	if elder_keeps != allows(PersonData.LifeStage.ELDER) and id != &"elder":
+		problems.append("%s: kept into old age only if elders can have it" % id)
+	if staffing_order > 0 and not DEMANDS.has(demand):
+		problems.append("%s: staffed by an unknown demand rule '%s'" % [id, demand])
+	for key: Variant in requires:
+		if not ["tech", "building", "tier", "population"].has(str(key)):
+			problems.append("%s: requires an unknown kind of thing '%s'" % [id, key])
 	return problems
+
+
+## What a day of it teaches, by Knowledge.Domain: {domain: points}.
+func teaches_by_domain() -> Dictionary:
+	var out := {}
+	for domain: Variant in teaches:
+		var at := Knowledge.NAMES.find(StringName(str(domain)))
+		if at >= 0:
+			out[at] = float(teaches[domain])
+	return out

@@ -232,6 +232,20 @@ func _run() -> void:
 		if s.events.size() > config.events.max_events:
 			_problem("day %d: the event log holds %d events (%d at most)" % [day, s.events.size(), config.events.max_events])
 		if (day + 1) % days_per_year == 0:
+			# (Who does what, each year, settlement by settlement: the staffing regression, F2.)
+			var trades := PackedStringArray()
+			for own in s.settlements.all():
+				var by := {}
+				for person in own.members():
+					by[String(person.occupation_id)] = int(by.get(String(person.occupation_id), 0)) + 1
+				var names := by.keys()
+				names.sort()
+				var parts := PackedStringArray()
+				for name: String in names:
+					parts.append("%s %d" % [name, by[name]])
+				trades.append("%d: %s" % [own.id, " ".join(parts)])
+			print("SOAK trades year %d  %s" % [day / days_per_year + 1, "  |  ".join(trades)])
+		if (day + 1) % days_per_year == 0:
 			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
 		if plans and (day + 1) % days_per_year == 0:
 			_plans(s, day / days_per_year + 1)

@@ -320,33 +320,18 @@ func workshop() -> PropData:
 
 ## Someone carries its trade, once there is trade to be done.
 func ensure_trader(now: int) -> PersonData:
-	if trade == null or occupations == null or not occupations.has_def(&"trader") or not trade.has_offer(id):
-		return null
-	for person in members():
-		if person.occupation_id == &"trader":
-			return null
-	return _take_up(&"trader", Config.trade.trader_from, now)
+	return _staff_by_id(&"trader", now)
 
 
 ## Once it knows natural philosophy, and has nobody looking into the
 ## unexplained: the one it suits best becomes its scientist (M18).
 func ensure_scientist(now: int) -> PersonData:
-	if occupations == null or not occupations.has_def(&"scientist") or not knows_how(&"natural_philosophy"):
-		return null
-	for person in members():
-		if person.occupation_id == &"scientist":
-			return null
-	return _take_up(&"scientist", 3, now)
+	return _staff_by_id(&"scientist", now)
 
 
 ## Someone makes tools, once there is a workshop and tools are wanted.
 func ensure_toolmaker(now: int) -> PersonData:
-	if occupations == null or not occupations.has_def(&"toolmaker") or workshop() == null or not craft_wanted():
-		return null
-	for person in members():
-		if person.occupation_id == &"toolmaker":
-			return null
-	return _take_up(&"toolmaker", 3, now)
+	return _staff_by_id(&"toolmaker", now)
 
 
 func _refresh_tools() -> void:
@@ -532,11 +517,7 @@ func fish_near() -> bool:
 
 ## With fish to be had and nobody fishing: one of the gatherers takes it up (M19.5).
 func ensure_fisher(now: int) -> PersonData:
-	if occupations == null or not occupations.has_def(&"fisher") or not fish_near():
-		return null
-	if fisher_count() >= fishers_wanted():
-		return null
-	return _take_up(&"fisher", _config.fisher_from_gatherers if fisher_count() == 0 else 2, now, true)
+	return _staff_by_id(&"fisher", now)
 
 
 ## How many fishers the settlement wants (FB4): one — and one more for every
@@ -570,13 +551,7 @@ func fishers_wanted() -> int:
 ## the most people, so that no work is left without anyone) — and as it
 ## grows, more (farmers_wanted). Returns who, or null.
 func ensure_farmer(now: int) -> PersonData:
-	if farming == null or occupations == null or not occupations.has_def(&"farmer"):
-		return null
-	var farmers := farming.farmer_count()
-	# (The first in a season for sowing; more as the settlement grows, any time.)
-	if farmers >= farmers_wanted() or (farmers == 0 and not farming.sowing_time(now)):
-		return null
-	return _take_up(&"farmer", _config.farmer_from_gatherers if farmers == 0 else 2, now, true)
+	return _staff_by_id(&"farmer", now)
 
 
 ## How many farmers a settlement that farms wants: one for every
@@ -596,15 +571,12 @@ func farmers_wanted() -> int:
 ## Likewise with game about and nobody hunting.
 ## Likewise with something to build and nobody building (M12.1).
 func ensure_builder(now: int) -> PersonData:
-	if construction == null or occupations == null or not occupations.has_def(&"builder") or construction.projects_of(id).is_empty():
-		return null
-	for person in members():
-		if person.occupation_id == &"builder":
-			return null
-	var taken := _take_up(&"builder", 2, now)
-	if taken != null or not (_roofless() or _homes_need_work()):
-		return taken
-	# A home to build or mend, and nobody to spare: whoever is fittest builds.
+	return _staff_by_id(&"builder", now)
+
+
+## A home to build or mend, and nobody to spare from gathering: whoever is
+## fittest builds.
+func _press_builder(now: int) -> PersonData:
 	var builder := occupations.get_def(&"builder")
 	var best: PersonData = null
 	for person in members():
@@ -652,9 +624,101 @@ func props() -> PropRegistry:
 
 
 func ensure_hunter(now: int) -> PersonData:
-	if fauna == null or occupations == null or not occupations.has_def(&"hunter") or hunter_count() > 0 or not fauna.has_game():
+	return _staff_by_id(&"hunter", now)
+
+
+# --- staffing (buildings & villagers F2) -------------------------------------------------------
+
+## Once in a while: each trade the data staffs (OccupationDef.staffing_order),
+## in that order — wanted more than it has, one more takes it up.
+func staff(now: int) -> void:
+	for def in _staffed():
+		_staff(def, now)
+
+
+## How many of a trade the settlement wants now, and how it finds them: {"wanted":
+## people, "have": people, "least": gatherers there must be to spare one,
+## "anywhere": from any trade but the food trades (_take_up)} — {} if it wants none.
+func demand_of(def: OccupationDef, now: int) -> Dictionary:
+	match def.demand:
+		&"farm":
+			if farming == null:
+				return {}
+			var farmers := farming.farmer_count()
+			# (The first in a season for sowing; more as the settlement grows, any time.)
+			var wanted := 0 if farmers == 0 and not farming.sowing_time(now) else farmers_wanted()
+			return {"wanted": wanted, "have": farmers, "least": _config.farmer_from_gatherers if farmers == 0 else 2, "anywhere": true}
+		&"hunt":
+			if fauna == null:
+				return {}
+			return {"wanted": 1 if fauna.has_game() else 0, "have": hunter_count(), "least": _config.hunter_from_gatherers, "anywhere": false}
+		&"fish":
+			if not fish_near():
+				return {}
+			var fishers := fisher_count()
+			return {"wanted": fishers_wanted(), "have": fishers, "least": _config.fisher_from_gatherers if fishers == 0 else 2, "anywhere": true}
+		&"build":
+			if construction == null:
+				return {}
+			return {"wanted": mini(construction.projects_of(id).size(), 2), "have": _holding(def.id), "least": 2, "anywhere": false} # (two at once: F4)
+		&"trade":
+			if trade == null:
+				return {}
+			return {"wanted": 1 if trade.has_offer(id) else 0, "have": _holding(def.id), "least": Config.trade.trader_from, "anywhere": false}
+		&"craft":
+			return {"wanted": 1 if workshop() != null and craft_wanted() else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
+		&"science":
+			return {"wanted": 1 if knows_how(&"natural_philosophy") else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
+	return {}
+
+
+## Wanted against held, trade by trade (F8): "farmer 3/4  fisher 2/2 …".
+func staffing_text(now: int) -> String:
+	var parts := PackedStringArray()
+	for def in _staffed():
+		var demand := demand_of(def, now)
+		if not demand.is_empty():
+			parts.append("%s %d/%d" % [def.id, int(demand["have"]), int(demand["wanted"])])
+	return "  ".join(parts)
+
+
+func _staff_by_id(occupation: StringName, now: int) -> PersonData:
+	if occupations == null or not occupations.has_def(occupation):
 		return null
-	return _take_up(&"hunter", _config.hunter_from_gatherers, now)
+	return _staff(occupations.get_def(occupation), now)
+
+
+func _staff(def: OccupationDef, now: int) -> PersonData:
+	var demand := demand_of(def, now)
+	if demand.is_empty() or int(demand["have"]) >= int(demand["wanted"]):
+		return null
+	var taken := _take_up(def.id, int(demand["least"]), now, bool(demand["anywhere"]))
+	if taken == null and def.demand == &"build" and (_roofless() or _homes_need_work()):
+		taken = _press_builder(now)
+	return taken
+
+
+## How many of its people hold `occupation`.
+func _holding(occupation: StringName) -> int:
+	var count := 0
+	for person in members():
+		if person.occupation_id == occupation:
+			count += 1
+	return count
+
+
+## The trades the data staffs, in order (worked out once: the data does not change).
+func _staffed() -> Array[OccupationDef]:
+	if _staffed_defs.is_empty() and occupations != null:
+		for occupation in occupations.ids():
+			var def := occupations.get_def(occupation)
+			if def.staffing_order > 0:
+				_staffed_defs.append(def)
+		_staffed_defs.sort_custom(func(a: OccupationDef, b: OccupationDef) -> bool: return a.staffing_order < b.staffing_order)
+	return _staffed_defs
+
+
+var _staffed_defs: Array[OccupationDef] = []
 
 
 ## One of the gatherers takes up `occupation`: the one it suits best, from
@@ -758,13 +822,7 @@ func step(now: int) -> void:
 		_served.clear() # a new day: everyone's share anew
 	if now - _farmer_check_tick >= FARMER_CHECK_MINUTES or now < _farmer_check_tick:
 		_farmer_check_tick = now
-		ensure_farmer(now)
-		ensure_hunter(now)
-		ensure_fisher(now)
-		ensure_builder(now)
-		ensure_trader(now)
-		ensure_toolmaker(now)
-		ensure_scientist(now)
+		staff(now)
 		_refresh_tools()
 		_check_forage()
 	if now - jobs.last_refresh_tick >= _config.job_check_minutes or now < jobs.last_refresh_tick:

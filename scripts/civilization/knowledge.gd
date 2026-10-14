@@ -30,17 +30,9 @@ const MOST := 100.0
 ## what each of the others does.
 const OTHERS_SHARE := 0.2
 
-## What a day's work teaches (points at middling skill): occupation -> {domain: points}.
-const WORK := {
-	&"woodcutter": {Domain.NATURE: 0.35, Domain.CRAFT: 0.25},
-	&"forager": {Domain.NATURE: 0.5, Domain.MEDICINE: 0.12},
-	&"farmer": {Domain.AGRICULTURE: 0.6, Domain.NATURE: 0.15},
-	&"hunter": {Domain.NATURE: 0.45, Domain.CRAFT: 0.1},
-	&"builder": {Domain.CONSTRUCTION: 0.6, Domain.CRAFT: 0.2, Domain.MATHEMATICS: 0.05},
-	&"toolmaker": {Domain.CRAFT: 0.7},
-	&"trader": {Domain.SOCIAL: 0.35, Domain.MATHEMATICS: 0.25, Domain.RECORD: 0.1},
-	&"elder": {Domain.SOCIAL: 0.3, Domain.RECORD: 0.25},
-}
+## What a day's work teaches is the occupation's (OccupationDef.teaches, F1);
+## an elder with no trade of their own kept teaches what the elder's does.
+const ELDER := &"elder"
 ## The curious look about them: the land, and the sky at night (and elders
 ## have watched it longest). Points a day at the most curious.
 const CURIOUS_NATURE := 0.15
@@ -81,6 +73,8 @@ const RECORD_KEPT := 0.5
 
 var people: PersonRegistry
 var settlements: Settlements
+## The occupations: what a day of each teaches (F1).
+var occupations: OccupationLibrary
 ## Does a settlement write (M16.2)? Callable(settlement) -> bool; unset: none does.
 var writes := Callable()
 ## A settlement's records: settlement id -> PackedFloat32Array (what writing has kept).
@@ -210,7 +204,7 @@ func each_day(now: int) -> void:
 
 func _learn_from_the_day(person: PersonData, stage: PersonData.LifeStage) -> void:
 	var mind := lerpf(0.7, 1.3, Traits.value(person.traits, Traits.Axis.INTELLIGENCE))
-	var work: Dictionary = WORK.get(person.occupation_id, {})
+	var work := _teaches(person.occupation_id)
 	var skill := float(person.skills.get(String(person.occupation_id), 0.3))
 	for domain: int in work:
 		add(person, domain, float(work[domain]) * lerpf(0.5, 1.5, skill) * mind)
@@ -219,9 +213,15 @@ func _learn_from_the_day(person: PersonData, stage: PersonData.LifeStage) -> voi
 	add(person, Domain.ASTRONOMY, (CURIOUS_SKY * curious + (ELDER_SKY if stage == PersonData.LifeStage.ELDER else 0.0)) * mind)
 	add(person, Domain.SOCIAL, LIVING_TOGETHER * mind)
 	add(person, Domain.RECORD, STORIES * mind)
-	if stage == PersonData.LifeStage.ELDER and not WORK.has(person.occupation_id):
-		for domain: int in WORK[&"elder"]:
-			add(person, domain, float(WORK[&"elder"][domain]) * mind)
+	if stage == PersonData.LifeStage.ELDER and work.is_empty():
+		var elder := _teaches(ELDER)
+		for domain: int in elder:
+			add(person, domain, float(elder[domain]) * mind)
+
+
+func _teaches(occupation: StringName) -> Dictionary:
+	var def := occupations.get_def(occupation) if occupations != null else null
+	return def.teaches_by_domain() if def != null else {}
 
 
 func _watch(child: PersonData, members: Array[PersonData]) -> void:

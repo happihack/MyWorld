@@ -74,6 +74,8 @@ func choose(stage: PersonData.LifeStage, traits: PackedFloat32Array, rng: Random
 		var def: OccupationDef = _defs[id]
 		if not def.allows(stage) or def.starting_share <= 0.0:
 			continue
+		if stage == PersonData.LifeStage.ELDER and def.elder_keeps:
+			continue # (kept into old age by those who had it: nobody takes it up old — F3)
 		var weight := def.starting_share * exp(def.affinity(traits)) / (1.0 + float(counts.get(id, 0)))
 		if id == favour:
 			weight *= 1.0 + pull # (what one's settlement is known for, M12.4)

@@ -14,3 +14,11 @@ labor = 220
 capacity = 0
 tags = PackedStringArray("workshop")
 tech = &"toolmaking"
+category = PackedStringArray("craft")
+workers = {
+"toolmaker": 1
+}
+site = &"level"
+limit_per_settlement = 1
+min_population = 0
+historic = false

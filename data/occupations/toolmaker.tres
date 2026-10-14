@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = &"toolmaker"
-life_stages = Array[int]([2])
+life_stages = Array[int]([2, 3])
 starting_share = 0.0
 trait_weights = {
 "INTELLIGENCE": 0.5,
@@ -15,3 +15,17 @@ accessory = &"axe"
 work_target = &"workshop"
 placeholder = false
 routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")
+family = &"craft"
+workplaces = PackedStringArray("workshop")
+requires = {
+"tech": &"toolmaking",
+"building": &"workshop"
+}
+teaches = {
+"craft": 0.7
+}
+elder_keeps = true
+danger = 0.1
+evening_topic = &"tools"
+staffing_order = 6
+demand = &"craft"

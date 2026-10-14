@@ -50,6 +50,9 @@ func _init() -> void:
 	_buttons[&"spawn"] = _button(row, "Spawn", func() -> void: spawn_requested.emit())
 	_think = _button(row, "Think", _on_think)
 	_kill = _button(row, "Kill", func() -> void: kill_requested.emit(_person_id))
+	# Careers (F8): give them the next trade; take an adolescent on as an apprentice now.
+	_buttons[&"trade"] = _button(row, "Trade", func() -> void: next_trade(_session, _person_id))
+	_buttons[&"apprentice"] = _button(row, "Apprentice", func() -> void: apprentice_now(_session, _person_id))
 	_close = _button(row, "X", func() -> void:
 		clear()
 		dismissed.emit())
@@ -184,6 +187,7 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	lines.append("%s  %s %d  %s  #%d  tier %d%s" % [person.full_name(), "F" if person.sex == PersonData.Sex.FEMALE else "M",
 		person.age_years(now, year), UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage),
 		person.id, person.sim_tier, "  INDOORS" if person.has_flag(PersonData.FLAG_INDOORS) else ""])
+	lines.append(career_line(session, person))
 	lines.append("%s   mood %.2f  stress %.2f  at %s" % [", ".join(UIText.trait_words(person.traits)), person.mood, person.stress, person.position])
 	for need in mini(person.needs.size(), Needs.COUNT):
 		lines.append("%-8s %s %.2f" % [Needs.NAMES[need], bar(person.needs[need]), person.needs[need]])
@@ -257,6 +261,55 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	lines.append("looked up %d times  waiting %.1f min  temperature %.3f" % [session.behavior.looked_up.get(person.id, 0),
 		session.simulation.pending_minutes(person.id), Brain.temperature(person)])
 	return "\n".join(lines)
+
+
+## Debug (F8): the next trade open to their stage of life (by id), skill kept.
+static func next_trade(session: WorldSession, person_id: int) -> StringName:
+	var person := session.people.get_person(person_id) if session != null else null
+	if person == null:
+		return &""
+	var stage := person.life_stage(session.clock.tick, Config.time.ticks_per_year(), Config.people)
+	var open: Array[StringName] = []
+	for id in session.occupations.ids():
+		var def := session.occupations.get_def(id)
+		if def.allows(stage) and not def.placeholder:
+			open.append(id)
+	if open.is_empty():
+		return person.occupation_id
+	person.occupation_id = open[(open.find(person.occupation_id) + 1) % open.size()]
+	return person.occupation_id
+
+
+## Debug (F8): an adolescent taken on now (null: not one, or nobody to learn from).
+static func apprentice_now(session: WorldSession, person_id: int) -> PersonData:
+	var person := session.people.get_person(person_id) if session != null else null
+	var own := session.settlements.of(person) if person != null else null
+	if own == null or person.life_stage(session.clock.tick, Config.time.ticks_per_year(), Config.people) != PersonData.LifeStage.ADOLESCENT:
+		return null
+	person.mentor_id = 0
+	person.apprentice_trade = &""
+	return Careers.take_on(person, own, session.occupations, session.people, session.clock.tick)
+
+
+## Their career (F3, F8): trade, level and skill; mentor and what they learn;
+## their apprentices; the trade they gave up; what they are master of.
+static func career_line(session: WorldSession, person: PersonData) -> String:
+	var skill := Careers.skill_of(person, person.occupation_id)
+	var parts := PackedStringArray(["career: %s %s %.2f" % [person.occupation_id, Careers.NAMES[Careers.level_of(person)], skill]])
+	if person.mentor_id != 0:
+		parts.append("learning %s from %s (%.2f)" % [person.apprentice_trade, session.people.name_of(person.mentor_id),
+				Careers.skill_of(person, person.apprentice_trade)])
+	var taught := PackedStringArray()
+	for other in session.people.all_people():
+		if other.mentor_id == person.id:
+			taught.append(other.given_name)
+	if not taught.is_empty():
+		parts.append("teaching " + ", ".join(taught))
+	if person.former_occupation != &"":
+		parts.append("was a %s" % person.former_occupation)
+	if not person.mastered.is_empty():
+		parts.append("master of " + ", ".join(person.mastered))
+	return "  ".join(parts)
 
 
 ## One step of a plan, in a line.

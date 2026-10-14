@@ -17,12 +17,16 @@ extends RefCounted
 signal begun(project: Dictionary)
 signal finished(project: Dictionary, building_id: int)
 signal repaired(project: Dictionary, building_id: int)
+## A building has been built anew as another (F4: an upgrade), where it stood.
+signal upgraded(project: Dictionary, building_id: int, from_def: StringName)
 signal damaged(building_id: int, why: StringName)
 ## `why`: &"empty" (nobody lived in it), &"worn" (damage), &"washed" (a bridge gone).
 signal ruined(building_id: int, def_id: StringName, why: StringName)
 
 const BUILD := "build"
 const REPAIR := "repair"
+## Built in place of a building that stands (F4): it works on until the new is done.
+const UPGRADE := "upgrade"
 ## The site's look as the work goes on (PropData.variant of a SITE).
 const STAKES := 0
 const FRAME := 1
@@ -253,6 +257,18 @@ static func builders_of(p: Dictionary) -> Array[int]:
 
 func _finish(p: Dictionary, now: int) -> void:
 	_projects.erase(p)
+	if str(p["kind"]) == UPGRADE:
+		var old := _props.get_prop(int(p["site"]))
+		var next := buildings.get_def(StringName(str(p["def"])))
+		if old != null and next != null:
+			# (Taken out and put back as what it is now: the kinds are kept by kind.)
+			_props.remove(old.id)
+			old.kind = next.prop_kind as PropData.Kind
+			old.variant = 0
+			old.condition = PropData.SOUND
+			_props.add(old)
+			upgraded.emit(p, old.id, StringName(str(p.get("from", ""))))
+		return
 	if str(p["kind"]) == REPAIR:
 		var building := _props.get_prop(int(p["site"]))
 		if building != null:
@@ -333,6 +349,26 @@ func start_repair(building: PropData, now: int) -> Dictionary:
 		"settlement": owner.id if owner != null else (_start.settlement_id if _start != null else 0)}
 	_next_id += 1
 	_projects.append(p)
+	return p
+
+
+## Begins building `def` in place of `building` (an upgrade, F4): the whole of
+## its materials and work; the old one works on meanwhile. Returns the project
+## ({}: something is being done to it already, or it is not what `def` upgrades).
+func start_upgrade(building: PropData, def: BuildingDef, now: int, settlement_id: int = -1) -> Dictionary:
+	if building == null or def == null or not project_at(building.id).is_empty():
+		return {}
+	var old := buildings.of_kind(building.kind) if buildings != null else null
+	if old == null or old.id != def.upgrade_of:
+		return {}
+	var owner := settlements.nearest(building.tile) if settlements != null else null
+	var p := {"id": _next_id, "kind": UPGRADE, "def": String(def.id), "tile": building.tile, "site": building.id,
+		"needed": _units_of(def.materials), "delivered": {}, "labor": def.labor, "done": 0.0, "started": now, "builders": {},
+		"from": String(old.id),
+		"settlement": settlement_id if settlement_id >= 0 else (owner.id if owner != null else (_start.settlement_id if _start != null else 0))}
+	_next_id += 1
+	_projects.append(p)
+	begun.emit(p)
 	return p
 
 

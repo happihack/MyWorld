@@ -19,6 +19,13 @@ signal injured(person_id: int, kind: StringName)
 signal taken_in(person_id: int, household_id: int)
 ## Someone from far away has come to live here.
 signal arrived(person_id: int)
+## Careers (F3, told: F6): an adolescent taken on (the first of a trade in a
+## settlement only), a master made, an expert's trade given up in old age,
+## a trade gone with the last who knew it.
+signal apprenticed(person_id: int, mentor_id: int, trade: StringName)
+signal mastered(person_id: int, trade: StringName)
+signal retired(person_id: int, trade: StringName)
+signal trade_lost(person_id: int, trade: StringName)
 
 const CAUSE_OLD_AGE := &"old_age"
 const CAUSE_ILLNESS := &"illness"
@@ -191,6 +198,8 @@ func _live_day(now: int) -> void:
 		if not person.conditions.is_empty() and not Hardship.condition_of(person, GRIEF).is_empty() and grief_of(person, now) <= 0.0:
 			person.conditions.erase(Hardship.condition_of(person, GRIEF))
 	_mishaps(everyone, now)
+	_apprentices(everyone, now)
+	_masters(everyone)
 	for person in everyone:
 		if people.has_person(person.id):
 			var chance: Array = death_chance(person, now)
@@ -211,6 +220,19 @@ func _grow(person: PersonData, now: int) -> void:
 	if was == null or int(was) == stage:
 		return
 	var def := occupations.get_def(person.occupation_id) if occupations != null else null
+	# Grown: an apprentice takes up the trade they learned (F3).
+	if stage == PersonData.LifeStage.ADULT and person.apprentice_trade != &"" and occupations != null:
+		var learned := occupations.get_def(person.apprentice_trade)
+		if learned != null and learned.allows(stage):
+			person.occupation_id = learned.id
+			def = learned
+		person.mentor_id = 0
+		person.apprentice_trade = &""
+	# Grown old in a trade not kept into old age: remembered (F3).
+	if stage == PersonData.LifeStage.ELDER and def != null and not def.allows(stage) and def.work_target != &"":
+		person.former_occupation = def.id
+		if Careers.level_of(person) >= Careers.Level.EXPERT:
+			retired.emit(person.id, def.id)
 	if occupations != null and (def == null or not def.allows(stage)):
 		var counts_now := {}
 		for other in people.all_people():
@@ -231,13 +253,69 @@ func _grow(person: PersonData, now: int) -> void:
 		remember_life(person, &"life_came_of_age", now, 0.4)
 
 
+## A day of the apprentices (F3): an adolescent without a mentor is taken on;
+## one whose mentor died or left the trade gets another of it (or waits);
+## with their mentor, a day's skill.
+func _apprentices(everyone: Array[PersonData], now: int) -> void:
+	if occupations == null:
+		return
+	for person in everyone:
+		if not people.has_person(person.id) or _stage(person, now) != PersonData.LifeStage.ADOLESCENT:
+			continue
+		var own := _settlement_of(person)
+		if own == null:
+			continue
+		var mentor := people.get_person(person.mentor_id) if person.mentor_id != 0 else null
+		if mentor != null and (mentor.occupation_id != person.apprentice_trade or _settlement_of(mentor) != own):
+			mentor = null
+		if mentor == null and person.apprentice_trade != &"":
+			mentor = Careers.mentor_for(own, person.apprentice_trade, now, person.id)
+			person.mentor_id = mentor.id if mentor != null else 0
+		elif mentor == null:
+			mentor = Careers.take_on(person, own, occupations, people, now)
+			if mentor != null and not _apprenticed_in.has([own.id, person.apprentice_trade]):
+				_apprenticed_in[[own.id, person.apprentice_trade]] = true
+				apprenticed.emit(person.id, mentor.id, person.apprentice_trade)
+		if mentor != null:
+			var key := String(person.apprentice_trade)
+			person.skills[key] = minf(float(person.skills.get(key, 0.0)) + Careers.APPRENTICE_PER_DAY, 1.0)
+
+
+## The first apprentice of each trade in each settlement has been told: [settlement id, trade] -> true.
+var _apprenticed_in: Dictionary = {}
+
+
+## Someone has become a master of their trade: told once.
+func _masters(everyone: Array[PersonData]) -> void:
+	for person in everyone:
+		var trade := String(person.occupation_id)
+		if person.skills.has(trade) and Careers.level_of(person) == Careers.Level.MASTER and not person.mastered.has(trade) \
+				and people.has_person(person.id):
+			person.mastered.append(trade)
+			mastered.emit(person.id, person.occupation_id)
+
+
+## The one dying was the last of their settlement who knew their trade
+## (skilled at it), with nobody learning it: the trade goes with them.
+func _last_of_trade(person: PersonData) -> void:
+	var def := occupations.get_def(person.occupation_id) if occupations != null else null
+	var own := _settlement_of(person)
+	if def == null or own == null or def.work_target == &"" or def.staffing_order == 0 \
+			or Careers.level_of(person) < Careers.Level.SKILLED:
+		return
+	for other in own.members():
+		if other.id != person.id and (other.occupation_id == person.occupation_id or other.apprentice_trade == person.occupation_id):
+			return
+	trade_lost.emit(person.id, person.occupation_id)
+
+
 ## A day's mishaps: accidents at work, and illness under crowded roofs.
 func _mishaps(everyone: Array[PersonData], now: int) -> void:
 	for person in everyone:
 		var def := occupations.get_def(person.occupation_id) if occupations != null else null
 		if def == null or def.work_target == &"" or int(person.activity_log.get("work", -1_000_000)) < now - DAY:
 			continue
-		if rng.randf() < config.accident_per_work_day:
+		if rng.randf() < config.accident_per_work_day * Careers.accident_factor(person):
 			var kind := Health.CUT if def.work_target == &"tree" and rng.randf() < 0.5 else Health.FALL
 			Health.injure(person, kind, rng.randf_range(0.15, 0.7), now, config)
 			if day_log != null:
@@ -631,6 +709,7 @@ func give_birth(mother: PersonData, now: int) -> PersonData:
 func die(person: PersonData, cause: StringName, now: int, causes: Array = []) -> void:
 	if person == null or not people.has_person(person.id):
 		return
+	_last_of_trade(person)
 	_hand_down(person, now)
 	_mourn(person, now)
 	if archive != null:

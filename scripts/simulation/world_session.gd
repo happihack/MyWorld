@@ -64,6 +64,9 @@ var households: Households
 var lifecycle: Lifecycle
 ## Everyone who has died.
 var archive: HistoryArchive
+## What each building has been (buildings & villagers F5).
+var building_records := BuildingRecords.new()
+var _saved_building_records: Dictionary = {}
 ## What settlements remember together, and their myths (M11.1).
 var culture: CulturalMemory
 ## Who matters to the world's history (M11.2).
@@ -443,6 +446,15 @@ func _init() -> void:
 		chronicle.on_knowledge_spread(settlement_id, tech_id, person_id, from.display_name() if from != null else ""))
 	construction.begun.connect(chronicle.on_building_begun)
 	construction.finished.connect(chronicle.on_building_built)
+	# What each building has been (F5).
+	construction.finished.connect(func(project: Dictionary, id: int) -> void:
+		var built := props.get_prop(id)
+		building_records.on_built(project, id, built.kind if built != null else -1, clock.tick))
+	construction.damaged.connect(func(id: int, why: StringName) -> void: building_records.on_event(id, why, clock.tick))
+	construction.repaired.connect(func(_project: Dictionary, id: int) -> void: building_records.on_event(id, &"repaired", clock.tick))
+	construction.ruined.connect(func(id: int, _def: StringName, _why: StringName) -> void:
+		var ruin := props.get_prop(id)
+		building_records.on_ruined(id, ruin.tile if ruin != null else Vector2i.MAX, clock.tick))
 	construction.finished.connect(func(_project: Dictionary, _id: int) -> void: _apply_storehouses())
 	# A new home: a household that shares a crowded roof moves in.
 	construction.finished.connect(func(_project: Dictionary, id: int) -> void:
@@ -508,6 +520,15 @@ func _init() -> void:
 		for id: int in [mother, father]:
 			Signs.flash(people.get_person(id), Signs.LOVE, clock.tick, 30))
 	lifecycle.came_of_age.connect(chronicle.on_came_of_age)
+	lifecycle.apprenticed.connect(chronicle.on_apprenticed)
+	lifecycle.mastered.connect(chronicle.on_mastered)
+	lifecycle.retired.connect(chronicle.on_retired)
+	lifecycle.trade_lost.connect(chronicle.on_trade_lost)
+	building_records.named.connect(chronicle.on_building_named)
+	construction.upgraded.connect(chronicle.on_building_upgraded)
+	construction.upgraded.connect(func(project: Dictionary, id: int, _from: StringName) -> void:
+		building_records.on_upgraded(id, StringName(str(project["def"])), clock.tick)
+		_apply_storehouses())
 	lifecycle.injured.connect(chronicle.on_injured)
 	lifecycle.taken_in.connect(chronicle.on_taken_in)
 	lifecycle.arrived.connect(chronicle.on_arrived)
@@ -718,6 +739,8 @@ func load_from(data: Dictionary) -> bool:
 			_saved_lifecycle = state["lifecycle"]
 		if typeof((state as Dictionary).get("archive")) == TYPE_DICTIONARY:
 			_saved_archive = state["archive"]
+		if typeof((state as Dictionary).get("building_records")) == TYPE_DICTIONARY:
+			_saved_building_records = state["building_records"]
 		if typeof((state as Dictionary).get("powers")) == TYPE_DICTIONARY:
 			_saved_powers = state["powers"]
 		if typeof((state as Dictionary).get("soil")) == TYPE_DICTIONARY:
@@ -883,6 +906,7 @@ func to_dict() -> Dictionary:
 			"households": households.to_dict(),
 			"lifecycle": lifecycle.to_dict(),
 			"archive": archive.to_dict(),
+			"building_records": building_records.to_dict(),
 			"culture": culture.to_dict(),
 			"construction": construction.to_dict(),
 			"planner": planner.to_dict(),
@@ -1065,7 +1089,9 @@ func system_steps() -> Array:
 			[&"relationships", func() -> void: relationships.settle(clock.tick)],
 			[&"lifecycle", func() -> void: lifecycle.advance_to(clock.tick)],
 			[&"culture", func() -> void: culture.advance_to(clock.tick)],
-			[&"construction", func() -> void: construction.advance_to(clock.tick)],
+			[&"construction", func() -> void:
+				construction.advance_to(clock.tick)
+				building_records.advance_to(clock.tick, settlements)],
 			[&"traffic", func() -> void: traffic.advance_to(clock.tick)],
 			[&"migration", func() -> void: migration.advance_to(clock.tick)],
 			[&"trade", func() -> void: trade.advance_to(clock.tick)],
@@ -1641,6 +1667,13 @@ func _activate() -> void:
 	if buildings == null:
 		buildings = BuildingLibrary.load_from()
 	construction.bind(props, ids, buildings, start, people, clock.tick, Config.construction)
+	building_records.buildings = buildings
+	building_records.people = people
+	building_records.archive = archive
+	var unusable_records := building_records.from_dict(_saved_building_records)
+	if unusable_records > 0:
+		Log.warn(Log.Category.LOAD, "Some saved building records were unusable and dropped", {"records": unusable_records})
+	_saved_building_records = {}
 	var unusable_projects := construction.from_dict(_saved_construction)
 	if unusable_projects > 0:
 		Log.warn(Log.Category.LOAD, "Some saved building projects were unusable and dropped", {"projects": unusable_projects})
@@ -1714,12 +1747,16 @@ func _activate() -> void:
 	governance.from_dict(_saved_governance)
 	_saved_governance = {}
 	learning.bind(people, settlements, clock.tick)
+	learning.occupations = occupations
 	learning.from_dict(_saved_learning)
 	_saved_learning = {}
 	if technologies == null:
 		technologies = TechnologyLibrary.load_from()
 		for problem in technologies.problems:
 			Log.warn(Log.Category.WORLD, "Technology definitions", {"problem": problem})
+	# (What the data names, checked against the data: F1.)
+	for problem in Catalog.check(buildings, occupations, resources, technologies):
+		Log.warn(Log.Category.WORLD, "Data names something that is not there", {"problem": problem})
 	technology.world = world
 	technology.props = props
 	technology.buildings = buildings
@@ -1793,6 +1830,7 @@ func _activate() -> void:
 	for own in settlements.all():
 		if own.planner != null:
 			own.planner.faith = faith
+			own.planner.cultures = cultures
 	ai.cultures = cultures
 	construction.style_of = func(settlement_id: int) -> int: return cultures.architecture_of(settlements.get_settlement(settlement_id))
 	ai.governance = governance
@@ -1804,6 +1842,7 @@ func _activate() -> void:
 	_bind_boats()
 	ai.construction = construction
 	interactions.construction = construction
+	interactions.building_records = building_records
 	ai.planner = planner
 	ai.traffic = traffic
 	interactions.traffic = traffic
@@ -2059,6 +2098,7 @@ func add_settlement(info: WorldSetup.StartInfo, saved: Dictionary = {}, saved_pl
 	own.construction = construction
 	own.planner = SettlementPlanner.new()
 	own.planner.faith = faith
+	own.planner.cultures = cultures
 	own.planner.bind(own, construction, people, world, pathfinder, clock.tick, Config.construction, households, traffic)
 	own.planner.from_dict(saved_planner)
 	settlements.add(own)

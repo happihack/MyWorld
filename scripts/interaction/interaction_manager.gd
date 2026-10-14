@@ -97,6 +97,8 @@ var _clock: GameClock
 var _settlement := Vector2.INF
 ## What is being built (M12.1), for the inspect card of a site.
 var construction: ConstructionSystem
+## What buildings have been (F5): told on their card.
+var building_records: BuildingRecords
 ## Footfall, for the inspect card of the ground (M12.2).
 var traffic: Traffic
 ## The settlements, for the card of a fire (M12.3).
@@ -822,6 +824,8 @@ func inspect(target: Picker.Result) -> InspectReport:
 			report.condition = prop.condition
 			if not project.is_empty():
 				report.repair_progress = construction.progress(project)
+		if building_records != null and building_records.has_record(prop.id):
+			report.history_lines = building_records.lines_of(prop.id, _clock.tick if _clock != null else 0)
 		if prop.kind == PropData.Kind.CAMPFIRE and settlements != null:
 			for own in settlements.all():
 				if own.start_info().campfire_id == prop.id:

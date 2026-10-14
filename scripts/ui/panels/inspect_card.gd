@@ -39,6 +39,8 @@ func setup(report: InspectReport, height_step: float = 0.4) -> void:
 				_title.text = UIText.crop_name(report.crop_stage)
 				_add_row("Crop", UIText.crop_state(report.crop_stage, report.crop_growth, report.crop_vigor, report.crop_dry))
 				_add_row("Soil", "%s · %s" % [UIText.moisture_text(report.moisture), UIText.fertility_text(report.fertility)])
+			for line: Array in report.history_lines:
+				_add_row(str(line[0]), str(line[1]))
 			_add_row("Stands on", UIText.terrain_name(report.terrain))
 			if report.condition >= 0:
 				_add_row("Condition", UIText.condition_text(report.condition))

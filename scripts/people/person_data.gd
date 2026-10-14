@@ -54,6 +54,13 @@ var skills: Dictionary = {}
 var household_id := 0
 var home_building_id := 0
 var workplace_id := 0
+## An apprentice's mentor (person id; 0: none) and the trade they learn (F3).
+var mentor_id := 0
+var apprentice_trade: StringName = &""
+## The trade they gave up when they grew old (F3; &"": none).
+var former_occupation: StringName = &""
+## The trades they have become a master of (F6: told once).
+var mastered: PackedStringArray = PackedStringArray()
 var settlement_id := 0
 ## What they have in their arms (a resource id; &"" = nothing), and how much.
 var carrying: StringName = &""
@@ -139,6 +146,7 @@ func to_dict() -> Dictionary:
 		"occupation_id": String(occupation_id), "skills": skills.duplicate(),
 		"household_id": household_id, "home_building_id": home_building_id,
 		"workplace_id": workplace_id, "settlement_id": settlement_id,
+		"mentor_id": mentor_id, "apprentice_trade": String(apprentice_trade), "former_occupation": String(former_occupation), "mastered": mastered.duplicate(),
 		"parents": parents.duplicate(), "children": children.duplicate(), "partner_id": partner_id,
 		"memory_ids": memory_ids.duplicate(), "beliefs": beliefs.duplicate(),
 		"knowledge": knowledge.duplicate(true), "goals": goals.duplicate(true),
@@ -177,6 +185,11 @@ static func from_dict(data: Dictionary) -> PersonData:
 	p.household_id = maxi(int(data.get("household_id", 0)), 0)
 	p.home_building_id = maxi(int(data.get("home_building_id", 0)), 0)
 	p.workplace_id = maxi(int(data.get("workplace_id", 0)), 0)
+	p.mentor_id = maxi(int(data.get("mentor_id", 0)), 0)
+	p.apprentice_trade = StringName(str(data.get("apprentice_trade", "")))
+	p.former_occupation = StringName(str(data.get("former_occupation", "")))
+	for trade: Variant in data.get("mastered", []):
+		p.mastered.append(str(trade))
 	p.settlement_id = maxi(int(data.get("settlement_id", 0)), 0)
 	p.parents = _ids(data.get("parents"))
 	p.children = _ids(data.get("children"))

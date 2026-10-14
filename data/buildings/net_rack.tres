@@ -13,3 +13,11 @@ labor = 60
 capacity = 0
 tags = PackedStringArray("net_rack")
 tech = &"nets"
+category = PackedStringArray("food", "craft")
+workers = {
+"fisher": 0
+}
+site = &"bank"
+limit_per_settlement = 1
+min_population = 0
+historic = false

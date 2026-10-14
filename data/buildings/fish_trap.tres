@@ -13,3 +13,11 @@ labor = 40
 capacity = 0
 tags = PackedStringArray("fish_trap")
 tech = &""
+category = PackedStringArray("food")
+workers = {
+"fisher": 0
+}
+site = &"bank"
+limit_per_settlement = 1
+min_population = 0
+historic = false

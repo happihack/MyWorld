@@ -228,6 +228,11 @@ func _ready() -> void:
 	debug_overlay.register_section(&"farming", func() -> String:
 		return session.farming.debug_text(session.clock.tick))
 	debug_overlay.register_section(&"knowledge", func() -> String: return session.learning.debug_text())
+	debug_overlay.register_section(&"staffing", func() -> String:
+		var lines := PackedStringArray()
+		for own in session.settlements.all():
+			lines.append("staffing %s: %s  (records %d)" % [own.display_name(), own.staffing_text(session.clock.tick), session.building_records.size()])
+		return "\n".join(lines))
 	debug_overlay.register_section(&"technology", func() -> String: return session.technology.debug_text())
 	# Lamps by the doors at night, where they know how (M16.3).
 	world_view.lamps().source = lamp_places

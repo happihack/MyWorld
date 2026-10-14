@@ -148,10 +148,13 @@ func test_aging_stage_transitions() -> void:
 	var came := events.latest(Chronicler.TYPE_CAME_OF_AGE)
 	assert_not_null(came)
 	assert_eq(EventText.text(came, session.people, events), "%s has come of age" % child.given_name)
-	# Old: an elder's work.
+	# Old: an elder's work — unless their trade is one kept into old age (F3).
+	var trade := child.occupation_id
+	var kept := session.occupations.get_def(trade).elder_keeps
 	child.birth_tick = session.clock.tick + DAY - Config.people.elder_from_years * Config.time.ticks_per_year()
 	_day()
-	assert_eq(child.occupation_id, &"elder")
+	assert_eq(child.occupation_id, trade if kept else &"elder")
+	assert_eq(child.former_occupation, &"" if kept else trade)
 	assert_eq(EventText.text(events.latest(Chronicler.TYPE_CAME_OF_AGE), session.people, events),
 		"%s is one of the elders now" % child.given_name)
 	# Nothing changes on a day that changes nothing.

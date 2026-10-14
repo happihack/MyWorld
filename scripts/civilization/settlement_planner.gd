@@ -30,6 +30,8 @@ var _households: Households
 var _traffic: Traffic
 ## What its people believe together (M17.2: a shrine for a myth many hold).
 var faith: MythSystem
+## What the settlement values: its culture's profile weighs its needs (F4).
+var cultures: CultureSystem
 ## What is further than this from the fire is not this settlement's to build or keep.
 const NEAR_REACH := 16.0
 var _world: WorldData
@@ -80,12 +82,22 @@ func advance_to(now: int) -> void:
 ## Returns the project begun ({}: none).
 func plan(now: int) -> Dictionary:
 	var going := _construction.builds(_settlement.id)
-	for need: StringName in needs(now):
-		# One building at a time — but a home does not wait for anything else.
-		if not going.is_empty() and (need != &"home" or going.any(func(p: Dictionary) -> bool: return str(p["def"]) == "hut")):
+	var others := going.filter(func(p: Dictionary) -> bool: return str(p["def"]) != "hut").size()
+	for need: StringName in scored_needs(now):
+		# One building at a time (two, with builders for two: F4) — but a home
+		# does not wait for anything else.
+		if need == &"home" and going.any(func(p: Dictionary) -> bool: return str(p["def"]) == "hut"):
+			continue
+		if need != &"home" and others >= builds_at_once():
 			continue
 		var def := _construction.buildings.with_tag(String(need))
 		if def.is_empty() or (def[0].tech != &"" and not _settlement.knows_how(def[0].tech)):
+			continue
+		# Built in place of one that stands, if it is an upgrade (F4).
+		if def[0].upgrade_of != &"":
+			var upgrade := _upgrade(def[0], now)
+			if not upgrade.is_empty():
+				return upgrade
 			continue
 		if need == &"bridge":
 			var across := crossing(now)
@@ -141,20 +153,25 @@ func needs(now: int) -> Array[StringName]:
 ## A landing (M19.5): once they build rafts and someone fishes, by the water
 ## near the fire — one.
 func landing_wanted() -> bool:
-	return _settlement.knows_how(&"raft") and _settlement.fisher_count() > 0 and standing_near(PropData.Kind.LANDING).is_empty()
+	return _settlement.knows_how(&"raft") and _settlement.fisher_count() > 0 and not _at_limit_of(&"landing")
+
+
+func _at_limit_of(def_id: StringName) -> bool:
+	var def := _construction.buildings.get_def(def_id) if _construction != null else null
+	return def == null or at_limit(def)
 
 
 ## A rack to dry and mend the nets on (FB5): once they make nets and someone
 ## fishes — one, on the bank.
 func net_rack_wanted() -> bool:
-	return _settlement.knows_how(&"nets") and _settlement.fisher_count() > 0 and standing_near(PropData.Kind.NET_RACK).is_empty()
+	return _settlement.knows_how(&"nets") and _settlement.fisher_count() > 0 and not _at_limit_of(&"net_rack")
 
 
 ## A fish trap at the bank (FB5): for a settlement that fishes and has no
 ## boats to go out in (no landing) — one.
 func fish_trap_wanted() -> bool:
 	return _settlement.fisher_count() > 0 and standing_near(PropData.Kind.LANDING).is_empty() \
-			and standing_near(PropData.Kind.FISH_TRAP).is_empty()
+			and not _at_limit_of(&"fish_trap")
 
 
 ## Where the landing goes: buildable ground on the bank nearest the fire, its
@@ -456,7 +473,7 @@ func material_storage_short() -> bool:
 ## Does it know how to make tools, and is big enough for a workshop, and has none (M12.4)?
 func workshop_wanted() -> bool:
 	return _settlement.knows_how(&"toolmaking") and _settlement.member_count() >= Config.trade.workshop_from \
-		and standing_near(PropData.Kind.WORKSHOP).is_empty()
+		and not _at_limit_of(&"workshop")
 
 
 ## What knowing something calls for (M16.3): a kiln once they make pots, a
@@ -469,10 +486,94 @@ const LANDMARK_FROM := 6
 
 
 func landmark_wanted(tag: String) -> bool:
-	if _settlement.member_count() < LANDMARK_FROM or not standing_near(LANDMARKS[tag]).is_empty():
-		return false
 	var def := _construction.buildings.with_tag(tag)
-	return not def.is_empty() and def[0].tech != &"" and _settlement.knows_how(def[0].tech)
+	if def.is_empty() or not big_enough(def[0]) or at_limit(def[0]):
+		return false
+	return def[0].tech != &"" and _settlement.knows_how(def[0].tech)
+
+
+# --- what the data says of a building (F4) ---------------------------------------------------------
+
+## Is the settlement big enough for it (its tier and people)?
+func big_enough(def: BuildingDef) -> bool:
+	return _settlement.member_count() >= def.min_population and int(_settlement.tier()) >= def.min_tier
+
+
+## Has it as many of these standing near as it keeps: `limit_per_settlement`
+## (0: no limit), or one for every `per_people` of its people if that is more?
+func at_limit(def: BuildingDef) -> bool:
+	var allowed := def.limit_per_settlement
+	if def.per_people > 0:
+		allowed = maxi(allowed, _settlement.member_count() / def.per_people)
+	return allowed > 0 and standing_near(def.prop_kind).size() >= allowed
+
+
+## How many buildings (besides homes) go up at once: two once there are two
+## builders, or people enough to spare a second.
+const TWO_BUILDS_FROM := 20
+
+
+func builds_at_once() -> int:
+	var builders := 0
+	for person in _settlement.members():
+		if person.occupation_id == &"builder":
+			builders += 1
+	return 2 if builders >= 2 or _settlement.member_count() >= TWO_BUILDS_FROM else 1
+
+
+## The needs, the most pressing first (F4): each need has its weight (BASE),
+## and more if its materials are in store, or if what the settlement values
+## leans to it (the curious to craft and knowledge, the pious to faith, the
+## close-knit to what is shared).
+const BASE := {&"home": 100.0, &"storage": 90.0, &"material_storage": 85.0, &"water": 80.0, &"workshop": 70.0,
+	&"kiln": 60.0, &"herbs": 60.0, &"records": 60.0, &"observatory": 60.0, &"shrine": 55.0, &"bridge": 50.0,
+	&"landing": 45.0, &"net_rack": 40.0, &"fish_trap": 38.0}
+const MATERIALS_AT_HAND := 6.0
+const VALUES := 8.0
+
+
+func scored_needs(now: int) -> Array[StringName]:
+	var listed := needs(now)
+	var profile: Dictionary = cultures.profile_of(_settlement) if cultures != null else {}
+	var scores := {}
+	for i in listed.size():
+		var need := listed[i]
+		var score := float(BASE.get(need, 30.0 - i))
+		var defs := _construction.buildings.with_tag(String(need))
+		if not defs.is_empty():
+			var def: BuildingDef = defs[0]
+			var at_hand := true
+			for resource: Variant in def.materials:
+				at_hand = at_hand and _settlement.stockpile.available(StringName(str(resource))) >= int(def.materials[resource])
+			if at_hand and not def.materials.is_empty():
+				score += MATERIALS_AT_HAND
+			for category in def.category:
+				match category:
+					"craft", "knowledge":
+						score += VALUES * float(profile.get("innovation", 0.0))
+					"faith":
+						score += VALUES * float(profile.get("piety", 0.0))
+					"social":
+						score += VALUES * float(profile.get("collectivism", 0.0))
+		scores[need] = score
+	var out := listed.duplicate()
+	out.sort_custom(func(a: StringName, b: StringName) -> bool:
+		return float(scores[a]) > float(scores[b]) or (float(scores[a]) == float(scores[b]) and listed.find(a) < listed.find(b)))
+	return out
+
+
+## An upgrade (F4): `def` built in place of the oldest standing one it
+## upgrades ({}: none stands, or one is being worked on).
+func _upgrade(def: BuildingDef, now: int) -> Dictionary:
+	var old := _construction.buildings.get_def(def.upgrade_of)
+	if old == null:
+		return {}
+	for id in standing_near(old.prop_kind):
+		var building := _settlement.props().get_prop(id)
+		var p := _construction.start_upgrade(building, def, now, _settlement.id)
+		if not p.is_empty():
+			return p
+	return {}
 
 
 ## Does a myth many of its people hold call for a shrine (and none stands)? (M17.2)

@@ -152,7 +152,7 @@ static func carry_out(ctx: AiContext, a: PersonData, b: PersonData, what: String
 			deltas["trust"] = config.gift_affinity * 0.5 * good
 		TEACH:
 			var trade := String(a.occupation_id)
-			b.skills[trade] = clampf(float(b.skills.get(trade, 0.0)) + config.teach_skill, 0.0, 1.0)
+			b.skills[trade] = clampf(float(b.skills.get(trade, 0.0)) + config.teach_skill * Careers.teach_factor(a), 0.0, 1.0)
 			Knowledge.teach(a, b) # (and what they know best: M16.1)
 			deltas["respect"] = config.teach_respect * good
 			deltas["affinity"] = config.talk_affinity * good
