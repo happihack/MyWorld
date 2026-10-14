@@ -94,6 +94,9 @@ func test_autosave_pause_and_rotating_backups() -> void:
 	assert_not_null(timer)
 	assert_false(timer.is_stopped(), "autosave running")
 	assert_near(timer.wait_time, 120.0, 0.001)
+	# (A fast machine opens the world within the gap kept between saves, and
+	# the autosave would be put off: wait the gap out, as below.)
+	await wait_real_ms(Config.save.min_save_gap_ms + 50)
 	timer.timeout.emit()
 	while SaveManager.is_writing(): # (written on a worker thread, M22)
 		await wait_frames(1)
