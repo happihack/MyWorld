@@ -10,6 +10,7 @@ enum State {
 	DRIFTING, ## torn loose: carried by the current, nobody aboard
 	AGROUND, ## came to rest somewhere it was not tied up
 	LAID_UP, ## iced in at its landing
+	AWAY, ## tied up at another settlement's landing, waiting for its trader (FB6)
 }
 
 ## How far below the surface a boat reaches (world units), how fast it goes
@@ -47,6 +48,11 @@ var trips := 0
 var caught := 0
 ## Where a drift began (to tell how far it was carried).
 var drift_from := Vector2.ZERO
+## Tied up at another settlement's landing (FB6: a trader's boat waits there
+## for them, from `away_day`), and for whom (person id). 0: at home.
+var away_at := 0
+var waiting_for := 0
+var away_day := 0
 
 
 func tile() -> Vector2i:
@@ -76,7 +82,8 @@ func to_dict() -> Dictionary:
 	return {"id": id, "kind": kind, "landing": landing_id, "settlement": settlement_id,
 		"x": position.x, "z": position.y, "heading": heading, "height": height, "condition": condition,
 		"state": int(state), "crew": Array(crew), "load": String(load_resource), "load_amount": load_amount,
-		"built": built_tick, "trips": trips, "caught": caught, "drift_x": drift_from.x, "drift_z": drift_from.y}
+		"built": built_tick, "trips": trips, "caught": caught, "drift_x": drift_from.x, "drift_z": drift_from.y,
+		"away_at": away_at, "waiting_for": waiting_for, "away_day": away_day}
 
 
 ## A boat from saved data (null if unusable).
@@ -103,4 +110,7 @@ static func from_dict(data: Dictionary) -> BoatData:
 	boat.trips = int(data.get("trips", 0))
 	boat.caught = int(data.get("caught", 0))
 	boat.drift_from = Vector2(float(data.get("drift_x", boat.position.x)), float(data.get("drift_z", boat.position.y)))
+	boat.away_at = int(data.get("away_at", 0))
+	boat.waiting_for = int(data.get("waiting_for", 0))
+	boat.away_day = int(data.get("away_day", 0))
 	return boat

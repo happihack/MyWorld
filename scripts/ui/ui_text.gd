@@ -43,6 +43,8 @@ const PROP_NAMES := {
 	PropData.Kind.WOODSHED: "Woodshed",
 	PropData.Kind.MUSHROOM: "Mushrooms",
 	PropData.Kind.ROOTS: "Wild roots",
+	PropData.Kind.NET_RACK: "Net rack",
+	PropData.Kind.FISH_TRAP: "Fish trap",
 }
 
 const SPECIES_NAMES := {

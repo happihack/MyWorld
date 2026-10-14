@@ -94,7 +94,7 @@ func plan(now: int) -> Dictionary:
 					continue # (built, or going up)
 				return _construction.start(def[0].id, tile, now, int(across["turn"]), _settlement.id)
 			continue
-		if need == &"landing":
+		if need == &"landing" or need == &"net_rack" or need == &"fish_trap":
 			var bank: Variant = landing_site()
 			if bank == null:
 				continue
@@ -131,6 +131,10 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"bridge")
 	if landing_wanted():
 		out.append(&"landing")
+	if net_rack_wanted():
+		out.append(&"net_rack")
+	if fish_trap_wanted():
+		out.append(&"fish_trap")
 	return out
 
 
@@ -138,6 +142,19 @@ func needs(now: int) -> Array[StringName]:
 ## near the fire — one.
 func landing_wanted() -> bool:
 	return _settlement.knows_how(&"raft") and _settlement.fisher_count() > 0 and standing_near(PropData.Kind.LANDING).is_empty()
+
+
+## A rack to dry and mend the nets on (FB5): once they make nets and someone
+## fishes — one, on the bank.
+func net_rack_wanted() -> bool:
+	return _settlement.knows_how(&"nets") and _settlement.fisher_count() > 0 and standing_near(PropData.Kind.NET_RACK).is_empty()
+
+
+## A fish trap at the bank (FB5): for a settlement that fishes and has no
+## boats to go out in (no landing) — one.
+func fish_trap_wanted() -> bool:
+	return _settlement.fisher_count() > 0 and standing_near(PropData.Kind.LANDING).is_empty() \
+			and standing_near(PropData.Kind.FISH_TRAP).is_empty()
 
 
 ## Where the landing goes: buildable ground on the bank nearest the fire, its

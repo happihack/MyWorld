@@ -9,18 +9,20 @@ extends RefCounted
 
 ## (Saved by number: append, never reorder.)
 enum Kind { TREE, ROCK, BUSH, HUT, CAMPFIRE, RUIN, CROP, GRAVE, SITE, STOREHOUSE, WELL, WORKSHOP, BRIDGE,
-	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED, MUSHROOM, ROOTS, BORDER_STONES }
+	KILN, HERB_RACK, RECORD_STONE, STONE_CIRCLE, SHRINE, CEMETERY, LANDING, WOODSHED, MUSHROOM, ROOTS, BORDER_STONES,
+	NET_RACK, FISH_TRAP }
 ## Wild food that grows on the ground (the owner, 2026-10-06), foraged like a
 ## bush: mushrooms on damp ground in and by the woods, roots in the meadows.
 const FORAGE: Array[int] = [Kind.BUSH, Kind.MUSHROOM, Kind.ROOTS]
 ## Buildings: what is built, decays, is damaged and repaired (M12.1).
 const BUILDINGS: Array[int] = [Kind.HUT, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE,
-	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING, Kind.WOODSHED]
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.LANDING, Kind.WOODSHED,
+	Kind.NET_RACK, Kind.FISH_TRAP]
 ## A landing (M19.5): its variant is the boat moored at it (0: none yet).
 enum Boat { NONE, RAFT, CANOE, PLANK_BOAT, SAIL }
 ## Solid: nobody walks through it.
 const SOLID: Array[int] = [Kind.HUT, Kind.CAMPFIRE, Kind.RUIN, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP,
-	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.WOODSHED]
+	Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.WOODSHED, Kind.NET_RACK]
 ## A building's full condition (see `condition`).
 const SOUND := 1000
 ## A bridge (M12.2) is built where it stands: posts (0), beams (1), then it
@@ -64,6 +66,8 @@ const PICK_BODY := {
 	Kind.WOODSHED: [0.70, 0.50],
 	Kind.MUSHROOM: [0.16, 0.22],
 	Kind.ROOTS: [0.22, 0.26],
+	Kind.NET_RACK: [0.65, 0.42],
+	Kind.FISH_TRAP: [0.30, 0.40],
 }
 
 var id: int = 0
@@ -175,7 +179,7 @@ func pick_shape() -> Vector2:
 
 func spatial_kind() -> int:
 	match kind:
-		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING, Kind.WOODSHED, Kind.BORDER_STONES:
+		Kind.HUT, Kind.CAMPFIRE, Kind.GRAVE, Kind.SITE, Kind.STOREHOUSE, Kind.WELL, Kind.WORKSHOP, Kind.BRIDGE, Kind.KILN, Kind.HERB_RACK, Kind.RECORD_STONE, Kind.STONE_CIRCLE, Kind.SHRINE, Kind.CEMETERY, Kind.LANDING, Kind.WOODSHED, Kind.BORDER_STONES, Kind.NET_RACK, Kind.FISH_TRAP:
 			return SpatialIndex.KIND_BUILDING
 		Kind.RUIN:
 			return SpatialIndex.KIND_MYSTERY

@@ -307,6 +307,116 @@ func test_version_26_save_loads() -> void:
 	assert_eq(SaveMigrations._v26_to_v27(data)["world"]["world_state"]["trade"], {})
 
 
+## A landing of `own` on the bank nearest its fire, built at once.
+func _landing_of(own: Settlement) -> PropData:
+	own.learn(&"raft", 0, session.clock.tick)
+	own.learn(&"canoe", 0, session.clock.tick)
+	var site: Variant = own.planner.landing_site()
+	assert_not_null(site, "a bank by %s" % own.display_name())
+	var p := session.construction.start(&"landing", site[0], session.clock.tick, int(site[1]), own.id)
+	for resource: StringName in session.construction.still_needed(p):
+		session.construction.deliver(p, resource, int(session.construction.still_needed(p)[resource]))
+	while not session.construction.work(p, session.people.all_people()[0], 60.0, session.clock.tick):
+		pass
+	return session.props.prop_at(site[0])
+
+
+func test_trade_by_water() -> void:
+	# (FB6) Both with a landing on the river, and a canoe at home: the trader goes by boat.
+	var own := _second()
+	var first := session.settlement
+	var mine := _landing_of(first)
+	var theirs := _landing_of(own)
+	var canoe := session.boats.add_boat(PropData.Boat.CANOE, mine, 0, first.id, session.clock.tick)
+	assert_true(session.boats.water_minutes(mine, theirs, canoe) < INF, "joined by water")
+	first.stockpile.add(&"wood", 60)
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	own.stockpile.add(&"berries", 60)
+	trade.plan_offers()
+	var trader := first.ensure_trader(session.clock.tick)
+	assert_not_null(trader)
+	trader.needs = PackedFloat32Array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) # (no stopping to eat on the way)
+	var ctx := _entered(trader)
+	assert_eq(Planner._water_way(first, own, ctx), [mine, theirs], "by water: quicker, or not much slower")
+	var steps := Planner._trade_work(trader, ctx)
+	var types := steps.map(func(s: Dictionary) -> String: return str(s["type"]))
+	assert_eq(types.count("boat"), 2, "there and back by boat: %s" % str(types))
+	assert_true(bool(steps[1].get("by_boat", false)), "loaded for the boat")
+	session.behavior.set_plan(trader, &"work", &"trade", steps)
+	var minutes := 0
+	var waited_there := false
+	while (trade.trips == 0 or canoe.state != BoatData.State.MOORED) and minutes < DAY:
+		_run(5)
+		minutes += 5
+		waited_there = waited_there or (canoe.state == BoatData.State.AWAY and canoe.away_at == theirs.id)
+	assert_true(trade.trips >= 1, "delivered after %d minutes" % minutes)
+	assert_true(trade.water_trips >= 1, "by water")
+	assert_true(waited_there, "the canoe waited at their landing")
+	assert_eq(canoe.state, BoatData.State.MOORED, "and is home again")
+	assert_true(canoe.position.distance_to(session.boats.mooring_of(canoe)) < 0.5, "at its own landing")
+	assert_eq(trader.aboard, 0)
+	# On foot when there is no boat at home.
+	canoe.state = BoatData.State.DRIFTING
+	assert_eq(Planner._water_way(first, own, ctx), [], "no boat: on foot")
+	# A boat left waiting is fetched home after a day.
+	canoe.state = BoatData.State.MOORED
+	session.boats.wait_at(canoe, theirs, trader.id)
+	assert_eq(session.boats.waiting_at(theirs.id, trader.id), canoe)
+	var back := BoatData.from_dict(canoe.to_dict())
+	assert_eq([back.state, back.away_at, back.waiting_for], [BoatData.State.AWAY, theirs.id, trader.id], "saved")
+	for day in 3:
+		session.boats.advance_to(session.clock.tick + (day + 1) * DAY)
+	assert_eq(canoe.state, BoatData.State.MOORED, "fetched home")
+	assert_eq(canoe.away_at, 0)
+
+
+func test_a_group_may_go_by_water() -> void:
+	# (FB6) A canoe at the landing: one of a group setting out goes by boat, put
+	# ashore by the new place, and the canoe comes home by itself.
+	var first := session.settlement
+	var mine := _landing_of(first)
+	var canoe := session.boats.add_boat(PropData.Boat.CANOE, mine, 0, first.id, session.clock.tick)
+	var fire := first.fire().tile
+	for dy in range(-28, 29, 2):
+		for dx in range(-28, 29, 2):
+			first.places().mark_visited(fire + Vector2i(dx, dy))
+	while first.member_count() < 14:
+		var a := session.spawn_person(fire + Vector2i(1, 1))
+		var b := session.spawn_person(fire + Vector2i(1, 1))
+		a.sex = PersonData.Sex.MALE
+		b.sex = PersonData.Sex.FEMALE
+		session.households.form_couple(a, b, session.clock.tick, session.ids.next_id())
+	var to: Variant = session.migration.destination(first)
+	assert_not_null(to)
+	var ways := session.migration._by_water(first, to)
+	assert_eq(ways.size(), 1, "one canoe, one way by water to %s" % str(to))
+	var journey := session.migration.depart(first, session.clock.tick)
+	assert_false(journey.is_empty())
+	var by_boat: PersonData = null
+	for id: int in journey["members"]:
+		var person := session.people.get_person(id)
+		for step: Dictionary in person.current_action.get("steps", []):
+			if str(step["type"]) == "boat":
+				by_boat = person
+	assert_not_null(by_boat, "one of them goes by boat")
+	by_boat.needs = PackedFloat32Array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+	var minutes := 0
+	var aboard := false
+	while session.migration.journeys.size() > 0 and minutes < DAY:
+		_run(5)
+		session.boats.step(5.0 * Config.time.real_seconds_per_game_minute)
+		minutes += 5
+		aboard = aboard or by_boat.aboard == canoe.id
+	assert_true(aboard, "in the canoe on the way")
+	assert_eq(session.settlements.size(), 2, "the new place founded")
+	assert_true(Vector2(by_boat.position - (to as Vector2i)).length() <= 6.0, "there with the others")
+	var waited := 0
+	while canoe.state != BoatData.State.MOORED and waited < 600:
+		session.boats.step(5.0 * Config.time.real_seconds_per_game_minute)
+		waited += 5
+	assert_eq(canoe.state, BoatData.State.MOORED, "the canoe home again")
+
+
 func _entered(person: PersonData) -> AiContext:
 	var ctx := session.behavior.ctx
 	ctx.enter(person)

@@ -95,6 +95,8 @@ const ROOT_LEAF := Color(0.38, 0.56, 0.26)
 const ROOT_TOP := Color(0.66, 0.36, 0.30)
 const CLAY_DARK := Color(0.52, 0.30, 0.20)
 const HERB := Color(0.42, 0.60, 0.30)
+const NET := Color(0.70, 0.64, 0.50)
+const NET_FLOAT := Color(0.80, 0.42, 0.22)
 ## Roofs of other cultures (M17.1): reeds, grey-green; hides, dark and low.
 const REEDS := Color(0.62, 0.64, 0.46)
 const REEDS_DARK := Color(0.44, 0.47, 0.32)
@@ -155,6 +157,8 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.WOODSHED, 0)] = _woodshed()
 	_templates[_key(PropData.Kind.KILN, 0)] = _kiln()
 	_templates[_key(PropData.Kind.HERB_RACK, 0)] = _herb_rack()
+	_templates[_key(PropData.Kind.NET_RACK, 0)] = _net_rack()
+	_templates[_key(PropData.Kind.FISH_TRAP, 0)] = _fish_trap()
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
 	_templates[_key(PropData.Kind.BORDER_STONES, 0)] = _border_stones()
 	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
@@ -204,7 +208,7 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _wood_pile()
 			&"stone":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _stone_pile()
-			&"tools", &"spears", &"bows":
+			&"tools", &"spears", &"bows", &"nets":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
@@ -212,7 +216,7 @@ func _init() -> void:
 
 ## Key of a loose object's shape (kind + variant).
 static func loose_key(kind: int, variant: int) -> int:
-	return kind * 16 + (variant & 15)
+	return kind * 64 + (variant & 63) # (more than 16 kinds of pile: FB5's nets)
 
 
 ## The shape of a loose object. Unknown variants fall back to variant 0.
@@ -654,6 +658,39 @@ static func _herb_rack() -> Template:
 		_box(t, Vector3(x, 0.47, 0.0), Vector3(0.035, 0.09, 0.035), _rgba(HERB if i % 2 == 0 else HERB.darkened(0.2), 0.3))
 	_box(t, Vector3(0.0, 0.08, 0.20), Vector3(0.14, 0.08, 0.08), _rgba(LOG, 0.0)) # a basket of what was picked
 	_box(t, Vector3(0.0, 0.165, 0.20), Vector3(0.12, 0.01, 0.06), _rgba(HERB, 0.0))
+	return t
+
+
+## A rack where nets dry (FB5): two posts, a pole, a net hung over it in a
+## deep fold, its floats along the top.
+static func _net_rack() -> Template:
+	var t := Template.new()
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.34, 0.32, 0.0), Vector3(0.025, 0.32, 0.025), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.38, 0.018, 0.018), _rgba(TRUNK_DARK, 0.0))
+	# The net: two sheets hanging from the pole, a little apart at the foot.
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(0.0, 0.40, side * 0.05), Vector3(0.30, 0.20, 0.006), _rgba(NET, 0.25), side * 0.02)
+		for i in 4:
+			_box(t, Vector3(-0.21 + i * 0.14, 0.40, side * 0.058), Vector3(0.004, 0.20, 0.003), _rgba(NET.darkened(0.3), 0.25))
+	for i in 5:
+		_box(t, Vector3(-0.24 + i * 0.12, 0.60, 0.0), Vector3(0.025, 0.02, 0.03), _rgba(NET_FLOAT, 0.0))
+	return t
+
+
+## A fish trap (FB5): a ring of stakes out in the water before the bank, with
+## a wattle wall between them and a gap to the stream (faces -Z, unturned).
+static func _fish_trap() -> Template:
+	var t := Template.new()
+	var center := Vector3(0.0, 0.0, -0.62)
+	for i in 9:
+		var angle := TAU * (i + 0.5) / 10.0 + PI * 0.5
+		var at := center + Vector3(cos(angle), 0.0, sin(angle)) * 0.32
+		_box(t, at + Vector3(0.0, 0.20, 0.0), Vector3(0.022, 0.20, 0.022), _rgba(TRUNK_DARK, 0.0))
+		_box(t, at + Vector3(0.0, 0.12, 0.0), Vector3(0.11, 0.05, 0.012), _rgba(TRUNK, 0.0), -angle - PI * 0.5)
+	# A stake on the bank it is tied to, and a basket for what it gives.
+	_box(t, Vector3(0.0, 0.14, -0.15), Vector3(0.03, 0.14, 0.03), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.18, 0.06, 0.05), Vector3(0.09, 0.06, 0.07), _rgba(LOG, 0.0))
 	return t
 
 

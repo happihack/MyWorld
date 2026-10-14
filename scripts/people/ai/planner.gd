@@ -424,7 +424,9 @@ static func _trade_work(person: PersonData, ctx: AiContext) -> Array:
 	var offered := ctx.trade.offer_for(ctx.settlement.id)
 	if offered.is_empty():
 		return []
-	var pack := Config.trade.pack_factor
+	# By water (FB6), when the boat is quicker or not much slower — and carries more.
+	var landings := _water_way(ctx.settlement, ctx.settlements.get_settlement(int(offered.get("to", 0))), ctx)
+	var pack := Config.trade.pack_factor * (TradeStep.BY_BOAT if not landings.is_empty() else 1.0)
 	var offer := ctx.trade.claim(ctx.settlement.id, floori(ctx.carry_capacity(StringName(str(offered["out"]))) * pack),
 		floori(ctx.carry_capacity(StringName(str(offered.get("back", "")))) * pack) if str(offered.get("back", "")) != "" else 0)
 	var other := ctx.settlements.get_settlement(int(offer["to"]))
@@ -436,6 +438,8 @@ static func _trade_work(person: PersonData, ctx: AiContext) -> Array:
 	var there: Variant = other.places().storage_tile(out)
 	if here == null or there == null:
 		return []
+	if not landings.is_empty():
+		return _trade_by_water(offer, other, here, there, landings, person, ctx)
 	var steps := [WalkToStep.make(here, STORE_STAND), TradeStep.load_at(own_id, out, int(offer["units"])),
 		WalkToStep.make(there, STORE_STAND), TradeStep.unload_at(other.id, own_id)]
 	var back := StringName(str(offer.get("back", "")))
@@ -446,6 +450,62 @@ static func _trade_work(person: PersonData, ctx: AiContext) -> Array:
 			steps.append_array([WalkToStep.make(back_there, STORE_STAND), TradeStep.load_at(other.id, back, int(offer["back_units"])),
 				WalkToStep.make(back_here, STORE_STAND), TradeStep.unload_at(own_id, other.id)])
 	return steps
+
+
+## The trader's run by boat (FB6): loaded at home, to their landing, by water to
+## the other's landing (the boat waits there), the load to its stores and
+## what comes back loaded, and home the same way.
+static func _trade_by_water(offer: Dictionary, other: Settlement, here: Vector2i, there: Vector2i, landings: Array,
+			_person: PersonData, ctx: AiContext) -> Array:
+	var own_id := ctx.settlement.id
+	var mine: PropData = landings[0]
+	var theirs: PropData = landings[1]
+	var load := TradeStep.load_at(own_id, StringName(str(offer["out"])), int(offer["units"]))
+	load["by_boat"] = true
+	var steps := [WalkToStep.make(here, STORE_STAND), load, WalkToStep.make(mine.tile, STORE_STAND),
+		BoatStep.voyage(mine.id, theirs.id), WalkToStep.make(there, STORE_STAND), TradeStep.unload_at(other.id, own_id)]
+	var back := StringName(str(offer.get("back", "")))
+	var back_there: Variant = other.places().storage_tile(back) if back != &"" else null
+	var back_here: Variant = ctx.places.storage_tile(back) if back != &"" else null
+	if back_there != null and back_here != null:
+		var load_back := TradeStep.load_at(other.id, back, int(offer["back_units"]))
+		load_back["by_boat"] = true
+		steps.append_array([WalkToStep.make(back_there, STORE_STAND), load_back, WalkToStep.make(theirs.tile, STORE_STAND),
+			BoatStep.voyage(theirs.id, mine.id), WalkToStep.make(back_here, STORE_STAND), TradeStep.unload_at(own_id, other.id)])
+	else:
+		steps.append_array([WalkToStep.make(theirs.tile, STORE_STAND), BoatStep.voyage(theirs.id, mine.id)])
+	# (Ashore at the other settlement, with its boat waiting: the errand is seen
+	# through before a meal or a rest calls them off — home would be on foot.)
+	for i in range(4, steps.size()):
+		if not steps[i].has("voyage"):
+			steps[i]["reluctance"] = WATER_ERRAND
+	return steps
+
+
+## Is it worth going to `other` by water (FB6)? [own landing, theirs] — []: on foot.
+## Both need a landing; a boat of their own must be tied up at home; and the way
+## by water no longer than WATER_SLOWER times the walk.
+const WATER_SLOWER := 1.5
+## How hard a trader ashore at the other settlement is to call off (see ActionStep.reluctance).
+const WATER_ERRAND := 0.6
+
+
+static func _water_way(own: Settlement, other: Settlement, ctx: AiContext) -> Array:
+	if ctx.boats == null or own == null or other == null or own.planner == null or other.planner == null:
+		return []
+	var theirs := other.planner.standing_near(PropData.Kind.LANDING)
+	if theirs.is_empty() or own.fire() == null or other.fire() == null:
+		return []
+	var walk := Vector2(other.fire().tile - own.fire().tile).length() / maxf(Config.people.walk_tiles_per_minute, 0.01)
+	for id in own.planner.standing_near(PropData.Kind.LANDING):
+		var boat := ctx.boats.free_boat(id)
+		if boat == null:
+			continue
+		var mine := ctx.props.get_prop(id)
+		var landing := ctx.props.get_prop(theirs[0])
+		if ctx.boats.water_minutes(mine, landing, boat) <= walk * WATER_SLOWER:
+			return [mine, landing]
+	return []
 
 
 ## A toolmaker's work (M12.4): at the workshop, while tools — or weapons
@@ -484,6 +544,21 @@ static func _fish_work(person: PersonData, ctx: AiContext, rng: RandomNumberGene
 				var landing := ctx.props.get_prop(landing_id)
 				return [WalkToStep.make(landing.tile, person.sub_tile_offset), BoatStep.unload(landing_id),
 					WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+	# A trap with fish in it, emptied into the stores; a net made when one is wanted (FB5).
+	if own != null and stores != null and person.carrying_amount == 0:
+		var trap := FishGear.fullest_trap(own, ctx.props)
+		if trap != null:
+			return [WalkToStep.make(trap.tile, person.sub_tile_offset), BoatStep.from_trap(trap.id),
+				WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+		if FishGear.net_to_make(own):
+			var rack: Array[int] = own.planner.standing_near(PropData.Kind.NET_RACK) if own.planner != null else ([] as Array[int])
+			var place: PropData = ctx.props.get_prop(rack[0]) if not rack.is_empty() else own.fire()
+			if place == null:
+				return []
+			var at: Vector2i = place.tile
+			var making := TradeStep.craft(rack[0] if not rack.is_empty() else 0, at, FishGear.NET_MINUTES)
+			making["make"] = String(FishGear.NETS)
+			return [WalkToStep.make(_beside(at, person.position, ctx), person.sub_tile_offset), making]
 	var spot := ctx.places.fishing_spot(person)
 	if spot.is_empty():
 		return []

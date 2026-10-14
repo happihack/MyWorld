@@ -90,6 +90,8 @@ var _cache: Dictionary = {} # key -> [version, Array[Vector2i]]
 var _shore: Array[Vector2i] = []
 var _shore_version := -1
 var _queue: Array[Request] = []
+## Ways over water by boat (FB6): tile -> the tile across (both ways).
+var _ferries: Dictionary = {}
 var _next_request := 1
 
 
@@ -219,6 +221,8 @@ func rebuild() -> void:
 			_astar.connect_points(id, below + 1)
 		if left and down and _solid[id - 1] == 0 and _solid[below] == 0 and _diagonal_ok(id, below - 1, id - 1, below):
 			_astar.connect_points(id, below - 1)
+	for a: Vector2i in _ferries:
+		_link(a, _ferries[a], true)
 	_dirty.clear()
 	_cache.clear()
 	version += 1
@@ -246,6 +250,53 @@ func can_step(from: Vector2i, to: Vector2i) -> bool:
 	if not _bounds.has_point(from) or not can_stand(to):
 		return false
 	return _astar.are_points_connected(_id(from), _id(to))
+
+
+# --- ferries (FB6) --------------------------------------------------------------------------------
+
+## The ways over water by boat, as pairs [a, b] of tiles that can be stood on:
+## a path may go from one straight to the other (the ride is the movement's).
+## True if they changed.
+func set_ferries(pairs: Array) -> bool:
+	var wanted := {}
+	for pair: Array in pairs:
+		var a: Vector2i = pair[0]
+		var b: Vector2i = pair[1]
+		if a != b and _bounds.has_point(a) and _bounds.has_point(b):
+			wanted[a] = b
+			wanted[b] = a
+	if wanted == _ferries:
+		return false
+	for a: Vector2i in _ferries:
+		if wanted.get(a) != _ferries[a]:
+			_link(a, _ferries[a], false)
+	for a: Vector2i in wanted:
+		_link(a, wanted[a], true)
+	_ferries = wanted
+	_cache.clear()
+	version += 1
+	return true
+
+
+## Do `a` and `b` lie at the two ends of a ferry?
+func is_ferry(a: Vector2i, b: Vector2i) -> bool:
+	return _ferries.get(a, Vector2i.MAX) == b
+
+
+func ferry_count() -> int:
+	@warning_ignore("integer_division")
+	return _ferries.size() / 2
+
+
+func _link(a: Vector2i, b: Vector2i, on: bool) -> void:
+	if _astar.get_point_count() == 0 or not _bounds.has_point(a) or not _bounds.has_point(b):
+		return
+	var ia := _id(a)
+	var ib := _id(b)
+	if on and not _astar.are_points_connected(ia, ib):
+		_astar.connect_points(ia, ib)
+	elif not on and _astar.are_points_connected(ia, ib):
+		_astar.disconnect_points(ia, ib)
 
 
 ## How hard the tile is to cross (1 = open ground; higher = slower).

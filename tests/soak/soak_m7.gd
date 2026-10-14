@@ -300,6 +300,13 @@ func _run() -> void:
 				boats.append(boat)
 	print("SOAK fishing: %d fishers, %d fish in the stores, %.0f of %.0f in the water, %d landings, knows %s" % [fishers, stored_fish,
 		s.fauna.fish, s.fauna.fish_capacity, s.construction.standing(PropData.Kind.LANDING).size(), ", ".join(boats) if not boats.is_empty() else "no boats"])
+	# The gear and the ways by water (FB5–FB6).
+	var nets := 0
+	for own in s.settlements.all():
+		nets += own.stockpile.amount(&"nets")
+	print("SOAK gear: %d nets in store, %d net racks, %d fish traps  |  ferries %d, trade voyages %d" % [nets,
+		s.construction.standing(PropData.Kind.NET_RACK).size(), s.construction.standing(PropData.Kind.FISH_TRAP).size(),
+		s.pathfinder.ferry_count(), s.trade.water_trips])
 	# The boats (FB2–FB4): how many, what kinds, how used, how many lost.
 	var boat_kinds := {}
 	var trips := 0

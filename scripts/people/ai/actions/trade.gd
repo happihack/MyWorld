@@ -6,9 +6,12 @@ extends ActionStep
 ##   {"type": "trade_unload", "settlement": int, "from": int, "minutes", "elapsed"} — put it into a
 ##     settlement's stores (counted as trade when it is not one's own);
 ##   {"type": "craft", "workshop": prop id, "at": Vector2i, "minutes", "elapsed", "strokes"} — make a tool at the workshop,
+##     ("make": "nets" — a net, at the net rack or the fire: FB5),
 ##     from wood and stone of the stores.
 
 const LOAD := &"trade_load"
+## Going by boat (FB6), a trader carries this much more.
+const BY_BOAT := 2.0
 const UNLOAD := &"trade_unload"
 const CRAFT := &"craft"
 const HANDLING_MINUTES := 4.0
@@ -43,7 +46,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			var resource := StringName(str(step.get("resource", "")))
 			if there == null or (person.carrying_amount > 0 and person.carrying != resource):
 				return Status.FAILED
-			var room := floori(ctx.carry_capacity(resource) * Config.trade.pack_factor) - person.carrying_amount
+			var pack := Config.trade.pack_factor * (BY_BOAT if bool(step.get("by_boat", false)) else 1.0)
+			var room := floori(ctx.carry_capacity(resource) * pack) - person.carrying_amount
 			var taken := there.stockpile.take(resource, mini(int(step.get("units", 0)), room)) if room > 0 else 0
 			if taken <= 0:
 				return Status.DONE # (nothing to take after all: they go on without it)
@@ -75,7 +79,10 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		ctx.strokes.append([person.id, &"craft", int(step.get("workshop", 0))])
 	if not time_up:
 		return Status.RUNNING
-	if ctx.settlement != null:
+	if str(step.get("make", "")) == String(FishGear.NETS):
+		# (A net, a fisher's work at the rack or by the fire: FB5.)
+		FishGear.make_net(ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement)
+	elif ctx.settlement != null:
 		ctx.settlement.craft(person)
 	return Status.DONE
 

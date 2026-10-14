@@ -117,6 +117,8 @@ func test_the_catch_by_ice_boat_and_net() -> void:
 	own.learn(&"canoe", 0, session.clock.tick)
 	assert_true(WorkStep.catch_factor(own, true) > raft, "from a canoe: more again")
 	own.learn(&"nets", 0, session.clock.tick)
+	assert_eq(WorkStep.catch_factor(own, false), 1.0, "knowing nets is not having one (FB5)")
+	own.stockpile.add(FishGear.NETS, 1)
 	assert_true(WorkStep.catch_factor(own, false) > 1.0, "nets help even from the bank")
 	# The fish run out where they are taken too hard (FB1: there, not everywhere).
 	var waters := session.fauna.waters

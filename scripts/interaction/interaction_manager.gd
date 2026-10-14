@@ -76,6 +76,8 @@ const _PROP_EFFECTS := {
 	PropData.Kind.WOODSHED: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.MUSHROOM: InteractionResponse.BUSH_RUSTLE,
 	PropData.Kind.ROOTS: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.NET_RACK: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.FISH_TRAP: InteractionResponse.BUILDING_KNOCK,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).

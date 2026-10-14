@@ -149,14 +149,14 @@ static func is_fallen_fruit(object: LooseObject) -> bool:
 
 
 ## How much more a fisher of `own` catches: from a boat at the landing (the
-## best the settlement builds), and with nets.
+## best the settlement builds), and with nets (one in store: FB5).
 static func catch_factor(own: Settlement, from_landing: bool) -> float:
 	var factor := 1.0
 	if own == null:
 		return factor
 	if from_landing:
 		factor *= float(BOAT_FACTORS.get(boat_of(own), 1.0))
-	if own.knows_how(&"nets"):
+	if FishGear.has_nets(own):
 		factor *= NETS_FACTOR
 	return factor
 
@@ -188,10 +188,12 @@ static func catch_fish(ctx: AiContext, person: PersonData, step: Dictionary, str
 	var boat: BoatData = ctx.boats.get_boat(int(step.get("boat", 0))) if ctx.boats != null and step.has("phase") else null
 	var effort := float(step.get("effort", 0)) + strokes * pace(ctx, person)
 	var skill_key := String(person.occupation_id)
+	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+	var caught := 0
 	while effort >= per_fish and (person.carrying_amount < capacity or (boat != null and boat.hold_room(&"fish") > 0)):
 		if ctx.fauna.take_fish(1, at) <= 0:
 			return true # (fished out here, for now)
-		var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+		caught += 1
 		ctx.fauna.waters.note_catch(own.id if own != null else 0, 1, ctx.now())
 		effort -= per_fish
 		if person.carrying_amount < capacity:
@@ -203,6 +205,7 @@ static func catch_fish(ctx: AiContext, person: PersonData, step: Dictionary, str
 		if boat != null:
 			boat.caught += 1
 		person.skills[skill_key] = minf(float(person.skills.get(skill_key, 0.0)) + Config.trade.skill_per_unit, 1.0)
+	FishGear.wear_nets(own, caught, ctx.rng) # (FB5: nets wear out with what they take)
 	step["effort"] = minf(effort, per_fish)
 	return person.carrying_amount >= capacity and (boat == null or boat.hold_room(&"fish") <= 0)
 

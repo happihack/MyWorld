@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"fish_trap"
+prop_kind = 25
+materials = {
+&"wood": 3
+}
+labor = 40
+capacity = 0
+tags = PackedStringArray("fish_trap")
+tech = &""

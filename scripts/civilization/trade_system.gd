@@ -26,6 +26,8 @@ var _day := -1_000_000
 var routes: Dictionary = {}
 var totals: Dictionary = {}
 var trips := 0
+## Voyages made with a load, by boat to another settlement's landing (FB6).
+var water_trips := 0
 
 
 func bind(now: int, cfg: TradeConfig = null) -> void:
@@ -175,7 +177,7 @@ func debug_text() -> String:
 	kinds.sort()
 	for resource: String in kinds:
 		parts.append("%s %d" % [resource, totals[resource]])
-	return "trade: %d loads on %d routes (%s)" % [trips, routes.size(), ", ".join(parts) if not parts.is_empty() else "nothing"]
+	return "trade: %d loads on %d routes, %d by water (%s)" % [trips, routes.size(), water_trips, ", ".join(parts) if not parts.is_empty() else "nothing"]
 
 
 func _most(by: Dictionary) -> String:
@@ -230,12 +232,13 @@ func _food_kept(own: Settlement) -> int:
 
 func to_dict() -> Dictionary:
 	return {"day": _day, "routes": routes.duplicate(true), "totals": totals.duplicate(), "trips": trips,
-		"offers": _offers.duplicate(true)}
+		"offers": _offers.duplicate(true), "water_trips": water_trips}
 
 
 func from_dict(data: Dictionary) -> void:
 	if typeof(data.get("day")) == TYPE_INT:
 		_day = data["day"]
+	water_trips = int(data.get("water_trips", 0))
 	routes.clear()
 	if typeof(data.get("routes")) == TYPE_DICTIONARY:
 		for key: Variant in data["routes"]:

@@ -42,6 +42,8 @@ var pathfinder: Pathfinder
 var ids: IdAllocator
 var events: EventLog
 var behavior: BehaviorSystem
+## The boats: some of a group may go by water (FB6).
+var boats: BoatSystem
 ## (info: WorldSetup.StartInfo) -> Settlement: adds a settlement to the world (WorldSession.add_settlement).
 var add_settlement: Callable
 var rng: RandomNumberGenerator
@@ -508,15 +510,42 @@ func depart(own: Settlement, now: int, push: Dictionary = {}) -> Dictionary:
 	departures += 1
 	# Off they go (everything else waits until they are there).
 	var spots := pathfinder.standable_near(to, going.size(), 3) if pathfinder != null else []
+	var by_water := _by_water(own, to)
 	for i in going.size():
 		var person := people.get_person(going[i])
 		if person == null:
 			continue
 		var spot: Vector2i = spots[i % spots.size()] if not spots.is_empty() else to
+		var plan: Array = [WalkToStep.make(spot, person.sub_tile_offset)]
+		if i < by_water.size():
+			var way: Array = by_water[i]
+			plan = [WalkToStep.make(way[0], person.sub_tile_offset), BoatStep.voyage_to_bank(way[1], way[2], way[3]),
+				WalkToStep.make(spot, person.sub_tile_offset)]
 		if behavior != null:
-			behavior.set_plan(person, ACTIVITY, ACTIVITY, [WalkToStep.make(spot, person.sub_tile_offset)])
+			behavior.set_plan(person, ACTIVITY, ACTIVITY, plan)
 	set_out.emit(journey)
 	return journey
+
+
+## Ways by water to `to` (FB6): one for each boat tied up at a landing of
+## `own` that goes there about as quickly as the walk — [landing tile, landing
+## id, the water by the bank, the bank], one person to a boat.
+func _by_water(own: Settlement, to: Vector2i) -> Array:
+	var out: Array = []
+	if boats == null or own.planner == null or own.fire() == null:
+		return out
+	var walk := Vector2(to - own.fire().tile).length() / maxf(Config.people.walk_tiles_per_minute, 0.01)
+	for id in own.planner.standing_near(PropData.Kind.LANDING):
+		var landing := props.get_prop(id) if props != null else null
+		if landing == null:
+			continue
+		for boat in boats.boats_of(id):
+			if boat.state != BoatData.State.MOORED:
+				continue
+			var bank: Variant = boats.bank_near(to, boat, ceili(config.water_within) + 2)
+			if bank != null and boats.water_minutes_between(landing.tile, bank[0], boat, 0) <= walk * Planner.WATER_SLOWER:
+				out.append([landing.tile, id, bank[0], bank[1]])
+	return out
 
 
 ## The journeys under way: the dead are no longer of them; those who are

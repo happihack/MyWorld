@@ -46,6 +46,8 @@ class Walk:
 	var pace := 1.0
 	## Game minutes not walked yet (see step_in_turns).
 	var owed := 0.0
+	## Out on a ferry (FB6): the stretch to path[index] is by boat.
+	var ferrying := false
 
 
 var _people: PersonRegistry
@@ -59,6 +61,11 @@ var arrivals := 0
 var blocks := 0
 ## Counts every step onto a tile (M12.2: paths are worn where people walk).
 var traffic: Traffic
+## The ride over a ferry (FB6): called as the boat goes, with (person, where
+## they are, facing, done, from tile, to tile) — the boat moved with them.
+var ferry_ride: Callable
+## How fast a ferry crosses (times a walk on open ground).
+const FERRY_PACE := 0.6
 
 
 func bind(people: PersonRegistry, pathfinder: Pathfinder, clock: GameClock) -> void:
@@ -110,6 +117,7 @@ func stop(person_id: int) -> void:
 	var walk: Walk = _walks.get(person_id)
 	if walk == null:
 		return
+	_end_ride(walk)
 	if walk.request_id != 0:
 		_pathfinder.cancel(walk.request_id)
 	_forget(person_id)
@@ -236,7 +244,10 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		var tile := walk.path[walk.index]
 		# The world may have changed since the way was found: look before stepping.
 		var here := WorldCoords.world2d_to_tile(at)
-		if walk.version != _pathfinder.version \
+		# (Out on a ferry the boat goes on: there is nothing to look at — FB6.)
+		var ferry := walk.index > 0 and (walk.ferrying or _pathfinder.is_ferry(walk.path[walk.index - 1], tile))
+		walk.ferrying = ferry
+		if walk.version != _pathfinder.version and not ferry \
 				and (not _pathfinder.can_stand(tile) or (here != tile and not _pathfinder.can_step(here, tile))):
 			_put(person, at, facing)
 			walk.repaths += 1
@@ -250,6 +261,8 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		var distance := to_goal.length()
 		if walk.speed_index != walk.index or walk.speed_version != _pathfinder.version:
 			walk.speed = speed_of(person, tile) * walk.pace
+			if ferry:
+				walk.speed = Config.people.walk_tiles_per_minute * FERRY_PACE
 			walk.speed_index = walk.index
 			walk.speed_version = _pathfinder.version
 			# (The way to a tile centre is straight: the heading holds for the stretch.)
@@ -259,6 +272,9 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		if distance <= speed * left:
 			at = goal
 			left -= distance / speed
+			if ferry:
+				walk.ferrying = false
+				_ride(person, at, facing, true, walk.path[walk.index - 1], tile)
 			if traffic != null:
 				traffic.add(tile)
 			if last:
@@ -271,6 +287,8 @@ func _advance(walk: Walk, person: PersonData, minutes: float) -> void:
 		else:
 			at += to_goal / distance * speed * left
 			left = 0.0
+			if ferry:
+				_ride(person, at, facing, false, walk.path[walk.index - 1], tile)
 	_put(person, at, facing)
 
 
@@ -279,12 +297,33 @@ func _put(person: PersonData, at: Vector2, facing: float) -> void:
 	_people.place(person, tile, at - Vector2(tile), facing)
 
 
+func _ride(person: PersonData, at: Vector2, facing: float, done: bool, from: Vector2i, to: Vector2i) -> void:
+	if ferry_ride.is_valid():
+		ferry_ride.call(person, at, facing, done, from, to)
+
+
+## Stopped (or sent elsewhere) out on a ferry: they are put across, the ride
+## over — nobody is left out on the water.
+func _end_ride(walk: Walk) -> void:
+	if not walk.ferrying or walk.index <= 0 or walk.index >= walk.path.size():
+		return
+	walk.ferrying = false
+	var person := _people.get_person(walk.person_id) if _people != null else null
+	if person == null:
+		return
+	var to := walk.path[walk.index]
+	var at := Vector2(to) + Vector2(0.5, 0.5)
+	_ride(person, at, person.facing, true, walk.path[walk.index - 1], to)
+	_put(person, at, person.facing)
+
+
 func _forget(person_id: int) -> void:
 	_walks.erase(person_id)
 	_order.erase(person_id)
 
 
 func _give_up(walk: Walk) -> void:
+	_end_ride(walk)
 	_forget(walk.person_id)
 	blocks += 1
 	blocked.emit(walk.person_id)

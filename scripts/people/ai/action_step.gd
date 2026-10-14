@@ -30,8 +30,8 @@ func end(_ctx: AiContext, person: PersonData, _step: Dictionary) -> void:
 
 ## How much more than usual something else must press before the person
 ## drops this (0 = nothing special; a sleeper is not woken by a little thirst).
-func reluctance(_step: Dictionary) -> float:
-	return 0.0
+func reluctance(step: Dictionary) -> float:
+	return float(step.get("reluctance", 0.0)) # (a plan may ask it of a step: FB6)
 
 
 ## How many ticks may pass between two turns of someone at this step without

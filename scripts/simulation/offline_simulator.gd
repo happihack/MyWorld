@@ -341,6 +341,15 @@ func _craft(own: Settlement, share: float) -> void:
 
 
 func _fish(own: Settlement, share: float) -> void:
+	# The traps emptied, and a net made if one is wanted (FB5).
+	if own.planner != null:
+		for id in own.planner.standing_near(PropData.Kind.FISH_TRAP):
+			var got := FishGear.empty_trap(_s.props.get_prop(id), _s.props, own.stockpile.room(&"fish"))
+			if got > 0:
+				own.stockpile.add(&"fish", got)
+				own.note_produced(&"fish", got)
+	if FishGear.net_to_make(own):
+		FishGear.make_net(own)
 	if own.fauna == null or not own.fish_near():
 		return
 	# (Out in a boat if one is tied up at a landing of theirs — FB4: further out, to better water.)
@@ -361,6 +370,7 @@ func _fish(own: Settlement, share: float) -> void:
 		own.fauna.waters.note_catch(own.id, got, _s.clock.tick)
 		own.stockpile.add(&"fish", got)
 		own.note_produced(&"fish", got)
+		FishGear.wear_nets(own, got, _rng)
 	if boat != null:
 		boat.trips += 1
 		boat.caught += got

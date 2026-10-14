@@ -10,6 +10,9 @@ extends ActionStep
 ##    "at": Vector2i (the water fished; Vector2i.MAX until chosen),
 ##    "minutes": float (fishing), "elapsed": float, "strokes": int, "effort": float,
 ##    "phase": "out" | "fish" | "back", "fish": true}
+## A voyage (FB6): from the landing to another ("to": prop id, "voyage": true)
+## — a trader's, with their load: the boat waits there for them, or (home)
+## is tied up.
 
 const TYPE := &"boat"
 ## Home before dark.
@@ -20,6 +23,8 @@ const SWAMP_PER_HOUR := 0.25
 const SEAT := 0.04
 ## Too long on the way (a way that cannot be made): home.
 const MOST_MINUTES_OUT := 240.0
+## A voyage that takes longer than this is given up (ashore where they are).
+const MOST_MINUTES_VOYAGE := 480.0
 
 
 static func make(landing_id: int, minutes: float) -> Dictionary:
@@ -31,6 +36,26 @@ static func make(landing_id: int, minutes: float) -> Dictionary:
 ## hold), to carry to the stores (FB4).
 static func unload(landing_id: int) -> Dictionary:
 	return {"type": String(TYPE), "landing": landing_id, "boat": 0, "unload": true}
+
+
+## By boat from landing `from_id` to landing `to_id` (FB6).
+static func voyage(from_id: int, to_id: int) -> Dictionary:
+	return {"type": String(TYPE), "landing": from_id, "to": to_id, "voyage": true, "boat": 0, "phase": "out",
+			"elapsed": 0.0, "way": 0.0}
+
+
+## By boat from landing `from_id` to the bank `bank`, beside the water `water`
+## (FB6: a group moving downriver); the boat goes home empty.
+static func voyage_to_bank(from_id: int, water: Vector2i, bank: Vector2i) -> Dictionary:
+	var step := voyage(from_id, 0)
+	step["water"] = water
+	step["bank"] = bank
+	return step
+
+
+## Taking the fish out of a trap at the bank (FB5), as much as the arms hold.
+static func from_trap(trap_id: int) -> Dictionary:
+	return {"type": String(TYPE), "landing": 0, "boat": 0, "unload": true, "trap": trap_id}
 
 
 ## A boat tied up at this landing with fish in it (null: none).
@@ -46,6 +71,15 @@ static func laden_at(boats: BoatSystem, landing_id: int) -> BoatData:
 func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	if bool(step.get("unload", false)):
 		person.pose = PersonData.Pose.CROUCH
+		if step.has("trap"):
+			if person.carrying_amount == 0 or person.carrying == &"fish":
+				var got := FishGear.empty_trap(ctx.props.get_prop(int(step["trap"])), ctx.props,
+						ctx.carry_capacity(&"fish") - person.carrying_amount)
+				if got > 0:
+					person.carrying = &"fish"
+					person.carrying_amount += got
+			step["phase"] = "unloaded"
+			return
 		var laden := laden_at(ctx.boats, int(step.get("landing", 0)))
 		if laden != null and (person.carrying_amount == 0 or person.carrying == &"fish"):
 			var room := ctx.carry_capacity(&"fish") - person.carrying_amount
@@ -62,6 +96,18 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	var boats := ctx.boats
 	if boats == null:
 		step["phase"] = "fail"
+		return
+	if bool(step.get("voyage", false)):
+		var landing_id := int(step.get("landing", 0))
+		var ship := boats.waiting_at(landing_id, person.id)
+		if ship == null:
+			ship = boats.free_boat(landing_id)
+		if ship == null or not boats.board(ship, person.id):
+			step["phase"] = "fail"
+			return
+		step["boat"] = ship.id
+		person.aboard = ship.id
+		_follow(ctx, person, ship)
 		return
 	var boat := boats.get_boat(int(step.get("boat", 0))) if int(step.get("boat", 0)) != 0 else boats.boat_to_take(int(step.get("landing", 0)))
 	if boat == null:
@@ -98,6 +144,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 	if stormy and ctx.rng != null and ctx.rng.randf() < SWAMP_PER_HOUR * minutes / 60.0:
 		boats.swamp(boat, ctx.now())
 		return Status.FAILED
+	if bool(step.get("voyage", false)):
+		return _voyage(ctx, person, step, boat, minutes)
 	var phase := str(step.get("phase", "out"))
 	if phase != "back" and (stormy or _late(ctx)):
 		phase = "back"
@@ -148,8 +196,10 @@ func end(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 		else:
 			boats.step_off(boat, person.id)
 	# Ashore: on the landing — or, swamped far from it, the bank nearest.
-	var ashore: Variant = null
-	if boat != null and boat.state == BoatData.State.MOORED and landing != null:
+	var ashore: Variant = step.get("ashore")
+	if ashore != null:
+		pass # (a voyage's end: the landing they came to)
+	elif boat != null and boat.state == BoatData.State.MOORED and landing != null:
 		ashore = landing.tile
 	elif ctx.places != null:
 		ashore = ctx.places.fishing_bank(person.position)
@@ -165,6 +215,49 @@ func reluctance(step: Dictionary) -> float:
 
 func needs_state(_step: Dictionary) -> Needs.State:
 	return Needs.State.WORKING
+
+
+## On the way to the other landing: there, the boat ties up (and waits, if
+## it is not its own landing) and they go ashore.
+func _voyage(ctx: AiContext, person: PersonData, step: Dictionary, boat: BoatData, minutes: float) -> Status:
+	var boats := ctx.boats
+	if step.has("bank"):
+		return _voyage_to_bank(ctx, person, step, boat, minutes)
+	var to := ctx.props.get_prop(int(step.get("to", 0))) if ctx.props != null else null
+	if to == null:
+		return Status.FAILED
+	var home := to.id == boat.landing_id
+	var aim: Vector2 = boats.mooring_of(boat) if home else boats.mooring(to, BoatSystem.AWAY_BERTH)[0]
+	step["way"] = float(step.get("way", 0.0)) + minutes
+	var got := boats.paddle(boat, aim, minutes)
+	_follow(ctx, person, boat)
+	if got == -1 or float(step["way"]) > MOST_MINUTES_VOYAGE:
+		return Status.FAILED
+	if got == 0:
+		return Status.RUNNING
+	step["ashore"] = to.tile
+	if not home:
+		boats.wait_at(boat, to, person.id)
+		if ctx.trade != null:
+			ctx.trade.water_trips += 1
+	return Status.DONE
+
+
+func _voyage_to_bank(ctx: AiContext, person: PersonData, step: Dictionary, boat: BoatData, minutes: float) -> Status:
+	step["way"] = float(step.get("way", 0.0)) + minutes
+	var got := ctx.boats.paddle(boat, ActionStep.middle(step["water"]), minutes)
+	_follow(ctx, person, boat)
+	if got == -1 or float(step["way"]) > MOST_MINUTES_VOYAGE:
+		return Status.FAILED
+	if got == 0:
+		return Status.RUNNING
+	step["ashore"] = step["bank"]
+	var crew := boat.crew.find(person.id)
+	if crew >= 0:
+		boat.crew.remove_at(crew)
+	if boat.crew.is_empty():
+		ctx.boats.send_home(boat)
+	return Status.DONE
 
 
 ## The one aboard sits where the boat is.

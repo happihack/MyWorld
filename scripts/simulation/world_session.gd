@@ -1112,6 +1112,7 @@ func _bind_boats() -> void:
 	boats.waters = fauna.waters
 	boats.people = people
 	boats.paths.is_ice = pathfinder.is_ice
+	boats.pathfinder = pathfinder
 	boats.paths.is_bridge = func(tile: Vector2i) -> bool:
 		var there := props.prop_at(tile)
 		return there != null and there.kind == PropData.Kind.BRIDGE
@@ -1425,6 +1426,7 @@ func _activate() -> void:
 		return int(generator.sample_tile(tile)["height"]) if generator != null else world.get_height(tile))
 	pathfinder.bind(world, props, loose, water)
 	movement.bind(people, pathfinder, clock)
+	movement.ferry_ride = boats.ride
 	if activities == null:
 		activities = ActivityLibrary.load_from()
 	var ai := AiContext.new()
@@ -1693,6 +1695,7 @@ func _activate() -> void:
 	migration.ids = ids
 	migration.events = events
 	migration.behavior = behavior
+	migration.boats = boats
 	migration.rng = rng.stream(&"migration")
 	migration.add_settlement = func(info: WorldSetup.StartInfo) -> Settlement: return add_settlement(info)
 	ai.migration = migration

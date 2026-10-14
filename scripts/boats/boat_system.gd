@@ -65,6 +65,8 @@ var waters: FishWaters
 var people: PersonRegistry
 ## The ways over the water (FB3).
 var paths := WaterPaths.new()
+## The land's way-finder: the ferries are ways in it (FB6).
+var pathfinder: Pathfinder
 
 var _world: WorldData
 var _props: PropRegistry
@@ -82,6 +84,7 @@ var no_water := 0
 var no_way := 0
 var _worth: Dictionary = {} # landing id -> [day, worth going out]
 var _far: Dictionary = {} # boat id -> furthest from its mooring this trip (tiles)
+var _ways: Dictionary = {} # "from>to:kind" -> minutes by water (FB6; not saved)
 var _routes: Dictionary = {} # boat id -> {"to": Vector2, "points": PackedVector2Array, "next": int} (not saved)
 
 
@@ -214,9 +217,12 @@ func advance_to(now: int) -> void:
 func _each_day(now: int) -> void:
 	paths.clear_cache() # (the water may have changed)
 	_routes.clear()
+	_ways.clear()
 	_build(now)
 	var stormy := (weather != null and weather.is_storm()) or (hydrology != null and hydrology.high_water)
 	var frozen: bool = is_frozen.is_valid() and bool(is_frozen.call())
+	FishGear.fill_traps(_props, waters, _world, frozen) # (the traps at the banks: FB5)
+	refresh_ferries()
 	for boat in all_boats():
 		# Fish left in the hull spoil (as fish do: within two days) — half of them a day.
 		if boat.load_resource == &"fish" and boat.load_amount > 0:
@@ -235,6 +241,11 @@ func _each_day(now: int) -> void:
 			BoatData.State.LAID_UP:
 				if not frozen:
 					boat.state = BoatData.State.MOORED
+			BoatData.State.AWAY:
+				# (Its trader never came back for it: fetched home.)
+				boat.condition = maxf(boat.condition - WEAR_PER_DAY, 0.0)
+				if _day > boat.away_day + 1:
+					bring_in(boat)
 			BoatData.State.DRIFTING:
 				# (Days lived without frames — away — drift to their end at once.)
 				_drift_until_aground(boat)
@@ -377,10 +388,140 @@ func _moor(boat: BoatData, landing: PropData) -> void:
 	boat_moved.emit(boat.id)
 
 
+# --- ferries (FB6) -------------------------------------------------------------------------------------
+
+## How much water a ferry crosses at most (tiles).
+const FERRY_SPAN := 12
+
+var _ferry_of: Dictionary = {} # tile (either end) -> landing id
+var _riding: Dictionary = {} # person id -> boat id
+var _returning: Dictionary = {} # boat id -> true: a ferry going home empty
+
+
+## Where the ferries are (worked out once a day): from a landing with a boat,
+## straight over the water to dry land that cannot be walked to — someone
+## with the boat takes over whoever wants to go. A bridge there, and the
+## land can be walked to: no ferry.
+func refresh_ferries() -> void:
+	if pathfinder == null or not pathfinder.is_bound() or settlements == null or _props == null or _world == null:
+		return
+	if pathfinder.ferry_count() > 0:
+		pathfinder.set_ferries([]) # (what can be walked to — on foot)
+	var pairs: Array = []
+	_ferry_of.clear()
+	for own in settlements.all():
+		if own.planner == null:
+			continue
+		for id in own.planner.standing_near(PropData.Kind.LANDING):
+			var landing := _props.get_prop(id)
+			if landing == null or _ferry_of.has(landing.tile) or not _has_boat(id):
+				continue
+			var far: Variant = _far_bank(landing.tile)
+			if far != null and not _ferry_of.has(far):
+				pairs.append([landing.tile, far])
+				_ferry_of[landing.tile] = id
+				_ferry_of[far] = id
+	pathfinder.set_ferries(pairs)
+
+
+func ferries() -> Array:
+	var out: Array = []
+	for tile: Vector2i in _ferry_of:
+		var landing := _props.get_prop(int(_ferry_of[tile])) if _props != null else null
+		if landing != null and landing.tile == tile:
+			for other: Vector2i in _ferry_of:
+				if other != tile and int(_ferry_of[other]) == landing.id:
+					out.append([tile, other])
+	return out
+
+
+func _has_boat(landing_id: int) -> bool:
+	for boat in boats_of(landing_id):
+		if boat.state != BoatData.State.DRIFTING and boat.state != BoatData.State.AGROUND:
+			return true
+	return false
+
+
+## The nearest dry land straight across the water from `from` that cannot be
+## walked to (null: none within FERRY_SPAN).
+func _far_bank(from: Vector2i) -> Variant:
+	var best: Variant = null
+	var best_span := FERRY_SPAN + 1
+	for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		var at := from + step
+		var span := 0
+		while span < FERRY_SPAN and _world.is_in_bounds(at) and _world.get_water(at) > 0.0:
+			at += step
+			span += 1
+		if span == 0 or span >= best_span or not _world.is_in_bounds(at) or _world.get_water(at) > 0.0:
+			continue
+		if not pathfinder.can_stand(at) or pathfinder.is_reachable(from, at):
+			continue
+		best = at
+		best_span = span
+	return best
+
+
+## Someone on a ferry (MovementSystem.ferry_ride): the landing's boat goes over
+## with them (none at home to take: they go over all the same); done, it
+## is tied up at its landing — or paddled back to it, empty.
+func ride(person: PersonData, at: Vector2, facing: float, done: bool, from: Vector2i, to: Vector2i) -> void:
+	var boat := get_boat(int(_riding.get(person.id, 0)))
+	if boat == null:
+		var landing_id := int(_ferry_of.get(from, _ferry_of.get(to, 0)))
+		boat = free_boat(landing_id) if landing_id != 0 else null
+		if boat == null and landing_id != 0:
+			for other in boats_of(landing_id):
+				if _returning.has(other.id):
+					boat = other
+		if boat != null:
+			_returning.erase(boat.id)
+			_routes.erase(boat.id)
+			boat.state = BoatData.State.OUT
+			boat.crew = PackedInt64Array([person.id])
+			_riding[person.id] = boat.id
+	var tile := WorldCoords.world2d_to_tile(at)
+	if boat != null:
+		var dir := Vector2.from_angle(facing)
+		boat.position = at
+		boat.heading = atan2(dir.x, dir.y)
+		boat.height = float_height(at)
+		boat_moved.emit(boat.id)
+	person.aboard = boat.id if boat != null else -1
+	person.aboard_height = maxf(_world.get_water(tile), 0.0) + BoatStep.SEAT if _world != null and _world.is_in_bounds(tile) else 0.0
+	if not done:
+		return
+	person.aboard = 0
+	person.aboard_height = 0.0
+	_riding.erase(person.id)
+	if boat == null:
+		return
+	boat.crew = PackedInt64Array()
+	var home := _props.get_prop(boat.landing_id) if _props != null else null
+	if home != null and home.tile == to:
+		bring_in(boat)
+	else:
+		_returning[boat.id] = true
+
+
+func _paddle_home(minutes: float) -> void:
+	for id: int in _returning.keys():
+		var boat := get_boat(id)
+		if boat == null or boat.state != BoatData.State.OUT or not boat.crew.is_empty():
+			_returning.erase(id)
+			continue
+		if paddle(boat, mooring_of(boat), minutes) != 0:
+			_returning.erase(id)
+			bring_in(boat)
+
+
 # --- drifting -------------------------------------------------------------------------------------------
 
-## Advances drifting boats (`delta` real seconds). Cheap when none drifts.
+## Advances drifting boats (`delta` real seconds), and ferries going home
+## empty. Cheap when none does.
 func step(delta: float) -> void:
+	if not _returning.is_empty():
+		_paddle_home(delta / maxf(Config.time.real_seconds_per_game_minute, 0.0001))
 	var drifting: Array[BoatData] = []
 	for boat in _boats.values():
 		if boat.state == BoatData.State.DRIFTING:
@@ -454,6 +595,8 @@ const WEAR_PER_TRIP := 0.006
 func boat_to_take(landing_id: int) -> BoatData:
 	var best: BoatData = null
 	for boat in boats_of(landing_id):
+		if _returning.has(boat.id) or _riding.values().has(boat.id):
+			continue # (a ferry, over or on its way back: FB6)
 		if boat.state == BoatData.State.MOORED and (best == null or boat.kind > best.kind):
 			best = boat
 		elif boat.state == BoatData.State.OUT and boat.crew.size() < boat.crew_room() and best == null:
@@ -468,11 +611,14 @@ func board(boat: BoatData, person_id: int) -> bool:
 		return false
 	if boat.crew.has(person_id):
 		return true
-	if boat.state != BoatData.State.MOORED and boat.state != BoatData.State.OUT:
+	if boat.state != BoatData.State.MOORED and boat.state != BoatData.State.OUT and boat.state != BoatData.State.AWAY:
 		return false
 	if boat.crew.size() >= boat.crew_room():
 		return false
 	boat.crew.append(person_id)
+	if boat.state == BoatData.State.AWAY:
+		_home_again(boat)
+		boat.state = BoatData.State.MOORED
 	if boat.state == BoatData.State.MOORED:
 		boat.state = BoatData.State.OUT
 		boat.height = float_height(boat.position)
@@ -492,11 +638,112 @@ func step_off(boat: BoatData, person_id: int) -> void:
 			bring_in(boat)
 
 
+# --- carrying (FB6) --------------------------------------------------------------------------------
+
+## A boat of this landing tied up at home, to go somewhere in: the best kind
+## (null: none).
+func free_boat(landing_id: int) -> BoatData:
+	var best: BoatData = null
+	for boat in boats_of(landing_id):
+		if boat.state == BoatData.State.MOORED and (best == null or boat.kind > best.kind):
+			best = boat
+	return best
+
+
+## The boat tied up at `landing_id` waiting for `person_id` (null: none).
+func waiting_at(landing_id: int, person_id: int) -> BoatData:
+	for boat in all_boats():
+		if boat.state == BoatData.State.AWAY and boat.away_at == landing_id and boat.waiting_for == person_id:
+			return boat
+	return null
+
+
+## The boat is tied up at another settlement's `landing` to wait for
+## `person_id` (who goes ashore there).
+func wait_at(boat: BoatData, landing: PropData, person_id: int) -> void:
+	boat.crew = PackedInt64Array()
+	_routes.erase(boat.id)
+	boat.state = BoatData.State.AWAY
+	boat.away_at = landing.id
+	boat.waiting_for = person_id
+	boat.away_day = _day
+	var place := mooring(landing, AWAY_BERTH)
+	boat.position = place[0]
+	boat.heading = place[1]
+	boat.height = float_height(boat.position)
+	boat_moved.emit(boat.id)
+
+
+## Where a visiting boat ties up at a landing (a berth past its own boats').
+const AWAY_BERTH := 3
+
+
+func _home_again(boat: BoatData) -> void:
+	boat.away_at = 0
+	boat.waiting_for = 0
+	boat.away_day = 0
+
+
+## Game minutes by water from one landing to another in `boat` (INF: there
+## is no way it floats), the current not counted. Worked out once a day.
+func water_minutes(from: PropData, to: PropData, boat: BoatData) -> float:
+	if from == null or to == null or boat == null or _world == null:
+		return INF
+	return water_minutes_between(from.tile, to.tile, boat)
+
+
+## The same from tile to tile (each end: the water a boat floats on beside it).
+func water_minutes_between(from_tile: Vector2i, to_tile: Vector2i, boat: BoatData, reach: int = 2) -> float:
+	if boat == null or _world == null:
+		return INF
+	var key := "%s>%s:%d:%d" % [str(from_tile), str(to_tile), boat.kind, reach]
+	if _ways.has(key):
+		return float(_ways[key])
+	var mast := boat.kind == PropData.Boat.SAIL
+	var start: Variant = paths.water_near(from_tile, boat.draught(), 2, mast)
+	var end: Variant = paths.water_near(to_tile, boat.draught(), reach, mast)
+	var minutes := INF
+	if start != null and end != null:
+		var way := paths.find(start, end, boat.draught(), mast)
+		if not way.is_empty() or start == end:
+			var length := 0.0
+			for i in range(1, way.size()):
+				length += Vector2(way[i] - way[i - 1]).length()
+			minutes = length / maxf(boat.speed() * Config.people.walk_tiles_per_minute, 0.01)
+	_ways[key] = minutes
+	return minutes
+
+
+## Where a boat can put people ashore near `tile`: [the water it lies on, the
+## bank beside it] — null: no water it floats on within `reach`.
+func bank_near(tile: Vector2i, boat: BoatData, reach: int) -> Variant:
+	if boat == null or _world == null or pathfinder == null:
+		return null
+	var water: Variant = paths.water_near(tile, boat.draught(), reach, boat.kind == PropData.Boat.SAIL)
+	if water == null:
+		return null
+	for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+		var bank: Vector2i = water + step
+		if _world.is_in_bounds(bank) and _world.get_water(bank) <= 0.0 and pathfinder.can_stand(bank):
+			return [water, bank]
+	return null
+
+
+## Everyone off: the boat goes home by itself, empty (paddled while the
+## world is watched; tied up by the day's end in any case).
+func send_home(boat: BoatData) -> void:
+	boat.crew = PackedInt64Array()
+	_routes.erase(boat.id)
+	if boat.state == BoatData.State.OUT:
+		_returning[boat.id] = true
+
+
 ## The boat tied up at its landing again (crew off), a trip done.
 func bring_in(boat: BoatData) -> void:
 	var landing := _props.get_prop(boat.landing_id) if _props != null else null
 	boat.crew = PackedInt64Array()
 	_routes.erase(boat.id)
+	_home_again(boat)
 	if landing == null:
 		return
 	# (A trip is one that went somewhere; one that turned back at the landing is not.)
