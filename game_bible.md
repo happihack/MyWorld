@@ -1204,14 +1204,14 @@ Tone: quiet, short, curious. Never exclamation-heavy, never "Great job!".
 - **Top-left:** ☰ hamburger.
 - **Top-right:** clock/date/season glyph + speed control (tap to cycle, long-press for all).
 - **Top-center (transient):** notification toasts.
-- **Bottom:** tool bar (portrait) / right edge (landscape).
-- **Bottom-right corner:** minimap (collapsible) + **Home** button.
+- **Bottom:** tool bar, centred (held on its side it sits lower, at the bottom edge).
+- **Bottom-right corner:** minimap (collapsible) + **Home** button — on its side the minimap goes to the bottom left, and the cards keep above it (2026-10-13).
 - **Contextual:** person card (bottom sheet), locate button, follow banner ("Following Mara · ✕").
-All touch targets **≥ 48 dp** (min 44). Nothing opaque covers more of the world than necessary.
+All touch targets **≥ 48 dp** (min 44). Nothing opaque covers more of the world than necessary. Drawn as §28.5 says: chalk over the world.
 
 ### 26.5 Hamburger menu [CANON structure]
 
-A sliding panel (not full-screen on landscape tablets), sections collapsible:
+A sliding panel (not full-screen on landscape tablets), sections collapsible — a sheet of ruled paper taped on, each section's heading with its icon (§28.5):
 
 - **WORLD:** Map · World Overview · Regions · Weather · Environment · Resources
 - **PEOPLE:** Population · Families · Individuals · Occupations · Relationships · Important People
@@ -1334,9 +1334,16 @@ A **stylized living diorama**: tabletop miniature, terrarium, mysterious artifac
 
 Simple enough for mobile (tens of triangles; no skeletons in early phases — vertex-shader bob/lean animation), distinguishable via **body type** (height/width scale), **clothing colour** (culture palette), **accessories** (hat, basket, tool, staff), **occupation props**, **age** (children smaller, elders stooped + grey). Selected/followed people get a subtle ring and outline. Later civilizations gain more visual complexity (clothing styles, uniforms).
 
-### 28.5 UI style [CANON]
+### 28.5 UI style [CANON — revised 2026-10-13]
 
-An **elegant scientific observation device mixed with a miniature-world interface**: instrument-like thin lines, brass/ink accents, cards, sliding panels, contextual overlays, icons *with labels*, charts, timelines, expandable sections. No giant opaque menus.
+**By hand.** The box is a kept thing: someone has painted it, written on it, taped notes to it. Nothing is quite straight. Three hand fonts (`assets/fonts/`, SIL OFL): **Caveat Brush** for the game's name, headings and "Continue"; **Patrick Hand** for buttons, entries and labels; **Kalam** for notes, dates and reading text.
+
+- **The lid (main menu):** painted brown, darker at the edges, a few lines of grain and a knot drawn in ink; the name large and a little off level with a squiggle under it; an opening into the box with the world alive inside (drifting, fireflies rising, the mascot waving over the rim); a taped paper note to go on with the last world; chalk buttons for a new one or another; Quit small at the foot. Held on its side: the name and the opening at the left, the choices at the right.
+- **Over the world (HUD):** chalk — cream lines, a little off level, a dark see-through fill behind them; the clock written by hand; the chosen tool filled in cream, the rest outlines; the alert filled red-brown; the minimap in a hand-drawn frame; hints in a chalk bubble.
+- **The menus and cards:** sheets of paper, ruled and taped on, in ink and pencil — section headings in the heading hand with an icon beside each and a marker stroke over the one that is open; actions as ink chips; needs as pencil-hatched bars; a red-brown blot by something new.
+- **Icons:** one loose line on a 24 grid, every segment a little curved, circles that don't quite meet; cream on wood and over the world, ink on paper (`HandIcons`, rasterised when first asked for).
+
+What stays from the first direction: cards, sliding panels, contextual overlays, icons *with labels*, charts, timelines, expandable sections; no giant opaque menus. (The *instrument* look — thin brass lines, dark cards — was built first and set aside on 2026-10-09 for lacking character beside the mascot.)
 
 ---
 
