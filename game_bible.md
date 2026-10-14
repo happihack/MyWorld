@@ -765,7 +765,7 @@ The player never places buildings. A **SettlementPlanner** evaluates needs each 
 | Science knowledge | Laboratory → Research center, Observatory |
 | Box research | Edge station, Signal structures (endgame) |
 
-Projects are sited by scoring tiles (proximity, flatness, flood risk from memory!, sacredness, road access). Builders **physically fetch materials** and construction progresses visibly (scaffold → frame → complete). Buildings are data (`data/buildings/*.tres`): footprint, materials, capacity, tech requirement, function tags, era visual variants.
+Projects are sited by scoring tiles (proximity, flatness, flood risk from memory!, sacredness, road access). The flood risk is a remembered high-water mark: nothing is built at or under it while it slowly fades — except a hut for someone without a roof when no ground above it is within reach, which goes up on the highest dry ground there is (the owner, 2026-10-14: better a hut on the floodplain than none). Builders **physically fetch materials** and construction progresses visibly (scaffold → frame → complete). Buildings are data (`data/buildings/*.tres`): footprint, materials, capacity, tech requirement, function tags, era visual variants.
 
 **Era groups:** *Early* — shelters, huts, farms, wells, storage. *Later* — workshops, markets, temples, schools, government buildings, factories, laboratories. *Eventually* — research centers, observatories, advanced laboratories.
 

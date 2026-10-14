@@ -39,6 +39,13 @@ extends ConfigBase
 ## A tree, a bush or other wild growth on a tile beside a site counts this much
 ## against it (each; as tiles from the fire): clear ground is taken first.
 @export_range(0.0, 40.0, 0.05) var site_growth_cost: float = 1.0
+## Nothing is built where the river has stood (at or under the settlement's
+## flood mark) — unless someone is without a roof and no ground above it is
+## within reach: then a hut goes on the highest dry ground there is, each
+## unit of height under the mark counting this much against the site (as
+## tiles from the fire). The owner's flood test, 2026-10-14: a lake-country
+## village on level ground had no site for a hut for ten years after.
+@export_range(0.0, 100.0, 0.5) var site_flood_cost: float = 20.0
 
 @export_group("Building")
 ## How pressing building is on the job board (homes when the roofs are full: more).

@@ -682,6 +682,42 @@ func test_a_building_may_stand_beside_a_tree_not_under_it() -> void:
 	assert_false(planner._buildable(first, []), "not beside a rock")
 
 
+func test_a_hut_for_the_roofless_where_the_river_has_been_when_there_is_no_other_ground() -> void:
+	# The owner's flood test (2026-10-14): a village on level ground, every
+	# tile within reach at or under the flood mark, nobody under a roof —
+	# and no hut sited for ten years, while the mark faded.
+	_only(&"home")
+	var hut := session.buildings.get_def(&"hut")
+	var fire: Vector2i = session.settlement.fire().tile
+	var highest := 0 # (of the dry ground within reach: all of it goes under the mark)
+	var highest_level := 0 # (of the level ground a hut may stand on: the planner's first choice)
+	var reach: int = Config.construction.site_farthest
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var tile := fire + Vector2i(dx, dy)
+			var distance := Vector2(dx, dy).length()
+			if not session.world.is_in_bounds(tile) or session.world.get_water(tile) > 0.0:
+				continue
+			highest = maxi(highest, session.world.get_height(tile))
+			if distance >= Config.construction.site_nearest and distance <= reach \
+					and planner._buildable(tile, [], true) and planner.on_level(tile):
+				highest_level = maxi(highest_level, session.world.get_height(tile))
+	session.settlement.flood_level = float(highest) * session.world.height_step + 0.1
+	for person in session.people.all_people():
+		person.home_building_id = 0
+	assert_true(planner.homes_short())
+	assert_true(planner.roofless())
+	var site: Variant = planner.site_for(hut)
+	assert_not_null(site, "a hut goes up where the river has been rather than nowhere")
+	assert_eq(session.world.get_height(site), highest_level, "on the highest level ground there is")
+	assert_eq(str(planner.plan(session.clock.tick).get("def", "")), "hut")
+	# A storehouse waits for the mark to fade; so does a hut while everyone has a roof.
+	assert_null(planner.site_for(session.buildings.get_def(&"storehouse")), "only a roof is worth the floodplain")
+	for person in session.people.all_people():
+		person.home_building_id = session.start.hut_ids[0]
+	assert_null(planner.site_for(hut), "with roofs over them: not under the mark")
+
+
 func test_stone_lying_about_is_brought_to_the_site() -> void:
 	_only(&"")
 	var stones := func() -> int:

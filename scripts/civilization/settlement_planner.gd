@@ -19,6 +19,9 @@ extends RefCounted
 ## Where: open, dry ground a few tiles from the fire, above the highest water
 ## the settlement remembers, clear of other buildings and of the graves, as
 ## even as can be and as near as can be (unevenness and distance weigh against it).
+## A hut for someone without a roof, when no such ground is within reach, goes
+## on the highest dry ground there is, where the river has been or not: better
+## a hut on the floodplain than none (the owner's flood test, 2026-10-14).
 
 var _settlement: Settlement
 var _construction: ConstructionSystem
@@ -524,7 +527,23 @@ func standing_near(kind: int) -> Array[int]:
 ## unless there is no other ground at all.
 func site_for(def: BuildingDef) -> Variant:
 	var level: Variant = _site_for(def, true)
-	return level if level != null else _site_for(def, false)
+	if level != null:
+		return level
+	var site: Variant = _site_for(def, false)
+	if site != null or not def.has_tag("home") or not roofless():
+		return site
+	# Nowhere above the flood mark, and someone without a roof: the highest
+	# dry ground there is, the river's or not (`_buildable`, under the mark).
+	level = _site_for(def, true, true)
+	return level if level != null else _site_for(def, false, true)
+
+
+## Is anyone of the settlement without a roof (no hut of theirs standing)?
+func roofless() -> bool:
+	for person in _settlement.members():
+		if person.home_building_id == 0 or not _settlement.start_info().hut_ids.has(person.home_building_id):
+			return true
+	return false
 
 
 ## Ground none of whose neighbours lies lower: a building there does not hang
@@ -539,7 +558,7 @@ func on_level(tile: Vector2i) -> bool:
 	return true
 
 
-func _site_for(_def: BuildingDef, level_only: bool) -> Variant:
+func _site_for(_def: BuildingDef, level_only: bool, under_mark: bool = false) -> Variant:
 	var fire := _settlement.fire()
 	if fire == null or _world == null:
 		return null
@@ -556,9 +575,13 @@ func _site_for(_def: BuildingDef, level_only: bool) -> Variant:
 			if distance < _config.site_nearest or distance > _config.site_farthest:
 				continue
 			var tile := fire.tile + Vector2i(dx, dy)
-			if taken.has(tile) or not _buildable(tile, grave_tiles) or (level_only and not on_level(tile)):
+			if taken.has(tile) or not _buildable(tile, grave_tiles, under_mark) or (level_only and not on_level(tile)):
 				continue
 			var cost := distance * _config.site_distance_cost + _unevenness(tile) * _config.site_unevenness_cost
+			if under_mark:
+				var under := _settlement.flood_level - _world.get_height(tile) * _world.height_step
+				if under > -0.01:
+					cost += (under + 0.01) * _config.site_flood_cost # (the highest first)
 			if _world.get_terrain(tile) == ChunkData.Terrain.ROAD or _world.get_terrain(tile) == ChunkData.Terrain.PAVED:
 				cost += _config.site_path_cost
 			cost += _growth_beside(tile) * _config.site_growth_cost
@@ -579,16 +602,17 @@ func _resting_tiles() -> Array[Vector2i]:
 	return out
 
 
-## Ground a building can stand on.
 ## What grows by itself: a building may stand beside it (see `_buildable`).
 const GROWS_WILD: Array[int] = [PropData.Kind.TREE, PropData.Kind.BUSH, PropData.Kind.MUSHROOM, PropData.Kind.ROOTS]
 const BUILT_ON: Array[ChunkData.Terrain] = [ChunkData.Terrain.GRASS, ChunkData.Terrain.DIRT, ChunkData.Terrain.ROAD, ChunkData.Terrain.PAVED]
 
 
-func _buildable(tile: Vector2i, graves: Array[Vector2i]) -> bool:
+## Ground a building can stand on. `under_mark`: where the river has been too
+## (a hut for the roofless when there is no other ground, `site_for`).
+func _buildable(tile: Vector2i, graves: Array[Vector2i], under_mark: bool = false) -> bool:
 	if not _world.is_in_bounds(tile) or _world.get_water(tile) > 0.0:
 		return false
-	if _world.get_height(tile) * _world.height_step <= _settlement.flood_level + 0.01:
+	if not under_mark and _world.get_height(tile) * _world.height_step <= _settlement.flood_level + 0.01:
 		return false # (where the river has been: no)
 	var terrain := _world.get_terrain(tile)
 	# (A worn path is ground like any other: their own footpaths took all the
