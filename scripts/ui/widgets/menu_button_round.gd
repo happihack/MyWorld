@@ -47,15 +47,10 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var center := size * 0.5
-	var radius := minf(size.x, size.y) * 0.5 - 2.0
-	draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if button_pressed else HomeButton.BACKDROP)
-	draw_arc(center, radius, 0.0, TAU, 48, HomeButton.RING, maxf(radius * 0.05, 2.0), true)
+	HomeButton.draw_round(self, 1, &"menu", button_pressed)
 	if _glow_left > 0.0:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.5 - 7.0
 		var breath := 0.55 + 0.45 * sin(_glow_age * 3.0)
 		var fade := minf(_glow_left, 1.0)
-		draw_arc(center, radius + 5.0, 0.0, TAU, 48, Color(ToolButton.GLOW, 0.7 * breath * fade), maxf(radius * 0.08, 4.0), true)
-	var half := radius * 0.46
-	for row in 3:
-		var y := (row - 1) * radius * 0.32
-		draw_line(center + Vector2(-half, y), center + Vector2(half, y), HomeButton.GLYPH, maxf(radius * 0.11, 3.0), true)
+		HandDraw.chalk_circle(self, center, radius + 7.0, Color(ToolButton.GLOW, 0.7 * breath * fade), UITheme.CHALK_WIDTH * 0.8, 2)

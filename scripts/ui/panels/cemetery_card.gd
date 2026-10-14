@@ -100,10 +100,10 @@ func layout() -> void:
 	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	_scroll.custom_minimum_size.y = 0.0
 	var rest := get_combined_minimum_size().y
-	var room := minf(view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest, LIST_MAX_HEIGHT)
+	var room := minf(view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest, LIST_MAX_HEIGHT)
 	_scroll.custom_minimum_size.y = clampf(_list.get_combined_minimum_size().y, 0.0, maxf(room, LIST_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - size.y)
 
 
 # --- what is said ---------------------------------------------------------------------------------

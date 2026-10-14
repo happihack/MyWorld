@@ -104,8 +104,6 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 			return [WalkToStep.make(water), DrinkStep.make(water)]
 		&"sleep":
 			var home: Variant = ctx.places.home_tile(person)
-			if home == null:
-				return []
 			# Thirsty at bedtime: a drink first — a night's thirst on top of it
 			# and the morning's walk to the water leaves them parched.
 			var steps: Array = []
@@ -113,7 +111,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var water: Variant = ctx.places.water_tile(person.position, ctx.now())
 				if water != null:
 					steps = [WalkToStep.make(water), DrinkStep.make(water)]
-			steps.append_array([WalkToStep.make(home, person.sub_tile_offset), SleepStep.make()])
+			# No hut of theirs (fallen, left behind): they sleep where they are,
+			# in the open, until new ones stand (the owner, 2026-10-14).
+			if home != null:
+				steps.append(WalkToStep.make(home, person.sub_tile_offset))
+			steps.append(SleepStep.make())
 			return steps
 		&"work":
 			var def := ctx.occupations.get_def(person.occupation_id) if ctx.occupations != null else null

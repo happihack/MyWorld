@@ -40,20 +40,14 @@ func _init() -> void:
 
 
 func _draw() -> void:
-	var center := size * 0.5
-	var radius := minf(size.x, size.y) * 0.5 - 2.0
-	draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if button_pressed or open else HomeButton.BACKDROP)
-	draw_arc(center, radius, 0.0, TAU, 48, RED if active else HomeButton.RING, maxf(radius * (0.09 if active else 0.05), 2.0), true)
-	if rested < 1.0 and not active:
-		# How far the world has rested: a ring filling clockwise from the top.
-		draw_arc(center, radius - 6.0, -PI * 0.5, -PI * 0.5 + TAU * rested, 40, Color(HomeButton.RING, 0.9), maxf(radius * 0.06, 2.0), true)
-	var u := radius * 0.5
-	var ink := HomeButton.GLYPH if rested >= 1.0 or active else Color(HomeButton.GLYPH, 0.5)
-	# A warning sign: a triangle, rounded, lightning inside.
-	var top := center + Vector2(0.0, -u * 1.15)
-	var left := center + Vector2(-u * 1.2, u * 0.9)
-	var right := center + Vector2(u * 1.2, u * 0.9)
-	draw_polyline(PackedVector2Array([top, right, left, top]), ink, maxf(u * 0.2, 3.0), true)
-	draw_colored_polygon(PackedVector2Array([center + Vector2(0.12, -0.6) * u, center + Vector2(-0.32, 0.12) * u,
-		center + Vector2(-0.02, 0.08) * u, center + Vector2(-0.16, 0.7) * u, center + Vector2(0.34, -0.06) * u,
-		center + Vector2(0.04, -0.02) * u, center + Vector2(0.24, -0.6) * u]), RED if rested >= 1.0 or active else ink)
+	var ready := rested >= 1.0 or active
+	# Ready, or going on: filled in red-brown, so it still shouts. Resting:
+	# chalk, the glyph faint, a ring filling clockwise as the world recovers.
+	if ready:
+		HomeButton.draw_round(self, 7, &"alert", button_pressed or open, UITheme.CHALK, UITheme.CHALK,
+			UITheme.RED.darkened(0.15) if button_pressed or open else UITheme.RED)
+	else:
+		HomeButton.draw_round(self, 7, &"alert", button_pressed or open, HomeButton.RING, Color(HomeButton.GLYPH, 0.5))
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.5 - 7.0
+		HandDraw.chalk_arc(self, center, radius - 11.0, rested, Color(UITheme.CHALK, 0.9), maxf(radius * 0.06, 2.0), 8)

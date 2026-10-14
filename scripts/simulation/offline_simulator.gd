@@ -589,7 +589,10 @@ func _notable_since(since: int) -> bool:
 ## takes it from here.
 func _settle_people() -> void:
 	for person in _s.people.all_people():
-		person.current_action = {}
+		# (Ended properly, not wiped: whoever was asleep indoors when the player
+		# left is up and to be seen — the owner, 2026-10-14: after a flood and
+		# a time away, most of the people went about unseen for weeks.)
+		_s.behavior.stop(person)
 		var home: Variant = _s.behavior.ctx.places.home_tile(person) if _s.behavior.ctx != null else null
 		if home != null and _s.migration.journeys.is_empty():
 			_s.people.place(person, home, person.sub_tile_offset, person.facing)

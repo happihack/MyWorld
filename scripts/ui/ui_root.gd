@@ -326,11 +326,25 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 	var menu: ContextMenu = CONTEXT_MENU.instantiate()
 	open_panel(menu)
 	menu.setup(UIText.subject_name(what), entries)
-	menu.place_near(anchor, Rect2(Vector2.ZERO, _panel_layer.get_viewport_rect().size))
+	menu.place_near(anchor, clear_of_hud())
 	menu.action_chosen.connect(func(action: StringName) -> void:
 		_tick()
 		context_action.emit(action, target))
 	return menu
+
+
+## The part of the screen a card next to the finger may use: clear of the
+## row of tools at the bottom, and of the column of buttons (and the minimap
+## beside it, on a screen held on its side) at the right.
+func clear_of_hud() -> Rect2:
+	var view := _panel_layer.get_viewport_rect().size
+	var bottom := view.y - (ToolBar.bottom_margin_for(view) + ToolButton.SIZE + CORNER_GAP)
+	var right := view.x
+	if _home_button != null:
+		right = view.x + _home_button.offset_left - CORNER_GAP
+		if _minimap != null and _minimap.anchor_left == 1.0:
+			right = minf(right, view.x + _minimap.offset_left - CORNER_GAP)
+	return Rect2(Vector2.ZERO, Vector2(maxf(right, view.x * 0.5), maxf(bottom, view.y * 0.5)))
 
 
 ## Who the camera follows, and who can be found (top of the screen).
@@ -803,6 +817,12 @@ func show_disasters() -> void:
 	_disaster_bar.reset_size()
 	var button := _disaster_button.get_global_rect()
 	var rest := Vector2(button.position.x - CORNER_GAP - _disaster_bar.size.x, button.get_center().y - _disaster_bar.size.y * 0.5)
+	# On a screen held on its side the button is level with the row of tools:
+	# the disasters would slide out across them. Then they come out above the row.
+	if _tool_bar != null and _tool_bar.visible:
+		var tools := _tool_bar.get_global_rect().grow(CORNER_GAP)
+		if Rect2(rest, _disaster_bar.size).intersects(tools):
+			rest.y = tools.position.y - _disaster_bar.size.y
 	if _bar_slide != null:
 		_bar_slide.kill()
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):
@@ -884,11 +904,26 @@ func _place_corner() -> void:
 		button.offset_bottom = top + side
 		top += side + CORNER_GAP
 	var view := _panel_layer.get_viewport_rect().size if _panel_layer != null and _panel_layer.is_inside_tree() else Vector2.ZERO
-	var map_top := view.y + _minimap.offset_bottom - Minimap.SIDE
-	var lowest := column()[-1]
-	var beside := view != Vector2.ZERO and map_top < lowest.offset_bottom + CORNER_GAP
-	_minimap.offset_right = (lowest.offset_left - CORNER_GAP) if beside else _home_button.offset_right
-	_minimap.offset_left = _minimap.offset_right - _minimap.custom_minimum_size.x
+	# The minimap: held upright, bottom right above the row of tools; on its
+	# side, bottom left (the owner, 2026-10-13: at the right it stood in the
+	# way of the disasters), the cards keeping to its right (UIPanel.left_for).
+	var landscape := view != Vector2.ZERO and view.x > view.y
+	var map_size := _minimap.custom_minimum_size
+	if landscape:
+		_minimap.anchor_left = 0.0
+		_minimap.anchor_right = 0.0
+		_minimap.grow_horizontal = Control.GROW_DIRECTION_END
+		_minimap.offset_left = SpeedControl.EDGE_MARGIN
+		_minimap.offset_right = _minimap.offset_left + map_size.x
+		_minimap.offset_bottom = -ToolBar.LANDSCAPE_BOTTOM_MARGIN
+	else:
+		_minimap.anchor_left = 1.0
+		_minimap.anchor_right = 1.0
+		_minimap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_minimap.offset_right = _home_button.offset_right
+		_minimap.offset_left = _minimap.offset_right - map_size.x
+		_minimap.offset_bottom = -(ToolBar.BOTTOM_MARGIN + ToolButton.SIZE + CORNER_GAP)
+	_minimap.offset_top = _minimap.offset_bottom - map_size.y
 
 
 func _apply_ui_scale() -> void:

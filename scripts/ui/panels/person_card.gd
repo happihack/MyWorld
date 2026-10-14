@@ -72,6 +72,9 @@ var _memories_shown := PackedStringArray()
 ## full card, under the family).
 var _mood_bar: NeedBar
 var _calm_bar: NeedBar
+## The middle of the card, scrolling when the screen is short.
+var _middle_scroll: ScrollContainer
+var _middle: VBoxContainer
 var _health: Label
 var _people: VBoxContainer
 var _people_shown: Array = []
@@ -116,17 +119,22 @@ func _ready() -> void:
 	_people = VBoxContainer.new()
 	_people.name = "People"
 	_family.add_sibling(_people)
-	_actions.add_theme_constant_override(&"separation", 0)
+	_actions.add_theme_constant_override(&"separation", 10)
+	var seed := 40
 	for entry: Array in [[ACTION_OBSERVE, "Observe"], [ACTION_TOUCH, "Touch"], [ACTION_FOLLOW, "Follow"], [ACTION_FOCUS, "Focus"]]:
 		var button := Button.new()
 		button.text = entry[1]
 		button.focus_mode = Control.FOCUS_NONE
+		_chip(button, seed)
+		seed += 1
 		if entry[0] == ACTION_OBSERVE or entry[0] == ACTION_FOLLOW:
-			# On or off: shown by a rim around the word, not by another word
+			# On or off: shown by the chip filled in, not by another word
 			# (five words have to fit in a row).
 			button.toggle_mode = true
 			button.add_theme_stylebox_override(&"pressed", _on_style())
 			button.add_theme_stylebox_override(&"hover_pressed", _on_style())
+			for state: StringName in [&"font_pressed_color", &"font_hover_pressed_color"]:
+				button.add_theme_color_override(state, UITheme.PAPER)
 		button.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_action_pressed.bind(entry[0]))
@@ -135,11 +143,33 @@ func _ready() -> void:
 	var more := Button.new()
 	more.text = "More"
 	more.focus_mode = Control.FOCUS_NONE
+	_chip(more, seed)
 	more.custom_minimum_size = Vector2(0.0, UITheme.TOUCH_TARGET * 0.8)
 	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	more.pressed.connect(func() -> void: set_state(State.HALF if _state == State.FULL else State.FULL))
 	_actions.add_child(more)
 	_buttons[&"more"] = more
+	# The middle of the card (who they are, their needs, their nature, what
+	# they remember) in a scroll of its own: on a short screen (held on its
+	# side, the owner, 2026-10-13) it scrolls rather than run off the top.
+	_middle_scroll = ScrollContainer.new()
+	_middle_scroll.name = "MiddleScroll"
+	_middle_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_middle_scroll.scroll_deadzone = int(UITheme.TOUCH_TARGET * 0.15)
+	_middle_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_middle = VBoxContainer.new()
+	_middle.name = "Middle"
+	_middle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_middle_scroll.add_child(_middle)
+	var at := _about.get_index()
+	_body.add_child(_middle_scroll)
+	_body.move_child(_middle_scroll, at)
+	for node: Control in [_about, _health, _needs, _traits, _memory]:
+		var unique := node.unique_name_in_owner
+		node.get_parent().remove_child(node)
+		_middle.add_child(node)
+		node.owner = self
+		node.unique_name_in_owner = unique
 	get_viewport().size_changed.connect(layout)
 	_apply_state()
 
@@ -326,15 +356,21 @@ func layout() -> void:
 		return
 	var view := get_viewport_rect().size
 	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
-	# The lower part (family, memories) takes the room there is and scrolls
-	# if that is not enough: the card never leaves the screen.
+	# The middle, and the lower part (family, memories), take the room there
+	# is and scroll if that is not enough: the card never leaves the screen.
+	_middle_scroll.custom_minimum_size.y = 0.0
 	_more_scroll.custom_minimum_size.y = 0.0
+	var rest := get_combined_minimum_size().y
+	var room := maxf(view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - EDGE_MARGIN - rest, 0.0)
+	var middle := _middle.get_combined_minimum_size().y
 	if _more_scroll.visible:
-		var rest := get_combined_minimum_size().y
-		var room := view.y - BOTTOM_MARGIN - EDGE_MARGIN - rest
-		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room, MORE_MIN_HEIGHT))
+		var middle_room := clampf(middle, 0.0, maxf(room * 0.45, MORE_MIN_HEIGHT))
+		_middle_scroll.custom_minimum_size.y = middle_room
+		_more_scroll.custom_minimum_size.y = clampf(_more.get_combined_minimum_size().y, 0.0, maxf(room - middle_room, MORE_MIN_HEIGHT))
+	elif _body.visible:
+		_middle_scroll.custom_minimum_size.y = clampf(middle, 0.0, maxf(room, MORE_MIN_HEIGHT))
 	reset_size()
-	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - size.y)
 
 
 # --- what is said about a person ----------------------------------------------------------------
@@ -535,16 +571,18 @@ func _on_action_pressed(which: StringName) -> void:
 	action.emit(which, _person_id)
 
 
-## The look of a button whose action is going on.
+## A chip drawn in ink round an action, a little off level.
+static func _chip(button: Button, seed: int) -> void:
+	var chip := HandDraw.ink_chip(seed, 12.0)
+	for state: StringName in [&"normal", &"hover", &"focus"]:
+		button.add_theme_stylebox_override(state, chip)
+	button.add_theme_font_size_override(&"font_size", UITheme.FONT_BODY - 4)
+	HandDraw.tilt(button, HandDraw.tilt_for(seed, 1.5))
+
+
+## The look of a button whose action is going on: filled in.
 static func _on_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(1.0, 0.82, 0.36, 0.16)
-	style.border_color = StarButton.LIT
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(20)
-	style.content_margin_left = UITheme.BUTTON_PAD
-	style.content_margin_right = UITheme.BUTTON_PAD
-	return style
+	return HandDraw.ink_chip(44, 12.0, true)
 
 
 ## The header is a handle: a tap toggles between the short card and the

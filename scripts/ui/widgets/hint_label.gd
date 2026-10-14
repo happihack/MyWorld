@@ -21,17 +21,17 @@ var _above: Control
 func _init() -> void:
 	theme = UITheme.get_theme()
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pill := StyleBoxFlat.new()
-	pill.bg_color = Color(UITheme.CARD, 0.72)
-	pill.set_corner_radius_all(44)
+	# A chalk bubble over the world, a little off level.
+	var pill := HandDraw.chalk_box(12, UITheme.CHALK_FILL_DARK, UITheme.CHALK, UITheme.CHALK_WIDTH, 52.0)
 	pill.content_margin_left = 44
 	pill.content_margin_right = 44
-	pill.content_margin_top = 18
-	pill.content_margin_bottom = 20
+	pill.content_margin_top = 16
+	pill.content_margin_bottom = 18
 	add_theme_stylebox_override(&"panel", pill)
 	_label = Label.new()
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label.add_theme_font_size_override(&"font_size", FONT_SIZE)
+	_label.add_theme_color_override(&"font_color", UITheme.CHALK)
 	add_child(_label)
 	modulate.a = 0.0
 	visible = false

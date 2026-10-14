@@ -84,7 +84,7 @@ func test_menu_visibility_rules() -> void:
 	_heading(menu, "MENU_PEOPLE").pressed.emit()
 	await wait_frames(1)
 	assert_true(menu.texts().has("Population"), "opened")
-	assert_eq((_heading(menu, "MENU_PEOPLE").get_node("Chevron") as Label).text, "−")
+	assert_near((_heading(menu, "MENU_PEOPLE").get_node("Chevron") as Control).rotation_degrees, 90.0, 0.01, "the chevron turned down")
 	_heading(menu, "MENU_WORLD").pressed.emit()
 	await wait_frames(1)
 	assert_true(menu.texts().has("Map") and not menu.texts().has("Population"), "one open at a time")

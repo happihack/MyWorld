@@ -758,6 +758,12 @@ func _think(person: PersonData, current: StringName) -> Brain.Decision:
 	return decision
 
 
+## Ends what the person is doing, leaving nothing behind (for whoever takes
+## people out of their days from outside: the time away, M20).
+func stop(person: PersonData) -> void:
+	_drop(person)
+
+
 ## Ends what the person is doing, leaving nothing behind.
 func _drop(person: PersonData) -> void:
 	var step_now := current_step(person)

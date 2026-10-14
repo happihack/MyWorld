@@ -9,7 +9,15 @@ signal tool_selected(id: StringName)
 ## Distance of the bar's bottom edge from the bottom of the screen (the same
 ## row as the Home button).
 const BOTTOM_MARGIN := 144.0
+## On a screen held on its side the row sits lower: the buttons of the
+## right-hand column come down to its height otherwise (the owner, 2026-10-13).
+const LANDSCAPE_BOTTOM_MARGIN := 40.0
 const GAP := 24
+
+
+## How far the row's bottom edge is from the bottom of a screen of `view`.
+static func bottom_margin_for(view: Vector2) -> float:
+	return LANDSCAPE_BOTTOM_MARGIN if view.x > view.y else BOTTOM_MARGIN
 ## Room kept free at either side of the screen (the Home button stands in
 ## the same row): with many tools the buttons get smaller rather than run
 ## under it — but never smaller than a finger.
@@ -84,7 +92,7 @@ func place() -> void:
 			button.custom_minimum_size = Vector2(side, side)
 			button.size = Vector2(side, side)
 	reset_size()
-	position = Vector2((view.x - size.x) * 0.5, view.y - BOTTOM_MARGIN - size.y)
+	position = Vector2((view.x - size.x) * 0.5, view.y - bottom_margin_for(view) - size.y)
 
 
 func _on_pressed(id: StringName) -> void:

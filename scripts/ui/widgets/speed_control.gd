@@ -59,11 +59,12 @@ func _init() -> void:
 	_button.draw.connect(_draw_button)
 	_button.button_down.connect(_on_down)
 	_button.button_up.connect(_on_up)
-	_time = _line(UITheme.FONT_BODY, UITheme.INK)
+	# Written by hand over the world: the time large, the date and weather in pencil under it.
+	_time = _line(UITheme.FONT_TITLE, UITheme.CHALK, UITheme.display_font())
 	_time.name = "Time"
-	_date = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
+	_date = _line(UITheme.FONT_SMALL - 4, UITheme.CHALK, UITheme.note_font())
 	_date.name = "Date"
-	_sky = _line(UITheme.FONT_SMALL - 6, UITheme.INK_DIM)
+	_sky = _line(UITheme.FONT_SMALL - 4, Color(UITheme.CHALK, 0.85), UITheme.note_font())
 	_sky.name = "Weather"
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0.0, BUTTON_GAP)
@@ -157,15 +158,19 @@ func resume_speed() -> int:
 
 # --- internals ----------------------------------------------------------------------------------
 
-func _line(font_size: int, color: Color) -> Label:
+func _line(font_size: int, color: Color, font: Font = null) -> Label:
 	var label := Label.new()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_font_size_override(&"font_size", font_size)
 	label.add_theme_color_override(&"font_color", color)
+	if font != null:
+		label.add_theme_font_override(&"font", font)
 	# Readable over grass, water and sky alike.
-	label.add_theme_color_override(&"font_outline_color", Color(0.07, 0.09, 0.12, 0.85))
-	label.add_theme_constant_override(&"outline_size", 10)
+	label.add_theme_color_override(&"font_shadow_color", Color(0.0, 0.0, 0.0, 0.7))
+	label.add_theme_constant_override(&"shadow_offset_x", 2)
+	label.add_theme_constant_override(&"shadow_offset_y", 3)
+	label.add_theme_constant_override(&"shadow_outline_size", 6)
 	add_child(label)
 	return label
 
@@ -191,14 +196,20 @@ func _on_speed_changed(index: int) -> void:
 
 
 func _draw_button() -> void:
-	var size := _button.size
-	var center := size * 0.5
-	var radius := minf(size.x, size.y) * 0.5 - 2.0
 	var paused := _clock != null and _clock.is_paused()
-	_button.draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if _button.button_pressed else HomeButton.BACKDROP)
-	_button.draw_arc(center, radius, 0.0, TAU, 48, LIT if paused else HomeButton.RING, maxf(radius * (0.09 if paused else 0.05), 2.0), true)
-	draw_speed_glyph(_button, center, radius * 0.5, _clock.speed_index if _clock != null else GameClock.SPEED_NORMAL,
-		LIT if paused else HomeButton.GLYPH)
+	var speed := _clock.speed_index if _clock != null else GameClock.SPEED_NORMAL
+	# Paused: the sign to go on, lit. Going: the pause sign; faster, more marks beside it.
+	if paused:
+		HomeButton.draw_round(_button, 4, &"play", _button.button_pressed, LIT, LIT)
+		return
+	HomeButton.draw_round(_button, 4, &"pause", _button.button_pressed)
+	var count := clampi(speed, 1, 3) - 1
+	if count > 0:
+		var center := _button.size * 0.5
+		var radius := minf(_button.size.x, _button.size.y) * 0.5 - 7.0
+		for i in count:
+			var at := center + Vector2(radius * 0.55, -radius * 0.55 + i * radius * 0.3)
+			_button.draw_circle(at, radius * 0.09, HomeButton.GLYPH)
 
 
 ## The sign for a speed, drawn on `canvas` around `center`: two bars for

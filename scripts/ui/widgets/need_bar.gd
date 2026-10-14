@@ -32,18 +32,12 @@ static func color_for(level: float) -> Color:
 	return EMPTY.lerp(LOW, level * 2.0)
 
 
+## Drawn by hand on the paper: a wobbly outline, pencil hatching as far as the
+## value goes — in ink while the need is met, in red once it presses.
 func _draw() -> void:
-	var radius := size.y * 0.5
-	_capsule(Rect2(Vector2.ZERO, size), radius, TRACK)
-	var width := maxf(size.x * value, size.y if value > 0.0 else 0.0)
+	var seed := int(get_index()) + 60
+	var width := maxf(size.x * value, 6.0 if value > 0.0 else 0.0)
 	if width > 0.0:
-		_capsule(Rect2(0.0, 0.0, width, size.y), radius, color_for(value))
-
-
-func _capsule(rect: Rect2, radius: float, color: Color) -> void:
-	# One shape, so that a see-through colour is the same all along.
-	var box := StyleBoxFlat.new()
-	box.bg_color = color
-	box.set_corner_radius_all(int(minf(radius, rect.size.x * 0.5)))
-	box.anti_aliasing = true
-	draw_style_box(box, rect)
+		var pencil := UITheme.INK if value >= 0.5 else UITheme.RED
+		HandDraw.draw_hatch(self, Rect2(3.0, 3.0, width - 3.0, size.y - 6.0), Color(pencil, 0.85), 9.0, 2.6)
+	draw_style_box(HandDraw.chalk_box(seed, Color(0, 0, 0, 0), UITheme.INK, 3.0, size.y * 0.6), Rect2(Vector2.ZERO, size))

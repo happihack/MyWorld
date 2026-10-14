@@ -20,22 +20,4 @@ func _init() -> void:
 
 
 func _draw() -> void:
-	var center := size * 0.5
-	var radius := minf(size.x, size.y) * 0.5 - 2.0
-	draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if button_pressed else HomeButton.BACKDROP)
-	draw_arc(center, radius, 0.0, TAU, 48, HomeButton.RING, maxf(radius * 0.05, 2.0), true)
-	# An open book: two pages leaning away from the spine, a few lines on each.
-	var u := radius * 0.5
-	for side: float in [-1.0, 1.0]:
-		var page := PackedVector2Array([
-			center + Vector2(0.0, -u * 0.62),
-			center + Vector2(side * u * 1.12, -u * 0.86),
-			center + Vector2(side * u * 1.12, u * 0.62),
-			center + Vector2(0.0, u * 0.86),
-		])
-		draw_colored_polygon(page, HomeButton.GLYPH)
-		for row in 3:
-			var y := -u * 0.34 + row * u * 0.36
-			draw_line(center + Vector2(side * u * 0.22, y + u * 0.02), center + Vector2(side * u * 0.9, y - u * 0.13),
-				HomeButton.BACKDROP_PRESSED, maxf(u * 0.09, 2.0), true)
-	draw_line(center + Vector2(0.0, -u * 0.62), center + Vector2(0.0, u * 0.86), HomeButton.BACKDROP_PRESSED, maxf(u * 0.08, 2.0), true)
+	HomeButton.draw_round(self, 5, &"stories", button_pressed)

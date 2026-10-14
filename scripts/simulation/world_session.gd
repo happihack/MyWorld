@@ -789,9 +789,26 @@ func load_from(data: Dictionary) -> bool:
 		ids.reserve_above(setup_ids.peek() - 1)
 	var saved_people: Variant = (state as Dictionary).get("people") if typeof(state) == TYPE_DICTIONARY else null
 	_restore_people(saved_people if typeof(saved_people) == TYPE_DICTIONARY else {})
+	_let_out_the_shut_in()
 	_activate()
 	Log.info(Log.Category.LOAD, "World loaded", {"world_id": world_id, "tick": clock.tick})
 	return true
+
+
+## Nobody saved as "indoors" who is awake and has no hut to be in (a world
+## saved before 2026-10-14 could have them so: the time away wiped a sleep
+## without ending it, and with the huts gone nothing ended it since).
+func _let_out_the_shut_in() -> void:
+	var let_out := 0
+	for person in people.all_people():
+		if not person.has_flag(PersonData.FLAG_INDOORS) or person.pose == PersonData.Pose.SLEEP:
+			continue
+		var home := props.get_prop(person.home_building_id) if props != null else null
+		if home == null or not home.is_building():
+			person.set_flag(PersonData.FLAG_INDOORS, false)
+			let_out += 1
+	if let_out > 0:
+		Log.warn(Log.Category.LOAD, "People saved indoors with no hut to be in, let out", {"count": let_out})
 
 
 ## Tells the world whom the camera is with right now (0 = nobody): staying

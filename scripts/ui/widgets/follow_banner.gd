@@ -151,18 +151,19 @@ func _chip(parent: Control, chip_name: String) -> Button:
 	chip.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 	chip.add_theme_stylebox_override(&"normal", _style(false))
 	chip.add_theme_stylebox_override(&"hover", _style(false))
+	chip.add_theme_stylebox_override(&"pressed", _style(false, true))
+	chip.add_theme_stylebox_override(&"hover_pressed", _style(false, true))
+	for state: StringName in [&"font_color", &"font_hover_color", &"font_pressed_color", &"font_hover_pressed_color", &"font_focus_color"]:
+		chip.add_theme_color_override(state, UITheme.CHALK)
 	chip.add_to_group(InputRouter.UI_BLOCKER_GROUP) # touches here never reach the world
 	parent.add_child(chip)
 	return chip
 
 
-## A chip; lit (a bright rim) while what it says is going on.
-static func _style(lit: bool) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.07, 0.09, 0.12, 0.78)
-	style.border_color = StarButton.LIT if lit else UITheme.RIM
-	style.set_border_width_all(3)
-	style.set_corner_radius_all(int(HEIGHT * 0.5))
+## A chalk chip over the world; lit (a bright rim) while what it says is going on.
+static func _style(lit: bool, pressed: bool = false) -> StyleBoxFlat:
+	var style := HandDraw.chalk_box(14 if lit else 15, UITheme.CHALK_FILL_DARK if pressed else UITheme.CHALK_FILL,
+		StarButton.LIT if lit else UITheme.CHALK, UITheme.CHALK_WIDTH * 0.7, HEIGHT * 0.5)
 	style.content_margin_left = 30.0
 	style.content_margin_right = 30.0
 	return style

@@ -37,18 +37,14 @@ func _ready() -> void:
 	_title.text = MemoryText.translate("CAL_TITLE")
 	_use_current.text = MemoryText.translate("MOTION_USE_CURRENT")
 	# Nothing shows through it (it lies over the settings it was opened from).
-	var card := StyleBoxFlat.new()
-	card.bg_color = Color(UITheme.CARD, 1.0)
-	card.border_color = UITheme.RIM
-	card.set_border_width_all(3)
-	card.set_corner_radius_all(30)
-	card.set_content_margin_all(22)
+	var card := HandDraw.paper_box(23, 22.0)
+	card.bg_color = Color(UITheme.PAPER, 1.0)
 	add_theme_stylebox_override(&"panel", card)
 	for chip: Button in [_use_current, _done]:
 		chip.custom_minimum_size.y = UITheme.TOUCH_TARGET * 0.74
 		chip.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 		for state: StringName in [&"normal", &"hover"]:
-			chip.add_theme_stylebox_override(state, FollowBanner._style(false))
+			chip.add_theme_stylebox_override(state, HandDraw.ink_chip(24))
 	var trough := StyleBoxFlat.new()
 	trough.bg_color = UITheme.LINE
 	trough.set_corner_radius_all(11)

@@ -445,10 +445,19 @@ func ground_position(person: PersonData) -> Vector3:
 	var at := person.world2d()
 	var y := _world.get_height(person.position) * _world.height_step
 	var bridge := props.prop_at(person.position) if props != null else null
-	if bridge != null and bridge.kind == PropData.Kind.BRIDGE and bridge.variant >= PropData.BRIDGE_DONE:
+	var on_deck := bridge != null and bridge.kind == PropData.Kind.BRIDGE and bridge.variant >= PropData.BRIDGE_DONE
+	if on_deck:
 		y = Crossing.deck_y(_world, props, bridge)
 	if person.aboard != 0:
 		y += person.aboard_height # (in a boat: on the water — FB3)
+	elif not on_deck:
+		# In water over their depth (a flood: the owner, 2026-10-14, people
+		# "fell through the land"): they keep their head up, as deep in it as
+		# wading goes, rather than stand on the bed out of sight.
+		var depth := _world.get_water(person.position)
+		var wading := Pathfinder.WADE_DEPTH * _world.height_step
+		if depth > wading:
+			y += depth - wading
 	return Vector3(at.x, y, at.y)
 
 

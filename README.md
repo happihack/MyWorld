@@ -70,6 +70,21 @@ To replace one, put a file named after its id in `assets/audio/sfx/` — e.g.
 `crackle`, `hum`, `chirp`, `chirp_2`, `chirp_3`, `ui_open`, `ui_tap`, `ui_close`, `wind` (loop). Levels and
 haptic strengths are in `data/configuration/feedback_config.tres`.
 
+## The look
+
+The UI is drawn by hand (bible §28.5): the main menu is the painted lid of the box, the HUD is
+chalk over the world, menus and cards are sheets of paper. It is built in code, in three places:
+
+- `scripts/ui/ui_theme.gd` (`UITheme`): the fonts (`assets/fonts/`: Caveat Brush, Patrick Hand,
+  Kalam — SIL OFL), the inks and surfaces (`CHALK`, `INK`, `PAPER`, `LID`…), the sizes, the theme.
+- `scripts/ui/hand_draw.gd` (`HandDraw`): wobbly circles and boxes, paper with tape and ruled
+  lines, hatching, the tilt of a control — everything settled by a seed, so it looks the same each frame.
+- `scripts/ui/hand_icons.gd` (`HandIcons`): the icons as SVG strokes, rasterised when first asked
+  for at a size, coloured when drawn. To add one, add its paths to `PATHS`.
+
+To tune the look: the chalk width is `UITheme.CHALK_WIDTH`, the font sizes are the `FONT_*`
+constants, the colours are the constants at the top of `ui_theme.gd`.
+
 ## Project layout
 
 See `implementation_phases.md` Part D. Key folders: `scripts/` (code by system), `scenes/`, `data/configuration/` (all tunables), `tests/`.
