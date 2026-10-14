@@ -693,7 +693,9 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 	if demand.is_empty() or int(demand["have"]) >= int(demand["wanted"]):
 		return null
 	var taken := _take_up(def.id, int(demand["least"]), now, bool(demand["anywhere"]))
-	if taken == null and def.demand == &"build" and (_roofless() or _homes_need_work()):
+	# (Pressed into building only when nobody builds at all: a second builder is
+	# never pressed — it took the farmer, and the farm a fisher, hour after hour.)
+	if taken == null and def.demand == &"build" and int(demand["have"]) == 0 and (_roofless() or _homes_need_work()):
 		taken = _press_builder(now)
 	return taken
 

@@ -187,8 +187,8 @@ static func describe(session: WorldSession, person: PersonData) -> String:
 	lines.append("%s  %s %d  %s  #%d  tier %d%s" % [person.full_name(), "F" if person.sex == PersonData.Sex.FEMALE else "M",
 		person.age_years(now, year), UIText.occupation_name(person.occupation_id) if person.occupation_id != &"" else UIText.life_stage_name(stage),
 		person.id, person.sim_tier, "  INDOORS" if person.has_flag(PersonData.FLAG_INDOORS) else ""])
-	lines.append(career_line(session, person))
 	lines.append("%s   mood %.2f  stress %.2f  at %s" % [", ".join(UIText.trait_words(person.traits)), person.mood, person.stress, person.position])
+	lines.append(career_line(session, person))
 	for need in mini(person.needs.size(), Needs.COUNT):
 		lines.append("%-8s %s %.2f" % [Needs.NAMES[need], bar(person.needs[need]), person.needs[need]])
 	# What they are doing, and the steps of it.

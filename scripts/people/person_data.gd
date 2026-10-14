@@ -137,7 +137,7 @@ func set_flag(flag: int, enabled: bool) -> void:
 
 
 func to_dict() -> Dictionary:
-	return {
+	var out := {
 		"id": id, "given_name": given_name, "family_name": family_name,
 		"birth_tick": birth_tick, "sex": sex,
 		"health": health, "injuries": injuries.duplicate(true), "conditions": conditions.duplicate(true),
@@ -146,7 +146,6 @@ func to_dict() -> Dictionary:
 		"occupation_id": String(occupation_id), "skills": skills.duplicate(),
 		"household_id": household_id, "home_building_id": home_building_id,
 		"workplace_id": workplace_id, "settlement_id": settlement_id,
-		"mentor_id": mentor_id, "apprentice_trade": String(apprentice_trade), "former_occupation": String(former_occupation), "mastered": mastered.duplicate(),
 		"parents": parents.duplicate(), "children": children.duplicate(), "partner_id": partner_id,
 		"memory_ids": memory_ids.duplicate(), "beliefs": beliefs.duplicate(),
 		"knowledge": knowledge.duplicate(true), "goals": goals.duplicate(true),
@@ -157,6 +156,15 @@ func to_dict() -> Dictionary:
 		"appearance": appearance.duplicate(),
 		"carrying": String(carrying), "carrying_amount": carrying_amount, "food_in_hand": food_in_hand,
 	}
+	# (A career's, only when there is one: F3 — a world's first save stays small.)
+	if mentor_id != 0 or apprentice_trade != &"":
+		out["mentor_id"] = mentor_id
+		out["apprentice_trade"] = String(apprentice_trade)
+	if former_occupation != &"":
+		out["former_occupation"] = String(former_occupation)
+	if not mastered.is_empty():
+		out["mastered"] = mastered.duplicate()
+	return out
 
 
 ## Null if the record is unusable (no id or no place in the world). Everything
