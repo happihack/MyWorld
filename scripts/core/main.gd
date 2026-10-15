@@ -966,6 +966,8 @@ func _on_context_action(action: StringName, target: Picker.Result) -> void:
 			_note_pick(target, session.interactions.tap(target, tools.current_id()))
 		InteractionManager.ACTION_REMOVE:
 			_note_pick(target, session.interactions.uproot(target, tools.current_id()))
+		InteractionManager.ACTION_BREAK:
+			_note_pick(target, session.interactions.break_rock(target, tools.current_id()))
 		InteractionManager.ACTION_READ, InteractionManager.ACTION_VIEW_FAMILY:
 			var resting := session.props.get_prop(target.entity_id) if target != null else null
 			if resting != null and resting.kind == PropData.Kind.CEMETERY:

@@ -154,10 +154,11 @@ func stats() -> Dictionary:
 		"objects_thrown": int(total_of(&"objects_thrown")),
 		"distance_moved": total_of(&"distance_moved"),
 		"trees_uprooted": count(Intervention.UPROOT),
+		"rocks_broken": count(Intervention.BREAK_ROCK),
 		"fruit_shaken": int(total_of(&"fruit_shaken")),
 		"water_moved": total_of(&"water_moved"),
-		# Trees felled, fruit brought down, piles carried off: the world's resources, handled.
-		"resources_manipulated": count(Intervention.UPROOT) + int(total_of(&"fruit_shaken"))
+		# Trees felled, boulders broken, fruit brought down, piles carried off: the world's resources, handled.
+		"resources_manipulated": count(Intervention.UPROOT) + count(Intervention.BREAK_ROCK) + int(total_of(&"fruit_shaken"))
 			+ count(Intervention.MOVE_OBJECT, &"pile"),
 		"rain_made": count(Intervention.MAKE_RAIN),
 		"gusts": count(Intervention.MAKE_WIND),

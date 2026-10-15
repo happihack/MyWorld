@@ -13,6 +13,8 @@ const TOUCH := &"touch"
 const GRAB := &"grab"
 const MOVE_OBJECT := &"move_object"
 const UPROOT := &"uproot"
+## A boulder broken into stones (as a tree is uprooted into a log).
+const BREAK_ROCK := &"break_rock"
 const SCOOP_WATER := &"scoop_water"
 const POUR_WATER := &"pour_water"
 ## The powers over weather and water (M9.5).

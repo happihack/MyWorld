@@ -181,6 +181,12 @@ func play(response: InteractionResponse) -> void:
 			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.7, 0.0), LEAF_FALL)
 			burst(Burst.LEAVES, at + Vector3(0.0, height * 0.4, 0.0), LEAF_FALL)
 			burst(Burst.DUST, at + Vector3(0.0, 0.08, 0.0), dust_color(ChunkData.Terrain.DIRT))
+		InteractionResponse.ROCK_BREAK:
+			# The boulder is gone at once; its stones fly apart in a cloud of rock dust.
+			var rock_dust := dust_color(ChunkData.Terrain.ROCK)
+			burst(Burst.DUST, at + Vector3(0.0, 0.1, 0.0), rock_dust)
+			burst(Burst.DUST, at + Vector3(0.0, maxf(height, 0.3) * 0.6, 0.0), rock_dust)
+			ring(at, 1.4, 0.7, Color(rock_dust, 0.75))
 		InteractionResponse.PERSON_TOUCH:
 			# The touch itself, made visible; what the person makes of it is theirs.
 			ring(at, 0.55, 0.7, PERSON_RING)

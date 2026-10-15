@@ -173,8 +173,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 					return []
 				# Nothing of their own to do: a fallen trunk lying near is
 				# cut up first, whoever they are (wood that is down already),
-				# and the rubble of what fell is cleared, its stone kept.
+				# the stones of a broken boulder carried home, and the rubble
+				# of what fell is cleared, its stone kept.
 				var hauling := _log_work(person, ctx, rng)
+				if hauling.is_empty():
+					hauling = _broken_stone_work(person, ctx)
 				if hauling.is_empty():
 					hauling = _rubble_work(person, ctx)
 				if not hauling.is_empty():
@@ -665,6 +668,21 @@ static func _rubble_work(person: PersonData, ctx: AiContext) -> Array:
 	if stores == null:
 		return []
 	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.salvage(rubble.id, rubble.tile),
+		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
+## A stone of a broken boulder lying near home, carried to the stores while
+## they have room — a load at a time ([]: none, or no room).
+static func _broken_stone_work(person: PersonData, ctx: AiContext) -> Array:
+	if ctx.settlement == null or ctx.places == null or ctx.settlement.stockpile.room(&"stone") <= 0 or person.carrying_amount > 0:
+		return []
+	var stone := _lying_near(person, ctx, func(object: LooseObject) -> bool:
+		return BuildStep.is_broken_stone(object) and object.state == LooseObject.State.RESTING, LOG_REACH)
+	var stores: Variant = ctx.places.storage_tile(&"stone")
+	if stone == null or stores == null:
+		return []
+	var at := Vector2i(stone.position.floor())
+	return [WalkToStep.make(at, stone.position - Vector2(at)), BuildStep.quarry(stone.id),
 		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 
 

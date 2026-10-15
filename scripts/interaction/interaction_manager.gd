@@ -28,6 +28,12 @@ const ACTION_INSPECT := &"inspect"
 const ACTION_TOUCH := &"touch"
 const ACTION_FOCUS := &"focus"
 const ACTION_REMOVE := &"remove"
+## A boulder broken into stones to build with.
+const ACTION_BREAK := &"break"
+## A boulder breaks into this many stones, holding this much stone between
+## them at its ordinary size (more for a bigger one, less for a smaller).
+const BOULDER_PIECES := 4
+const BOULDER_STONE := 12
 ## A grave: who lies there, and their family (M10.3).
 const ACTION_READ := &"read"
 const ACTION_VIEW_FAMILY := &"view_family"
@@ -198,6 +204,8 @@ func apply_intervention(iv: Intervention) -> Intervention:
 			done = _do_touch(iv)
 		Intervention.UPROOT:
 			done = _do_uproot(iv)
+		Intervention.BREAK_ROCK:
+			done = _do_break_rock(iv)
 		Intervention.GRAB:
 			done = _do_grab(iv)
 		Intervention.MOVE_OBJECT:
@@ -260,6 +268,13 @@ func tap(target: Picker.Result, tool: StringName = &"hand") -> InteractionRespon
 ## left lying as a log. Null if the target is not a tree.
 func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
 	var iv := apply_intervention(Intervention.create(Intervention.UPROOT, tool, target))
+	return iv.response if iv.applied else null
+
+
+## Breaks the boulder at `target`: it is gone, and its stone lies about it in
+## pieces for the people to carry off. Null if the target is not a boulder.
+func break_rock(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
+	var iv := apply_intervention(Intervention.create(Intervention.BREAK_ROCK, tool, target))
 	return iv.response if iv.applied else null
 
 
@@ -484,6 +499,42 @@ func _do_uproot(iv: Intervention) -> bool:
 		log.amount = maxi(wood, 1)
 		_motion.drop(log.id, Vector3(cos(heading), 0.0, sin(heading)) * 0.9)
 		response.dropped.append(log.id)
+	iv.response = response
+	iv.position = response.position
+	iv.tile = response.tile
+	iv.target_id = response.entity_id
+	_announce(response)
+	return true
+
+
+func _do_break_rock(iv: Intervention) -> bool:
+	var response := _respond(iv.target, InteractionResponse.Action.TAP, false)
+	var boulder := _loose.get_object(response.entity_id) if response != null and _loose != null else null
+	if boulder == null or boulder.kind != LooseObject.Kind.BOULDER or boulder.state != LooseObject.State.RESTING:
+		iv.rejected = &"not_a_boulder"
+		return false
+	if not _admit(iv, &"rock", Intervention.Severity.MODERATE):
+		return false
+	response.effect = InteractionResponse.ROCK_BREAK
+	response.description = "BOULDER broken at %s" % boulder.tile()
+	var s := boulder.scale()
+	var stone := maxi(roundi(BOULDER_STONE * s * s * s), BOULDER_PIECES)
+	var at := boulder.position
+	_loose.remove(boulder.id)
+	if can_spawn():
+		var rng := _rng.stream(RNG_STREAM)
+		var turn := rng.randf() * TAU
+		for i in BOULDER_PIECES:
+			# (Each with its share of the stone: carried to the stores, or by builders to a site.)
+			var heading := turn + TAU * i / BOULDER_PIECES
+			var piece := _spawn(LooseObject.Kind.ROCK, at + Vector2(cos(heading), sin(heading)) * 0.15, 0.25,
+				rng.randi_range(90, 125))
+			piece.variant = rng.randi_range(0, 1)
+			piece.yaw = rng.randf() * TAU
+			piece.resource = &"stone"
+			piece.amount = stone / BOULDER_PIECES + (1 if i < stone % BOULDER_PIECES else 0)
+			_motion.drop(piece.id, Vector3(cos(heading), 0.6, sin(heading)) * 1.1)
+			response.dropped.append(piece.id)
 	iv.response = response
 	iv.position = response.position
 	iv.tile = response.tile
@@ -776,6 +827,9 @@ func actions_for(target: Picker.Result) -> Array[StringName]:
 		var prop := _props.get_prop(target.entity_id)
 		if prop != null and prop.kind == PropData.Kind.TREE:
 			actions.append(ACTION_REMOVE)
+		var object := _loose.get_object(target.entity_id) if prop == null and _loose != null else null
+		if object != null and object.kind == LooseObject.Kind.BOULDER and object.state == LooseObject.State.RESTING:
+			actions.append(ACTION_BREAK)
 	actions.append(ACTION_FOCUS)
 	return actions
 
@@ -876,6 +930,9 @@ func inspect(target: Picker.Result) -> InspectReport:
 		elif object.kind == LooseObject.Kind.LOG:
 			report.resource = WorkStep.LOG_RESOURCE
 			report.resource_left = WorkStep.log_wood(object)
+		elif BuildStep.is_broken_stone(object):
+			report.resource = &"stone"
+			report.resource_left = object.amount
 	elif animal != null:
 		report.subject = InspectReport.Subject.ANIMAL
 		report.entity_id = animal.id

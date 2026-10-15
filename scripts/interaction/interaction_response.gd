@@ -18,6 +18,7 @@ const RUIN_HUM := &"ruin_hum"
 const LOG_KNOCK := &"log_knock"
 const NUDGE := &"nudge"
 const TREE_UPROOT := &"tree_uproot"
+const ROCK_BREAK := &"rock_break"
 const INSPECT := &"inspect"
 ## A person was touched. (How they take it is theirs to show: M5.3.)
 const PERSON_TOUCH := &"person_touch"

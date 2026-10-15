@@ -153,7 +153,7 @@ static func counters(history: PlayerHistory) -> Array:
 		[MemoryText.translate("HISTSTAT_PEOPLE"), int(stats["people_touched"])],
 		[MemoryText.translate("HISTSTAT_OBJECTS"), int(stats["objects_moved"])],
 	]
-	for key: String in ["rain_made", "gusts", "ground_carved", "trees_uprooted"]:
+	for key: String in ["rain_made", "gusts", "ground_carved", "trees_uprooted", "rocks_broken"]:
 		if int(stats.get(key, 0)) > 0:
 			out.append([MemoryText.translate("HISTSTAT_" + key.to_upper()), int(stats[key])])
 	return out

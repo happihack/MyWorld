@@ -477,6 +477,8 @@ static func action_label(action: StringName, touch_effect: StringName = &"") -> 
 			return "Look closer"
 		InteractionManager.ACTION_REMOVE:
 			return "Uproot"
+		InteractionManager.ACTION_BREAK:
+			return "Break"
 		InteractionManager.ACTION_READ:
 			return "Read"
 		InteractionManager.ACTION_VIEW_FAMILY:

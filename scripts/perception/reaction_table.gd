@@ -56,6 +56,7 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"knock": [0.3, 0.3, 5.0, true, false, false],
 	&"tree_shaken": [0.38, 0.38, 6.5, true, false, true],
 	&"tree_uprooted": [0.95, 0.95, 11.0, true, true, false],
+	&"rock_broken": [0.85, 0.85, 10.0, true, true, false],
 	&"water_disturbed": [0.3, 0.3, 5.0, true, false, true],
 	&"object_lifted": [0.45, 0.8, 8.0, true, false, false],
 	&"object_moved": [0.5, 0.9, 9.0, true, false, false],

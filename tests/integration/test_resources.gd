@@ -908,6 +908,70 @@ func test_an_uprooted_tree_is_cut_up_for_wood() -> void:
 	assert_eq(int(Planner.plan(&"work", cutter, ctx)[1].get("log", 0)), placed.id, "the player's too (the owner, 2026-10-05: logs lay unused)")
 
 
+func test_a_broken_boulder_is_carried_home_as_stone() -> void:
+	# (The owner, 2026-10-15: a boulder turned to stone, as a tree is uprooted to a log.)
+	_set_hour(8.5)
+	var carrier := _calm(_adult(&"woodcutter"))
+	_only([carrier])
+	_gathering_only()
+	var home: Variant = ctx.places.home_tile(carrier)
+	var boulder := LooseObject.new()
+	boulder.id = session.ids.next_id()
+	boulder.kind = LooseObject.Kind.BOULDER
+	boulder.position = Places.middle_of((home as Vector2i) + Vector2i(3, 1))
+	assert_true(session.loose.add(boulder))
+	var target := Picker.Result.new()
+	target.kind = Picker.Kind.ENTITY
+	target.entity_id = boulder.id
+	target.tile = boulder.tile()
+	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_BREAK)
+	assert_eq(UIText.action_label(InteractionManager.ACTION_BREAK), "Break")
+	var response := session.interactions.break_rock(target)
+	assert_not_null(response)
+	assert_eq(response.effect, InteractionResponse.ROCK_BREAK)
+	assert_null(session.loose.get_object(boulder.id), "the boulder is gone")
+	assert_eq(response.dropped.size(), InteractionManager.BOULDER_PIECES)
+	var stone := 0
+	for id in response.dropped:
+		var piece := session.loose.get_object(id)
+		assert_eq(piece.kind, LooseObject.Kind.ROCK)
+		assert_true(BuildStep.is_broken_stone(piece))
+		stone += piece.amount
+	assert_eq(stone, InteractionManager.BOULDER_STONE, "its stone lies in its pieces")
+	assert_eq(session.interactions.history.stats()["rocks_broken"], 1)
+	for n in 200: # (they fly apart, and come to rest)
+		session.loose_system.step(0.05)
+	var first := session.loose.get_object(response.dropped[0])
+	var looked := Picker.Result.new()
+	looked.kind = Picker.Kind.ENTITY
+	looked.entity_id = first.id
+	looked.tile = first.tile()
+	var report := session.interactions.inspect(looked)
+	assert_eq([report.resource, report.resource_left], [&"stone", first.amount], "the card says what is in it")
+	assert_false(session.interactions.actions_for(looked).has(InteractionManager.ACTION_BREAK), "a stone is not broken again")
+	# (A boulder bursting apart is a sight: what they make of it, first.)
+	_run(40.0)
+	carrier.carrying = &""
+	carrier.carrying_amount = 0
+	# Someone with nothing of their own to do carries it home, a load at a time.
+	var steps := Planner._broken_stone_work(carrier, ctx)
+	assert_eq(steps.size(), 4, str(steps))
+	assert_eq([steps[1]["type"], steps[3]["type"]], ["quarry", "store"])
+	behavior.set_plan(carrier, &"work", &"purpose", steps, 2.0)
+	var waited := 0.0
+	while session.stored(&"stone") == 0 and waited < 300.0:
+		_run(1.0)
+		waited += 1.0
+	assert_eq(session.stored(&"stone"), mini(InteractionManager.BOULDER_STONE / InteractionManager.BOULDER_PIECES,
+		ctx.carry_capacity(&"stone")), "a load in the stores")
+	# Nothing else is broken: a tree, the ground.
+	var tree := _near(PropData.Kind.TREE)
+	target.entity_id = tree.id
+	target.tile = tree.tile
+	assert_null(session.interactions.break_rock(target))
+	assert_not_null(session.props.get_prop(tree.id))
+
+
 # --- over days ---------------------------------------------------------------------------------------
 
 func test_a_week_of_gathering() -> void:

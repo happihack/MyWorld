@@ -15,6 +15,8 @@ const GROUND_TOUCHED := &"ground_touched"
 const KNOCK := &"knock"
 const TREE_SHAKEN := &"tree_shaken"
 const TREE_UPROOTED := &"tree_uprooted"
+## A boulder burst apart by itself.
+const ROCK_BROKEN := &"rock_broken"
 const WATER_DISTURBED := &"water_disturbed"
 ## Something rose into the air / came down somewhere else.
 const OBJECT_LIFTED := &"object_lifted"
@@ -50,7 +52,7 @@ const TOLD := &"told"
 
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
-	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS]
+	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -140,6 +142,8 @@ static func type_for(iv: Intervention) -> StringName:
 			return GROUND_TOUCHED
 		Intervention.UPROOT:
 			return TREE_UPROOTED
+		Intervention.BREAK_ROCK:
+			return ROCK_BROKEN
 		Intervention.GRAB:
 			return OBJECT_LIFTED
 		Intervention.MOVE_OBJECT:

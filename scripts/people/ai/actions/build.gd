@@ -53,8 +53,16 @@ static func quarry(object_id: int) -> Dictionary:
 	return {"type": String(QUARRY), "object": object_id, "minutes": HANDLING_MINUTES * 2.0, "elapsed": 0.0}
 
 
-## How much stone a loose stone is (by its weight; at least one unit).
+## A stone of a broken boulder: it holds `amount` stone, taken a load at a time.
+static func is_broken_stone(object: LooseObject) -> bool:
+	return object != null and object.kind == LooseObject.Kind.ROCK and object.resource == &"stone" and object.amount > 0
+
+
+## How much stone a loose stone is (by its weight; at least one unit) — a
+## broken boulder's, what is left of it, as much as can be carried.
 static func stone_units(object: LooseObject, ctx: AiContext) -> int:
+	if is_broken_stone(object):
+		return mini(object.amount, ctx.carry_capacity(&"stone"))
 	var def := ctx.resources.get_def(&"stone") if ctx.resources != null else null
 	var weight := def.weight if def != null else 8.0
 	return clampi(roundi(object.mass() / maxf(weight, 0.1)), 1, ctx.carry_capacity(&"stone"))
@@ -136,8 +144,13 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			var object := ctx.loose.get_object(int(step.get("object", 0))) if ctx.loose != null else null
 			if object == null or not STONES.has(object.kind) or (person.carrying_amount > 0 and person.carrying != &"stone"):
 				return Status.FAILED # (someone else took it, or the player did)
-			var units := stone_units(object, ctx)
-			ctx.loose.remove(object.id)
+			var units := mini(stone_units(object, ctx), ctx.carry_capacity(&"stone") - person.carrying_amount)
+			if units <= 0:
+				return Status.FAILED
+			if is_broken_stone(object) and object.amount > units:
+				object.amount -= units # (the rest lies there for the next load)
+			else:
+				ctx.loose.remove(object.id)
 			person.carrying = &"stone"
 			person.carrying_amount += units
 			return Status.DONE
