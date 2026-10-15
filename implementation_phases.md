@@ -2324,7 +2324,42 @@ The full plan, audit and caveats: `fishing_and_boats_plan.md` (bible §18.2a). *
 - [x] **FB4 Fishing from boats** — out to good water, fish, home before storms; rare swamping (D1); offline rates. *(BoatStep; out only when there is water worth going to; drowning only in a storm on high water, 5% of the swamped. Soaks 2026-10-07, 20 yrs × seeds 2/3/12345 and 8 yrs × 12345: boats built and used — about 1.4 real trips a day — none lost. Phone check 2026-10-07 → boats drawn bigger, moored at real water, floating with the river, gliding smoothly, the crew seated in them (no legs, no walking). Fish as food: a river held one fish per 5 water tiles — about two berry bushes' worth for a village; now one per tile; a boat holds a catch (canoe 10) carried in from the landing; one fisher more per 10 people (up to 4) while the water is not fished down. Soaks: 200–450 fish a year where it was ~77.)*
 - [x] **FB5 Gear** — nets as things in the stores, a fisher's work to make (wood fibre, 2 wood, at the rack or the fire; one wanted for each fisher): the catch bonus only with a net in store, and nets wear out with the fish they take (about 40; twice that where a rack stands). A **net rack** on the bank once nets are known and someone fishes. A **fish trap** at the bank for a settlement that fishes without boats (no landing): fills by itself, 3 fish a day up to 8 (none on frozen water), out of the fish of the water before it; a fisher empties it first, and the time away empties it into the stores. *(FishGear; prop kinds NET_RACK, FISH_TRAP; resource nets. Not built: smoking fish — there is no smokehouse yet (buildings plan W1).)*
 - [x] **FB6 Crossing & carrying** — **ferries**: from a landing with a boat, straight over at most 12 tiles of water to dry land that cannot be walked to, a way in the pathfinder; whoever walks that way is taken over seated in the landing's boat (at 0.6 of a walk), which then paddles home empty; stopped halfway, they are put across. The bridge planner still sees the land as cut off (it looks on foot), so a bridge comes once the settlement is strong enough (D4). **Trade by water**: when both settlements have a landing and a boat is tied up at home, and the way by water is no more than 1.5 times the walk, the trader loads twice as much, goes by boat, the boat waits at the other landing (fetched home after a day if nobody comes back), and home the same way. **Migration by water**: of a group setting out, one person to each boat tied up at home, when the water reaches near the new place about as quickly as the walk; the boat comes home empty. *(Pathfinder.set_ferries, MovementSystem.ferry_ride, BoatSystem.ride / refresh_ferries / wait_at / water_minutes, BoatStep.voyage / voyage_to_bank, BoatData.State.AWAY. Not built: rafting logs and stone to a site downriver — building sites lie within 11 tiles of the fire, so it would never come up; a second landing on the far bank (the ferry works without one); trade routes by water drawn along the river on the map. Trade is not lived while away, so neither is trade by water.)*
-- [ ] FB7 Far shore · FB8 The hand · FB9 History & tuning.
+**Still open from FB1–FB6** (checked against the code, 2026-10-14):
+- [ ] **FB1 — a fish shadow under a boat** (the plan's "seeing fish": rings and jumping fish are built; the shadow under a boat out fishing is not).
+- [x] **FB4 — a boat out handed to a second fisher** — fixed 2026-10-14: only a boat tied up at the landing is handed out (two in one boat, setting out together, is still to do).
+- [ ] **FB4 — two fishers in one boat.** `boat_to_take` will hand a boat that is already out (with room) to a second fisher, who then boards it from the landing while it lies out on the water. Either let two set out together from the landing (one plan, both aboard before it leaves), or never hand out a boat that is out.
+- [ ] **FB4 — boats far from the camera move in coarser steps** (like people's tier 2): not built; every boat out paddles at full rate.
+- [ ] **FB5 — smoked fish:** fish preserved at a smokehouse, so fishing settlements can feed more people (waits for BV W1's smokehouse and `preserved_food`).
+- [ ] **FB5 — nets of fibre or cloth** instead of wood, once fibre / cloth exist (BV W2).
+- [ ] **FB6 — rafting logs and stone downriver** to a building site, a builder's choice (only worth it once sites can lie far from the fire: a second landing, BV W6's mine, a far quarry).
+- [ ] **FB6 — a second landing on the far bank** of a ferry (the ferry works without one; it would give the far bank a place to wait and a boat's berth).
+- [ ] **FB6 — trade routes by water drawn along the river on the map** (today a route is a straight line between settlements whichever way the trader went).
+- [ ] **FB6 — ferries as a choice in the planner** (D4 says the planner weighs ferry against bridge; today a ferry simply appears where a landing faces cut-off land, and the bridge comes when the settlement is strong enough — no weighing of cost or use).
+- [ ] **C1 — narrow water:** a "wait for the way to clear" rule where the river is too narrow for two boats to pass, and a cap on how many boats are out at once per stretch.
+- [ ] **C5 — the phone benchmark with boats out** (several fishing boats, a ferry crossing, a trade voyage on screen at 16×).
+
+- [ ] **FB7 — The far shore and open water** (about 2 sessions; needs a lake or coastal template — D3: later)
+  - [ ] **A lake or coastal box template** (bible: *Coastal Plain*, flat land along a wall-side sea): world generation, its golden checksums, a generator version bump; deep water for fishing out of sight of land.
+  - [ ] **Sail driven by the wind:** the weather's wind direction and strength move a sail boat; good across or with the wind, poor into it (no tacking). Today SAIL only changes speed, draught and the catch factor.
+  - [ ] **Deep-water fishing** from plank boats and sail boats: cells beyond the reach of a paddled boat, richer, and more dangerous in storms.
+  - [ ] **Exploration by water:** explorers who go by boat find regions across the water (FogOfKnowledge), and see the far wall of the box from the water (the Edge, M29).
+  - [ ] Without a lake or sea, sail helps only on the ponds (D3) — make sure nothing assumes open water.
+  - [ ] **Tests:** sailing with and against the wind; a region found by boat; deep-water catch and swamping odds.
+
+- [ ] **FB8 — The player's hand** (about 1 session)
+  - [ ] **Tap a boat:** it rocks; those aboard react (startled, or a sign, as a touch on a person) — today a boat has no touch response (it is not a prop).
+  - [ ] **The water tool rocks boats:** waves and pouring rock what floats near; a big wave may swamp a boat (the existing `swamp`), the crew ashore as in a storm.
+  - [ ] **Lift a boat — empty, moored boats only** (D2): picked up like a log, put down anywhere; a boat set on land is stranded (AGROUND) until the builder or fisher brings it back. Never one with people in it.
+  - [ ] **Follow a fisher in a boat:** check that follow mode keeps the camera on someone aboard (seated, moving with the boat) and on a ferry ride; fix if not.
+  - [ ] **A boat card:** its kind, the landing it belongs to, who built it and when, its condition, trips, catch, who has fished from it, what it carried (trade voyages), where it is now (moored / out / away / drifting / aground).
+  - [ ] **Tests:** taps, waves (rock and swamp), the lift rules (moored and empty only), the card's lines.
+
+- [ ] **FB9 — History, statistics, tuning** (about 1 session + soaks)
+  - [x] *(Already told: a boat built, swamped (and who drowned), carried off, fallen apart; the bad fishing year; the spring fish run.)*
+  - [ ] **Events still to tell** (significant ones only, not every trip): the **first boat out** on the water (the first trip of a settlement's first boat — `boat_built` has no "first" today); a **great catch** (a boat's haul far above the usual); the **first ferry crossing**; the **first trade by water**; the **first group to move by water**; the first crossing to the far shore (FB7).
+  - [ ] **Named boats** in history once they matter (many trips, a great catch, survived a storm, carried a founding group): a name from the lexicon or its builder, kept like a building record (BV F5), shown on the boat card.
+  - [ ] **Statistics:** fish caught, boats, trips, ferry crossings, trade voyages, a year at a time; fishing on the Economy / Agriculture page.
+  - [ ] **Tuning and soak:** fishing settlements emerge (a settlement's specialty); fish a real share of food; growth benefits (population option 8). Five seeds × 100 years; offline parity of catch; the phone benchmark with boats out (C5).
 
 ---
 
@@ -2339,7 +2374,111 @@ The full plan: `buildings_villagers_implementation_plan.md` (from `buildings_pla
 - [x] **F4 Planner** — needs are scored: each its weight (the old order: home 100 … fish trap 38), +6 with its materials in store, ±8 by what the settlement values (its culture's innovation for craft and knowledge, piety for faith, collectivism for what is shared). How many a settlement keeps (`limit_per_settlement`, `per_people`) and how big it must be (`min_population`, `min_tier`) come from the data (the landmarks, workshop, landing, net rack and fish trap read it — same limits as before). Two buildings (besides homes) at once once there are two builders or 20 people, and staffing wants a builder for each (up to two). **Upgrades**: a building whose `upgrade_of` names one that stands is built in its place (`ConstructionSystem.UPGRADE`): the old one works on until it is done, then is that building — same id, its record carried over ("rebuilt"), told in history. *(No upgrade buildings in the data yet: W1's granary is the first. Not yet: decay re-tuned and the ruins-vs-built soak target.)*
 - [x] **F6 Events** — the first apprentice of a trade in a settlement; a master made (once a person and trade); an expert or master giving up their trade in old age; a trade lost (the last skilled holder of a staffed trade dies, nobody else in it, nobody learning it); a building come to a name ("People call it the Old Storehouse now"); a building upgraded. Significant ones only (not every apprenticeship). *(Not yet: trade split / merged — with F2 step 2.)*
 - [x] **F8 Debug & tests** — the AI inspector's career line (trade, level and skill, mentor and what they learn, whom they teach, the trade given up, what they are master of) and two buttons: Trade (the next trade open to them) and Apprentice (take an adolescent on now); the overlay's staffing section (each staffed trade held / wanted, per settlement; building records kept). The building card tells the record (F5). *(Not yet: buttons to finish or ruin a building.)*
-- [ ] F7 Save & offline (the new person fields and records are saved and default when missing; no save-version bump yet; offline: apprentices learn by the day as the lifecycle runs away too)
+- [ ] **F2 Staffing — step 2: the new behaviour** (after the step-1 regression round proves step 1 identical)
+  - [ ] **Demand per trade from posted work:** what the job board posts that the trade can do, its workplaces' free slots (`BuildingDef.workers`), and a need score (food days for the food trades, the tool level for craft, builds waiting for build) — in place of today's hand-written rules in `Settlement.demand_of` (`fish_near`, `farmers_wanted`, `craft_wanted`, `_homes_need_work`).
+  - [ ] **Supply:** who holds the trade and how busy they were (work minutes over the last days — already measured for the offline rates).
+  - [ ] **Inertia (§15):** change trade only when demand stays above supply for N days; prefer the unemployed, apprentices and those with time to spare; someone of skill ≥ 0.6 never leaves their trade for a one-off need.
+  - [ ] **Choice (§13):** the best suited by traits (`affinity`), skill, the family's trade (§43, a pull, never forced) and a mentor at hand; today's `_take_up` ("from the trade with the most people, which keeps at least one") as the tiebreak.
+  - [ ] **Generalist first, specialist by demand (§60–63):** a trade **splits** off its family (OccupationDef.family) when the family's posted work keeps more than one person busy for a season, and **merges** back when it does not.
+  - [ ] **Run on events too:** a building finished or ruined, someone died, came of age or arrived — not only once an hour.
+  - [ ] **Events:** `trade_split`, `trade_merged` (F6's missing pair), first-of-a-trade only.
+  - [ ] **Soak:** a round on the new behaviour against the step-1 baseline: trade mix, population, food.
+- [ ] **F3 Careers — what was left**
+  - [ ] **`danger` feeds the mishaps:** the occupation's danger (woodcutter 0.3, hunter 0.4, builder 0.25 …) scales the work-accident chance (today every trade has the same).
+  - [ ] **Lighter work for elders who keep their trade:** fewer work hours, more teaching (TEACH acts with apprentices and the young), more fire stories.
+  - [ ] **Apprentices at work:** today they keep by their mentor through a socialize step; a "help" step at the mentor's own work (carrying, holding, a stroke now and then).
+  - [ ] **Mastery has effects beyond accidents and teaching:** a master's work a little faster or better (catch, yield, build strokes) — modest, through the existing skill multipliers.
+  - [ ] **Retirement told and remembered:** the person card shows "was a woodcutter" (former_occupation) and their mastery; stories at the fire draw on it.
+- [ ] **F5 Building records — what was left**
+  - [ ] **Names from the lexicon and from history** ("the Flood Granary", "the Weavers' Hall"), not only First / Old / a builder's name; prefer emergent names (Phase 33).
+  - [ ] **A building's own events in the history:** a record lists the events that happened at it (event ids), and a story can begin there.
+  - [ ] **Significance:** from age, events at it, generations of one family working it, disasters survived and player touches; `historic` buildings always kept.
+  - [ ] **Discover, not shown everything (Phase 14):** the card reveals a record's lines as the player looks again, not all at once.
+  - [ ] **Homes:** a home of note (three generations born there, a leader's home) gets a record too.
+- [ ] **F7 Save & offline**
+  - [x] *(Done in passing: the new person fields — mentor, apprentice trade, former trade, trades mastered — and building records are saved, written only when set, and default when missing; apprentices learn by the day away too, the lifecycle running away as on screen.)*
+  - [ ] **A save-version bump with a migration test** for the foundation (plan: one bump per wave): a v28 save loads with careers empty and no records; old occupation ids stay valid forever (unknown ones fall back to the family's generalist).
+  - [ ] **Offline staffing** runs daily as on screen (it does through `Settlement.step`, check after step 2), **upgrades** and **building records** advance away (records' worker-days need `advance_to` in the away days — verify).
+  - [ ] **Offline recipes:** every recipe (W1 on) lived per day-step, inputs → outputs, capped by the stores; each new trade a measured day-rate (the M20 way: a two-year soak per trade); new trades added to the offline / realtime parity test.
+- [ ] **F8 Debug — what was left**
+  - [ ] **Buttons to finish or ruin a building** (inspector on a building: finish now, damage, ruin).
+  - [ ] **A building inspector:** its workers and their days, its recipe and stock, its influence radius drawn, its record and significance.
+  - [ ] **A settlement inspector page:** demand against supply per trade (the overlay line made a page), splits and merges, apprentices and their mentors.
+- [ ] **Foundation exit:** the 11 trades run through staffing with unchanged soak results (step 1 round) · elders keep their trades · apprentices appear in 300-year soaks · building records and names show on cards · no new per-frame cost in the overlay profile on the phone.
+- [ ] **F4 — still to do:** **decay re-tuned** so a village keeps up with its repairs, and the **soak target: no more ruins than buildings built over 300 years**; **repair before new work** when a building's condition drops (today repairs start on damage but compete with new builds); **maintenance** (`BuildingDef.maintenance`) for the buildings that declare it; the planner reads `site` (rock, forest edge, field edge, high ground) when choosing where.
+
+**Population (D7: before W2).** Mostly done by PG.1–PG.5 and the 2026-10-12 changes: worlds now hold 126–183 people, every settlement a village, towns in 2 of 6 (r5 round). Still open:
+- [ ] **Hunger at the end of long runs** (every r5 world ends with ≤ 1.2 days of food; seed 2026 starves after a flood in year 200): a famine reserve or fields off flooded ground, or births held while rationing — the owner's choice (2026-10-13 report).
+- [ ] **Towns that last:** the two towns of r5 fell back under 60; nothing keeps a settlement of 60 together.
+
+**Content waves** — each ends with a soak proving its buildings and trades appear unaided in ordinary worlds (≥ 3 of 5 seeds by year 300), and its problem eases. One procedural mesh, a prop kind, names and texts, a card line, offline rates and tests for each building; a pile mesh, spoilage, store routing, trade, offline rate, icon and text for each resource.
+
+- [ ] **W1 — Survival & food** (camp / hamlet, 8–30 people; about 4–5 sessions)
+  - [x] **Granary** — built 2026-10-14: an upgrade of the storehouse (`upgrade_of`, F4) once a farming settlement of 15+ has two farmers; 120 room (the storehouse 60); food kept there spoils half as fast (`Settlement.GRANARY_KEEPS`); counts as the store everywhere (`PropData.STORES`, places, the settlement age).
+  - [ ] **Root cellar / storage pit** — the storehouse's look by culture (a variant, not a kind: `BuildingDef.variants`).
+  - [x] **Smokehouse** — built 2026-10-14: wanted once 20 meat or fish have come in of late (8+ people); its recipe 3 fish or 3 meat + 1 wood → 3 smoked food, an hour's work; worked by the **cook**.
+  - [ ] **Drying rack** (optional) — a cheap smokehouse for camps.
+  - [x] **Seed store** — built 2026-10-14 (agriculture, 10+ people, fields): the seed is held back for two days of empty stores (not eaten at once), and floods take no grain below the seed kept. *(Not yet: crop varieties lost with it.)*
+  - [ ] **Herbal garden** — an upgrade of the herb rack.
+  - [ ] **Orchard** — planted trees that bear fruit only after years (the vegetation system's saplings); `fruit` as food.
+  - [ ] **Quarry** — renewable stone at a rock outcrop (`site = rock`); today builders break stone where they find rocky ground (`BuildStep.QUARRY`), with no building.
+  - [x] **Cook** (food_prep family, kept into old age) — built 2026-10-14: taken up (staffing order 8, demand `cook`) when a smokehouse stands with something to smoke; works the recipe; the job board posts the work; away, six batches a day as the stores allow.
+  - [x] **The cook's meals** — built 2026-10-14: where someone cooks, a meal from the stores feeds 15% more (`Settlement.COOKED`), on screen and away. *(Not yet: a cooked meal at the fire as a gathering of its own.)*
+  - [ ] **Trades:** **herbalist / healer** (a forager-family specialist using the existing heal); **quarry worker** (builder family; merges back into builder in small camps).
+  - [x] **`preserved_food`** — built 2026-10-14 ("smoked food"): nutrition 1.3, keeps 24 days (a year), a pile of its own.
+  - [ ] **`fruit`** (orchards).
+  - [ ] **Techs:** none new, or a "smoking" tech if wanted (D5).
+  - [x] **The generic craft step** — built 2026-10-14 (`Recipes`: work_for / next_step / make; `Planner._recipe_work` → `TradeStep.craft` with a recipe; the offline day `_recipes`). The step a recipe needs (F1 recipe → one `ActionStep`: take the inputs at the stores, work N minutes at the workplace, put the outputs in the stores — as the toolmaker's workshop and FB5's net making work today).
+  - [ ] **Exit:** a smokehouse appears in fishing worlds, a granary in farming worlds; fewer `food_shortage` events than the r5 round. *(The soak reports them: `SOAK food buildings`.)*
+- [ ] **W2 — Crafts & processing** (village, 30–100; about 6–8 sessions)
+  - [ ] **Kiln gets a potter:** clay → `pots`; pots raise storage (the existing `store_more` action). Clay is `defined_only` today: something must yield it (a clay pit at a river bank).
+  - [ ] **Carpenter's shop** (or a workshop upgrade): wood → `planks`, which upgraded buildings cost.
+  - [ ] **Mason's yard:** stone → `cut_stone`, for stone buildings and paved roads.
+  - [ ] **Quern → mill:** grain → `flour` (a hand quern first; the watermill with mechanics, W6).
+  - [ ] **Bakery:** flour + wood → `bread` (better food value).
+  - [ ] **Weaver's hut:** `fibre` → `cloth`; fibre a new wild plant (reeds / flax) or W4's wool. **Weaving implemented properly** (today it only dyes clothes).
+  - [ ] **Tailor:** cloth / hide → `clothing`, which lessens cold exposure (the exposure system exists).
+  - [ ] **Trades:** potter, carpenter, mason, miller, baker, weaver, tailor — each starting inside its family's generalist (craftsperson / builder / food_prep) and splitting off by demand (F2 step 2).
+  - [ ] **Resources:** pots, planks, cut_stone, flour, bread, fibre, cloth, clothing. **Stores routing** for processed goods (a "goods" category → workshop / storehouse); spoilage, food value and eating know processed food.
+  - [ ] **Techs:** masonry / carpentry as gates only if wanted (D5).
+  - [ ] **Exit:** at least one split (e.g. potter from craftsperson) in a 300-year soak; the village age in 3 of 5 seeds.
+- [ ] **W3 — Social & knowledge at village scale** (30–100; about 4 sessions; D2: 2×2 buildings from here)
+  - [ ] **Village square** — an upgrade of the campfire: more room for dance, stories and festivals.
+  - [ ] **Meeting house** — the leader and a council gather (governance).
+  - [ ] **Festival ground** — a place for the festivals that already happen.
+  - [ ] **School hut** — children's play mornings become lessons: `Knowledge.teach` from an elder or teacher to children, at a place.
+  - [ ] **Archive** — an upgrade of the record stone: knowledge kept after deaths (the existing rule) more strongly.
+  - [ ] **Trades / roles:** **teacher** (elder-friendly, `elder_keeps`); **storyteller** (an evening role, not a day job; draws on StoryEngine's told stories, retellings drift through the existing reinterpretation); **scribe** (writing; keeps records, feeds the archive).
+  - [ ] **Exit:** children taught at school learn measurably faster (test); storytellers retell real stories (test); records lessen knowledge lost at deaths (soak).
+- [ ] **W4 — Livestock** (village; implements `animal_husbandry`; about 5–6 sessions; D8: after W2 / W3)
+  - [ ] **Domestic species** as SpeciesDefs with `tame = true`: goat, sheep, chicken, cattle; born in pens; tamed from the wild herds (the existing herd system). Meshes and animation.
+  - [ ] **Buildings:** pen (one def, a variant per species), coop, later barn (a storage variant for fodder) and stable.
+  - [ ] **Trades:** herder (one trade, its animal by the pen); butcher (splits from hunter or herder by demand).
+  - [ ] **Resources:** milk, eggs, wool (→ W2 weaving), hides (also from hunting — `hide` exists), manure (raises soil fertility; the soil system exists).
+  - [ ] **AI and cost:** grazing inside a fence, herd growth offline; animals moved as herds, not per-animal AI (§6).
+  - [ ] **Exit:** pens appear where game is scarce and grain plenty; herds stable over 100 years.
+- [ ] **W5 — Faith, government, health, defence** (village / town; about 5–6 sessions)
+  - [ ] **Faith:** temple (a shrine upgrade at piety and believers ≥ N); priest (today's "one who speaks for the myth" made a trade); ritual visits to the shrine / temple (a `visit` activity like `visit_grave`).
+  - [ ] **Government:** chief's house (the leader's hut, a variant); council hall (town); a judge at disputes (from conflicts).
+  - [ ] **Health:** healer's hut (the sick rest there and heal faster); quarantine (the ill of a crowded roof kept apart — changes how illness spreads); midwife only if childbirth carries a risk (it does not today: C9).
+  - [ ] **Defence, light only (D3):** palisade / watchtower where raids happened (the conflict history); a guard role (ties to FC6's open guards on war days).
+- [ ] **W6 — Town scale** (100–500; needs M21 first)
+  - [ ] Market and merchant (a trade upgrade: exchange within a settlement); tavern / inn — or a meal hall without drink (D4).
+  - [ ] Granary networks; watermill / windmill (mechanics); irrigation canals (dug with the water sim).
+  - [ ] Mine + forge + blacksmith (copper → iron): **ore in world generation** (a generator version bump, new golden checksums); charcoal; metal; metal tools (tools gain a quality); metal weapon points (PR6).
+  - [ ] Library; infirmary; districts (Phases 20 / 49); market prices; specialised splits.
+  - [ ] **Resources:** ore, charcoal, metal, metal_tools.
+- [ ] **Backlog — city and later eras** (500+, late techs; D6: backlog only until worlds reach towns that last): university, hospital, academy, museum, theatre, music hall, parliament, palace, treasury, embassy, prison, castle and forts, harbour / shipyard (could come earlier at a coast, with FB7), lighthouse, aqueduct, sewer, reservoir, dam; railway, airport, power plants, telegraph, radio; advanced science trades. Each needs an implemented tech chain (14 of 30 techs are `implemented = false`). Player-mystery buildings belong to M28–M30, not here.
+
+**Decisions still open** (the plan's §9; D1 taken, D7 largely answered by PG):
+- [ ] **D2** 2×2 buildings (market, school, mill, temple)? — recommended: yes, from W3; W1–W2 stay 1×1. Touches placement, path blocking, meshes, crossings.
+- [ ] **D3** Defence? — recommended: light only (palisade / watchtower / guard where raids happened), no armies.
+- [ ] **D4** Taverns, inns, drink? — recommended: a long house / meal hall without drink.
+- [ ] **D5** New gate techs (smoking, masonry, carpentry, milling)? — recommended: only where a tech story is wanted.
+- [ ] **D6** How far into late eras? — recommended: backlog until M21 shows towns.
+- [ ] **D8** Livestock at all? — recommended: yes, after W2 / W3.
+
+**Every wave** (the plan's §6–§8): no more than +1 ms average at 16× on the Note20 per wave (overlay profile before and after); staffing, demand, influence and records daily and on events, never per frame; workers add no new AI types (the generic craft step); new products as piles, not loose objects; a save-version bump with a migration test; history events first / master / historic only (C8: the log is capped at 2,000); tests lean, balance by reachability soaks (C13).
 
 ---
 
@@ -2374,6 +2513,14 @@ The full plan, audit and caveats: `feelings_and_conflict_plan.md`. Today quarrel
 - [x] **FC7 Disputes and revolutions shown** — leaders meet halfway and argue; a crowd at the fire turns on its leader.
 - [x] **FC8 Clutter and tuning** — a sign budget (≈12 on screen), rates per kind, reduced motion; soaks (rates unchanged, raids, battle deaths, phone FPS).
   - Done 2026-10-08: PeopleView.SIGN_BUDGET 12 (the one selected first, then by weight, then nearest the camera; one already up keeps its place); Signs.RATE_PER_HOUR (light kinds — love, note, tired, question, hungry, ill — so many a settlement-hour; anger, hurt, grief, alarm never held back). Reduced motion already calmed the scuffle and the signs' pop (FC2, FC1). Soaks: 5 seeds × 100 years against the d5ff6ee round; phone FPS still to be looked at on the phone.
+
+**Still open from FC1–FC8** (checked against the code, 2026-10-14):
+- [ ] **FC6 — war days without a battle:** guards at the edge of each settlement facing the other (a few of the fit standing watch by day); nobody goes out alone toward the enemy's side (explorers, gatherers and woodcutters keep to their own half).
+- [x] **FC6 — trade stops in war** — done 2026-10-14: `TradeSystem.at_war` (ConflictSystem.at_war, which no longer makes a record by asking): no offers between two at war; trade again at peace (test_no_trade_in_war). A trader already on the way finishes the run.
+- [ ] **FC6 — a meeting ground across water:** where no way on foot joins the two settlements the battle stays abstract; meet at the nearest crossing or ferry (FB6) instead.
+- [ ] **FC7 — factions shown (optional in the plan):** the settlement panel lists who stands with which belief of the Presence (the factions exist in `ConflictSystem.factions`, nothing shows them).
+- [ ] **FC8 — phone FPS with a crowd of signs** (the plan's last soak item): a scene with the sign budget full, a quarrel, a raid and a battle on screen, measured on the Note20 at 16×.
+- [ ] **FC8 — the war soak:** walked battles' deaths stay near the old ~7% a battle and walked raids take about what the abstract ones did — over a long round on today's code (the 2026-10-08 round was 5 × 100 years before PR6's arms and the later population changes).
 
 ---
 
@@ -2759,8 +2906,11 @@ Done when:
 
 ## Appendix 7 — Immediate next steps
 
-1. **Confirm D-01** (3D stepped diorama vs 2D isometric) and skim the other PROPOSED decisions in `game_bible.md` §32.
-2. Verify Godot 4.7.2 + Android toolchain are installed (`godot --version`, `adb version`).
-3. Start **M0.1** (project creation & settings). Each sub-phase should end with the project running and tests green.
+*(Replaced 2026-10-14: the old list — confirm D-01, install Godot, start M0.1 — was done long ago.)*
+
+1. **BV W1, the rest:** orchard, quarry, herbal garden, the root-cellar look, drying rack; the cook's evening meal; herbalist / healer and quarry worker; then the W1 exit soak against the r5 round (fewer shortages; smokehouses and granaries appear).
+2. **When the staffing regression round ends** (`C:/tmp/soak_f2base` vs `C:/tmp/soak_f2new_logs`): commit F2 step 1 if every seed matches; then F2 step 2 with its own soak, and F7's save-version bump.
+3. **The owner's call on close-up shadows** on phones (Auto = Medium costs ~25% close up: shadows only farther out, a 1024 map, or Auto = Low on phones) — before M24.
+4. **Hunger at the end of long runs** (the r5 round): see what W1 does to it before reaching for births.
 
 *End of Implementation Phases v1.0.*

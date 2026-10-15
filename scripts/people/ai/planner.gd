@@ -150,7 +150,7 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				if def.helps_with.is_empty():
 					return []
 				target = StringName(def.helps_with[0])
-			if target == &"field" or target == &"game" or target == &"site" or target == &"trade" or target == &"workshop" or target == &"investigate":
+			if target == &"field" or target == &"game" or target == &"site" or target == &"trade" or target == &"workshop" or target == &"investigate" or target == &"recipe":
 				var own_work: Array
 				match target:
 					&"field":
@@ -161,6 +161,8 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 						own_work = _trade_work(person, ctx)
 					&"workshop":
 						own_work = _craft_work(person, ctx)
+					&"recipe":
+						own_work = _recipe_work(person, def, ctx)
 					&"investigate":
 						own_work = _investigate(person, ctx)
 					_:
@@ -510,6 +512,24 @@ static func _water_way(own: Settlement, other: Settlement, ctx: AiContext) -> Ar
 		if ctx.boats.water_minutes(mine, landing, boat) <= walk * WATER_SLOWER:
 			return [mine, landing]
 	return []
+
+
+## Work at a building with a recipe (W1: the cook at the smokehouse): to the
+## workplace, and a step of what can be made there now ([]: nothing).
+static func _recipe_work(person: PersonData, def: OccupationDef, ctx: AiContext) -> Array:
+	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+	if own == null or own.construction == null:
+		return []
+	var work := Recipes.work_for(own, def, own.construction.buildings)
+	if work.is_empty():
+		return []
+	var building: BuildingDef = work[0][0]
+	var place: PropData = work[0][1]
+	var index: int = work[0][2]
+	var making := TradeStep.craft(place.id, place.tile, float((building.recipe[index] as Dictionary).get("minutes", 60.0)))
+	making["recipe"] = String(building.id)
+	making["step"] = index
+	return [WalkToStep.make(_beside(place.tile, person.position, ctx), person.sub_tile_offset), making]
 
 
 ## A toolmaker's work (M12.4): at the workshop, while tools — or weapons

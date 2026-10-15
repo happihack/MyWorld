@@ -168,6 +168,25 @@ func test_skill_and_tools_make_work_faster() -> void:
 	assert_true(float(person.skills[String(person.occupation_id)]) > 0.2, "better at it")
 
 
+func test_no_trade_in_war() -> void:
+	# (FC6) Two at war trade nothing until there is peace.
+	var own := _second()
+	var first := session.settlement
+	first.stockpile.add(&"wood", 40)
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	own.stockpile.add(&"berries", 60)
+	trade.plan_offers()
+	assert_false(trade.offer_for(first.id).is_empty(), "at peace: wood to offer")
+	assert_false(session.conflicts.at_war(first.id, own.id))
+	session.conflicts.pair(first.id, own.id)["war"] = {"since": session.clock.tick}
+	assert_true(session.conflicts.at_war(first.id, own.id))
+	trade.plan_offers()
+	assert_true(trade.offer_for(first.id).is_empty(), "at war: nothing")
+	session.conflicts.pair(first.id, own.id)["war"] = {}
+	trade.plan_offers()
+	assert_false(trade.offer_for(first.id).is_empty(), "peace again: trade again")
+
+
 func test_trade_moves_surplus() -> void:
 	var own := _second()
 	var first := session.settlement

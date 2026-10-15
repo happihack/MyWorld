@@ -122,6 +122,7 @@ const CROP_DRY := Color(0.66, 0.56, 0.26)
 const CROP_DEAD := Color(0.42, 0.30, 0.18)
 ## Fired clay (M16.3: kilns and pots).
 const CLAY := Color(0.70, 0.42, 0.28)
+const FISH_DRIED := Color(0.62, 0.44, 0.26)
 const NUT := Color(0.52, 0.36, 0.20)
 const MUSHROOM_CAP := [Color(0.62, 0.42, 0.26), Color(0.80, 0.30, 0.22)]
 const MUSHROOM_STEM := Color(0.90, 0.86, 0.76)
@@ -143,7 +144,7 @@ const PILE_COLORS := {
 	&"grain": Color(0.86, 0.72, 0.32), &"water": Color(0.35, 0.58, 0.85), &"clay": Color(0.66, 0.44, 0.32),
 	&"herbs": Color(0.40, 0.62, 0.36),
 	&"mushrooms": Color(0.74, 0.62, 0.48), &"roots": Color(0.55, 0.36, 0.24), &"nuts": Color(0.58, 0.42, 0.24),
-	&"hide": Color(0.55, 0.40, 0.28),
+	&"hide": Color(0.55, 0.40, 0.28), &"preserved_food": Color(0.50, 0.30, 0.20),
 }
 ## Looks of a prop that has been worked on (ResourceNodes.Look), as an
 ## offset to the key of the shape.
@@ -193,6 +194,9 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.HERB_RACK, 0)] = _herb_rack()
 	_templates[_key(PropData.Kind.NET_RACK, 0)] = _net_rack()
 	_templates[_key(PropData.Kind.FISH_TRAP, 0)] = _fish_trap()
+	_templates[_key(PropData.Kind.SMOKEHOUSE, 0)] = _smokehouse()
+	_templates[_key(PropData.Kind.GRANARY, 0)] = _granary()
+	_templates[_key(PropData.Kind.SEED_STORE, 0)] = _seed_store()
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
 	_templates[_key(PropData.Kind.BORDER_STONES, 0)] = _border_stones()
 	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
@@ -580,6 +584,62 @@ static func _storehouse() -> Template:
 	_fan(t, roof, Vector3(0, 0.86, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
 	_fan(t, roof, Vector3(0, 0.52, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
 	_box(t, Vector3(0.405, 0.28, 0.0), Vector3(0.012, 0.12, 0.09), _rgba(DOOR, 0.0))
+	return t
+
+
+## A smokehouse (W1): a low hut of wattle and clay with a smoke hole, and a
+## rack of fish hanging to smoke beside it.
+static func _smokehouse() -> Template:
+	var t := Template.new()
+	_box(t, Vector3(-0.08, 0.20, 0.0), Vector3(0.26, 0.20, 0.24), _rgba(WALL_DARK, 0.0))
+	var roof := _ring(0.38, 0.42, 4, 0.5)
+	for i in roof.size():
+		roof[i] += Vector3(-0.08, 0.0, 0.0)
+	_fan(t, roof, Vector3(-0.08, 0.62, 0.0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	_box(t, Vector3(-0.08, 0.64, 0.0), Vector3(0.05, 0.05, 0.05), _rgba(STONE_DARK, 0.0)) # the smoke hole
+	_box(t, Vector3(0.185, 0.16, 0.0), Vector3(0.012, 0.11, 0.08), _rgba(DOOR, 0.0))
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(0.34, 0.24, side * 0.18), Vector3(0.02, 0.24, 0.02), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.34, 0.44, 0.0), Vector3(0.015, 0.015, 0.20), _rgba(TRUNK_DARK, 0.0))
+	for i in 4:
+		_box(t, Vector3(0.34, 0.34, -0.13 + i * 0.087), Vector3(0.012, 0.08, 0.025), _rgba(FISH_DRIED, 0.0))
+	return t
+
+
+## A granary (W1, the storehouse built anew): a store raised on stone posts
+## against damp and mice, with a steep thatch.
+static func _granary() -> Template:
+	var t := Template.new()
+	for corner: Vector2 in [Vector2(-0.32, -0.24), Vector2(0.32, -0.24), Vector2(0.32, 0.24), Vector2(-0.32, 0.24)]:
+		_box(t, Vector3(corner.x, 0.09, corner.y), Vector3(0.05, 0.09, 0.05), _rgba(STONE, 0.0))
+		_box(t, Vector3(corner.x, 0.185, corner.y), Vector3(0.07, 0.012, 0.07), _rgba(STONE_DARK, 0.0))
+	_box(t, Vector3(0.0, 0.40, 0.0), Vector3(0.38, 0.20, 0.28), _rgba(WALL, 0.0))
+	for row in 4:
+		_box(t, Vector3(0.0, 0.24 + row * 0.1, 0.285), Vector3(0.39, 0.012, 0.012), _rgba(WALL_DARK, 0.0))
+	var roof := _ring(0.58, 0.62, 4, 0.5)
+	_fan(t, roof, Vector3(0, 1.02, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	_fan(t, roof, Vector3(0, 0.60, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
+	_box(t, Vector3(0.385, 0.38, 0.0), Vector3(0.012, 0.11, 0.08), _rgba(DOOR, 0.0))
+	_box(t, Vector3(0.50, 0.12, 0.0), Vector3(0.10, 0.012, 0.06), _rgba(TRUNK, 0.0), 0.0) # a step up
+	return t
+
+
+## A seed store (W1): a squat clay store, sealed, under a little roof — the
+## seed grain kept from mice, floods and the hungry.
+static func _seed_store() -> Template:
+	var t := Template.new()
+	_box(t, Vector3(0.0, 0.04, 0.0), Vector3(0.24, 0.04, 0.24), _rgba(STONE_DARK, 0.0))
+	var low := _ring(0.08, 0.20, 6, 0.0)
+	var belly := _ring(0.30, 0.24, 6, 0.0)
+	var neck := _ring(0.46, 0.12, 6, 0.0)
+	_band(t, low, belly, _rgba(CLAY.darkened(0.15), 0.0), _rgba(CLAY, 0.0))
+	_band(t, belly, neck, _rgba(CLAY, 0.0), _rgba(CLAY.darkened(0.1), 0.0))
+	_fan(t, neck, Vector3(0, 0.48, 0), _rgba(CLAY.darkened(0.25), 0.0), _rgba(CLAY.darkened(0.25), 0.0))
+	var roof := _ring(0.56, 0.34, 4, 0.5)
+	_fan(t, roof, Vector3(0, 0.78, 0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	_fan(t, roof, Vector3(0, 0.58, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.27, 0.30, 0.0), Vector3(0.02, 0.30, 0.02), _rgba(TRUNK, 0.0))
 	return t
 
 

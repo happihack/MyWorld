@@ -258,6 +258,8 @@ func _work(own: Settlement, share: float, now: int) -> void:
 				_build(own, person, own_share, now)
 			&"workshop":
 				_craft(own, own_share)
+			&"recipe":
+				_recipes(own, def, own_share)
 		# Better at it for the day's work (as they would be, a unit at a time: WorkStep).
 		var key := String(person.occupation_id)
 		person.skills[key] = minf(float(person.skills.get(key, 0.0)) + Config.trade.skill_per_unit * SKILL_UNITS_PER_DAY * share, 1.0)
@@ -337,6 +339,20 @@ func _craft(own: Settlement, share: float) -> void:
 		return
 	for i in _whole(CRAFTS_PER_DAY * share):
 		if not own.craft(null):
+			return
+
+
+## A day at a building with a recipe (W1: the cook): RECIPES_PER_DAY steps of
+## what can be made, as the stores allow.
+const RECIPES_PER_DAY := 6.0
+
+
+func _recipes(own: Settlement, occupation: OccupationDef, share: float) -> void:
+	if own.construction == null:
+		return
+	for i in _whole(RECIPES_PER_DAY * share):
+		var work := Recipes.work_for(own, occupation, own.construction.buildings)
+		if work.is_empty() or not Recipes.make(own, work[0][0], work[0][2]):
 			return
 
 
@@ -479,6 +495,8 @@ func _eat(own: Settlement, share: float) -> void:
 	if own.is_short():
 		need *= Config.settlement.ration_share
 	var wanted := need * members.size()
+	# (Cooked, it goes further: W1 — as on screen.)
+	var cooked := Settlement.COOKED if own.has_cook() else 1.0
 	var eaten := 0.0
 	# (Taken a kind at a time, not a unit at a time: the stores count their piles anew at each change.)
 	var kinds: Array = []
@@ -491,8 +509,8 @@ func _eat(own: Settlement, share: float) -> void:
 	for def: ResourceDef in kinds:
 		if eaten >= wanted:
 			break
-		var units := mini(ceili((wanted - eaten) / def.nutrition), own.stockpile.available(def.id))
-		eaten += own.stockpile.take(def.id, units) * def.nutrition
+		var units := mini(ceili((wanted - eaten) / (def.nutrition * cooked)), own.stockpile.available(def.id))
+		eaten += own.stockpile.take(def.id, units) * def.nutrition * cooked
 	var fed := clampf(eaten / maxf(full, 0.0001), 0.0, 1.0)
 	for person in members:
 		var hunger := person.needs[Needs.Need.HUNGER] if person.needs.size() == Needs.COUNT else 1.0

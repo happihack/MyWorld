@@ -57,7 +57,7 @@ extends Resource
 ## (0: never by staffing), by this demand rule (Settlement.demand_of).
 @export_range(0, 100) var staffing_order: int = 0
 @export var demand: StringName = &""
-const DEMANDS: Array[StringName] = [&"farm", &"hunt", &"fish", &"build", &"trade", &"craft", &"science"]
+const DEMANDS: Array[StringName] = [&"farm", &"hunt", &"fish", &"build", &"trade", &"craft", &"science", &"cook"]
 
 var _routine_ready := false
 var _slot_hours := PackedFloat32Array()

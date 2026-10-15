@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"seed_store"
+prop_kind = 28
+materials = {
+&"stone": 4,
+&"wood": 6
+}
+labor = 90
+capacity = 0
+tags = PackedStringArray("seed_store")
+category = PackedStringArray("food", "storage")
+tech = &"agriculture"
+workers = {}
+site = &"level"
+limit_per_settlement = 1
+min_population = 10
+historic = false

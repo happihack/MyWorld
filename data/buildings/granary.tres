@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"granary"
+prop_kind = 27
+materials = {
+&"stone": 10,
+&"wood": 20
+}
+labor = 300
+capacity = 120
+tags = PackedStringArray("granary")
+category = PackedStringArray("storage", "food")
+tech = &"agriculture"
+workers = {}
+site = &"level"
+upgrade_of = &"storehouse"
+limit_per_settlement = 1
+min_population = 15
+historic = false

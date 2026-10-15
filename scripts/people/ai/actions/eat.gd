@@ -71,7 +71,11 @@ static func serve(ctx: AiContext, step: Dictionary) -> float:
 	elif ctx.settlement != null:
 		resource = ctx.settlement.stockpile.take_food()
 	var def := ctx.resources.get_def(resource) if ctx.resources != null and resource != &"" else null
-	return def.nutrition if def != null else 0.0
+	var fed := def.nutrition if def != null else 0.0
+	# (A meal from the stores where someone cooks goes further: W1.)
+	if bush == 0 and bool(step.get("meal", false)) and ctx.settlement != null and ctx.settlement.has_cook():
+		fed *= Settlement.COOKED
+	return fed
 
 
 ## How many others are eating at the same fire.

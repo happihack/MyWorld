@@ -19,6 +19,8 @@ var settlements: Settlements
 var resources: ResourceLibrary
 var pathfinder: Pathfinder
 var config: TradeConfig
+## Who is at war with whom (FC6): nothing is traded between them meanwhile.
+var at_war: Callable
 
 var _offers: Dictionary = {} # settlement id -> offer
 var _day := -1_000_000
@@ -61,7 +63,7 @@ func plan_offers() -> void:
 	for own in settlements.all():
 		var best := {}
 		for other in settlements.all():
-			if other == own or not _within_reach(own, other):
+			if other == own or not _within_reach(own, other) or (at_war.is_valid() and bool(at_war.call(own.id, other.id))):
 				continue
 			var offer := exchange(own, other)
 			if not offer.is_empty() and (best.is_empty() or int(offer["units"]) > int(best["units"])):

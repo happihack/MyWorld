@@ -667,6 +667,15 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 			return {"wanted": 1 if trade.has_offer(id) else 0, "have": _holding(def.id), "least": Config.trade.trader_from, "anywhere": false}
 		&"craft":
 			return {"wanted": 1 if workshop() != null and craft_wanted() else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
+		&"cook":
+			# (W1) Someone to smoke the meat and fish, once there is a smokehouse and something to smoke.
+			var lib := construction.buildings if construction != null else null
+			var wanted_cook := 0
+			for place in def.workplaces:
+				var building := lib.get_def(StringName(place)) if lib != null else null
+				if Recipes.workplace(self, building) != null and Recipes.next_step(self, building) >= 0:
+					wanted_cook = 1
+			return {"wanted": wanted_cook, "have": _holding(def.id), "least": 3, "anywhere": false}
 		&"science":
 			return {"wanted": 1 if knows_how(&"natural_philosophy") else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
 	return {}
@@ -680,6 +689,18 @@ func staffing_text(now: int) -> String:
 		if not demand.is_empty():
 			parts.append("%s %d/%d" % [def.id, int(demand["have"]), int(demand["wanted"])])
 	return "  ".join(parts)
+
+
+## Is there something to make at a building with a recipe that it keeps (W1)?
+func recipe_wanted() -> bool:
+	var lib := construction.buildings if construction != null else null
+	if lib == null:
+		return false
+	for id in lib.ids():
+		var def := lib.get_def(id)
+		if not def.recipe.is_empty() and Recipes.workplace(self, def) != null and Recipes.next_step(self, def) >= 0:
+			return true
+	return false
 
 
 func _staff_by_id(occupation: StringName, now: int) -> PersonData:
@@ -952,6 +973,9 @@ func _check_shortage(now: int) -> void:
 			elif _empty_since >= 0 and now - _empty_since >= _config.empty_after_minutes:
 				_set_shortage(Shortage.EMPTY)
 		Shortage.EMPTY:
+			# (A seed store holds the seed back a while longer: W1.)
+			if not seed_eaten and has_seed_store() and _empty_since >= 0 and now - _empty_since >= SEED_STORE_HOLDS_MINUTES:
+				_release_seed()
 			# (The seed being eaten is not food come in: it does not end the
 			# shortage — or it was kept back again at once, uneaten, wherever
 			# the seed alone made a day's food. The 200-year soaks, 2026-10-12.)
@@ -975,13 +999,35 @@ func _set_shortage(stage: Shortage) -> void:
 		seed_eaten = false
 		_keep_seed()
 	shortage_changed.emit(stage, was)
-	if stage == Shortage.EMPTY and not seed_eaten:
+	if stage == Shortage.EMPTY and not seed_eaten and not has_seed_store():
 		# Nothing left but the seed: it is eaten (and the next sowing is the poorer for it).
-		var seed := stockpile.reserved(&"grain")
-		if seed > 0:
-			seed_eaten = true
-			_keep_seed()
-			seed_released.emit(seed)
+		_release_seed()
+
+
+func _release_seed() -> void:
+	var seed := stockpile.reserved(&"grain")
+	if seed > 0:
+		seed_eaten = true
+		_keep_seed()
+		seed_released.emit(seed)
+
+
+## Food cooked for the band's meals (W1: a cook) feeds this much more — less
+## wasted, nothing burnt or left to spoil in the pot.
+const COOKED := 1.15
+
+
+func has_cook() -> bool:
+	return _holding(&"cook") > 0
+
+
+## A seed store (W1) keeps the seed grain: from floods, and from being eaten
+## until the stores have been empty this long.
+const SEED_STORE_HOLDS_MINUTES := 2 * 1440
+
+
+func has_seed_store() -> bool:
+	return planner != null and not planner.standing_near(PropData.Kind.SEED_STORE).is_empty()
 
 
 ## Are the bushes around the settlement picked bare — or do they have
@@ -1101,6 +1147,9 @@ func _flood(now: int) -> void:
 			continue
 		pile.spoil += pile.amount * share
 		var gone := mini(floori(pile.spoil), pile.amount)
+		if pile.resource == &"grain" and has_seed_store():
+			# (The seed is in the seed store, out of the water: W1.)
+			gone = mini(gone, maxi(stockpile.amount(&"grain") - stockpile.reserved(&"grain"), 0))
 		if gone <= 0:
 			continue
 		pile.spoil -= gone
@@ -1251,7 +1300,7 @@ func gather_stores() -> void:
 		if before.has(category):
 			(before[category] as Array).append(_kept_at[category])
 	if planner != null:
-		for id in planner.standing_near(PropData.Kind.STOREHOUSE):
+		for id in planner.standing_near(PropData.Kind.STOREHOUSE) + planner.standing_near(PropData.Kind.GRANARY):
 			(before[ResourceDef.Category.FOOD] as Array).append(Places.middle_of(props().get_prop(id).tile))
 		for id in planner.standing_near(PropData.Kind.WOODSHED):
 			(before[ResourceDef.Category.MATERIAL] as Array).append(Places.middle_of(props().get_prop(id).tile))
@@ -1273,12 +1322,18 @@ func gather_stores() -> void:
 			_piles.gather(pile.id, to)
 
 
+## Food in a granary goes bad this much as fast as in a storehouse.
+const GRANARY_KEEPS := 0.5
+
+
 func _spoil() -> void:
 	if _piles == null:
 		return
 	# (Food kept in the storehouse keeps longer: M12.1.)
 	var store := _places.storehouse() if _places != null else null
-	var lost := _piles.spoil(1.0, Places.middle_of(store.tile) if store != null else Vector2.INF,
-		Config.construction.storehouse_spoil_factor)
+	var factor := Config.construction.storehouse_spoil_factor
+	if store != null and store.kind == PropData.Kind.GRANARY:
+		factor *= GRANARY_KEEPS # (W1: dry, off the ground, out of the mice's reach)
+	var lost := _piles.spoil(1.0, Places.middle_of(store.tile) if store != null else Vector2.INF, factor)
 	for resource: StringName in lost:
 		spoiled.emit(resource, int(lost[resource]))

@@ -127,7 +127,7 @@ var woodshed_id := 0
 
 ## The storehouse the food is kept in, if it still stands (else null).
 func storehouse() -> PropData:
-	return _standing(storehouse_id, PropData.Kind.STOREHOUSE)
+	return _standing(storehouse_id, PropData.Kind.STOREHOUSE) if _standing(storehouse_id, PropData.Kind.STOREHOUSE) != null else _standing(storehouse_id, PropData.Kind.GRANARY)
 
 
 ## The woodshed the materials are kept in, if it still stands (else null).

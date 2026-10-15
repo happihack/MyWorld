@@ -591,15 +591,15 @@ const FISHING_DISTANCE_COST := 0.5
 const WEAR_PER_TRIP := 0.006
 
 
-## A moored boat of this landing with room aboard (null: none) — the best kind first.
+## A boat tied up at this landing (null: none) — the best kind first.
 func boat_to_take(landing_id: int) -> BoatData:
 	var best: BoatData = null
 	for boat in boats_of(landing_id):
 		if _returning.has(boat.id) or _riding.values().has(boat.id):
 			continue # (a ferry, over or on its way back: FB6)
+		# (Only one tied up here: a boat already out on the water was handed to a
+		# second fisher, who went aboard it from the landing — 2026-10-14.)
 		if boat.state == BoatData.State.MOORED and (best == null or boat.kind > best.kind):
-			best = boat
-		elif boat.state == BoatData.State.OUT and boat.crew.size() < boat.crew_room() and best == null:
 			best = boat
 	return best
 

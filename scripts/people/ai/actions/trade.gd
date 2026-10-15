@@ -79,6 +79,12 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 		ctx.strokes.append([person.id, &"craft", int(step.get("workshop", 0))])
 	if not time_up:
 		return Status.RUNNING
+	if step.has("recipe"):
+		# (A step of a building's recipe: W1.)
+		var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+		var lib := own.construction.buildings if own != null and own.construction != null else null
+		Recipes.make(own, lib.get_def(StringName(str(step["recipe"]))) if lib != null else null, int(step.get("step", -1)))
+		return Status.DONE
 	if str(step.get("make", "")) == String(FishGear.NETS):
 		# (A net, a fisher's work at the rack or by the fire: FB5.)
 		FishGear.make_net(ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement)

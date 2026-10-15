@@ -113,7 +113,8 @@ func tension(a: int, b: int) -> float:
 
 
 func at_war(a: int, b: int) -> bool:
-	return not (pair(a, b)["war"] as Dictionary).is_empty()
+	var k := key(a, b)
+	return pairs.has(k) and not (pairs[k]["war"] as Dictionary).is_empty()
 
 
 func advance_to(now: int) -> void:

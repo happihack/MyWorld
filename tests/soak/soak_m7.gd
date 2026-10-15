@@ -404,6 +404,16 @@ func _run() -> void:
 	print("SOAK graves: %d of %d dead laid in %d cemeteries, %d of the living have been to one" % [graves, s.archive.size(),
 		s.graves.cemeteries().size(), visits])
 	print("SOAK %s" % s.culture.debug_text())
+	# Food that keeps (BV W1): its buildings, cooks, and smoked food in store.
+	var cooks := 0
+	var smoked := 0
+	for own in s.settlements.all():
+		smoked += own.stockpile.amount(&"preserved_food")
+		for person in own.members():
+			cooks += 1 if person.occupation_id == &"cook" else 0
+	print("SOAK food buildings: smokehouses %d  granaries %d  seed stores %d  cooks %d  smoked food in store %d  upgrades %d" % [
+		s.construction.standing(PropData.Kind.SMOKEHOUSE).size(), s.construction.standing(PropData.Kind.GRANARY).size(),
+		s.construction.standing(PropData.Kind.SEED_STORE).size(), cooks, smoked, s.events.count_of(&"building_upgraded")])
 	print("SOAK buildings: huts %d  storehouses %d  woodsheds %d  wells %d  ruins %d  begun %d  built %d  damaged %d  repaired %d  ruined %d  |  %s" % [
 		s.construction.standing(PropData.Kind.HUT).size(), s.construction.standing(PropData.Kind.STOREHOUSE).size(),
 		s.construction.standing(PropData.Kind.WOODSHED).size(), s.construction.standing(PropData.Kind.WELL).size(), s.construction.standing(PropData.Kind.RUIN).size(),

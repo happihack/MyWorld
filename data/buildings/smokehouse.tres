@@ -1,0 +1,42 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"smokehouse"
+prop_kind = 26
+materials = {
+&"wood": 10,
+&"stone": 2
+}
+labor = 120
+capacity = 0
+tags = PackedStringArray("smokehouse")
+category = PackedStringArray("food", "craft")
+workers = {
+"cook": 1
+}
+recipe = [{
+"in": {
+&"fish": 3,
+&"wood": 1
+},
+"minutes": 60.0,
+"out": {
+&"preserved_food": 3
+}
+}, {
+"in": {
+&"meat": 3,
+&"wood": 1
+},
+"minutes": 60.0,
+"out": {
+&"preserved_food": 3
+}
+}]
+site = &"level"
+limit_per_settlement = 1
+min_population = 8
+historic = false

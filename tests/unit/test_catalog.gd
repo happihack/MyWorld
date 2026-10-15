@@ -25,7 +25,7 @@ func test_the_data_names_only_what_there_is() -> void:
 	# Staffing (F2): the trades taken up when wanted, in today's order.
 	var staffed := occupations.ids().filter(func(id: StringName) -> bool: return occupations.get_def(id).staffing_order > 0)
 	staffed.sort_custom(func(a: StringName, b: StringName) -> bool: return occupations.get_def(a).staffing_order < occupations.get_def(b).staffing_order)
-	assert_eq(staffed, [&"farmer", &"hunter", &"fisher", &"builder", &"trader", &"toolmaker", &"scientist"])
+	assert_eq(staffed, [&"farmer", &"hunter", &"fisher", &"builder", &"trader", &"toolmaker", &"scientist", &"cook"])
 
 
 func test_what_is_named_but_not_there_is_found() -> void:

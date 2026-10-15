@@ -41,6 +41,7 @@ var _day := -1_000_000
 var _spoiled: Array = [] # [day, units]
 ## The crossing worked out today: [day, {tiles, turn}] (it takes a walk over the land).
 var _crossing_today: Array = [[], {}]
+var _crossing_day := -1_000_000
 
 
 func bind(settlement: Settlement, construction: ConstructionSystem, people: PersonRegistry, world: WorldData,
@@ -68,6 +69,15 @@ func advance_to(now: int) -> void:
 	if _day == -1_000_000 or today < _day:
 		_day = today
 		return
+	# (The way over the water is worked out an hour before the plan, on a frame
+	# of its own: the two together were the last regular stall on the phone —
+	# profiling, 2026-10-14. `crossing` keeps what it found for the day.)
+	var minute := Config.time.minute_of_day(now)
+	if today != _day and _crossing_day != today and minute >= 7 * 60 + _stagger() and minute < 8 * 60 + _stagger():
+		_crossing_day = today
+		crossing(now)
+		return
+	# (Called once a day, after the hour — the time away: both at once, as before.)
 	# (By daylight — each settlement at its own hour, so that their planning
 	# does not all fall on one frame: profiling, 2026-10-06.)
 	if today == _day or Config.time.minute_of_day(now) < 8 * 60 + _stagger():
@@ -147,6 +157,9 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"net_rack")
 	if fish_trap_wanted():
 		out.append(&"fish_trap")
+	for need: StringName in [&"smokehouse", &"seed_store", &"granary"]:
+		if food_building_wanted(need):
+			out.append(need)
 	return out
 
 
@@ -159,6 +172,33 @@ func landing_wanted() -> bool:
 func _at_limit_of(def_id: StringName) -> bool:
 	var def := _construction.buildings.get_def(def_id) if _construction != null else null
 	return def == null or at_limit(def)
+
+
+## The food buildings of W1 (buildings & villagers): a smokehouse once meat or
+## fish is brought in, to keep it past its few days; a seed store once there
+## are fields; a granary in place of a storehouse once a farming settlement
+## keeps grain enough to want it. The data says how big the settlement must
+## be, what must be known, and how many it keeps.
+func food_building_wanted(tag: StringName) -> bool:
+	var defs := _construction.buildings.with_tag(String(tag)) if _construction != null else []
+	if defs.is_empty():
+		return false
+	var def: BuildingDef = defs[0]
+	if not big_enough(def) or at_limit(def) or (def.tech != &"" and not _settlement.knows_how(def.tech)):
+		return false
+	match tag:
+		&"smokehouse":
+			return float(_settlement.produced.get("fish", 0.0)) + float(_settlement.produced.get("meat", 0.0)) >= SMOKE_FROM
+		&"seed_store":
+			return _settlement.farming != null and _settlement.farming.plot_count() > 0
+		&"granary":
+			return _settlement.farming != null and _settlement.farming.farmer_count() >= 2 \
+					and not standing_near(PropData.Kind.STOREHOUSE).is_empty()
+	return false
+
+
+## Meat and fish brought in of late (Settlement.produced) before a smokehouse is wanted.
+const SMOKE_FROM := 20.0
 
 
 ## A rack to dry and mend the nets on (FB5): once they make nets and someone
@@ -446,7 +486,7 @@ func homes_short() -> bool:
 ## Are the stores overflowing, or has food been going bad (and no storehouse
 ## for it yet — or not enough of them)?
 func storage_short(now: int) -> bool:
-	var stores := standing_near(PropData.Kind.STOREHOUSE).size()
+	var stores := standing_near(PropData.Kind.STOREHOUSE).size() + standing_near(PropData.Kind.GRANARY).size()
 	var room := _settlement.stockpile.room(&"berries")
 	var spoiled := 0
 	var today := Config.time.day_index(now)
@@ -466,7 +506,7 @@ func storage_short(now: int) -> bool:
 ## a bigger settlement.
 func material_storage_short() -> bool:
 	var sheds := standing_near(PropData.Kind.WOODSHED).size()
-	if sheds == 0 and not standing_near(PropData.Kind.STOREHOUSE).is_empty():
+	if sheds == 0 and not (standing_near(PropData.Kind.STOREHOUSE).is_empty() and standing_near(PropData.Kind.GRANARY).is_empty()):
 		return true
 	var stockpile := _settlement.stockpile
 	var short := stockpile.room(&"wood") < _config.storage_room_least or stockpile.room(&"stone") < _config.storage_room_least
@@ -530,7 +570,7 @@ func builds_at_once() -> int:
 ## close-knit to what is shared).
 const BASE := {&"home": 100.0, &"storage": 90.0, &"material_storage": 85.0, &"water": 80.0, &"workshop": 70.0,
 	&"kiln": 60.0, &"herbs": 60.0, &"records": 60.0, &"observatory": 60.0, &"shrine": 55.0, &"bridge": 50.0,
-	&"landing": 45.0, &"net_rack": 40.0, &"fish_trap": 38.0}
+	&"landing": 45.0, &"net_rack": 40.0, &"fish_trap": 38.0, &"smokehouse": 66.0, &"seed_store": 64.0, &"granary": 62.0}
 const MATERIALS_AT_HAND := 6.0
 const VALUES := 8.0
 

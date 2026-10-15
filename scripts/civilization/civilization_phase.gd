@@ -38,7 +38,7 @@ static func holds(phase: Phase, settlements: Settlements, props: PropRegistry, t
 			return true
 		Phase.SETTLEMENT:
 			# Homes to stay in, and stores to keep what is gathered.
-			return _standing(props, PropData.Kind.HUT) and _standing(props, PropData.Kind.STOREHOUSE)
+			return _standing(props, PropData.Kind.HUT) and (_standing(props, PropData.Kind.STOREHOUSE) or _standing(props, PropData.Kind.GRANARY))
 		Phase.AGRICULTURE:
 			return settlements.all().any(func(own: Settlement) -> bool:
 				return own.knows_how(&"agriculture") and farms_feed(own) >= FARMS_FEED)

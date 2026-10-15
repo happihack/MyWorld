@@ -1739,6 +1739,7 @@ func _activate() -> void:
 	trade.settlements = settlements
 	trade.resources = resources
 	trade.pathfinder = pathfinder
+	trade.at_war = conflicts.at_war
 	governance.bind(clock.tick, Config.governance)
 	governance.settlements = settlements
 	governance.people = people
@@ -1997,8 +1998,10 @@ func _apply_storehouses() -> void:
 		return
 	for own in settlements.all():
 		var stores := _standing_near(own, PropData.Kind.STOREHOUSE)
+		var granaries := _standing_near(own, PropData.Kind.GRANARY)
 		var sheds := _standing_near(own, PropData.Kind.WOODSHED)
-		own.stockpile.extra_room = _room_in(own, PropData.Kind.STOREHOUSE, stores.size())
+		own.stockpile.extra_room = _room_in(own, PropData.Kind.STOREHOUSE, stores.size()) + _room_in(own, PropData.Kind.GRANARY, granaries.size())
+		stores = granaries + stores # (the granary first: the food is kept there, W1)
 		own.stockpile.extra_material_room = _room_in(own, PropData.Kind.WOODSHED, sheds.size())
 		own.keep_in(_nearest_fire(own, stores), _nearest_fire(own, sheds))
 
