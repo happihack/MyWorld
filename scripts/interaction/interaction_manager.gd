@@ -28,14 +28,11 @@ const ACTION_INSPECT := &"inspect"
 const ACTION_TOUCH := &"touch"
 const ACTION_FOCUS := &"focus"
 const ACTION_REMOVE := &"remove"
-## A boulder (or a rock) broken into stones to build with.
-const ACTION_BREAK := &"break"
-## A boulder breaks into this many stones, holding this much stone between
-## them at its ordinary size (more for a bigger one, less for a smaller); a rock
-## into fewer, with less.
-const BOULDER_PIECES := 4
+## A boulder, a rock or a pebble turned to stone to build with: a heap of it.
+const ACTION_TO_STONE := &"to_stone"
+## The stone in a boulder and in a rock at their ordinary size (more for a
+## bigger one, less for a smaller; a pebble, one).
 const BOULDER_STONE := 12
-const ROCK_PIECES := 2
 const ROCK_STONE := 3
 ## A grave: who lies there, and their family (M10.3).
 const ACTION_READ := &"read"
@@ -98,6 +95,8 @@ const _PROP_EFFECTS := {
 
 ## Touches and long presses since this world was opened (debug overlay).
 var interaction_count := 0
+## The heaps of what is gathered: a stone turned to stone lies as one.
+var piles: PileStore
 ## What the player has done to this world. The session supplies its saved
 ## history; on its own the manager keeps a private one.
 var history := PlayerHistory.new()
@@ -208,7 +207,7 @@ func apply_intervention(iv: Intervention) -> Intervention:
 		Intervention.UPROOT:
 			done = _do_uproot(iv)
 		Intervention.BREAK_ROCK:
-			done = _do_break_rock(iv)
+			done = _do_turn_to_stone(iv)
 		Intervention.GRAB:
 			done = _do_grab(iv)
 		Intervention.MOVE_OBJECT:
@@ -274,23 +273,31 @@ func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionRes
 	return iv.response if iv.applied else null
 
 
-## Can this be broken into stone: a boulder, or a rock — a stone broken from
-## one too, into two smaller, while it holds more than one stone (not a
-## pebble)? Lying, in hand or coming down: holding a
-## finger on it lifts it (HandTool) before the long-press menu opens, and the
-## menu's choice is made after it is put back down (the owner, 2026-10-15: no
-## Break on the phone).
-static func can_break(object: LooseObject) -> bool:
-	if object == null:
-		return false
+## Can this be turned to stone: a boulder, a rock, a pebble? Lying, in hand
+## or coming down: holding a finger on it lifts it (HandTool) before the
+## long-press menu opens, and the menu's choice is made after it is put back
+## down (the owner, 2026-10-15).
+static func can_turn_to_stone(object: LooseObject) -> bool:
+	return object != null and object.is_stone()
+
+
+## How much stone it turns into.
+static func stone_in(object: LooseObject) -> int:
 	if BuildStep.is_broken_stone(object):
-		return object.amount >= 2
-	return object.kind == LooseObject.Kind.BOULDER or object.kind == LooseObject.Kind.ROCK
+		return object.amount # (broken by an earlier version of this: what is in it)
+	var s := object.scale()
+	match object.kind:
+		LooseObject.Kind.BOULDER:
+			return maxi(roundi(BOULDER_STONE * s * s * s), 1)
+		LooseObject.Kind.ROCK:
+			return maxi(roundi(ROCK_STONE * s * s * s), 1)
+	return 1
 
 
-## Breaks the boulder (or rock) at `target`: it is gone, and its stone lies
-## about it in pieces for the people to carry off. Null if it cannot be broken.
-func break_rock(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
+## Turns the boulder (rock, pebble) at `target` to stone: it crumbles where it
+## lies into a heap of stone (a pile) for the people to carry to the stores
+## and build with. Null if it is not one.
+func turn_to_stone(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
 	var iv := apply_intervention(Intervention.create(Intervention.BREAK_ROCK, tool, target))
 	return iv.response if iv.applied else null
 
@@ -524,41 +531,24 @@ func _do_uproot(iv: Intervention) -> bool:
 	return true
 
 
-func _do_break_rock(iv: Intervention) -> bool:
+func _do_turn_to_stone(iv: Intervention) -> bool:
 	var response := _respond(iv.target, InteractionResponse.Action.TAP, false)
 	var rock := _loose.get_object(response.entity_id) if response != null and _loose != null else null
-	if not can_break(rock):
-		iv.rejected = &"not_a_rock"
+	if not can_turn_to_stone(rock):
+		iv.rejected = &"not_a_stone"
 		return false
 	if not _admit(iv, &"rock", Intervention.Severity.MODERATE):
 		return false
 	response.effect = InteractionResponse.ROCK_BREAK
-	response.description = "%s broken at %s" % [LooseObject.Kind.keys()[rock.kind], rock.tile()]
-	var boulder := rock.kind == LooseObject.Kind.BOULDER
-	var pieces := BOULDER_PIECES if boulder else ROCK_PIECES
-	var s := rock.scale()
-	var stone := maxi(roundi((BOULDER_STONE if boulder else ROCK_STONE) * s * s * s), pieces)
-	# (A stone broken before: what is in it, shared out; each piece smaller.)
-	if BuildStep.is_broken_stone(rock):
-		stone = rock.amount
+	response.description = "%s turned to stone at %s" % [LooseObject.Kind.keys()[rock.kind], rock.tile()]
+	var stone := stone_in(rock)
 	var at := rock.position
 	_in_hand.erase(rock.id)
 	_awaiting_rest.erase(rock.id)
 	_loose.remove(rock.id)
-	if can_spawn():
-		var rng := _rng.stream(RNG_STREAM)
-		var turn := rng.randf() * TAU
-		for i in pieces:
-			# (Each with its share of the stone: carried to the stores, or by builders to a site.)
-			var heading := turn + TAU * i / pieces
-			var piece := _spawn(LooseObject.Kind.ROCK, at + Vector2(cos(heading), sin(heading)) * 0.15, 0.25,
-				rng.randi_range(90, 125) if boulder else maxi(roundi(rock.scale_percent * rng.randf_range(0.6, 0.8)), 35))
-			piece.variant = rng.randi_range(0, 1)
-			piece.yaw = rng.randf() * TAU
-			piece.resource = &"stone"
-			piece.amount = stone / pieces + (1 if i < stone % pieces else 0)
-			_motion.drop(piece.id, Vector3(cos(heading), 0.6, sin(heading)) * (1.1 if boulder else 0.8))
-			response.dropped.append(piece.id)
+	if piles != null:
+		# (A heap of stone where it lay - onto one lying there already; the stores', if it lay by them.)
+		response.dropped.append_array(piles.add(&"stone", stone, at))
 	iv.response = response
 	iv.position = response.position
 	iv.tile = response.tile
@@ -851,8 +841,8 @@ func actions_for(target: Picker.Result) -> Array[StringName]:
 		var prop := _props.get_prop(target.entity_id)
 		if prop != null and prop.kind == PropData.Kind.TREE:
 			actions.append(ACTION_REMOVE)
-		if prop == null and _loose != null and can_break(_loose.get_object(target.entity_id)):
-			actions.append(ACTION_BREAK)
+		if prop == null and _loose != null and can_turn_to_stone(_loose.get_object(target.entity_id)):
+			actions.append(ACTION_TO_STONE)
 	actions.append(ACTION_FOCUS)
 	return actions
 

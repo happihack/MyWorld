@@ -53,15 +53,34 @@ static func quarry(object_id: int) -> Dictionary:
 	return {"type": String(QUARRY), "object": object_id, "minutes": HANDLING_MINUTES * 2.0, "elapsed": 0.0}
 
 
-## A stone of a broken boulder: it holds `amount` stone, taken a load at a time.
+## A stone of a boulder broken by an earlier version (before it turned to a
+## heap of stone): it holds `amount` stone, taken a load at a time.
 static func is_broken_stone(object: LooseObject) -> bool:
 	return object != null and object.kind == LooseObject.Kind.ROCK and object.resource == &"stone" and object.amount > 0
 
 
+## A heap of stone lying away from any settlement's stores (a rock the player
+## turned to stone): to be carried to the stores, or by builders to a site.
+static func is_stray_stone(object: LooseObject, ctx: AiContext) -> bool:
+	if object == null or object.amount <= 0 or object.resource != &"stone":
+		return false
+	if object.kind == LooseObject.Kind.ROCK:
+		return true # (is_broken_stone)
+	if object.kind != LooseObject.Kind.PILE:
+		return false
+	var kept := Config.resources.storage_radius # (as the stores count it: Stockpile)
+	var all: Array = ctx.settlements.all() if ctx.settlements != null else ([ctx.settlement] if ctx.settlement != null else [])
+	for own: Settlement in all:
+		var store := own.stockpile.place(&"stone")
+		if store != Vector2.INF and object.position.distance_to(store) <= kept:
+			return false # (in the stores)
+	return true
+
+
 ## How much stone a loose stone is (by its weight; at least one unit) — a
-## broken boulder's, what is left of it, as much as can be carried.
+## heap's (or a broken boulder's), what is left of it, as much as can be carried.
 static func stone_units(object: LooseObject, ctx: AiContext) -> int:
-	if is_broken_stone(object):
+	if object.resource == &"stone" and object.amount > 0:
 		return mini(object.amount, ctx.carry_capacity(&"stone"))
 	var def := ctx.resources.get_def(&"stone") if ctx.resources != null else null
 	var weight := def.weight if def != null else 8.0
@@ -142,13 +161,16 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			if not tick(step, minutes):
 				return Status.RUNNING
 			var object := ctx.loose.get_object(int(step.get("object", 0))) if ctx.loose != null else null
-			if object == null or not STONES.has(object.kind) or (person.carrying_amount > 0 and person.carrying != &"stone"):
+			var heap := object != null and object.kind == LooseObject.Kind.PILE and object.resource == &"stone"
+			if object == null or not (STONES.has(object.kind) or heap) or (person.carrying_amount > 0 and person.carrying != &"stone"):
 				return Status.FAILED # (someone else took it, or the player did)
 			var units := mini(stone_units(object, ctx), ctx.carry_capacity(&"stone") - person.carrying_amount)
 			if units <= 0:
 				return Status.FAILED
-			if is_broken_stone(object) and object.amount > units:
-				object.amount -= units # (the rest lies there for the next load)
+			if heap and ctx.piles != null:
+				units = ctx.piles.take_from(object.id, units) # (the rest lies there for the next load)
+			elif is_broken_stone(object) and object.amount > units:
+				object.amount -= units
 			else:
 				ctx.loose.remove(object.id)
 			person.carrying = &"stone"

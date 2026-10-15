@@ -1847,6 +1847,7 @@ func _activate() -> void:
 	ai.planner = planner
 	ai.traffic = traffic
 	interactions.traffic = traffic
+	interactions.piles = piles
 	ai.next_stimulus_id = maxi(int(_saved_perception.get("next_stimulus_id", 1)), 1)
 	_saved_perception = {}
 	behavior.bind(ai)

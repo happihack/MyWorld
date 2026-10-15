@@ -908,8 +908,9 @@ func test_an_uprooted_tree_is_cut_up_for_wood() -> void:
 	assert_eq(int(Planner.plan(&"work", cutter, ctx)[1].get("log", 0)), placed.id, "the player's too (the owner, 2026-10-05: logs lay unused)")
 
 
-func test_a_broken_boulder_is_carried_home_as_stone() -> void:
-	# (The owner, 2026-10-15: a boulder turned to stone, as a tree is uprooted to a log.)
+func test_a_rock_turned_to_stone_is_carried_home() -> void:
+	# (The owner, 2026-10-15: a boulder turned to stone to build with, as a tree
+	# is uprooted to a log — "Turn to stone", and stone it is.)
 	_set_hour(8.5)
 	var carrier := _calm(_adult(&"woodcutter"))
 	_only([carrier])
@@ -924,56 +925,33 @@ func test_a_broken_boulder_is_carried_home_as_stone() -> void:
 	target.kind = Picker.Kind.ENTITY
 	target.entity_id = boulder.id
 	target.tile = boulder.tile()
-	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_BREAK)
-	assert_eq(UIText.action_label(InteractionManager.ACTION_BREAK), "Break")
-	# (On the phone a finger held on it lifts it before the menu opens: in hand, it breaks all the same.)
+	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_TO_STONE)
+	assert_eq(UIText.action_label(InteractionManager.ACTION_TO_STONE), "Turn to stone")
+	# (On the phone a finger held on it lifts it before the menu opens: in hand, all the same.)
 	assert_true(session.interactions.grab(boulder.id))
 	assert_eq(boulder.state, LooseObject.State.HELD)
-	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_BREAK, "in hand too")
-	var response := session.interactions.break_rock(target)
-	assert_false(session.interactions.is_in_hand(boulder.id), "not in hand once broken")
+	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_TO_STONE, "in hand too")
+	var response := session.interactions.turn_to_stone(target)
 	assert_not_null(response)
+	assert_false(session.interactions.is_in_hand(boulder.id), "not in hand once it is stone")
 	assert_eq(response.effect, InteractionResponse.ROCK_BREAK)
 	assert_null(session.loose.get_object(boulder.id), "the boulder is gone")
-	assert_eq(response.dropped.size(), InteractionManager.BOULDER_PIECES)
-	var stone := 0
-	for id in response.dropped:
-		var piece := session.loose.get_object(id)
-		assert_eq(piece.kind, LooseObject.Kind.ROCK)
-		assert_true(BuildStep.is_broken_stone(piece))
-		stone += piece.amount
-	assert_eq(stone, InteractionManager.BOULDER_STONE, "its stone lies in its pieces")
+	assert_eq(response.dropped.size(), 1, "one heap")
+	var heap := session.loose.get_object(response.dropped[0])
+	assert_eq([heap.kind, heap.resource, heap.amount], [LooseObject.Kind.PILE, &"stone", InteractionManager.BOULDER_STONE],
+		"a heap of stone where it lay")
+	assert_true(heap.position.distance_to(boulder.position) < 1.0)
+	assert_true(BuildStep.is_stray_stone(heap, ctx), "not in the stores")
+	assert_eq(session.stored(&"stone"), 0)
 	assert_eq(session.interactions.history.stats()["rocks_broken"], 1)
-	for n in 200: # (they fly apart, and come to rest)
-		session.loose_system.step(0.05)
-	var first := session.loose.get_object(response.dropped[0])
 	var looked := Picker.Result.new()
 	looked.kind = Picker.Kind.ENTITY
-	looked.entity_id = first.id
-	looked.tile = first.tile()
+	looked.entity_id = heap.id
+	looked.tile = heap.tile()
 	var report := session.interactions.inspect(looked)
-	assert_eq([report.resource, report.resource_left], [&"stone", first.amount], "the card says what is in it")
-	# A stone broken from it breaks again, into two smaller sharing its stone (the
-	# owner, 2026-10-15) — down to stones of one.
-	assert_has(session.interactions.actions_for(looked), InteractionManager.ACTION_BREAK, "a broken stone breaks again")
-	var held := first.amount
-	var again := session.interactions.break_rock(looked)
-	assert_not_null(again)
-	assert_eq(again.dropped.size(), InteractionManager.ROCK_PIECES)
-	var shared := 0
-	for id in again.dropped:
-		var smaller := session.loose.get_object(id)
-		shared += smaller.amount
-		assert_true(smaller.scale_percent < first.scale_percent, "smaller")
-	assert_eq(shared, held, "no stone made or lost")
-	var one := session.loose.get_object(again.dropped[-1]) # (the last piece has the least)
-	if one.amount == 1:
-		looked.entity_id = one.id
-		assert_false(session.interactions.actions_for(looked).has(InteractionManager.ACTION_BREAK), "a stone of one is not broken")
-	for id in again.dropped:
-		session.loose.remove(id)
-	response.dropped.erase(first.id)
-	# (A boulder bursting apart is a sight: what they make of it, first.)
+	assert_eq([report.resource, report.resource_left], [&"stone", InteractionManager.BOULDER_STONE], "the card says what is in it")
+	assert_false(session.interactions.actions_for(looked).has(InteractionManager.ACTION_TO_STONE), "stone already")
+	# (A rock crumbling to stone is a sight: what they make of it, first.)
 	_run(40.0)
 	carrier.carrying = &""
 	carrier.carrying_amount = 0
@@ -986,28 +964,39 @@ func test_a_broken_boulder_is_carried_home_as_stone() -> void:
 	while session.stored(&"stone") == 0 and waited < 300.0:
 		_run(1.0)
 		waited += 1.0
-	assert_eq(session.stored(&"stone"), mini(InteractionManager.BOULDER_STONE / InteractionManager.BOULDER_PIECES,
-		ctx.carry_capacity(&"stone")), "a load in the stores")
-	# A rock breaks too: into two, with less in them.
+	var load := ctx.carry_capacity(&"stone")
+	assert_eq(session.stored(&"stone"), load, "a load in the stores")
+	assert_eq(heap.amount, InteractionManager.BOULDER_STONE - load, "the rest still lying there")
+	# A heap at the stores is the stores: not carried off again.
+	for pile in piles.piles(&"stone"):
+		if pile.id != heap.id:
+			assert_false(BuildStep.is_stray_stone(pile, ctx), "the stores' own")
+	# A rock and a pebble turn to stone too, with less in them.
 	var rock := LooseObject.new()
 	rock.id = session.ids.next_id()
 	rock.kind = LooseObject.Kind.ROCK
-	rock.position = Places.middle_of((home as Vector2i) + Vector2i(-3, 2))
+	rock.position = Places.middle_of((home as Vector2i) + Vector2i(-6, 2))
 	assert_true(session.loose.add(rock))
 	target.entity_id = rock.id
 	target.tile = rock.tile()
-	var broke := session.interactions.break_rock(target)
-	assert_not_null(broke)
-	assert_eq(broke.dropped.size(), InteractionManager.ROCK_PIECES)
-	var in_rock := 0
-	for id in broke.dropped:
-		in_rock += session.loose.get_object(id).amount
-	assert_eq(in_rock, InteractionManager.ROCK_STONE)
-	# Nothing else is broken: a tree, the ground.
+	var made := session.interactions.turn_to_stone(target)
+	assert_not_null(made)
+	assert_eq(session.loose.get_object(made.dropped[0]).amount, InteractionManager.ROCK_STONE)
+	var pebble := LooseObject.new()
+	pebble.id = session.ids.next_id()
+	pebble.kind = LooseObject.Kind.PEBBLE
+	pebble.position = Places.middle_of((home as Vector2i) + Vector2i(-6, -4))
+	assert_true(session.loose.add(pebble))
+	target.entity_id = pebble.id
+	target.tile = pebble.tile()
+	assert_has(session.interactions.actions_for(target), InteractionManager.ACTION_TO_STONE, "a pebble too")
+	made = session.interactions.turn_to_stone(target)
+	assert_eq(session.loose.get_object(made.dropped[0]).amount, 1)
+	# Nothing else turns to stone: a tree.
 	var tree := _near(PropData.Kind.TREE)
 	target.entity_id = tree.id
 	target.tile = tree.tile
-	assert_null(session.interactions.break_rock(target))
+	assert_null(session.interactions.turn_to_stone(target))
 	assert_not_null(session.props.get_prop(tree.id))
 
 

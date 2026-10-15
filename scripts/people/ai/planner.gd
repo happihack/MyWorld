@@ -671,13 +671,14 @@ static func _rubble_work(person: PersonData, ctx: AiContext) -> Array:
 		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 
 
-## A stone of a broken boulder lying near home, carried to the stores while
-## they have room — a load at a time ([]: none, or no room).
+## A heap of stone (a rock the player turned to stone) lying near home,
+## carried to the stores while they have room — a load at a time ([]: none,
+## or no room).
 static func _broken_stone_work(person: PersonData, ctx: AiContext) -> Array:
 	if ctx.settlement == null or ctx.places == null or ctx.settlement.stockpile.room(&"stone") <= 0 or person.carrying_amount > 0:
 		return []
 	var stone := _lying_near(person, ctx, func(object: LooseObject) -> bool:
-		return BuildStep.is_broken_stone(object) and object.state == LooseObject.State.RESTING, LOG_REACH)
+		return object.state == LooseObject.State.RESTING and BuildStep.is_stray_stone(object, ctx), LOG_REACH)
 	var stores: Variant = ctx.places.storage_tile(&"stone")
 	if stone == null or stores == null:
 		return []
@@ -761,7 +762,7 @@ static func _loose_stone(site: Vector2i, ctx: AiContext) -> LooseObject:
 	var reach := Config.construction.stone_reach
 	var near: Array = [] # [distance, object]
 	for object in ctx.loose.all_objects():
-		if not BuildStep.STONES.has(object.kind) or object.placed_by_player:
+		if object.placed_by_player or not (BuildStep.STONES.has(object.kind) or BuildStep.is_stray_stone(object, ctx)):
 			continue
 		var distance := object.position.distance_to(Places.middle_of(site))
 		if distance <= reach:
