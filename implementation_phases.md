@@ -2931,5 +2931,6 @@ Done when:
 3. **The owner's call on close-up shadows** on phones (Auto = Medium costs ~25% close up: shadows only farther out, a 1024 map, or Auto = Low on phones) — before M24.
 4. **Hunger at the end of long runs** (the r5 round): see what W1 does to it before reaching for births.
 5. **The iOS port** (the owner, from 2026-10-15): sign into Xcode, first run on the iPhone 14, safe areas; see "iOS PORT".
+6. **Off the alpha models** (the owner): `docs/art_assets.md` is the inventory, the three directions, and (§5) the decisions of 2026-10-15 with Josh: direction A, the painted miniature, procedural in code by default with Jacob modelling hero shapes in Blender (a glTF-to-Template importer, vertex colour only); a clean low-poly toy inside a hand-made box; people oversized but with a new body; the Note20 the floor; the box an attic artefact. Work order: one palette, the importer and Blender conventions, then silhouettes (buildings, trees, the person body, boats, animals), then the box. Nothing is drawn from a model file today.
 
 *End of Implementation Phases v1.0.*
