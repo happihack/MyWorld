@@ -257,8 +257,37 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _wood_pile()
 			&"stone":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _stone_pile()
-			&"tools", &"spears", &"bows", &"nets":
+			&"tools":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
+			&"spears":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _spear_pile()
+			&"bows":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _bow_pile()
+			&"nets":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _net_pile()
+			&"berries", &"fruit", &"nuts":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _berry_heap(PILE_COLORS[resource],
+						0.045 if resource == &"berries" else 0.06, 7 if resource == &"berries" else 5)
+			&"meat":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _meat_pile()
+			&"fish":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _fish_pile()
+			&"grain":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _sheaf()
+			&"water":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _water_jar()
+			&"clay":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _clay_lumps()
+			&"herbs":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _herb_bundle()
+			&"mushrooms":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _mushroom_heap()
+			&"roots":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _root_bundle()
+			&"hide":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _hide_roll()
+			&"preserved_food":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _crate()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
 	_load_models()
@@ -546,11 +575,218 @@ static func _stone_pile() -> Template:
 	return t
 
 
+## The mat a gathered pile sits on (every pile but wood, stone and tools).
+static func _mat(t: Template) -> void:
+	var mat := _ring(0.012, 0.25, 7, 0.0)
+	_fan(t, mat, Vector3(0.0, 0.02, 0.0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+
+
+## Piles with a shape of their own (bible §28.3: resources are told apart by
+## shape first, colour second). Each fits a pile's body: radius 0.24, height 0.2.
+
+## Round things heaped on the mat: berries, fruit, nuts.
+static func _berry_heap(color: Color, size: float, count: int) -> Template:
+	var t := Template.new()
+	_mat(t)
+	var gem := _gem(size, size * 0.9, color, color.lightened(0.25))
+	for i in count:
+		var angle := TAU * i / count + 0.4
+		var r := 0.11 if i < count - 1 else 0.0
+		var at := Vector3(cos(angle) * r, 0.02 + (size * 1.3 if i == count - 1 else 0.0), sin(angle) * r)
+		_merge(t, gem, Transform3D(Basis(Vector3.UP, i * 0.7), at))
+	if count > 2: # (a second layer: two more on top)
+		for i in 2:
+			var at := Vector3(0.05 - 0.1 * i, 0.02 + size * 1.5, 0.04 - 0.08 * i)
+			_merge(t, gem, Transform3D(Basis(Vector3.UP, i * 1.1 + 0.3), at))
+	return t
+
+
+## Joints of meat laid on the mat: three dark red slabs, a pale top of fat.
+static func _meat_pile() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var places := [[Vector3(-0.07, 0.05, -0.04), 0.3], [Vector3(0.08, 0.05, 0.03), -0.4], [Vector3(0.0, 0.12, 0.0), 0.9]]
+	for place: Array in places:
+		var at: Vector3 = place[0]
+		_box(t, at, Vector3(0.1, 0.03, 0.065), _rgba(PILE_COLORS[&"meat"], 0.0), place[1])
+		_box(t, at + Vector3(0.0, 0.032, 0.0), Vector3(0.07, 0.006, 0.045), _rgba(MUSHROOM_STEM, 0.0), place[1])
+	return t
+
+
+## Fish laid in a row on the mat, heads one way, a tail fin each.
+static func _fish_pile() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var color: Color = PILE_COLORS[&"fish"]
+	for i in 4:
+		var at := Vector3(0.0, 0.035 + 0.01 * (i % 2), -0.12 + i * 0.08)
+		var yaw := 0.15 - 0.1 * i
+		_box(t, at, Vector3(0.11, 0.022, 0.03), _rgba(color.lightened(0.15), 0.0), yaw)
+		var tail := at - Vector3(cos(yaw), 0.0, -sin(yaw)) * 0.14
+		_box(t, tail, Vector3(0.03, 0.028, 0.012), _rgba(color.darkened(0.2), 0.0), yaw)
+	return t
+
+
+## A sheaf of grain: stalks tied at the waist, the golden heads spread above.
+static func _sheaf() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var foot := _ring(0.02, 0.12, 6, 0.0)
+	var waist := _ring(0.1, 0.06, 6, 0.3)
+	var shoulder := _ring(0.16, 0.13, 6, 0.0)
+	_band(t, foot, waist, _rgba(CROP_STRAW.darkened(0.15), 0.0), _rgba(CROP_STRAW, 0.0))
+	_band(t, waist, shoulder, _rgba(CROP_STRAW, 0.0), _rgba(CROP_GOLD, 0.0))
+	_fan(t, shoulder, Vector3(0.0, 0.21, 0.0), _rgba(CROP_GOLD, 0.0), _rgba(CROP_GOLD.lightened(0.2), 0.0))
+	_box(t, Vector3(0.0, 0.1, 0.0), Vector3(0.068, 0.012, 0.068), _rgba(TRUNK_DARK, 0.0), 0.3) # the tie
+	return t
+
+
+## A clay jar of water: a pot with a wide belly and the water dark in its mouth.
+static func _water_jar() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var low := _ring(0.02, 0.09, 7, 0.0)
+	var belly := _ring(0.09, 0.15, 7, 0.5)
+	var neck := _ring(0.17, 0.09, 7, 0.0)
+	var lip := _ring(0.2, 0.1, 7, 0.0)
+	_band(t, low, belly, _rgba(CLAY_DARK, 0.0), _rgba(CLAY, 0.0))
+	_band(t, belly, neck, _rgba(CLAY, 0.0), _rgba(CLAY.lightened(0.1), 0.0))
+	_band(t, neck, lip, _rgba(CLAY.lightened(0.1), 0.0), _rgba(CLAY_DARK, 0.0))
+	_fan(t, lip, Vector3(0.0, 0.195, 0.0), _rgba(PILE_COLORS[&"water"], 0.0), _rgba(PILE_COLORS[&"water"].lightened(0.3), 0.0))
+	return t
+
+
+## Lumps of dug clay, wet and rounded.
+static func _clay_lumps() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var places := [Vector3(-0.09, 0.0, -0.06), Vector3(0.1, 0.0, -0.03), Vector3(-0.02, 0.0, 0.1), Vector3(0.0, 0.085, 0.0)]
+	for i in places.size():
+		_merge(t, _rock(0.085, 0.09, 0.4 * i), Transform3D(Basis(Vector3.UP, 0.8 * i), places[i]))
+	# (Rocks are stone-coloured: paint the lumps clay.)
+	for i in t.colors.size():
+		if t.vertices[i].y > 0.025:
+			t.colors[i] = _rgba(CLAY.lerp(CLAY_DARK, 0.5 - 0.5 * clampf(t.vertices[i].y / 0.18, 0.0, 1.0)), 0.0)
+	return t
+
+
+## Herbs: a bundle of leafy stalks tied together, lying on the mat.
+static func _herb_bundle() -> Template:
+	var t := Template.new()
+	_mat(t)
+	for i in 4:
+		var angle := -0.45 + 0.3 * i
+		var at := Vector3(0.0, 0.035 + 0.012 * (i % 2), -0.06 + 0.04 * i)
+		_box(t, at, Vector3(0.14, 0.012, 0.02), _rgba(HERB, 0.0), angle)
+		var tip := at + Vector3(cos(angle), 0.0, -sin(angle)) * 0.16
+		_box(t, tip, Vector3(0.04, 0.008, 0.035), _rgba(HERB.lightened(0.2), 0.0), angle)
+	_box(t, Vector3(-0.08, 0.05, 0.0), Vector3(0.015, 0.045, 0.1), _rgba(THATCH_DARK, 0.0), 0.0) # the tie
+	return t
+
+
+## Mushrooms gathered in a heap: caps every way up.
+static func _mushroom_heap() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var places := [Vector3(-0.1, 0.02, -0.05), Vector3(0.08, 0.02, -0.07), Vector3(0.0, 0.02, 0.1), Vector3(-0.03, 0.09, 0.0), Vector3(0.09, 0.08, 0.05)]
+	for i in places.size():
+		var at: Vector3 = places[i]
+		var cap := _ring(at.y, 0.06, 6, 0.2 * i)
+		for n in cap.size():
+			cap[n] += Vector3(at.x, 0.0, at.z)
+		var color: Color = MUSHROOM_CAP[i % 2]
+		_fan(t, cap, at + Vector3(0.0, 0.045, 0.0), _rgba(color, 0.0), _rgba(color.lightened(0.2), 0.0))
+		_fan(t, cap, at + Vector3(0.0, -0.01, 0.0), _rgba(MUSHROOM_STEM.darkened(0.2), 0.0), _rgba(MUSHROOM_STEM.darkened(0.2), 0.0), true)
+	return t
+
+
+## Roots: four knobbly roots lying across each other on the mat.
+static func _root_bundle() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var color: Color = PILE_COLORS[&"roots"]
+	for i in 4:
+		var angle := 0.4 + 0.75 * i
+		var out := Vector3(cos(angle), 0.0, sin(angle))
+		var from := -out * 0.14 + Vector3(0.0, 0.04 + 0.025 * (i % 2), 0.0)
+		var to := out * 0.15 + Vector3(0.0, 0.03, 0.0)
+		_limb(t, from, to, 0.035, _rgba(ROOT_TOP.lerp(color, 0.5), 0.0), _rgba(color, 0.0))
+	return t
+
+
+## A hide rolled up and tied, lying on the mat, the flesh side pale at the ends.
+static func _hide_roll() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var color: Color = PILE_COLORS[&"hide"]
+	_prism(t, Vector3(-0.2, 0.075, 0.02), Vector3(0.2, 0.075, -0.02), 0.07, 6, color.lightened(0.35), color.lightened(0.35))
+	for x: float in [-0.1, 0.1]:
+		_box(t, Vector3(x, 0.075, 0.0), Vector3(0.012, 0.08, 0.08), _rgba(THATCH_DARK, 0.0), 0.1)
+	# (The outside of the roll, over the pale ends.)
+	_prism(t, Vector3(-0.17, 0.075, 0.017), Vector3(0.17, 0.075, -0.017), 0.074, 6, color, color, false)
+	return t
+
+
+## Preserved food: a lidded crate of it, banded.
+static func _crate() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var color: Color = PILE_COLORS[&"preserved_food"]
+	_box(t, Vector3(0.0, 0.085, 0.0), Vector3(0.15, 0.07, 0.11), _rgba(color, 0.0), 0.15)
+	_box(t, Vector3(0.0, 0.165, 0.0), Vector3(0.16, 0.012, 0.12), _rgba(color.lightened(0.25), 0.0), 0.15)
+	for x: float in [-0.08, 0.08]:
+		_box(t, Vector3(x, 0.09, 0.0), Vector3(0.015, 0.075, 0.115), _rgba(TRUNK_DARK, 0.0), 0.15)
+	return t
+
+
+## Spears stacked: three shafts leaning together over the mat, stone tips up.
+static func _spear_pile() -> Template:
+	var t := Template.new()
+	_mat(t)
+	for i in 3:
+		var angle := TAU * i / 3.0 + 0.5
+		var foot := Vector3(cos(angle) * 0.17, 0.02, sin(angle) * 0.17)
+		var top := Vector3(cos(angle) * -0.03, 0.3, sin(angle) * -0.03)
+		_prism(t, foot, top, 0.012, 3, TRUNK, TRUNK, false)
+		_limb(t, top, top + (top - foot).normalized() * 0.07, 0.022, _rgba(STONE_DARK, 0.0), _rgba(STONE, 0.0))
+	return t
+
+
+## Bows laid together: two bent staves with their strings, one across the other.
+static func _bow_pile() -> Template:
+	var t := Template.new()
+	_mat(t)
+	for i in 2:
+		var yaw := 0.35 - 0.7 * i
+		var y := 0.035 + 0.025 * i
+		var basis := Basis(Vector3.UP, yaw)
+		var a := basis * Vector3(-0.19, y, 0.0)
+		var m := basis * Vector3(0.0, y, 0.07)
+		var b := basis * Vector3(0.19, y, 0.0)
+		_limb(t, a, m, 0.016, _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.0))
+		_limb(t, b, m, 0.016, _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.0))
+		_box(t, (a + b) * 0.5, Vector3(0.19, 0.004, 0.004), _rgba(MUSHROOM_STEM, 0.0), yaw)
+	return t
+
+
+## Nets heaped on the mat, a few floats showing.
+static func _net_pile() -> Template:
+	var t := Template.new()
+	_mat(t)
+	var skirt := _jog(_ring(0.02, 0.2, 7, 0.5), 0.1, 2)
+	var shoulder := _jog(_ring(0.08, 0.12, 7, 0.0), 0.12, 4)
+	_band(t, skirt, shoulder, _rgba(NET.darkened(0.25), 0.0), _rgba(NET, 0.0))
+	_fan(t, shoulder, Vector3(0.0, 0.11, 0.0), _rgba(NET, 0.0), _rgba(NET.lightened(0.15), 0.0))
+	for i in 3:
+		var angle := TAU * i / 3.0 + 0.3
+		_merge(t, _gem(0.025, 0.025, NET_FLOAT, NET_FLOAT.lightened(0.3)), Transform3D(Basis(), Vector3(cos(angle) * 0.13, 0.07, sin(angle) * 0.13)))
+	return t
+
+
 ## A heap of something small (berries, grain, ...) on a mat.
 static func _heap(color: Color) -> Template:
 	var t := Template.new()
-	var mat := _ring(0.012, 0.25, 7, 0.0)
-	_fan(t, mat, Vector3(0.0, 0.02, 0.0), _rgba(THATCH_DARK, 0.0), _rgba(THATCH, 0.0))
+	_mat(t)
 	var skirt := _ring(0.02, 0.2, 7, 0.5)
 	var shoulder := _ring(0.1, 0.11, 7, 0.0)
 	_band(t, skirt, shoulder, _rgba(color.darkened(0.25), 0.0), _rgba(color, 0.0))

@@ -58,7 +58,7 @@ That is 26 kinds, about 40 templates.
 Raft of logs · dugout canoe · plank boat · boat with mast and sail. Crew sit in them (seated pose).
 
 ### 2.6 Loose objects (`LooseObjectsView`, MultiMesh per shape)
-Pebble ×2 · rock ×2 · boulder ×2 · log · fruit (berry, nut) · seed · strange object (dark, glinting) · **piles** of 19 resources: wood (a stack of logs), stone (a heap), tools / spears / bows / nets (tools laid together), and a heap on a mat in a colour each for berries, meat, fish, grain, water, clay, herbs, mushrooms, roots, nuts, hide, preserved food, fruit. A soft blob shadow under anything lifted.
+Pebble ×2 · rock ×2 · boulder ×2 · log · fruit (berry, nut) · seed · strange object (dark, glinting) · **piles** of 19 resources, each its own shape since 2026-10-15 (bible §28.3): wood a stack of logs, stone a heap, tools laid together, spears a tripod, bows two staves, nets a heap with floats; on a mat: berries, fruit and nuts heaped, meat in slabs, fish in a row, grain a sheaf, water a jar, clay in lumps, herbs a bundle, mushrooms a heap of caps, roots crossed, hide a roll, preserved food a crate. A soft blob shadow under anything lifted.
 
 ### 2.7 People (`PersonMeshLibrary`, `PeopleView`, `PersonView`)
 - One body: two legs, a tunic wider at the hem, two arms with skin hands, a head with a hair cap and two eyes. Tens of triangles.
