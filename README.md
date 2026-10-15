@@ -62,6 +62,22 @@ adb logcat -s godot
 Debug package: `com.happihack.worldinabox.dev` ("WIAB Dev"). See Appendix 1 of
 `implementation_phases.md` for the full device workflow.
 
+## iOS build
+
+Exports an Xcode project (needs Xcode and the iOS export templates):
+
+```sh
+godot --headless --path . --export-debug "iOS" build/ios/wiab.ipa
+cd build/ios && xcodebuild -project wiab.xcodeproj -scheme wiab -sdk iphoneos \
+  -allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+  DEVELOPMENT_TEAM=N5C88K4XGC CODE_SIGN_STYLE=Automatic build
+xcrun devicectl device install app --device <udid> build/Debug-iphoneos/wiab.app
+```
+
+Xcode must be signed into the team (N5C88K4XGC is HAPPIHACK STUDIOS, LLC). `xcrun devicectl list devices` gives the udid. The stock simulator slice is x86_64 only and iOS 26+
+simulators will not run it: test on a device. Status and findings: "iOS PORT" in
+`implementation_phases.md`.
+
 ## Sound
 
 All sounds are currently placeholders generated in code (`scripts/audio/sound_synth.gd`).

@@ -10,3 +10,7 @@
 
 The scenes are `scenes/main/splash.tscn` (scripts/ui/splash_screen.gd) and
 `scenes/main/title.tscn` (scripts/ui/title_screen.gd).
+- **launch@2x.png / launch@3x.png**: the iOS launch screen (what iOS shows before the engine
+  starts). They are fully transparent on purpose, so the launch screen is only the background
+  colour and the first thing seen is the lid animation; without them Godot's own logo appears.
+  The iOS preset points at them (`storyboard/custom_image@2x`, `@3x`) with the background colour.

@@ -2625,6 +2625,20 @@ At the owner's word, between M22 and M21 (commits 4586742, 2dfca3a, 1a81e3e, d62
 
 ---
 
+## iOS PORT — the owner's work (begun 2026-10-15)
+
+**Goal:** the same game on iPhone and iPad (bible §31.1 says Android-first, not Android-only). The owner is doing the port; this is where it stands.
+
+### First export (2026-10-15)
+- [x] **An `iOS` preset** (preset.2 in `export_presets.cfg`): `export_project_only`, team `N5C88K4XGC` (HAPPIHACK STUDIOS, LLC; the team Xcode is signed into), bundle `com.happihack.worldinabox.dev`, iPhone and iPad, development signing. `godot --headless --path . --export-debug "iOS" build/ios/wiab.ipa` writes the Xcode project to `build/ios/` (`wiab.xcodeproj`, `wiab.pck` 4.8 MB, the 410 MB engine xcframework, MoltenVK, a privacy manifest) in about a minute; `build/` is ignored by git.
+- [x] **It links for the device:** `xcodebuild … -sdk iphoneos CODE_SIGNING_ALLOWED=NO` builds a 104 MB arm64 `wiab.app` (unsigned) with no errors.
+- [x] **On the iPhone** (an iPhone 14 is paired with this Mac, UDID `00008110-000909CC34E3A01E`): installed 2026-10-15. The first attempt failed with "No Account for Team VY85CBW84K": that id belongs to the apple@happihack.io development certificate, not to the account Xcode is signed into, which is team `N5C88K4XGC` (HAPPIHACK STUDIOS, LLC; its profiles for other apps are in `~/Library/Developer/Xcode/UserData/Provisioning Profiles`). With `DEVELOPMENT_TEAM=N5C88K4XGC` and `-allowProvisioningUpdates -allowProvisioningDeviceRegistration`, Xcode made the profile, signed with the owner's identity (L8694KGAA8) and the build succeeded; `xcrun devicectl device install app --device <udid> <wiab.app>` installed it and `xcrun devicectl device process launch --device <udid> com.happihack.worldinabox.dev` launches it (the phone must be unlocked). Played on it 2026-10-15: works, with two iOS-only gaps: the launch screen showed Godot's logo (fixed the same day: `storyboard/custom_image@2x/@3x` in the preset point at `assets/splash/launch@2x.png` and `@3x.png`, fully transparent pictures, with `use_custom_bg_color` the game's dark blue: the owner wanted it blank so the lid animation is the first thing seen), and the notch (safe areas, below).
+- [ ] **The simulator is no use with the stock templates:** Godot 4.7.2's iOS template carries an x86_64-only simulator slice, and the iOS 26/27 runtimes refuse x86_64 apps ("needs to be updated by the developer"). An arm64 build fails to link; an `ARCHS=x86_64` build installs but will not open. Either test on the device only, or build an arm64 simulator template from source.
+- [ ] **Safe areas (next, its own session; confirmed on the iPhone 14 2026-10-15: the ☰ and the clock sit under the notch).** The follow banner already drops below a camera cutout but asks `DisplayServer.get_display_cutouts()`, which only Android fills; iOS fills `get_display_safe_area()`. Plan: one static helper (insets in canvas units from the safe area on iOS and the cutouts on Android, headless → zero) used by `MenuButtonRound` (top left), `SpeedControl` (top right), `UIRoot._place_corner` (the right-hand column), `ToolBar.bottom_margin_for` (above the home indicator) and `FollowBanner.top_for`; panels keep their margins. Check on both phones in portrait and landscape (in landscape the notch is at one side).
+- **Other iOS-only facts, from the code:** `NOTIFICATION_WM_GO_BACK_REQUEST` is Android's and harmless; `Input.vibrate_handheld` works on iOS; the `.NET` editor build is used for a GDScript-only project (KI-3) — the iOS export worked regardless; the mono iOS template is the one installed.
+
+---
+
 ## M24 — MOBILE POLISH
 
 **Goal:** Genuinely good on Android. (P:M24, S§49–50, S§72–74, S§96–98, B§30, B§31.12)
@@ -2916,5 +2930,6 @@ Done when:
 2. The cook's evening meal (the one W1 item left open).
 3. **The owner's call on close-up shadows** on phones (Auto = Medium costs ~25% close up: shadows only farther out, a 1024 map, or Auto = Low on phones) — before M24.
 4. **Hunger at the end of long runs** (the r5 round): see what W1 does to it before reaching for births.
+5. **The iOS port** (the owner, from 2026-10-15): sign into Xcode, first run on the iPhone 14, safe areas; see "iOS PORT".
 
 *End of Implementation Phases v1.0.*
