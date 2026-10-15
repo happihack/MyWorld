@@ -28,12 +28,15 @@ const ACTION_INSPECT := &"inspect"
 const ACTION_TOUCH := &"touch"
 const ACTION_FOCUS := &"focus"
 const ACTION_REMOVE := &"remove"
-## A boulder broken into stones to build with.
+## A boulder (or a rock) broken into stones to build with.
 const ACTION_BREAK := &"break"
 ## A boulder breaks into this many stones, holding this much stone between
-## them at its ordinary size (more for a bigger one, less for a smaller).
+## them at its ordinary size (more for a bigger one, less for a smaller); a rock
+## into fewer, with less.
 const BOULDER_PIECES := 4
 const BOULDER_STONE := 12
+const ROCK_PIECES := 2
+const ROCK_STONE := 3
 ## A grave: who lies there, and their family (M10.3).
 const ACTION_READ := &"read"
 const ACTION_VIEW_FAMILY := &"view_family"
@@ -271,8 +274,16 @@ func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionRes
 	return iv.response if iv.applied else null
 
 
-## Breaks the boulder at `target`: it is gone, and its stone lies about it in
-## pieces for the people to carry off. Null if the target is not a boulder.
+## Can this be broken into stone: a boulder, or a rock lying at rest (not a
+## pebble, nor a stone already broken from one)?
+static func can_break(object: LooseObject) -> bool:
+	if object == null or object.state != LooseObject.State.RESTING or BuildStep.is_broken_stone(object):
+		return false
+	return object.kind == LooseObject.Kind.BOULDER or object.kind == LooseObject.Kind.ROCK
+
+
+## Breaks the boulder (or rock) at `target`: it is gone, and its stone lies
+## about it in pieces for the people to carry off. Null if it cannot be broken.
 func break_rock(target: Picker.Result, tool: StringName = &"hand") -> InteractionResponse:
 	var iv := apply_intervention(Intervention.create(Intervention.BREAK_ROCK, tool, target))
 	return iv.response if iv.applied else null
@@ -509,31 +520,33 @@ func _do_uproot(iv: Intervention) -> bool:
 
 func _do_break_rock(iv: Intervention) -> bool:
 	var response := _respond(iv.target, InteractionResponse.Action.TAP, false)
-	var boulder := _loose.get_object(response.entity_id) if response != null and _loose != null else null
-	if boulder == null or boulder.kind != LooseObject.Kind.BOULDER or boulder.state != LooseObject.State.RESTING:
-		iv.rejected = &"not_a_boulder"
+	var rock := _loose.get_object(response.entity_id) if response != null and _loose != null else null
+	if not can_break(rock):
+		iv.rejected = &"not_a_rock"
 		return false
 	if not _admit(iv, &"rock", Intervention.Severity.MODERATE):
 		return false
 	response.effect = InteractionResponse.ROCK_BREAK
-	response.description = "BOULDER broken at %s" % boulder.tile()
-	var s := boulder.scale()
-	var stone := maxi(roundi(BOULDER_STONE * s * s * s), BOULDER_PIECES)
-	var at := boulder.position
-	_loose.remove(boulder.id)
+	response.description = "%s broken at %s" % [LooseObject.Kind.keys()[rock.kind], rock.tile()]
+	var boulder := rock.kind == LooseObject.Kind.BOULDER
+	var pieces := BOULDER_PIECES if boulder else ROCK_PIECES
+	var s := rock.scale()
+	var stone := maxi(roundi((BOULDER_STONE if boulder else ROCK_STONE) * s * s * s), pieces)
+	var at := rock.position
+	_loose.remove(rock.id)
 	if can_spawn():
 		var rng := _rng.stream(RNG_STREAM)
 		var turn := rng.randf() * TAU
-		for i in BOULDER_PIECES:
+		for i in pieces:
 			# (Each with its share of the stone: carried to the stores, or by builders to a site.)
-			var heading := turn + TAU * i / BOULDER_PIECES
+			var heading := turn + TAU * i / pieces
 			var piece := _spawn(LooseObject.Kind.ROCK, at + Vector2(cos(heading), sin(heading)) * 0.15, 0.25,
-				rng.randi_range(90, 125))
+				rng.randi_range(90, 125) if boulder else rng.randi_range(55, 75))
 			piece.variant = rng.randi_range(0, 1)
 			piece.yaw = rng.randf() * TAU
 			piece.resource = &"stone"
-			piece.amount = stone / BOULDER_PIECES + (1 if i < stone % BOULDER_PIECES else 0)
-			_motion.drop(piece.id, Vector3(cos(heading), 0.6, sin(heading)) * 1.1)
+			piece.amount = stone / pieces + (1 if i < stone % pieces else 0)
+			_motion.drop(piece.id, Vector3(cos(heading), 0.6, sin(heading)) * (1.1 if boulder else 0.8))
 			response.dropped.append(piece.id)
 	iv.response = response
 	iv.position = response.position
@@ -827,8 +840,7 @@ func actions_for(target: Picker.Result) -> Array[StringName]:
 		var prop := _props.get_prop(target.entity_id)
 		if prop != null and prop.kind == PropData.Kind.TREE:
 			actions.append(ACTION_REMOVE)
-		var object := _loose.get_object(target.entity_id) if prop == null and _loose != null else null
-		if object != null and object.kind == LooseObject.Kind.BOULDER and object.state == LooseObject.State.RESTING:
+		if prop == null and _loose != null and can_break(_loose.get_object(target.entity_id)):
 			actions.append(ACTION_BREAK)
 	actions.append(ACTION_FOCUS)
 	return actions

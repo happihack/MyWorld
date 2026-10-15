@@ -315,8 +315,11 @@ func test_tapping_a_loose_object() -> void:
 	assert_eq(UIText.action_label(InteractionManager.ACTION_TOUCH, response.touch_effect), "Touch")
 	assert_eq(manager.actions_for(_loose_target(boulder)), [InteractionManager.ACTION_INSPECT, InteractionManager.ACTION_TOUCH,
 		InteractionManager.ACTION_BREAK, InteractionManager.ACTION_FOCUS], "a boulder can be broken")
+	# (The owner, 2026-10-15: the big rocks look like boulders too — no Break on them at first.)
 	var rock := _loose_object(loose, LooseObject.Kind.ROCK, Vector2(-3.5, 4.5))
-	assert_false(manager.actions_for(_loose_target(rock)).has(InteractionManager.ACTION_BREAK), "a rock is stone already")
+	assert_has(manager.actions_for(_loose_target(rock)), InteractionManager.ACTION_BREAK, "a rock can be broken too")
+	var pebble := _loose_object(loose, LooseObject.Kind.PEBBLE, Vector2(-5.5, 4.5))
+	assert_false(manager.actions_for(_loose_target(pebble)).has(InteractionManager.ACTION_BREAK), "not a pebble")
 
 
 func test_inspecting_a_loose_object() -> void:

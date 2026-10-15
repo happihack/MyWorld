@@ -964,6 +964,21 @@ func test_a_broken_boulder_is_carried_home_as_stone() -> void:
 		waited += 1.0
 	assert_eq(session.stored(&"stone"), mini(InteractionManager.BOULDER_STONE / InteractionManager.BOULDER_PIECES,
 		ctx.carry_capacity(&"stone")), "a load in the stores")
+	# A rock breaks too: into two, with less in them.
+	var rock := LooseObject.new()
+	rock.id = session.ids.next_id()
+	rock.kind = LooseObject.Kind.ROCK
+	rock.position = Places.middle_of((home as Vector2i) + Vector2i(-3, 2))
+	assert_true(session.loose.add(rock))
+	target.entity_id = rock.id
+	target.tile = rock.tile()
+	var broke := session.interactions.break_rock(target)
+	assert_not_null(broke)
+	assert_eq(broke.dropped.size(), InteractionManager.ROCK_PIECES)
+	var in_rock := 0
+	for id in broke.dropped:
+		in_rock += session.loose.get_object(id).amount
+	assert_eq(in_rock, InteractionManager.ROCK_STONE)
 	# Nothing else is broken: a tree, the ground.
 	var tree := _near(PropData.Kind.TREE)
 	target.entity_id = tree.id
