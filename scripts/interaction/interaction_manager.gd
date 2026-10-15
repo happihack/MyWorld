@@ -274,10 +274,13 @@ func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionRes
 	return iv.response if iv.applied else null
 
 
-## Can this be broken into stone: a boulder, or a rock lying at rest (not a
-## pebble, nor a stone already broken from one)?
+## Can this be broken into stone: a boulder, or a rock (not a pebble, nor a
+## stone already broken from one)? Lying, in hand or coming down: holding a
+## finger on it lifts it (HandTool) before the long-press menu opens, and the
+## menu's choice is made after it is put back down (the owner, 2026-10-15: no
+## Break on the phone).
 static func can_break(object: LooseObject) -> bool:
-	if object == null or object.state != LooseObject.State.RESTING or BuildStep.is_broken_stone(object):
+	if object == null or BuildStep.is_broken_stone(object):
 		return false
 	return object.kind == LooseObject.Kind.BOULDER or object.kind == LooseObject.Kind.ROCK
 
@@ -533,6 +536,8 @@ func _do_break_rock(iv: Intervention) -> bool:
 	var s := rock.scale()
 	var stone := maxi(roundi((BOULDER_STONE if boulder else ROCK_STONE) * s * s * s), pieces)
 	var at := rock.position
+	_in_hand.erase(rock.id)
+	_awaiting_rest.erase(rock.id)
 	_loose.remove(rock.id)
 	if can_spawn():
 		var rng := _rng.stream(RNG_STREAM)
