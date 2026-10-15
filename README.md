@@ -113,7 +113,9 @@ Hero shapes can be modelled outside: a `.glb` in `assets/models/props/<kind>_<va
 `loose/`, or `person/body.glb`) replaces the procedural shape, through `ModelImport`
 (`scripts/rendering/model_import.gd`). How to model for it, the material names that carry sway,
 glow and leaves, the budgets and the export settings: `docs/blender_kit.md`; the game's own
-shapes as reference files: `docs/blender_kit/`.
+shapes as reference files: `docs/blender_kit/`. To look at the shapes on their own, with the real
+prop shader and sun: `godot --path . -s res://tests/tools/prop_lineup.gd -- --out=/tmp/lineup.png`
+(`--set=nature|buildings|all`, `--season=1` for autumn, `--night=1`).
 
 ## Project layout
 

@@ -364,58 +364,101 @@ static func _look_key(kind: int, variant: int, look: int) -> int:
 
 static func _broadleaf(radius: float, height: float, twist: float) -> Template:
 	var t := Template.new()
-	var trunk_top := height * 0.42
-	_band(t, _ring(0.0, 0.085, 5, twist), _ring(trunk_top, 0.06, 5, twist), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.25))
-	# Canopy: a chunky blob — narrow bottom, wide middle, pointed top.
-	var c0 := trunk_top - 0.08
-	# The branches, inside it: what is left to see when the leaves are shed
-	# (the owner, 2026-10-12: a bare tree was a stump of a trunk). They sway
-	# as the leaves about them do, so they stay inside the canopy in summer.
+	var trunk_top := height * 0.40
+	# A trunk that flares at the root and leans a little with the tree's twist.
+	var lean := Vector3(cos(twist * TAU) * 0.03, 0.0, sin(twist * TAU) * 0.03)
+	_band(t, _ring(0.0, 0.085, 5, twist), _ring(0.06, 0.062, 5, twist), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK_DARK, 0.0))
+	var top_ring := _ring(trunk_top, 0.05, 5, twist)
+	for i in top_ring.size():
+		top_ring[i] += lean
+	_band(t, _ring(0.06, 0.062, 5, twist), top_ring, _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.25))
+	# The branches, inside the crown: what is left to see when the leaves are
+	# shed (the owner, 2026-10-12: a bare tree was a stump of a trunk). They
+	# sway as the leaves about them do, so they stay inside the canopy in summer.
+	var c0 := trunk_top - 0.06
 	var span := height - c0
-	var crown := Vector3(0.0, c0 + span * 0.72, 0.0)
-	_limb(t, Vector3(0.0, trunk_top - 0.02, 0.0), crown, 0.055, _rgba(TRUNK, 0.3), _rgba(TRUNK, 0.8))
+	var crown := lean + Vector3(0.0, c0 + span * 0.78, 0.0)
+	_limb(t, lean + Vector3(0.0, trunk_top - 0.02, 0.0), crown, 0.05, _rgba(TRUNK, 0.3), _rgba(TRUNK, 0.85))
 	for i in 4:
 		var angle := TAU * (i + twist + 0.25) / 4.0
 		var out := Vector3(cos(angle), 0.0, sin(angle))
-		var from := Vector3(0.0, c0 + span * (0.12 + 0.11 * i), 0.0)
-		var tip := from + out * radius * (0.6 - 0.07 * i) + Vector3(0.0, span * 0.3, 0.0)
-		_limb(t, from, tip, 0.035, _rgba(TRUNK, 0.35 + 0.08 * i), _rgba(TRUNK_DARK, 0.6 + 0.07 * i))
-		# A twig off each, halfway out and to one side.
+		var from := lean + Vector3(0.0, c0 + span * (0.14 + 0.12 * i), 0.0)
+		var tip := from + out * radius * (0.72 - 0.08 * i) + Vector3(0.0, span * 0.28, 0.0)
+		_limb(t, from, tip, 0.032, _rgba(TRUNK, 0.35 + 0.08 * i), _rgba(TRUNK_DARK, 0.6 + 0.07 * i))
 		var side := Vector3(-out.z, 0.0, out.x) * (1.0 if i % 2 == 0 else -1.0)
 		var fork := from.lerp(tip, 0.55)
 		_limb(t, fork, fork + (out * 0.25 + side) * radius * 0.3 + Vector3(0.0, span * 0.16, 0.0), 0.02,
 				_rgba(TRUNK_DARK, 0.5 + 0.07 * i), _rgba(TRUNK_DARK, 0.7 + 0.06 * i))
+	# The canopy: three lobes of leaves, the main one above the trunk and two
+	# smaller ones against its flanks, so the crown reads as a mass of foliage
+	# rather than one ball (the painted-miniature look, docs/art_assets.md §5).
 	var canopy := t.vertices.size()
-	var bottom := _ring(c0, radius * 0.55, 6, twist)
-	var middle := _ring(c0 + (height - c0) * 0.42, radius, 6, twist + 0.5)
-	var upper := _ring(c0 + (height - c0) * 0.78, radius * 0.62, 6, twist)
-	_fan(t, bottom, Vector3(0, c0 - 0.03, 0), _rgba(LEAF.darkened(0.2), 0.35), _rgba(LEAF.darkened(0.2), 0.3), true)
-	_band(t, bottom, middle, _rgba(LEAF, 0.35), _rgba(LEAF, 0.6))
-	_band(t, middle, upper, _rgba(LEAF, 0.6), _rgba(LEAF_LIGHT, 0.85))
-	_fan(t, upper, Vector3(0, height, 0), _rgba(LEAF_LIGHT, 0.85), _rgba(LEAF_LIGHT, 1.0))
+	var a := TAU * (twist + 0.1)
+	var main_r := radius * 0.95
+	var main_squash := 1.12
+	# (The main lobe's top is the height the tree is meant to reach.)
+	var main_c := lean + Vector3(0.0, height - main_r * main_squash * 0.95, 0.0)
+	_lobe(t, main_c, main_r, main_squash, 6, twist, 0.35, 1.0)
+	var left_c := main_c + Vector3(cos(a), 0.0, sin(a)) * radius * 0.55 + Vector3(0.0, -span * 0.16, 0.0)
+	_lobe(t, left_c, radius * 0.66, 0.95, 5, twist + 0.3, 0.3, 0.75)
+	var right_c := main_c + Vector3(cos(a + 2.4), 0.0, sin(a + 2.4)) * radius * 0.5 + Vector3(0.0, -span * 0.02, 0.0)
+	_lobe(t, right_c, radius * 0.6, 1.0, 5, twist + 0.6, 0.4, 0.85)
 	t.leaf_from(canopy, LEAF_SHED)
 	return t
 
 
+## A faceted ball of leaves: a dark underside, two bands and a lit top. The
+## bands' radii are jogged by the ring index so no two lobes look alike;
+## `squash` makes it taller (> 1) or flatter. Sway from `sway_low` at the
+## bottom to `sway_high` at the top.
+static func _lobe(t: Template, center: Vector3, radius: float, squash: float, sides: int, phase: float,
+		sway_low: float, sway_high: float, open_bottom: bool = false) -> void:
+	var h := radius * squash
+	var bottom := _jog(_ring(center.y - h * 0.62, radius * 0.6, sides, phase), 0.08, 1)
+	var waist := _jog(_ring(center.y - h * 0.12, radius, sides, phase + 0.5), 0.1, 2)
+	var shoulder := _jog(_ring(center.y + h * 0.5, radius * 0.72, sides, phase), 0.09, 3)
+	for ring: Array in [bottom, waist, shoulder]:
+		for i in ring.size():
+			ring[i] += Vector3(center.x, 0.0, center.z)
+	var dark := LEAF.darkened(0.28)
+	var sway_mid := lerpf(sway_low, sway_high, 0.45)
+	var sway_up := lerpf(sway_low, sway_high, 0.8)
+	if not open_bottom: # (a bush sits on the ground: nothing sees its underside)
+		_fan(t, bottom, Vector3(center.x, center.y - h * 0.86, center.z), _rgba(dark, sway_low), _rgba(dark, sway_low), true)
+	_band(t, bottom, waist, _rgba(LEAF.darkened(0.1), sway_low), _rgba(LEAF, sway_mid))
+	_band(t, waist, shoulder, _rgba(LEAF, sway_mid), _rgba(LEAF_LIGHT, sway_up))
+	_fan(t, shoulder, Vector3(center.x, center.y + h * 0.95, center.z), _rgba(LEAF_LIGHT, sway_up), _rgba(LEAF_LIGHT.lightened(0.08), sway_high))
+
+
+## A ring with its points pushed in and out by up to `amount` of their radius,
+## settled by their index and `seed` (so the shape is the same each time).
+static func _jog(ring: Array[Vector3], amount: float, seed: int) -> Array[Vector3]:
+	for i in ring.size():
+		var k := sin(float(i * 7 + seed * 13) * 1.7) * amount
+		ring[i] = Vector3(ring[i].x * (1.0 + k), ring[i].y + ring[i].x * k * 0.3, ring[i].z * (1.0 + k))
+	return ring
+
+
 static func _conifer(radius: float, height: float) -> Template:
 	var t := Template.new()
-	var trunk_top := height * 0.22
-	_band(t, _ring(0.0, 0.07, 5, 0.0), _ring(trunk_top, 0.055, 5, 0.0), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.15))
-	# Three stacked cones, each smaller and lighter than the one below.
+	var trunk_top := height * 0.2
+	_band(t, _ring(0.0, 0.07, 5, 0.0), _ring(trunk_top + 0.05, 0.05, 5, 0.0), _rgba(TRUNK_DARK, 0.0), _rgba(TRUNK, 0.15))
+	# Four tiers of needles, each narrower and lighter than the one below, each
+	# skirt jogged so the edge is ragged, the tiers turned against each other.
 	var needles := t.vertices.size()
-	var tiers := 3
+	var tiers := 4
 	for i in tiers:
 		var f0 := float(i) / tiers
 		var f1 := float(i + 1) / tiers
-		var y0 := lerpf(trunk_top - 0.05, height * 0.72, f0)
-		var y1 := lerpf(trunk_top + (height - trunk_top) * 0.45, height, f1)
-		var r := radius * lerpf(1.0, 0.5, f0)
-		var sway0 := lerpf(0.25, 0.7, f0)
-		var sway1 := lerpf(0.5, 1.0, f1)
+		var y0 := lerpf(trunk_top - 0.03, height * 0.74, f0)
+		var y1 := lerpf(trunk_top + (height - trunk_top) * 0.42, height, f1)
+		var r := radius * lerpf(1.0, 0.42, f0)
+		var sway0 := lerpf(0.2, 0.7, f0)
+		var sway1 := lerpf(0.45, 1.0, f1)
 		var col := PINE.lerp(PINE_LIGHT, f0)
-		var skirt := _ring(y0, r, 6, i * 0.5)
-		_fan(t, skirt, Vector3(0, y1, 0), _rgba(col, sway0), _rgba(col.lightened(0.08), sway1))
-		_fan(t, skirt, Vector3(0, y0 + 0.02, 0), _rgba(col.darkened(0.25), sway0), _rgba(col.darkened(0.25), sway0), true)
+		var skirt := _jog(_ring(y0, r, 7, i * 0.37), 0.12, i + 5)
+		_fan(t, skirt, Vector3(0, y1, 0), _rgba(col, sway0), _rgba(col.lightened(0.1), sway1))
+		_fan(t, skirt, Vector3(0, y0 + 0.03, 0), _rgba(col.darkened(0.3), sway0), _rgba(col.darkened(0.3), sway0), true)
 	t.leaf_from(needles, LEAF_EVERGREEN)
 	return t
 
@@ -525,15 +568,19 @@ static func _merge(t: Template, other: Template, xform: Transform3D) -> void:
 
 static func _bush(radius: float, height: float, berries: int = 4) -> Template:
 	var t := Template.new()
-	var base := _ring(0.02, radius * 0.75, 6, 0.0)
-	var middle := _ring(height * 0.55, radius, 6, 0.5)
-	_band(t, base, middle, _rgba(BUSH, 0.1), _rgba(BUSH, 0.35))
-	_fan(t, middle, Vector3(0, height, 0), _rgba(BUSH, 0.35), _rgba(BUSH_LIGHT, 0.5))
+	# Two lobes of leaves leaning on each other, low and wide, their bottoms
+	# just above the ground (a lobe reaches 0.86 of its height below its centre).
+	var r1 := radius * 0.82
+	var h1 := height * 0.55
+	_lobe(t, Vector3(-radius * 0.18, 0.01 + h1 * 0.86, radius * 0.1), r1, h1 / r1, 6, 0.0, 0.1, 0.5, true)
+	var r2 := radius * 0.6
+	var h2 := height * 0.42
+	_lobe(t, Vector3(radius * 0.42, 0.01 + h2 * 0.86, -radius * 0.28), r2, h2 / r2, 5, 0.4, 0.1, 0.45, true)
 	t.leaf_from(0, LEAF_TURNS)
 	# Berries: tiny bright diamonds sitting on the foliage.
 	for i in berries:
 		var angle := TAU * (i + 0.3) / 4.0
-		var p := Vector3(cos(angle) * radius * 0.78, height * (0.45 + 0.12 * (i % 2)), sin(angle) * radius * 0.78)
+		var p := Vector3(cos(angle) * radius * 0.72, height * (0.5 + 0.14 * (i % 2)), sin(angle) * radius * 0.72)
 		_diamond(t, p, 0.045, _rgba(BERRY, 0.35))
 	return t
 

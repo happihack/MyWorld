@@ -246,4 +246,5 @@ func test_a_tree_that_sheds_its_leaves_has_branches() -> void:
 		assert_true(wood_top > top * 0.7, "wood up into the crown (%.2f of %.2f)" % [wood_top, top])
 		assert_true(wood_wide > leaves_wide * 0.4, "and out to the sides (%.2f of %.2f)" % [wood_wide, leaves_wide])
 		assert_true(wood_wide < leaves_wide * 0.7, "inside the leaves while it has them")
-		assert_true(tree.vertices.size() / 3 <= 90, "still few triangles (%d)" % (tree.vertices.size() / 3))
+		# (The budget of a tree: docs/blender_kit.md §4, from the art decisions of 2026-10-15.)
+		assert_true(tree.vertices.size() / 3 <= 150, "still few triangles (%d)" % (tree.vertices.size() / 3))
