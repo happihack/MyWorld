@@ -32,15 +32,43 @@ static func lineup(set: String) -> Array:
 			return nature
 		"buildings":
 			return buildings
+		"animals", "loose":
+			return [] # (meshes of their own: see extra_meshes)
 	return nature + buildings
+
+
+## Meshes that are not prop templates: [label, ArrayMesh, triangle count].
+static func extra_meshes(set: String, library: PropMeshLibrary) -> Array:
+	var out := []
+	if set == "animals":
+		for name in ["deer", "rabbit", "fox", "bear", "wolf", "lion", "boar"]:
+			var def: SpeciesDef = load("res://data/species/%s.tres" % name)
+			var mesh := AnimalMeshLibrary.mesh_for(def)
+			if mesh != null:
+				var count := (mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() / 3
+				out.append([name, mesh, count])
+	elif set == "loose":
+		var items := [["pebble", LooseObject.Kind.PEBBLE, 0], ["rock", LooseObject.Kind.ROCK, 0], ["boulder", LooseObject.Kind.BOULDER, 0],
+			["log", LooseObject.Kind.LOG, 0], ["fruit", LooseObject.Kind.FRUIT, 0], ["seed", LooseObject.Kind.SEED, 0],
+			["strange", LooseObject.Kind.STRANGE_OBJECT, 0]]
+		for i in LooseObject.PILE_RESOURCES.size():
+			items.append(["pile " + String(LooseObject.PILE_RESOURCES[i]), LooseObject.Kind.PILE, i])
+		for item: Array in items:
+			var template := library.loose_template(item[1], item[2])
+			if template != null:
+				out.append([item[0], _mesh(template), template.triangle_count()])
+	return out
 
 
 static func build(set: String, season: float, night: float) -> Node3D:
 	var scene := Node3D.new()
 	scene.name = "Lineup"
 	var items := lineup(set)
-	var columns := 6 if items.size() > 6 else items.size()
-	var rows := ceili(float(items.size()) / columns)
+	var library := PropMeshLibrary.new()
+	var extras := extra_meshes(set, library)
+	var total := items.size() + extras.size()
+	var columns := 6 if total > 6 else total
+	var rows := ceili(float(total) / columns)
 
 	var environment := WorldEnvironment.new()
 	var env := Environment.new()
@@ -79,20 +107,22 @@ static func build(set: String, season: float, night: float) -> Node3D:
 		material.set_shader_parameter(&"season_tint", Color(0.80, 0.46, 0.14))
 		material.set_shader_parameter(&"season_tint_other", Color(0.86, 0.66, 0.18))
 	material.set_shader_parameter(&"night_glow", night)
-	var library := PropMeshLibrary.new()
-	for i in items.size():
-		var item: Array = items[i]
+	var shown := [] # [label, mesh, triangles]
+	for item: Array in items:
 		var template: PropMeshLibrary.Template = library.template_for(item[1], item[2], item[3])
-		if template == null:
-			continue
+		if template != null:
+			shown.append([item[0], _mesh(template), template.triangle_count()])
+	shown.append_array(extras)
+	for i in shown.size():
+		var item: Array = shown[i]
 		var at := Vector3((i % columns) * SPACING, 0.0, (i / columns) * SPACING)
 		var instance := MeshInstance3D.new()
-		instance.mesh = _mesh(template)
+		instance.mesh = item[1]
 		instance.material_override = material
 		instance.position = at
 		scene.add_child(instance)
 		var label := Label3D.new()
-		label.text = "%s  %d tri" % [item[0], template.triangle_count()]
+		label.text = "%s  %d tri" % [item[0], item[2]]
 		label.font_size = 32
 		label.pixel_size = 0.004
 		label.modulate = Color(0.95, 0.92, 0.85)

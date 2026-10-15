@@ -4,7 +4,7 @@ extends SceneTree
 ## judging silhouettes while they are worked on (the ART section of the plan).
 ## Run in a window (not headless):
 ##   godot --path . -s res://tests/tools/prop_lineup.gd -- --out=/tmp/lineup.png
-##     [--set=nature|buildings|all] [--size=1600x900] [--season=0..1] [--night=0..1]
+##     [--set=nature|buildings|animals|loose|all] [--size=1600x900] [--season=0..1] [--night=0..1]
 ## The work is in prop_lineup_lib.gd, loaded once the autoloads exist.
 
 var _out := ""
