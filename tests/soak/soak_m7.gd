@@ -249,7 +249,7 @@ func _run() -> void:
 			var staffing := PackedStringArray()
 			for own in s.settlements.all():
 				var kept := PackedStringArray()
-				for kind in [PropData.Kind.SMOKEHOUSE, PropData.Kind.DRYING_RACK, PropData.Kind.QUARRY, PropData.Kind.HERB_RACK, PropData.Kind.HERB_GARDEN]:
+				for kind in [PropData.Kind.SMOKEHOUSE, PropData.Kind.DRYING_RACK, PropData.Kind.QUARRY, PropData.Kind.HERB_RACK, PropData.Kind.HERB_GARDEN, PropData.Kind.GRANARY, PropData.Kind.SEED_STORE, PropData.Kind.ORCHARD]:
 					if own.planner != null and not own.planner.standing_near(kind).is_empty():
 						kept.append(PropData.Kind.keys()[kind].to_lower())
 				staffing.append("%d: %s [%s]" % [own.id, own.staffing_text(s.clock.tick), " ".join(kept)])

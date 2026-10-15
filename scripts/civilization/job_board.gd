@@ -84,6 +84,9 @@ func wants(resource: StringName) -> bool:
 	return job_for(resource) != null
 
 
+## How pressing laying in for the winter is at most, beyond the usual days in hand.
+const LAY_IN_PRIORITY := 0.35
+
 ## What foragers bring in, all wanted as food (posted as berries).
 const FORAGED: Array[StringName] = [&"berries", &"mushrooms", &"roots", &"nuts"]
 
@@ -99,14 +102,22 @@ func refresh(settlement: Settlement, now: int) -> void:
 		var food_wanted := settlement.food_need_per_day() * _config.food_days_wanted \
 			* settlement.winter_factor(now, _config.winter_food_factor)
 		var food := stock.food()
+		var urgency := 1.0 - food / food_wanted if food_wanted > 0.0 else 0.0
+		# (Laying in: enough to come through the winter, as it nears and in it —
+		# wanted, but no more pressing than LAY_IN_PRIORITY beyond what the days in
+		# hand call for: the farmers bring the harvest in first.)
+		var winter := settlement.winter_food_wanted(now)
+		if winter > food_wanted:
+			urgency = maxf(urgency, LAY_IN_PRIORITY * (1.0 - food / winter))
+			food_wanted = winter
 		if food_wanted > 0.0 and food < food_wanted:
-			wanted.append([GATHER, &"berries", ResourceNodes.BUSH, 1.0 - food / food_wanted, food, food_wanted])
+			wanted.append([GATHER, &"berries", ResourceNodes.BUSH, urgency, food, food_wanted])
 			# ...and meat, where there are hunters and game enough to take from.
 			if settlement.fauna != null and settlement.hunter_count() > 0 and settlement.fauna.has_game():
-				wanted.append([HUNT, &"meat", &"game", 1.0 - food / food_wanted, food, food_wanted])
+				wanted.append([HUNT, &"meat", &"game", urgency, food, food_wanted])
 			# ...and fish, where there are fishers and fish to be had (M19.5).
 			if settlement.fisher_count() > 0 and settlement.fish_near():
-				wanted.append([FISH, &"fish", &"fish", 1.0 - food / food_wanted, food, food_wanted])
+				wanted.append([FISH, &"fish", &"fish", urgency, food, food_wanted])
 		# Wood: so many days of what the fire burns.
 		# (More in the cold, whatever the calendar says; and what rebuilding a flooded hut takes.)
 		var wood_wanted := _config.fire_wood_per_day * _config.wood_days_wanted \

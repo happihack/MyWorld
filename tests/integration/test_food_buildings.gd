@@ -357,3 +357,60 @@ func test_a_world_saved_before_the_foundation_loads() -> void:
 	assert_eq(int(SaveContainer.read_header(SaveManager.world_dir(world_id).path_join(SaveManager.SAVE_FILE)).header["save_version"]), 29)
 	old.queue_free()
 	await wait_frames(1)
+
+
+func test_food_is_laid_in_for_the_winter() -> void:
+	# (The owner, 2026-10-15: two days' food, doubled as winter came, went into
+	# a winter of six, and every winter ended in rationing.)
+	_grow_to(10)
+	own.produced.clear()
+	var need := own.food_need_per_day()
+	var year := Config.time.ticks_per_year()
+	var winter_days := Config.time.days_per_season
+	var start := (session.clock.tick / year + 1) * year # (the start of a year: spring)
+	assert_eq(own.winter_food_wanted(start), 0.0, "in spring, nothing laid in")
+	var winter_from := start + (Config.time.seasons_per_year - 1) * winter_days * DAY
+	var eve := winter_from - DAY
+	var wanted := own.winter_food_wanted(eve)
+	assert_true(wanted >= need * (winter_days + 1), "on its eve: all of the winter (%.1f days)" % (wanted / need))
+	# What still comes in counts — but not in the winter, when nothing grows.
+	own.produced["berries"] = need * 2.0 / 0.65 / (1.0 - Config.trade.produced_kept_per_day)
+	assert_true(own.winter_food_wanted(eve) < wanted and own.winter_food_wanted(eve) > need * winter_days * 0.9,
+		"a day of gathering left before it: a little less")
+	own.produced.clear()
+	# The job board asks for it: with five days of food, more is wanted on winter's eve.
+	for resource in [&"berries", &"fish", &"meat", &"mushrooms", &"roots", &"nuts", &"fruit", &"preserved_food"]:
+		own.stockpile.take(resource, own.stockpile.amount(resource))
+	own.stockpile.set_reserve(&"grain", 0)
+	own.stockpile.take(&"grain", own.stockpile.amount(&"grain"))
+	own.stockpile.add(&"grain", ceili(need * 5.0))
+	own.jobs.refresh(own, start)
+	assert_false(own.jobs.wants(&"berries"), "five days in spring: enough")
+	own.jobs.refresh(own, eve)
+	assert_true(own.jobs.wants(&"berries"), "five days on winter's eve: not enough")
+
+
+func test_berries_are_dried_for_the_winter() -> void:
+	_grow_to(10)
+	own.note_produced(&"fish", 30)
+	_build(&"smokehouse")
+	assert_false(planner.food_building_wanted(&"drying_rack"), "a smokehouse, and no berries to speak of")
+	own.note_produced(&"berries", SettlementPlanner.DRY_FROM)
+	assert_true(planner.food_building_wanted(&"drying_rack"), "berries enough to dry: a drying rack beside it")
+	var rack := session.buildings.get_def(&"drying_rack")
+	_build(&"drying_rack")
+	for resource in [&"fish", &"meat"]:
+		own.stockpile.take(resource, own.stockpile.amount(resource))
+	own.stockpile.add(&"berries", 10)
+	var step := Recipes.next_step(own, rack)
+	assert_eq(rack.recipe[step]["in"].keys(), [&"berries"])
+	var smoked := own.stockpile.amount(&"preserved_food")
+	var berries := own.stockpile.amount(&"berries")
+	assert_true(Recipes.make(own, rack, step))
+	assert_eq(own.stockpile.amount(&"preserved_food"), smoked + 1, "two berries dried: food that keeps")
+	assert_eq(own.stockpile.amount(&"berries"), berries - 2)
+	# (Dried while there are fewer than its keep in store.)
+	own.stockpile.add(&"preserved_food", int(rack.recipe[step]["keep"]))
+	assert_eq(Recipes.next_step(own, rack), -1, "enough dried: the berries are eaten fresh")
+	# A cook for it.
+	assert_eq(int(own.demand_of(session.occupations.get_def(&"cook"), session.clock.tick)["wanted"]), 1)

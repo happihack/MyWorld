@@ -463,6 +463,31 @@ func days_of_food_in(days: int, now: int) -> float:
 	return (stockpile.food() + food_coming_in_per_day() * growing - need * days) / need
 
 
+## Food (bellies) to have in store now to come through the winter (laying in,
+## the owner 2026-10-15: two days' food, doubled as winter came, went into a
+## winter of six, and every winter ended in rationing): from
+## `winter_prepare_days` before it and through it, what is eaten until it
+## ends, less what will still come in on the days that are not winter (at the
+## rate it has been coming in), and the usual days in hand besides. 0 at
+## other times.
+func winter_food_wanted(now: int) -> float:
+	if not Seasons.is_winter(now) and Seasons.days_until_winter(now) > _config.winter_prepare_days:
+		return 0.0
+	var days := 0
+	var growing := 0
+	var seen_winter := false
+	while days < Config.time.days_per_year():
+		var tick := now + days * TimeConfig.MINUTES_PER_DAY
+		var winter := Seasons.is_winter(tick)
+		if seen_winter and not winter:
+			break
+		seen_winter = seen_winter or winter
+		growing += 0 if winter else 1
+		days += 1
+	var need := food_need_per_day()
+	return maxf(need * (days + _config.food_days_wanted) - food_coming_in_per_day() * growing, 0.0)
+
+
 ## How many times as much as usual the settlement wants in store now, for
 ## something of which it wants `most` times as much by winter: more and
 ## more as winter comes near (SettlementConfig.winter_prepare_days), and in
@@ -757,7 +782,10 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 			# been coming in — not only at the moment some is in store: fish, spoiling
 			# first, is eaten first, and a 30-year soak never found three in store.)
 			var brought := float(produced.get("fish", 0.0)) + float(produced.get("meat", 0.0))
-			var wanted_cook := 1 if _has_workplace(def) and brought >= SettlementPlanner.SMOKE_FROM else 0
+			# (… or berries and fruit, to dry for the winter where a drying rack stands: laying in.)
+			var picked := float(produced.get("berries", 0.0)) + float(produced.get("fruit", 0.0))
+			var drying := planner != null and not planner.standing_near(PropData.Kind.DRYING_RACK).is_empty()
+			var wanted_cook := 1 if _has_workplace(def) and (brought >= SettlementPlanner.SMOKE_FROM or (drying and picked >= SettlementPlanner.DRY_FROM)) else 0
 			return {"wanted": wanted_cook, "have": _holding(def.id), "least": 3, "anywhere": false}
 		&"workplace":
 			# (W1) One to work a building with a recipe, while there is something to make there.
@@ -892,7 +920,9 @@ func _take_spare(def: OccupationDef, now: int) -> PersonData:
 		# a soak lost its hunting so; but the owner's world had four fishers where
 		# one would do, and no woodcutter, 2026-10-15.)
 		var keep := 2 if other.demand == &"hunt" or other.demand == &"fish" else 1
-		if not demand.is_empty() and int(demand["have"]) >= int(demand["wanted"]) + keep:
+		# (Never the last of a trade: a band's one farmer became its cook, and the
+		# harvest stood in the field — 2026-10-15.)
+		if not demand.is_empty() and int(demand["have"]) >= int(demand["wanted"]) + keep and _holding(other.id) >= 2:
 			spare[other.id] = true
 	var best: PersonData = null
 	for person in members():

@@ -195,9 +195,11 @@ func food_building_wanted(tag: StringName) -> bool:
 		&"seed_store":
 			return _settlement.farming != null and _settlement.farming.plot_count() > 0
 		&"drying_rack":
-			# (A camp's smokehouse: where there is none, and a little meat or fish comes in.)
-			return standing_near(PropData.Kind.SMOKEHOUSE).is_empty() \
-					and float(_settlement.produced.get("fish", 0.0)) + float(_settlement.produced.get("meat", 0.0)) >= SMOKE_FROM / 2.0
+			# (A camp's smokehouse: where there is none, and a little meat or fish comes
+			# in — or, anywhere, berries and fruit enough to dry for the winter.)
+			var picked := float(_settlement.produced.get("berries", 0.0)) + float(_settlement.produced.get("fruit", 0.0))
+			var smoked := float(_settlement.produced.get("fish", 0.0)) + float(_settlement.produced.get("meat", 0.0))
+			return picked >= DRY_FROM or (standing_near(PropData.Kind.SMOKEHOUSE).is_empty() and smoked >= SMOKE_FROM / 2.0)
 		&"orchard":
 			return _settlement.farming != null and _settlement.farming.plot_count() > 0
 		&"quarry":
@@ -212,6 +214,8 @@ func food_building_wanted(tag: StringName) -> bool:
 
 ## Meat and fish brought in of late (Settlement.produced) before a smokehouse is wanted.
 const SMOKE_FROM := 20.0
+## Berries and fruit brought in of late before a drying rack is wanted for them (laying in).
+const DRY_FROM := 30.0
 ## A quarry once the stores hold fewer stones than this.
 const QUARRY_BELOW := 10
 

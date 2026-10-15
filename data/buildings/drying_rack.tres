@@ -32,6 +32,24 @@ recipe = [{
 "out": {
 &"preserved_food": 2
 }
+}, {
+"in": {
+&"berries": 2
+},
+"keep": 40,
+"minutes": 60.0,
+"out": {
+&"preserved_food": 1
+}
+}, {
+"in": {
+&"fruit": 2
+},
+"keep": 40,
+"minutes": 60.0,
+"out": {
+&"preserved_food": 1
+}
 }]
 site = &"level"
 limit_per_settlement = 1
