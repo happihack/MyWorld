@@ -24,4 +24,6 @@ teaches = {
 }
 elder_keeps = false
 danger = 0.3
+staffing_order = 11
+demand = &"wood"
 evening_topic = &"trees"

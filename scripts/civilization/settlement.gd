@@ -653,6 +653,8 @@ func staff(now: int) -> void:
 const SPLIT_DAYS := 1
 ## One builder wanted at once for every this many people (two at least).
 const BUILDERS_PER := 25
+## One woodcutter for every this many people (one at least).
+const WOOD_PER := 15
 const MERGE_DAYS := 6
 var _wanted_since: Dictionary = {} # trade (String) -> tick from which it has been wanted more than held
 var _idle_since: Dictionary = {} # trade (String) -> tick from which it has been held more than wanted
@@ -741,6 +743,11 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 			return {"wanted": wanted_one, "have": _holding(def.id), "least": 3, "anywhere": false}
 		&"science":
 			return {"wanted": 1 if knows_how(&"natural_philosophy") else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
+		&"wood":
+			# (The owner's world, year 62, 2026-10-15: every woodcutter had been
+			# taken up into the other trades, nobody brought wood, and nothing
+			# was built or mended for want of it. One for every WOOD_PER people.)
+			return {"wanted": maxi(1, floori(member_count() / float(WOOD_PER))), "have": _holding(def.id), "least": 2, "anywhere": false}
 	return {}
 
 
@@ -835,7 +842,7 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 		taken = _press_builder(now)
 	# (W1's trades at a workplace: villages of farmers seldom have three gatherers
 	# to spare one, so one comes from a trade that has more than it wants.)
-	if taken == null and (def.demand == &"cook" or def.demand == &"workplace" or def.demand == &"build"):
+	if taken == null and (def.demand == &"cook" or def.demand == &"workplace" or def.demand == &"build" or def.demand == &"wood"):
 		taken = _take_spare(def, now)
 	if taken != null and def.merges_into != &"" and int(demand["have"]) == 0:
 		trade_split.emit(taken.id, def.id)
@@ -847,12 +854,15 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 func _take_spare(def: OccupationDef, now: int) -> PersonData:
 	var spare := {}
 	for other in _staffed():
-		# (Not the hunter or fisher: wanted as the game and the fish come and go, and,
-		# once gone, seldom found again — a soak lost its hunting so.)
-		if other == def or other.demand == &"hunt" or other.demand == &"fish":
+		if other == def:
 			continue
 		var demand := demand_of(other, now)
-		if not demand.is_empty() and int(demand["have"]) > int(demand["wanted"]):
+		# (The hunter and the fisher only with two more than wanted: they are wanted
+		# as the game and the fish come and go, and, once gone, seldom found again —
+		# a soak lost its hunting so; but the owner's world had four fishers where
+		# one would do, and no woodcutter, 2026-10-15.)
+		var keep := 2 if other.demand == &"hunt" or other.demand == &"fish" else 1
+		if not demand.is_empty() and int(demand["have"]) >= int(demand["wanted"]) + keep:
 			spare[other.id] = true
 	var best: PersonData = null
 	for person in members():
@@ -913,8 +923,8 @@ func _take_up(occupation: StringName, least: int, now: int, from_anywhere: bool 
 		if from_anywhere:
 			if person.occupation_id == occupation or FOOD_TRADES.has(person.occupation_id) or def.work_target == &"":
 				continue
-		elif def.work_target != &"tree" and def.work_target != &"bush":
-			continue
+		elif def.work_target != &"tree" and def.work_target != &"bush" or person.occupation_id == occupation:
+			continue # (a woodcutter is not taken up from the woodcutters)
 		if not by_trade.has(person.occupation_id):
 			by_trade[person.occupation_id] = []
 		(by_trade[person.occupation_id] as Array).append(person)

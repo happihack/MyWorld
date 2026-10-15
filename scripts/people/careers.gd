@@ -60,7 +60,8 @@ static func open_trades(own: Settlement, occupations: OccupationLibrary, now: in
 		var def := occupations.get_def(id)
 		if def.placeholder or def.work_target == &"" or not def.allows(PersonData.LifeStage.ADULT):
 			continue
-		if def.staffing_order == 0:
+		# (Woodcutting is gathered at too: staffed only so that there is always some.)
+		if def.staffing_order == 0 or def.demand == &"wood":
 			out.append(id)
 			continue
 		var demand := own.demand_of(def, now)

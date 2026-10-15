@@ -60,7 +60,7 @@ extends Resource
 ## A specialist split off its family (F2 step 2): with no call for it for a
 ## season, its holders go back to this trade (&"": they keep it).
 @export var merges_into: StringName = &""
-const DEMANDS: Array[StringName] = [&"farm", &"hunt", &"fish", &"build", &"trade", &"craft", &"science", &"cook", &"workplace"]
+const DEMANDS: Array[StringName] = [&"farm", &"hunt", &"fish", &"build", &"trade", &"craft", &"science", &"cook", &"workplace", &"wood"]
 
 var _routine_ready := false
 var _slot_hours := PackedFloat32Array()
