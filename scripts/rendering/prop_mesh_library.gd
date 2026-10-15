@@ -261,7 +261,31 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
+	_load_models()
 	_prepare()
+
+
+## Shapes made outside take the place of the procedural ones (ModelImport):
+## assets/models/props/<kind>_<variant>.glb, assets/models/loose/ likewise.
+func _load_models() -> void:
+	var props := ModelImport.models_in(ModelImport.PROPS_DIR)
+	for name: String in props:
+		var parsed := ModelImport.parse_name(name, PropData.Kind)
+		if parsed.is_empty():
+			push_warning("PropMeshLibrary: %s names no PropData.Kind" % props[name])
+			continue
+		var t := ModelImport.template_from_file(props[name])
+		if t != null and t.triangle_count() > 0:
+			_templates[_key(parsed[0], parsed[1])] = t
+	var loose := ModelImport.models_in(ModelImport.LOOSE_DIR)
+	for name: String in loose:
+		var parsed := ModelImport.parse_name(name, LooseObject.Kind)
+		if parsed.is_empty():
+			push_warning("PropMeshLibrary: %s names no LooseObject.Kind" % loose[name])
+			continue
+		var t := ModelImport.template_from_file(loose[name])
+		if t != null and t.triangle_count() > 0:
+			_loose[loose_key(parsed[0], parsed[1])] = t
 
 
 ## (Each shape's marks made now, on the main thread: the meshing reads them

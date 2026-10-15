@@ -109,6 +109,12 @@ colours from `docs/wiab_palette.gpl`, written by
 `godot --headless --path . -s res://tests/tools/palette_gpl.gd` (a test fails when it is stale).
 The art decisions behind this: `docs/art_assets.md` §5.
 
+Hero shapes can be modelled outside: a `.glb` in `assets/models/props/<kind>_<variant>.glb` (or
+`loose/`, or `person/body.glb`) replaces the procedural shape, through `ModelImport`
+(`scripts/rendering/model_import.gd`). How to model for it, the material names that carry sway,
+glow and leaves, the budgets and the export settings: `docs/blender_kit.md`; the game's own
+shapes as reference files: `docs/blender_kit/`.
+
 ## Project layout
 
 See `implementation_phases.md` Part D. Key folders: `scripts/` (code by system), `scenes/`, `data/configuration/` (all tunables), `tests/`.

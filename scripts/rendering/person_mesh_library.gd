@@ -48,7 +48,10 @@ static var _loads: Dictionary = {} # resource id -> ArrayMesh
 ## The body everyone shares.
 static func body() -> ArrayMesh:
 	if _body == null:
-		_body = _build_body()
+		# A body modelled outside (ModelImport.PERSON_BODY) in place of the built one.
+		_body = ModelImport.person_body_from_file(ModelImport.PERSON_BODY)
+		if _body == null:
+			_body = _build_body()
 	return _body
 
 
