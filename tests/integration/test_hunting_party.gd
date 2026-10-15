@@ -275,3 +275,28 @@ func test_away_a_beast_is_seen_and_dealt_with() -> void:
 		+ session.events.of_type(Chronicler.TYPE_PARTY_BEATEN).size() + session.events.of_type(Chronicler.TYPE_PREDATOR_GONE).size()
 	assert_true(told >= 1 or fauna.count(&"bear") == 1, "a party went after it (or it is still about)")
 	assert_eq(parties.parties().size(), 0, "nobody left out there")
+
+
+func test_no_party_for_a_beast_out_of_reach() -> void:
+	# (The owner, 2026-10-15: a party went out each day, for seasons, to a beast
+	# across the river, and turned back at the bank.)
+	_at_hour(9.0)
+	var bear := _beast(&"bear", 14.0)
+	assert_false(bear.is_empty())
+	assert_true(parties.can_get_to(own, bear[0].group), "on open ground: it can be got to")
+	# The same bear on an island: deep water all round it.
+	var center := bear[0].tile()
+	var deep := (Pathfinder.WADE_DEPTH + 2.0) * session.world.height_step
+	var ring: Array[Vector2i] = []
+	for dy in range(-3, 4):
+		for dx in range(-3, 4):
+			if maxi(absi(dx), absi(dy)) == 3:
+				var tile := center + Vector2i(dx, dy)
+				session.world.set_water(tile, maxf(session.world.get_water(tile), deep))
+				ring.append(tile)
+	for tile in ring:
+		session.pathfinder.mark_dirty(tile)
+	session.pathfinder.refresh_dirty()
+	assert_false(parties.can_get_to(own, bear[0].group), "across deep water: out of reach")
+	assert_eq(parties.form(bear[0].group, own.id, &"bear", session.clock.tick), {}, "nobody sets out for it")
+	assert_true(parties.parties().is_empty())

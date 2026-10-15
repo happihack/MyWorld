@@ -154,7 +154,7 @@ func _form_where_needed(now: int) -> void:
 ## Gathers a party against a beast (a pack). Returns it ({} if too few are able).
 func form(group: int, settlement_id: int, species: StringName, now: int) -> Dictionary:
 	var own := settlements.get_settlement(settlement_id) if settlements != null else null
-	if own == null or own.fire() == null:
+	if own == null or own.fire() == null or not can_get_to(own, group):
 		return {}
 	var chosen := choose(own, int(PARTY_SIZE.get(species, 3)), now)
 	if chosen.size() < PARTY_LEAST:
@@ -205,6 +205,35 @@ func resolve_away(group: int, settlement_id: int, species: StringName, now: int)
 		_go_home(party, now, KILLED)
 	_parties.erase(party)
 	return StringName(party.get("outcome", ""))
+
+
+## Can the beast (a pack) be walked to from `own`'s fire — not across water
+## with no way over, up a cliff? (The owner, 2026-10-15: a party went out day
+## after day, for seasons, to a bear across the river, and turned back at the
+## bank.) Without a pathfinder (away): yes.
+func can_get_to(own: Settlement, group: int) -> bool:
+	var pathfinder := behavior.ctx.pathfinder if behavior != null and behavior.ctx != null else null
+	var beasts := fauna.of_group(group)
+	if pathfinder == null or not pathfinder.is_bound() or beasts.is_empty() or own.fire() == null:
+		return true
+	var fire := own.fire().tile
+	var start := Planner._beside(fire, fire + Vector2i(1, 1), behavior.ctx)
+	var area := Rect2i(fire, Vector2i.ONE)
+	for beast in beasts:
+		area = area.expand(beast.tile())
+	area = area.grow(REACH_MARGIN)
+	var marks := pathfinder.walk_out(start, area)
+	for beast in beasts:
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				var tile := beast.tile() + Vector2i(dx, dy)
+				if area.has_point(tile) and marks[(tile.y - area.position.y) * area.size.x + tile.x - area.position.x] != 0:
+					return true
+	return false
+
+
+## How far around the fire and the beast a way to it is looked for (tiles).
+const REACH_MARGIN := 12
 
 
 ## Who goes: the able grown (hunters first, then by skill and courage) — the
