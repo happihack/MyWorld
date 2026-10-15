@@ -542,8 +542,14 @@ func to_dict() -> Dictionary:
 	var ruins := {}
 	for id: int in _ruin_of:
 		ruins[str(id)] = _ruin_of[id]
-	return {"next_id": _next_id, "projects": _projects.duplicate(true), "empty_since": empty, "day": _day,
-		"abandoned_homes": abandoned_homes.duplicate(), "ruin_of": ruins, "rebuild": _rebuild.duplicate(true)}
+	var out := {"next_id": _next_id, "projects": _projects.duplicate(true), "empty_since": empty, "day": _day,
+		"abandoned_homes": abandoned_homes.duplicate()}
+	# (Written only when there is any: a world nothing has fallen in saves no more.)
+	if not ruins.is_empty():
+		out["ruin_of"] = ruins
+	if not _rebuild.is_empty():
+		out["rebuild"] = _rebuild.duplicate(true)
+	return out
 
 
 ## Returns how many saved projects were unusable (their site is gone, …).

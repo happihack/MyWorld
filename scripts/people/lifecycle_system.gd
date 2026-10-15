@@ -589,7 +589,7 @@ func _children(now: int) -> void:
 			if now - int(carrying.get("since", now)) >= config.carry_days * DAY:
 				give_birth(mother, now)
 			continue
-		if may_conceive(mother, now) and rng.randf() < config.conceive_chance_per_day * conceive_share(mother):
+		if may_conceive(mother, now) and rng.randf() < config.conceive_chance_per_day * conceive_share(mother, now):
 			conceive(mother, now)
 
 
@@ -616,8 +616,10 @@ func may_conceive(mother: PersonData, now: int) -> bool:
 ## settlement is (0 … 1): in full with food for `food_days_for_child` days,
 ## less and less towards none in store, little while it rations, none with
 ## the stores empty (PG.3: it was a wall — a day's food and no shortage —
-## and growth stopped at it).
-func conceive_share(mother: PersonData) -> float:
+## and growth stopped at it). Looking ahead too, with `now` (the owner,
+## 2026-10-15): by the food there will be when the child comes, `carry_days`
+## on — winter coming, the stores running down — whichever is the less.
+func conceive_share(mother: PersonData, now: int = -1) -> float:
 	var stores := _settlement_of(mother)
 	if stores == null:
 		return 1.0
@@ -629,6 +631,8 @@ func conceive_share(mother: PersonData) -> float:
 	if config.food_days_for_child <= 0.0:
 		return 1.0
 	var fed := clampf(stores.days_of_food() / config.food_days_for_child, 0.0, 1.0)
+	if now >= 0:
+		fed = minf(fed, clampf(stores.days_of_food_in(config.carry_days, now) / config.food_days_for_child, 0.0, 1.0))
 	return lerpf(config.hungry_conceive_share, 1.0, fed)
 
 

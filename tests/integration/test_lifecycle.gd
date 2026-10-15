@@ -324,6 +324,44 @@ func test_birth() -> void:
 	assert_eq(int(life.counts.get("born", 0)), 1)
 
 
+func test_a_child_is_had_by_the_food_there_will_be_when_it_comes() -> void:
+	# (The owner, 2026-10-15: a child is carried 18 days of a 24-day year; one
+	# conceived in a good summer was born into a lean winter.)
+	var couple := _couple()
+	var mother := couple[0]
+	_make_age(mother, 30)
+	_make_age(couple[1], 32)
+	var own := session.settlement
+	own.produced.clear()
+	var need := own.food_need_per_day()
+	# Food in store for the days a child wants, and nothing coming in: by the
+	# time it comes the stores are down — little chance, looking ahead.
+	for resource in [&"berries", &"fish", &"meat", &"mushrooms", &"roots", &"nuts", &"fruit", &"preserved_food"]:
+		own.stockpile.take(resource, own.stockpile.amount(resource))
+	own.stockpile.set_reserve(&"grain", 0)
+	own.stockpile.take(&"grain", own.stockpile.amount(&"grain"))
+	var grain := session.resources.get_def(&"grain")
+	own.stockpile.add(&"grain", ceili(need * (config.food_days_for_child + 1.0) / grain.nutrition))
+	var now := session.clock.tick
+	assert_true(own.days_of_food() >= config.food_days_for_child, "food enough today (%.1f days)" % own.days_of_food())
+	assert_near(life.conceive_share(mother), 1.0, 0.0001, "today's stores alone: the whole chance")
+	assert_true(own.days_of_food_in(config.carry_days, now) < 0.0, "but nothing coming in: gone before the child comes")
+	assert_near(life.conceive_share(mother, now), config.hungry_conceive_share, 0.0001, "looking ahead: little chance")
+	# Food coming in, more than is eaten: the whole chance again.
+	own.produced[String(&"grain")] = need * 3.0 / grain.nutrition / (1.0 - Config.trade.produced_kept_per_day)
+	assert_near(own.food_coming_in_per_day(), need * 3.0, need * 0.01)
+	assert_near(life.conceive_share(mother, now), 1.0, 0.0001, "the fields and the bushes keep up")
+	# Winter coming: nothing grows in it, so the same coming in counts for less.
+	var year := Config.time.ticks_per_year()
+	var winter_from := (now / year) * year + (Config.time.seasons_per_year - 1) * year / Config.time.seasons_per_year
+	var before_winter := winter_from - TimeConfig.MINUTES_PER_DAY
+	if before_winter < now:
+		before_winter += year
+	var after_winter := before_winter + TimeConfig.MINUTES_PER_DAY + year / Config.time.seasons_per_year
+	assert_true(own.days_of_food_in(config.carry_days, before_winter) < own.days_of_food_in(config.carry_days, after_winter),
+		"a winter ahead: less to look forward to than with it behind")
+
+
 func test_traits_are_inherited_within_bounds() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7

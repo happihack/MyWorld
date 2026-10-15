@@ -434,6 +434,35 @@ func days_of_food() -> float:
 	return stockpile.food() / need if need > 0.0 else INF
 
 
+## How much food has been coming in a day of late (in days of a person's
+## eating, as the stores count it): from what it has brought in (`produced`,
+## which forgets a little each day — at steady state it holds the rate over
+## that forgetting).
+func food_coming_in_per_day() -> float:
+	var bellies := 0.0
+	for resource: String in produced:
+		var def := _library.get_def(StringName(resource)) if _library != null else null
+		if def != null and def.is_food():
+			bellies += float(produced[resource]) * def.nutrition
+	return bellies * (1.0 - Config.trade.produced_kept_per_day)
+
+
+## How many days of food there will be `days` from `now`: what is in store,
+## and what comes in on the days that are not winter at the rate it has been
+## coming in, less what is eaten meanwhile (the owner, 2026-10-15: a child is
+## carried 18 days of a 24-day year, and one conceived in a good summer was
+## born into a lean winter).
+func days_of_food_in(days: int, now: int) -> float:
+	var need := food_need_per_day()
+	if need <= 0.0:
+		return INF
+	var growing := 0
+	for day in range(1, days + 1):
+		if Config.time.season_of(now + day * TimeConfig.MINUTES_PER_DAY) != Config.time.seasons_per_year - 1:
+			growing += 1
+	return (stockpile.food() + food_coming_in_per_day() * growing - need * days) / need
+
+
 ## How many times as much as usual the settlement wants in store now, for
 ## something of which it wants `most` times as much by winter: more and
 ## more as winter comes near (SettlementConfig.winter_prepare_days), and in
@@ -1028,8 +1057,17 @@ func to_dict() -> Dictionary:
 		"served": _served.duplicate(), "served_day": _served_day,
 		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day,
 		"name": settlement_name, "founded": founded_tick, "founders": founders.duplicate(), "from": founded_from,
-		"produced": produced.duplicate(), "knows": knows.duplicate(), "tools_made": tools_made,
-		"wanted_since": _wanted_since.duplicate(), "idle_since": _idle_since.duplicate()}
+		"produced": produced.duplicate(), "knows": knows.duplicate(), "tools_made": tools_made}.merged(_staffing_waits())
+
+
+## Staffing's memory (F2 step 2), written only when there is any.
+func _staffing_waits() -> Dictionary:
+	var out := {}
+	if not _wanted_since.is_empty():
+		out["wanted_since"] = _wanted_since.duplicate()
+	if not _idle_since.is_empty():
+		out["idle_since"] = _idle_since.duplicate()
+	return out
 
 
 func from_dict(data: Dictionary) -> void:
