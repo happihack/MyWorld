@@ -566,6 +566,49 @@ func test_old_stones_are_taken_and_built_with_again() -> void:
 	assert_eq(str(clearing[3]["type"]), "store")
 
 
+func test_builders_clear_what_fell_and_build_it_again_where_it_stood() -> void:
+	# (The owner, 2026-10-15: builders stood idle, ruins stood for good, and
+	# what fell was never built again.)
+	_only(&"storage")
+	var ctx := session.behavior.ctx
+	var own := session.settlement
+	var store := _build(&"storehouse")
+	var tile := store.tile
+	construction.damage(store.id, 100000, &"storm", session.clock.tick)
+	var rubble := session.props.prop_at(tile)
+	assert_eq(rubble.kind, PropData.Kind.RUIN)
+	assert_eq(construction.ruins_of(own.id), [rubble.id] as Array[int], "a ruin of what fell here")
+	# A ruin to clear is builders' work: one is wanted for it.
+	var builder_def := session.occupations.get_def(&"builder")
+	assert_true(int(own.demand_of(builder_def, session.clock.tick)["wanted"]) >= 1, "a builder for the ruin")
+	# With nothing to build or mend, the builder clears it away.
+	var builder := _builder()
+	for p in construction.projects_of(own.id):
+		construction.projects().erase(p)
+	var steps := Planner._build_work(builder, ctx)
+	assert_eq(steps.size(), 4, str(steps))
+	assert_eq([str(steps[1]["type"]), str(steps[3]["type"])], ["clear", "store"])
+	var stone := BuildStep.rubble_left(rubble)
+	var heaped := piles_total(&"stone")
+	var status := BuildStep.new().update(ctx, builder, steps[1], BuildStep.CLEAR_MINUTES)
+	assert_eq(status, ActionStep.Status.DONE)
+	assert_null(session.props.prop_at(tile), "cleared at once")
+	assert_eq(builder.carrying, &"stone")
+	assert_eq(piles_total(&"stone") - heaped + builder.carrying_amount, stone, "its stone: an armful, the rest in a heap")
+	assert_eq(construction.ruins_of(own.id), [] as Array[int])
+	# (Remembered across a save.)
+	construction.from_dict(construction.to_dict())
+	# A storehouse wanted again: built where the old one stood.
+	var p := planner.plan(session.clock.tick)
+	assert_false(p.is_empty(), "a storehouse begun")
+	assert_eq(str(p["def"]), "storehouse")
+	assert_eq(p["tile"], tile, "where it stood")
+
+
+func piles_total(resource: StringName) -> int:
+	return session.piles.total(resource)
+
+
 func test_an_empty_home_falls_into_ruin() -> void:
 	var hut := _build(&"hut")
 	assert_true(session.people.living_in(hut.id).is_empty())

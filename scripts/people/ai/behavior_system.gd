@@ -116,7 +116,7 @@ func _init() -> void:
 		_steps[String(step[0])] = step[1]
 	# Building (M12.1): one handler, three kinds of step.
 	var build := BuildStep.new()
-	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY, BuildStep.BREAK, BuildStep.SALVAGE]:
+	for type: StringName in [BuildStep.TYPE, BuildStep.FETCH, BuildStep.DELIVER, BuildStep.QUARRY, BuildStep.BREAK, BuildStep.SALVAGE, BuildStep.CLEAR]:
 		_steps[String(type)] = build
 	var trading := TradeStep.new()
 	for type: StringName in [TradeStep.LOAD, TradeStep.UNLOAD, TradeStep.CRAFT]:

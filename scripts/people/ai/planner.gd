@@ -381,7 +381,24 @@ static func _build_work(person: PersonData, ctx: AiContext) -> Array:
 			var getting := _stone_steps(tile, ctx)
 			if not getting.is_empty():
 				return getting + [WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
-	return []
+	# Nothing to build or mend: a ruin near home cleared away (the owner,
+	# 2026-10-15: ruins stood for good) — its stone kept, the ground free again.
+	return _clear_work(person, ctx)
+
+
+## How far from the fire builders go to clear a ruin (tiles).
+const CLEAR_REACH := 25.0
+
+
+static func _clear_work(person: PersonData, ctx: AiContext) -> Array:
+	if person.carrying_amount > 0 or ctx.settlement == null or ctx.settlement.fire() == null or ctx.places == null:
+		return []
+	var rubble := _rubble_near(ctx.settlement.fire().tile, CLEAR_REACH, ctx)
+	var stores: Variant = ctx.places.storage_tile(&"stone")
+	if rubble == null or stores == null:
+		return []
+	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.clear(rubble.id, rubble.tile),
+		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
 
 
 ## How to come by stone near `site` (M12.1, M12.4): a stone lying about, or

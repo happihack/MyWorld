@@ -19,6 +19,10 @@ const DELIVER := &"deliver"
 const QUARRY := &"quarry"
 const BREAK := &"break"
 const SALVAGE := &"salvage"
+## A builder clears a ruin away at once (the owner, 2026-10-15): an armful of
+## its stone in their arms, the rest left lying in a heap for the carrying.
+const CLEAR := &"clear"
+const CLEAR_MINUTES := 90.0
 ## Game minutes of taking stone from rubble for a load (quicker than breaking it).
 const SALVAGE_MINUTES := 20.0
 ## Stone in rubble that has not been counted (fallen before it was kept).
@@ -38,6 +42,10 @@ static func fetch(resource: StringName, units: int) -> Dictionary:
 
 static func break_stone(at: Vector2i) -> Dictionary:
 	return {"type": String(BREAK), "at": at, "minutes": BREAK_MINUTES, "elapsed": 0.0, "strokes": 0}
+
+
+static func clear(ruin_id: int, at: Vector2i) -> Dictionary:
+	return {"type": String(CLEAR), "ruin": ruin_id, "at": at, "minutes": CLEAR_MINUTES, "elapsed": 0.0, "strokes": 0}
 
 
 static func salvage(ruin_id: int, at: Vector2i) -> Dictionary:
@@ -132,7 +140,7 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			person.carrying = &"stone"
 			person.carrying_amount = maxi(person.carrying_amount, ctx.carry_capacity(&"stone"))
 			return Status.DONE
-		SALVAGE:
+		SALVAGE, CLEAR:
 			Needs.satisfy(person.needs, Needs.Need.PURPOSE, minutes / Config.needs.full_work_minutes)
 			var finished := tick(step, minutes)
 			var blow := int(float(step["elapsed"]) / STROKE_MINUTES)
@@ -145,6 +153,19 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			var is_rubble := ruin != null and ctx.is_rubble.is_valid() and bool(ctx.is_rubble.call(ruin))
 			if not is_rubble or (person.carrying_amount > 0 and person.carrying != &"stone"):
 				return Status.FAILED # (someone else took the last of it)
+			if StringName(str(step.get("type", ""))) == CLEAR:
+				# All of it at once: an armful carried, the rest in a heap where it stood.
+				var all := rubble_left(ruin)
+				var arms := mini(all, ctx.carry_capacity(&"stone") - person.carrying_amount)
+				person.carrying = &"stone"
+				person.carrying_amount += arms
+				var at := ruin.tile
+				ctx.props.remove(ruin.id)
+				if all > arms and ctx.piles != null:
+					ctx.piles.add(&"stone", all - arms, Places.middle_of(at) + Vector2(0.9, 0.0)) # (beside, not on the ground cleared)
+				if ctx.construction != null:
+					ctx.construction.on_cleared(ruin.id, at)
+				return Status.DONE
 			var left := rubble_left(ruin)
 			var units := mini(left, ctx.carry_capacity(&"stone") - person.carrying_amount)
 			if units <= 0:
@@ -153,6 +174,8 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 			person.carrying_amount += units
 			if left - units <= 0:
 				ctx.props.remove(ruin.id) # (the last of it: the ground is clear again)
+				if ctx.construction != null:
+					ctx.construction.on_cleared(ruin.id, ruin.tile)
 			else:
 				ruin.stock = left - units
 				ctx.props.touch(ruin.id)

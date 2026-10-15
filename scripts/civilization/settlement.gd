@@ -651,6 +651,8 @@ func staff(now: int) -> void:
 ## holders — the least skilled first — goes back to the trade it came from
 ## (OccupationDef.merges_into), and another after as long again.
 const SPLIT_DAYS := 1
+## One builder wanted at once for every this many people (two at least).
+const BUILDERS_PER := 25
 const MERGE_DAYS := 6
 var _wanted_since: Dictionary = {} # trade (String) -> tick from which it has been wanted more than held
 var _idle_since: Dictionary = {} # trade (String) -> tick from which it has been held more than wanted
@@ -708,7 +710,10 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 		&"build":
 			if construction == null:
 				return {}
-			return {"wanted": mini(construction.projects_of(id).size(), 2), "have": _holding(def.id), "least": 2, "anywhere": false} # (two at once: F4)
+			# (Two at once (F4), more in a bigger place — and a ruin to clear is work too:
+			# the owner, 2026-10-15, builders stood idle and ruins stood for good.)
+			var work := construction.projects_of(id).size() + (1 if not construction.ruins_of(id).is_empty() else 0)
+			return {"wanted": mini(work, maxi(2, floori(member_count() / float(BUILDERS_PER)))), "have": _holding(def.id), "least": 2, "anywhere": false}
 		&"trade":
 			if trade == null:
 				return {}
@@ -830,7 +835,7 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 		taken = _press_builder(now)
 	# (W1's trades at a workplace: villages of farmers seldom have three gatherers
 	# to spare one, so one comes from a trade that has more than it wants.)
-	if taken == null and (def.demand == &"cook" or def.demand == &"workplace"):
+	if taken == null and (def.demand == &"cook" or def.demand == &"workplace" or def.demand == &"build"):
 		taken = _take_spare(def, now)
 	if taken != null and def.merges_into != &"" and int(demand["have"]) == 0:
 		trade_split.emit(taken.id, def.id)

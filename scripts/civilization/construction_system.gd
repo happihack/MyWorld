@@ -22,6 +22,8 @@ signal upgraded(project: Dictionary, building_id: int, from_def: StringName)
 signal damaged(building_id: int, why: StringName)
 ## `why`: &"empty" (nobody lived in it), &"worn" (damage), &"washed" (a bridge gone).
 signal ruined(building_id: int, def_id: StringName, why: StringName)
+## The rubble of a building that fell has been cleared away: the ground is free.
+signal cleared(tile: Vector2i, def_id: StringName)
 
 const BUILD := "build"
 const REPAIR := "repair"
@@ -51,6 +53,12 @@ var _empty_since: Dictionary = {} # home id -> tick it was last lived in
 var abandoned_homes: Array[int] = []
 var _day := -1_000_000
 var _standing: Dictionary = {} # prop kind -> ids, while the props are as they were
+## What each ruin that fell here was (ruin id -> building id, String), and the
+## ground of the cleared ones, to build the like on again: [[building id, tile,
+## settlement id], …] (the owner, 2026-10-15: ruins stood for good, and what
+## fell was never built again where it stood).
+var _ruin_of: Dictionary = {}
+var _rebuild: Array = []
 var _standing_version := -1
 
 
@@ -460,7 +468,48 @@ func _ruin(building: PropData, why: StringName) -> void:
 	# What is left of it: stone to be taken and built with again (BuildStep.SALVAGE).
 	ruin.stock = rubble_stone(def)
 	_props.add(ruin)
+	if def != null:
+		_ruin_of[ruin.id] = String(def.id)
 	ruined.emit(ruin.id, def.id if def != null else &"", why)
+
+
+## The ruins of what fell near `settlement_id` (not those of old, nor a
+## mystery's: only the ones this has made).
+func ruins_of(settlement_id: int) -> Array[int]:
+	var out: Array[int] = []
+	for id: int in _ruin_of:
+		var ruin := _props.get_prop(id) if _props != null else null
+		if ruin == null or ruin.kind != PropData.Kind.RUIN:
+			continue
+		var near := settlements.nearest(ruin.tile) if settlements != null else null
+		if (near.id if near != null else (_start.settlement_id if _start != null else 0)) == settlement_id:
+			out.append(id)
+	return out
+
+
+## The rubble of `ruin_id` is gone (cleared by builders, or the last of its
+## stone taken): its ground is remembered, to build the like on again.
+func on_cleared(ruin_id: int, tile: Vector2i) -> void:
+	var def := StringName(str(_ruin_of.get(ruin_id, "")))
+	_ruin_of.erase(ruin_id)
+	if def == &"" or buildings == null or not buildings.has_def(def):
+		return
+	var near := settlements.nearest(tile) if settlements != null else null
+	_rebuild.append([String(def), tile, near.id if near != null else (_start.settlement_id if _start != null else 0)])
+	cleared.emit(tile, def)
+
+
+## Where a `def_id` of `settlement_id` stood before it fell, cleared and free
+## to build on again (null: nowhere). Taken: asked once.
+func rebuild_site(def_id: StringName, settlement_id: int) -> Variant:
+	for entry: Array in _rebuild.duplicate():
+		if StringName(str(entry[0])) != def_id or int(entry[2]) != settlement_id:
+			continue
+		_rebuild.erase(entry)
+		var tile: Vector2i = entry[1]
+		if _props != null and _props.prop_at(tile) == null:
+			return tile
+	return null
 
 
 ## A settlement has been abandoned: what it was building is left undone (its
@@ -490,8 +539,11 @@ func to_dict() -> Dictionary:
 	var empty := {}
 	for id: int in _empty_since:
 		empty[str(id)] = _empty_since[id]
+	var ruins := {}
+	for id: int in _ruin_of:
+		ruins[str(id)] = _ruin_of[id]
 	return {"next_id": _next_id, "projects": _projects.duplicate(true), "empty_since": empty, "day": _day,
-		"abandoned_homes": abandoned_homes.duplicate()}
+		"abandoned_homes": abandoned_homes.duplicate(), "ruin_of": ruins, "rebuild": _rebuild.duplicate(true)}
 
 
 ## Returns how many saved projects were unusable (their site is gone, …).
@@ -523,4 +575,13 @@ func from_dict(data: Dictionary) -> int:
 	if typeof(data.get("empty_since")) == TYPE_DICTIONARY:
 		for key: Variant in data["empty_since"]:
 			_empty_since[int(str(key))] = int(data["empty_since"][key])
+	_ruin_of.clear()
+	if typeof(data.get("ruin_of")) == TYPE_DICTIONARY:
+		for key: Variant in data["ruin_of"]:
+			_ruin_of[int(str(key))] = str(data["ruin_of"][key])
+	_rebuild.clear()
+	if typeof(data.get("rebuild")) == TYPE_ARRAY:
+		for entry: Variant in data["rebuild"]:
+			if typeof(entry) == TYPE_ARRAY and (entry as Array).size() == 3 and typeof(entry[1]) == TYPE_VECTOR2I:
+				_rebuild.append([str(entry[0]), entry[1], int(entry[2])])
 	return skipped

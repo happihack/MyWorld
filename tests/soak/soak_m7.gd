@@ -254,6 +254,36 @@ func _run() -> void:
 						kept.append(PropData.Kind.keys()[kind].to_lower())
 				staffing.append("%d: %s [%s]" % [own.id, own.staffing_text(s.clock.tick), " ".join(kept)])
 			print("SOAK staffing year %d  %s" % [day / days_per_year + 1, "  |  ".join(staffing)])
+			# (Builders: what there is for them, and what they are at.)
+			var building := PackedStringArray()
+			for own in s.settlements.all():
+				var kinds := {}
+				for p in s.construction.projects_of(own.id):
+					var kind := str(p["kind"])
+					kinds[kind] = int(kinds.get(kind, 0)) + 1
+				var worn := 0
+				var ruins := 0
+				for prop in s.props.buildings():
+					var near: Variant = s.settlements.nearest(prop.tile)
+					if near == null or near.id != own.id:
+						continue
+					if prop.is_building() and prop.condition < config.construction.repair_from:
+						worn += 1
+				for prop in s.props.of_kind(PropData.Kind.RUIN):
+					var near: Variant = s.settlements.nearest(prop.tile)
+					if near != null and near.id == own.id and own.fire() != null and Vector2(prop.tile - own.fire().tile).length() < 25.0:
+						ruins += 1
+				var doing := {}
+				for person in own.members():
+					if person.occupation_id != &"builder":
+						continue
+					var steps: Variant = person.current_action.get("steps")
+					var index := int(person.current_action.get("index", 0))
+					var step := str((steps as Array)[index].get("type", "")) if typeof(steps) == TYPE_ARRAY and index < (steps as Array).size() else ""
+					var what := "%s/%s" % [str(person.current_action.get("activity", "")), step]
+					doing[what] = int(doing.get(what, 0)) + 1
+				building.append("%d: projects %s  worn %d  ruins %d  builders %s" % [own.id, kinds, worn, ruins, doing])
+			print("SOAK construction year %d  %s" % [day / days_per_year + 1, "  |  ".join(building)])
 		if (day + 1) % days_per_year == 0:
 			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
 		if plans and (day + 1) % days_per_year == 0:

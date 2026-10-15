@@ -121,7 +121,10 @@ func plan(now: int) -> Dictionary:
 			if bank == null:
 				continue
 			return _construction.start(def[0].id, bank[0], now, int(bank[1]), _settlement.id)
-		var site: Variant = shrine_site() if need == &"shrine" else (rock_site() if def[0].site == &"rock" else site_for(def[0]))
+		# (Where one stood before it fell, cleared: there again — the owner, 2026-10-15.)
+		var site: Variant = _construction.rebuild_site(def[0].id, _settlement.id) if need != &"shrine" and def[0].site != &"rock" else null
+		if site == null:
+			site = shrine_site() if need == &"shrine" else (rock_site() if def[0].site == &"rock" else site_for(def[0]))
 		if site == null:
 			continue
 		return _construction.start(def[0].id, site, now, 0, _settlement.id)
