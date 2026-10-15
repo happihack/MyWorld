@@ -381,6 +381,13 @@ static func _build_work(person: PersonData, ctx: AiContext) -> Array:
 			var getting := _stone_steps(tile, ctx)
 			if not getting.is_empty():
 				return getting + [WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
+		# Wood not in the stores: they cut it themselves — a fallen trunk, or a
+		# tree felled — and bring it to the site (the owner, 2026-10-15: the
+		# building waited on the stores, and the fire had the wood first).
+		if left.has(&"wood") and person.carrying_amount <= 0:
+			var cutting := _wood_steps(person, ctx)
+			if not cutting.is_empty():
+				return cutting + [WalkToStep.make(beside, person.sub_tile_offset), BuildStep.deliver(int(project["id"]), tile)]
 	# Nothing to build or mend: a ruin near home cleared away (the owner,
 	# 2026-10-15: ruins stood for good) — its stone kept, the ground free again.
 	return _clear_work(person, ctx)
@@ -399,6 +406,30 @@ static func _clear_work(person: PersonData, ctx: AiContext) -> Array:
 		return []
 	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.clear(rubble.id, rubble.tile),
 		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
+## How a builder comes by wood for their site: a fallen trunk near home cut
+## up, or else the nearest tree felled, an armful at a time ([]: neither).
+static func _wood_steps(person: PersonData, ctx: AiContext) -> Array:
+	var log := _lying_near(person, ctx, func(object: LooseObject) -> bool:
+		return object.kind == LooseObject.Kind.LOG and object.state == LooseObject.State.RESTING, LOG_REACH)
+	if log != null:
+		var at := Vector2i(log.position.floor())
+		var cut := WorkStep.make(&"tree", 0, at, WOOD_MINUTES)
+		cut["log"] = log.id
+		return [WalkToStep.make(_beside(at, person.position, ctx), person.sub_tile_offset), cut]
+	if ctx.places == null:
+		return []
+	var tree := ctx.places.work_place(person, &"tree", ctx.rng)
+	if tree.is_empty():
+		return []
+	var fell := WorkStep.make(&"tree", tree["id"], tree["tile"], WOOD_MINUTES)
+	fell["gather"] = true
+	return [WalkToStep.make(tree["tile"], person.sub_tile_offset), fell]
+
+
+## How long a builder works for an armful of wood at most (game minutes).
+const WOOD_MINUTES := 60.0
 
 
 ## How to come by stone near `site` (M12.1, M12.4): a stone lying about, or

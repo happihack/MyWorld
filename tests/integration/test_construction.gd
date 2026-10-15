@@ -605,6 +605,33 @@ func test_builders_clear_what_fell_and_build_it_again_where_it_stood() -> void:
 	assert_eq(p["tile"], tile, "where it stood")
 
 
+func test_a_builder_cuts_wood_for_the_site_when_the_stores_have_none() -> void:
+	# (The owner, 2026-10-15: building waited on the stores, and the fire had the wood first.)
+	_only(&"home")
+	var ctx := session.behavior.ctx
+	var own := session.settlement
+	for p in construction.projects():
+		construction.projects().erase(p)
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	assert_eq(own.stockpile.amount(&"wood"), 0, "no wood in the stores")
+	for object in session.loose.all_objects():
+		if object.kind == LooseObject.Kind.LOG:
+			session.loose.remove(object.id)
+	var tile: Variant = planner.site_for(session.buildings.get_def(&"hut"))
+	var p := construction.start(&"hut", tile, session.clock.tick)
+	var builder := _builder()
+	var steps := Planner._build_work(builder, ctx)
+	assert_eq(steps.size(), 4, str(steps))
+	assert_eq([str(steps[1]["type"]), str(steps[3]["type"])], ["work", "deliver"], "to a tree, and with its wood to the site")
+	assert_true(bool(steps[1].get("gather", false)))
+	session.behavior.set_plan(builder, &"work", &"purpose", steps, 2.0)
+	var waited := 0
+	while int((p["delivered"] as Dictionary).get("wood", 0)) == 0 and waited < 400:
+		_run(1)
+		waited += 1
+	assert_true(int((p["delivered"] as Dictionary).get("wood", 0)) > 0, "wood brought to the site (%d minutes)" % waited)
+
+
 func piles_total(resource: StringName) -> int:
 	return session.piles.total(resource)
 

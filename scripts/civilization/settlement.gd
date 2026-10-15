@@ -653,8 +653,9 @@ func staff(now: int) -> void:
 const SPLIT_DAYS := 1
 ## One builder wanted at once for every this many people (two at least).
 const BUILDERS_PER := 25
-## One woodcutter for every this many people (one at least).
-const WOOD_PER := 15
+## One woodcutter for every this many people (one at least): the fire takes
+## what one brings, and building wants more (the owner's world, 2026-10-15).
+const WOOD_PER := 10
 const MERGE_DAYS := 6
 var _wanted_since: Dictionary = {} # trade (String) -> tick from which it has been wanted more than held
 var _idle_since: Dictionary = {} # trade (String) -> tick from which it has been held more than wanted
