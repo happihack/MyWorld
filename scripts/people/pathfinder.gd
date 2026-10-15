@@ -252,6 +252,42 @@ func can_step(from: Vector2i, to: Vector2i) -> bool:
 	return _astar.are_points_connected(_id(from), _id(to))
 
 
+## Everything that can be walked to from `start` within `area`, step by step
+## (the four ways, not the diagonals or ferries): a mark for each tile of the
+## area, row by row — 0 not reached, 1 reached, 2 reached but a step from it
+## could not be taken (out of the area, or no way). One call a tile to the
+## graph, not one a step (SettlementPlanner: 8–12 ms a crossing search on a
+## PC through can_step, 2026-10-14).
+func walk_out(start: Vector2i, area: Rect2i) -> PackedByteArray:
+	var marks := PackedByteArray()
+	marks.resize(area.size.x * area.size.y)
+	if not area.has_point(start) or not can_stand(start):
+		return marks
+	var width := area.size.x
+	var queue := PackedInt32Array([(start.y - area.position.y) * width + (start.x - area.position.x)])
+	marks[queue[0]] = 1
+	while not queue.is_empty():
+		var i := queue[queue.size() - 1]
+		queue.resize(queue.size() - 1)
+		@warning_ignore("integer_division")
+		var at := Vector2i(area.position.x + i % width, area.position.y + i / width)
+		var links := _astar.get_point_connections(_id(at))
+		for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var next := at + step
+			if not area.has_point(next):
+				marks[i] = 2
+				continue
+			var j := (next.y - area.position.y) * width + (next.x - area.position.x)
+			if marks[j] != 0:
+				continue
+			if _bounds.has_point(next) and _solid[_id(next)] == 0 and links.has(_id(next)):
+				marks[j] = 1
+				queue.append(j)
+			else:
+				marks[i] = 2
+	return marks
+
+
 # --- ferries (FB6) --------------------------------------------------------------------------------
 
 ## The ways over water by boat, as pairs [a, b] of tiles that can be stood on:
@@ -460,12 +496,28 @@ func set_frozen(frozen: bool, ice_depth: float) -> int:
 	var concerned := 0
 	if _world == null:
 		return 0
-	for y in range(_bounds.position.y, _bounds.end.y):
-		for x in range(_bounds.position.x, _bounds.end.x):
-			var tile := Vector2i(x, y)
-			if _water_class[_id(tile)] != _water_at(tile):
-				_dirty[tile] = true
-				concerned += 1
+	# (Straight from the chunks' water, as rebuild reads it, and dry ground that
+	# was dry passed over at once: tile by tile through the world, this took
+	# 15–20 ms on a PC — a frame lost on the phone at every frost and thaw, 2026-10-14.)
+	var size := _world.chunk_size
+	for coord in _world.chunk_coords():
+		var chunk := _world.get_chunk(coord)
+		var origin := WorldCoords.chunk_origin(coord, size)
+		for ly in size:
+			var y := origin.y + ly
+			if y < _bounds.position.y or y >= _bounds.end.y:
+				continue
+			for lx in size:
+				var x := origin.x + lx
+				if x < _bounds.position.x or x >= _bounds.end.x:
+					continue
+				var depth := chunk.water[ly * size + lx]
+				var id := (y - _bounds.position.y) * _width + (x - _bounds.position.x)
+				if depth <= WET_DEPTH and _water_class[id] == _DRY:
+					continue
+				if _water_class[id] != _class_of(depth):
+					_dirty[Vector2i(x, y)] = true
+					concerned += 1
 	return concerned
 
 

@@ -148,14 +148,12 @@ static func mesh_from(buffers: Buffers) -> ArrayMesh:
 
 
 static func _append(out: Buffers, template: PropMeshLibrary.Template, xform: Transform3D, tint: float) -> void:
-	# Rotation + uniform scale: normals only need the rotation.
-	var normal_basis := xform.basis.orthonormalized()
-	for i in template.vertices.size():
-		out.vertices.append(xform * template.vertices[i])
-		out.normals.append(normal_basis * template.normals[i])
-		var c := template.colors[i]
-		out.colors.append(Color(c.r * tint, c.g * tint, c.b * tint, c.a))
-		out.uvs.append(Vector2(template.glow_of(i), template.leaf_of(i)))
+	# Rotation + uniform scale: normals only need the rotation. (Whole arrays at
+	# once, not vertex by vertex: see Template.uvs.)
+	out.vertices.append_array(xform * template.vertices)
+	out.normals.append_array(Transform3D(xform.basis.orthonormalized(), Vector3.ZERO) * template.normals)
+	out.colors.append_array(template.colors_at(tint))
+	out.uvs.append_array(template.uvs())
 
 
 ## Living things vary a little in brightness; built things do not.

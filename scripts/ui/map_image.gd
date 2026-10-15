@@ -8,7 +8,7 @@ extends RefCounted
 ## knowledge changed is drawn again, a few each frame.
 
 ## Chunks drawn again per refresh() call (the first drawing is spread out so).
-const CHUNKS_PER_REFRESH := 12
+const CHUNKS_PER_REFRESH := 3 # (12 in one frame: 23 ms on a PC, a stall on the phone — profiling, 2026-10-14)
 ## What nobody has explored keeps this much of its colour, greyed.
 const UNKNOWN_KEEP := 0.45
 const UNKNOWN_GREY := 0.6

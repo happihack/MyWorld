@@ -45,6 +45,40 @@ class Template:
 	func leaf_of(index: int) -> float:
 		return leaf[index] if index < leaf.size() else 0.0
 
+	## What PropMesher needs of it, made once (the meshing went vertex by vertex:
+	## 21 ms a chunk on a PC, a hundred on the phone — profiling, 2026-10-14):
+	## glow and leaf as UVs, and its colours at each tint (tints rounded to 1/100).
+	var _uvs := PackedVector2Array()
+	var _tinted: Dictionary = {} # tint * 100 (int) -> PackedColorArray
+	var _lock := Mutex.new()
+
+	func uvs() -> PackedVector2Array:
+		if _uvs.size() != vertices.size():
+			_uvs.resize(vertices.size())
+			for i in vertices.size():
+				_uvs[i] = Vector2(glow_of(i), leaf_of(i))
+		return _uvs
+
+	func colors_at(tint: float) -> PackedColorArray:
+		var key := roundi(tint * 100.0)
+		if key == 100:
+			return colors
+		_lock.lock()
+		var known: Variant = _tinted.get(key)
+		_lock.unlock()
+		if known != null and (known as PackedColorArray).size() == colors.size():
+			return known
+		var t := key / 100.0
+		var out := PackedColorArray()
+		out.resize(colors.size())
+		for i in colors.size():
+			var c := colors[i]
+			out[i] = Color(c.r * t, c.g * t, c.b * t, c.a)
+		_lock.lock()
+		_tinted[key] = out
+		_lock.unlock()
+		return out
+
 
 ## How much of a leaf a vertex is (Template.leaf): leaves that are shed,
 ## green that only turns colour, needles that hardly change.
@@ -212,6 +246,14 @@ func _init() -> void:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _tool_pile()
 			_:
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _heap(PILE_COLORS.get(resource, STONE))
+	_prepare()
+
+
+## (Each shape's marks made now, on the main thread: the meshing reads them
+## from worker threads too — ChunkStreamer.)
+func _prepare() -> void:
+	for t in all_templates():
+		t.uvs()
 
 
 ## Key of a loose object's shape (kind + variant).

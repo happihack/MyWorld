@@ -425,13 +425,17 @@ func show_pick(result: Picker.Result) -> void:
 		_highlight.show_entity(object.world_position(_world), object.radius() * 1.15)
 
 
-## Rebuilds the prop meshes of chunks whose props changed; returns how many.
+## Rebuilds the prop meshes of chunks whose props changed (at most `limit`;
+## the rest wait for the next call); returns how many.
 ## Runs automatically each frame; call directly when a rebuild is needed now.
-func refresh_dirty_props() -> int:
+func refresh_dirty_props(limit: int = 1_000_000) -> int:
 	if _world == null or _props == null or _props_dirty.is_empty():
 		return 0
 	var rebuilt := 0
-	for coord: Vector2i in _props_dirty:
+	for coord: Vector2i in _props_dirty.keys():
+		if rebuilt >= limit:
+			break
+		_props_dirty.erase(coord)
 		var view: ChunkView = _chunk_views.get(coord)
 		if view != null:
 			# The ground under them may have changed with them (a plot tilled).
@@ -440,7 +444,6 @@ func refresh_dirty_props() -> int:
 				view.rebuild_terrain(_world)
 			view.rebuild_props(_world, _props, _prop_library, _prop_material)
 			rebuilt += 1
-	_props_dirty.clear()
 	return rebuilt
 
 
@@ -545,11 +548,12 @@ func _process(_delta: float) -> void:
 		_step_unfold(_delta)
 	_step_fog(_delta)
 	# Ground that has changed is drawn anew (several tiles in one frame: once).
+	# (A few chunks a frame: a day that changes many — crops, paths, snow —
+	# rebuilt them all in one frame, 70 ms on a PC, a stall on the phone: profiling, 2026-10-14.)
 	if _ground_dirty:
-		_ground_dirty = false
-		refresh_dirty_chunks()
+		_ground_dirty = refresh_dirty_chunks(CHUNKS_PER_FRAME) >= CHUNKS_PER_FRAME
 	# Several prop changes in one frame (e.g. clearing a glade) rebuild once.
-	refresh_dirty_props()
+	refresh_dirty_props(CHUNKS_PER_FRAME)
 	# Flowing water changes its chunks ten times a second; rebuilding a water
 	# mesh costs milliseconds on a phone. One chunk at a time, a few frames
 	# apart: moving water is redrawn several times a second, smoothly enough.
@@ -610,24 +614,36 @@ func refresh_dirty_water(limit: int = 1000) -> int:
 
 ## Rebuilds the meshes of chunks whose terrain or water changed; returns how
 ## many meshes were rebuilt. Call after tiles change.
-func refresh_dirty_chunks() -> int:
+## How many chunks' meshes are rebuilt in a frame, at most (ground, and props).
+const CHUNKS_PER_FRAME := 2
+
+
+
+func refresh_dirty_chunks(limit: int = 1_000_000) -> int:
 	if _world == null:
 		return 0
 	var rebuilt := 0
 	var reseat_loose := false
 	for coord: Vector2i in _chunk_views:
+		if rebuilt >= limit:
+			break
 		var chunk := _world.get_chunk(coord, false)
 		if chunk == null:
 			continue
 		var view: ChunkView = _chunk_views[coord]
-		if chunk.is_dirty(ChunkData.DIRTY_MESH):
+		var ground := chunk.is_dirty(ChunkData.DIRTY_MESH)
+		if ground:
 			view.rebuild_terrain(_world)
 			rebuilt += 1
 			_props_dirty[coord] = true # props stand on the terrain: re-seat them
 			reseat_loose = true
-		if chunk.is_dirty(ChunkData.DIRTY_WATER):
+		# (Paced, only where the ground changed too: water alone is redrawn by
+		# refresh_dirty_water, a chunk every few frames.)
+		var paced := limit < 1_000_000
+		if chunk.is_dirty(ChunkData.DIRTY_WATER) and (ground or not paced):
 			view.rebuild_water(_world)
-			rebuilt += 1
+			if not paced:
+				rebuilt += 1
 	if reseat_loose:
 		_loose_view.reseat() # loose objects lie on the terrain too
 		_boats_view.reseat()

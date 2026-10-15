@@ -252,44 +252,47 @@ func _find_crossing() -> Dictionary:
 	var fire := _settlement.start_info().settlement_tile
 	var reach := _config.crossing_reach
 	var area := Rect2i(fire - Vector2i(reach, reach), Vector2i(reach * 2 + 1, reach * 2 + 1)).intersection(_world.bounds)
-	# What can be walked to from the fire.
-	var reached := {}
+	# What can be walked to from the fire — marked in a grid over the area (a
+	# dictionary of tiles cost the phone a lost frame every five days, for land
+	# that is seldom cut off: profiling, 2026-10-14).
 	var start := fire
 	if not _pathfinder.can_stand(start):
 		var near := _pathfinder.standable_near(fire, 1, 3)
 		if near.is_empty():
 			return {}
 		start = near[0]
-	var queue: Array[Vector2i] = [start]
-	reached[start] = true
-	# (Where a step could not be taken: only there, or beside water that can
-	# be waded or a bridge, can a way over begin — see below.)
-	var stopped := {}
-	while not queue.is_empty():
-		var at: Vector2i = queue.pop_back()
-		for step: Vector2i in _STEPS:
-			var next := at + step
-			if reached.has(next):
-				continue
-			if area.has_point(next) and _pathfinder.can_step(at, next):
-				reached[next] = true
-				queue.append(next)
-			else:
-				stopped[at] = true
+	if not area.has_point(start):
+		return {}
+	var width := area.size.x
+	var marks := _pathfinder.walk_out(start, area)
+	var is_reached := func(tile: Vector2i) -> bool:
+		return area.has_point(tile) and marks[(tile.y - area.position.y) * width + (tile.x - area.position.x)] != 0
 	# A crossing begun is carried on to the far bank (even where the last of
 	# it could be waded).
-	var begun := _unfinished(fire, reach, reached)
+	var begun := _unfinished(fire, reach, is_reached)
 	if not begun.is_empty():
 		return begun
 	# Land that cannot be walked to: enough of it to want a way over.
 	var cut_off := 0
-	for y in range(area.position.y, area.end.y):
-		for x in range(area.position.x, area.end.x):
-			var tile := Vector2i(x, y)
-			if not reached.has(tile) and _dry(tile) and _pathfinder.can_stand(tile):
+	for i in marks.size():
+		if marks[i] == 0:
+			@warning_ignore("integer_division")
+			var tile := Vector2i(area.position.x + i % width, area.position.y + i / width)
+			if _dry(tile) and _pathfinder.can_stand(tile):
 				cut_off += 1
 	if cut_off < _config.cut_off_least:
 		return {}
+	# (Only now, with land to reach, the tiles reached as a dictionary, and
+	# where a step could not be taken.)
+	var reached := {}
+	var stopped := {}
+	for i in marks.size():
+		if marks[i] != 0:
+			@warning_ignore("integer_division")
+			var tile := Vector2i(area.position.x + i % width, area.position.y + i / width)
+			reached[tile] = true
+			if marks[i] == 2:
+				stopped[tile] = true
 	# The shortest way over, nearest the fire.
 	var best := {}
 	var best_cost := INF
@@ -337,7 +340,7 @@ func _find_crossing() -> Dictionary:
 ## under way, or an old one-tile bridge): the whole way over it, from the bank
 ## that can be walked to — the nearest the fire; none within CROSSINGS_APART
 ## of a crossing that is finished (one way over a stretch of water is enough).
-func _unfinished(fire: Vector2i, reach: int, reached: Dictionary) -> Dictionary:
+func _unfinished(fire: Vector2i, reach: int, is_reached: Callable) -> Dictionary:
 	var props := _construction.props()
 	if props == null:
 		return {}
@@ -369,8 +372,8 @@ func _unfinished(fire: Vector2i, reach: int, reached: Dictionary) -> Dictionary:
 					beside = true
 		if beside:
 			continue
-		if not reached.has(line["from"]):
-			if not reached.has(line["to"]):
+		if not bool(is_reached.call(line["from"])):
+			if not bool(is_reached.call(line["to"])):
 				continue
 			tiles.reverse() # (from the bank they can walk to)
 		var distance := Vector2(tiles[0] - fire).length()
