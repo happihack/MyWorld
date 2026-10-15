@@ -49,7 +49,8 @@ func _init() -> void:
 	var title := Label.new()
 	title.text = "WHILE YOU WERE GONE"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override(&"font_color", MilestoneCard.GOLD)
+	# (Not gold: gold on the paper was hard to read on the owner's phone, 2026-10-15.)
+	title.add_theme_color_override(&"font_color", UITheme.RED)
 	title.add_theme_font_size_override(&"font_size", UITheme.FONT_SMALL)
 	column.add_child(title)
 	_days = Label.new()
