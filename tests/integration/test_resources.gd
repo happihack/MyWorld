@@ -953,7 +953,26 @@ func test_a_broken_boulder_is_carried_home_as_stone() -> void:
 	looked.tile = first.tile()
 	var report := session.interactions.inspect(looked)
 	assert_eq([report.resource, report.resource_left], [&"stone", first.amount], "the card says what is in it")
-	assert_false(session.interactions.actions_for(looked).has(InteractionManager.ACTION_BREAK), "a stone is not broken again")
+	# A stone broken from it breaks again, into two smaller sharing its stone (the
+	# owner, 2026-10-15) — down to stones of one.
+	assert_has(session.interactions.actions_for(looked), InteractionManager.ACTION_BREAK, "a broken stone breaks again")
+	var held := first.amount
+	var again := session.interactions.break_rock(looked)
+	assert_not_null(again)
+	assert_eq(again.dropped.size(), InteractionManager.ROCK_PIECES)
+	var shared := 0
+	for id in again.dropped:
+		var smaller := session.loose.get_object(id)
+		shared += smaller.amount
+		assert_true(smaller.scale_percent < first.scale_percent, "smaller")
+	assert_eq(shared, held, "no stone made or lost")
+	var one := session.loose.get_object(again.dropped[-1]) # (the last piece has the least)
+	if one.amount == 1:
+		looked.entity_id = one.id
+		assert_false(session.interactions.actions_for(looked).has(InteractionManager.ACTION_BREAK), "a stone of one is not broken")
+	for id in again.dropped:
+		session.loose.remove(id)
+	response.dropped.erase(first.id)
 	# (A boulder bursting apart is a sight: what they make of it, first.)
 	_run(40.0)
 	carrier.carrying = &""

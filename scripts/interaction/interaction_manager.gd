@@ -274,14 +274,17 @@ func uproot(target: Picker.Result, tool: StringName = &"hand") -> InteractionRes
 	return iv.response if iv.applied else null
 
 
-## Can this be broken into stone: a boulder, or a rock (not a pebble, nor a
-## stone already broken from one)? Lying, in hand or coming down: holding a
+## Can this be broken into stone: a boulder, or a rock — a stone broken from
+## one too, into two smaller, while it holds more than one stone (not a
+## pebble)? Lying, in hand or coming down: holding a
 ## finger on it lifts it (HandTool) before the long-press menu opens, and the
 ## menu's choice is made after it is put back down (the owner, 2026-10-15: no
 ## Break on the phone).
 static func can_break(object: LooseObject) -> bool:
-	if object == null or BuildStep.is_broken_stone(object):
+	if object == null:
 		return false
+	if BuildStep.is_broken_stone(object):
+		return object.amount >= 2
 	return object.kind == LooseObject.Kind.BOULDER or object.kind == LooseObject.Kind.ROCK
 
 
@@ -535,6 +538,9 @@ func _do_break_rock(iv: Intervention) -> bool:
 	var pieces := BOULDER_PIECES if boulder else ROCK_PIECES
 	var s := rock.scale()
 	var stone := maxi(roundi((BOULDER_STONE if boulder else ROCK_STONE) * s * s * s), pieces)
+	# (A stone broken before: what is in it, shared out; each piece smaller.)
+	if BuildStep.is_broken_stone(rock):
+		stone = rock.amount
 	var at := rock.position
 	_in_hand.erase(rock.id)
 	_awaiting_rest.erase(rock.id)
@@ -546,7 +552,7 @@ func _do_break_rock(iv: Intervention) -> bool:
 			# (Each with its share of the stone: carried to the stores, or by builders to a site.)
 			var heading := turn + TAU * i / pieces
 			var piece := _spawn(LooseObject.Kind.ROCK, at + Vector2(cos(heading), sin(heading)) * 0.15, 0.25,
-				rng.randi_range(90, 125) if boulder else rng.randi_range(55, 75))
+				rng.randi_range(90, 125) if boulder else maxi(roundi(rock.scale_percent * rng.randf_range(0.6, 0.8)), 35))
 			piece.variant = rng.randi_range(0, 1)
 			piece.yaw = rng.randf() * TAU
 			piece.resource = &"stone"
