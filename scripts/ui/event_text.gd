@@ -105,6 +105,8 @@ static func params_of(event: WorldEvent, people: PersonRegistry = null) -> Dicti
 		params["building"] = MemoryText.translate(key) if MemoryText.has(key) else str(params["building"])
 	if params.has("occupation"):
 		params["occupation"] = UIText.occupation_name(StringName(str(params["occupation"]))).to_lower()
+	if params.has("into"):
+		params["into"] = UIText.occupation_name(StringName(str(params["into"]))).to_lower()
 	if event.type == &"player_intervention":
 		params["text"] = HistoryText.text({"type": str(params.get("kind", "")), "subject": str(params.get("subject", "")),
 			"first": event.is_first()})

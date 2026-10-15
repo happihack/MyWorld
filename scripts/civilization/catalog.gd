@@ -32,6 +32,8 @@ static func check(buildings: BuildingLibrary, occupations: OccupationLibrary, re
 		var tech := StringName(str(def.requires.get("tech", "")))
 		if tech != &"" and techs != null and not techs.has_def(tech):
 			out.append("occupation %s: requires %s, which is not a technology" % [id, tech])
+		if def.merges_into != &"" and not occupations.has_def(def.merges_into):
+			out.append("occupation %s: merges into %s, which is not an occupation" % [id, def.merges_into])
 		var building := StringName(str(def.requires.get("building", "")))
 		if building != &"" and not buildings.has_def(building):
 			out.append("occupation %s: requires %s, which is not a building" % [id, building])

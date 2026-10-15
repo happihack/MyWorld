@@ -27,5 +27,6 @@ teaches = {
 elder_keeps = false
 danger = 0.35
 evening_topic = &"stone"
+merges_into = &"builder"
 staffing_order = 10
 demand = &"workplace"

@@ -38,6 +38,14 @@ func _grow_to(people: int) -> void:
 		p.birth_tick = session.clock.tick - 25 * Config.time.ticks_per_year()
 
 
+## A specialist is taken up only once the call for it has lasted (F2 step 2):
+## not at once, but a day on.
+func _staff_after_a_day(def: OccupationDef) -> PersonData:
+	assert_null(own._staff(def, session.clock.tick), "not for a passing need")
+	session.clock.tick += Settlement.SPLIT_DAYS * DAY
+	return own._staff(def, session.clock.tick)
+
+
 func _build(def_id: StringName) -> PropData:
 	var def := session.buildings.get_def(def_id)
 	var tile: Variant = planner.site_for(def)
@@ -65,7 +73,7 @@ func test_the_smokehouse_and_its_cook() -> void:
 	own.stockpile.add(&"wood", 10)
 	var cook_def := session.occupations.get_def(&"cook")
 	assert_eq(own.demand_of(cook_def, session.clock.tick)["wanted"], 1)
-	var cook := own._staff(cook_def, session.clock.tick)
+	var cook := _staff_after_a_day(cook_def)
 	assert_not_null(cook, "someone takes up cooking")
 	assert_eq(cook.occupation_id, &"cook")
 	# The cook's day: to the smokehouse, and a batch smoked.
@@ -278,8 +286,74 @@ func test_a_village_of_farmers_spares_one_to_cook() -> void:
 	var builders := own._holding(&"builder")
 	assert_true(int(own.demand_of(builder_def, session.clock.tick)["wanted"]) < builders, "more builders than wanted")
 	var cook_def := session.occupations.get_def(&"cook")
-	var cook := own._staff(cook_def, session.clock.tick)
+	var cook := _staff_after_a_day(cook_def)
 	assert_not_null(cook, "a spare builder takes up cooking")
 	assert_eq(cook.occupation_id, &"cook")
 	assert_eq(own._holding(&"builder"), builders - 1)
 	assert_null(own._staff(cook_def, session.clock.tick), "one cook is enough")
+
+
+func test_a_cook_with_no_call_goes_back_to_foraging() -> void:
+	# F2 step 2: a specialist split off its family by demand, merged back when
+	# there has been no call for it for a season — both told.
+	_grow_to(10)
+	own.note_produced(&"fish", 30)
+	_build(&"smokehouse")
+	own.stockpile.add(&"fish", 12)
+	own.stockpile.add(&"wood", 10)
+	var cook_def := session.occupations.get_def(&"cook")
+	assert_eq(cook_def.merges_into, &"forager")
+	var cook := _staff_after_a_day(cook_def)
+	assert_not_null(cook)
+	assert_eq(session.events.count_of(&"trade_split"), 1, "the first cook: a trade of its own")
+	assert_has(EventText.text(session.events.latest(&"trade_split"), session.people, session.events), "cook")
+	# No more meat or fish coming in: no call for a cook.
+	own.produced.clear()
+	assert_eq(int(own.demand_of(cook_def, session.clock.tick)["wanted"]), 0)
+	own._merge_back(cook_def, session.clock.tick)
+	assert_eq(cook.occupation_id, &"cook", "not at once")
+	# (Kept across a save: how long it has gone without a call.)
+	var saved := own.to_dict()
+	assert_true((saved["idle_since"] as Dictionary).has("cook"))
+	own.from_dict(saved)
+	session.clock.tick += (Settlement.MERGE_DAYS - 1) * DAY
+	own._merge_back(cook_def, session.clock.tick)
+	assert_eq(cook.occupation_id, &"cook", "nor in a few days")
+	session.clock.tick += DAY
+	own._merge_back(cook_def, session.clock.tick)
+	assert_eq(cook.occupation_id, &"forager", "a season without a call: back to foraging")
+	assert_eq(session.events.count_of(&"trade_merged"), 1)
+	var told := EventText.text(session.events.latest(&"trade_merged"), session.people, session.events)
+	assert_has(told, "forager")
+	assert_has(told, "cook")
+	# Trades with nowhere to go back to keep their people.
+	assert_eq(session.occupations.get_def(&"farmer").merges_into, &"")
+
+
+func test_a_world_saved_before_the_foundation_loads() -> void:
+	# F7: version 28, written before careers, building records and staffing's
+	# memory: it loads, with those empty, and is saved as the current version.
+	var fixture := "res://tests/fixtures/saves/v28_world.sav"
+	var header := SaveContainer.read_header(fixture)
+	assert_eq(int(header.header["save_version"]), 28)
+	var world_id := str(header.header.get("world_id", ""))
+	DirAccess.make_dir_recursive_absolute(SaveManager.world_dir(world_id))
+	var copy := FileAccess.open(SaveManager.world_dir(world_id).path_join(SaveManager.SAVE_FILE), FileAccess.WRITE)
+	copy.store_buffer(FileAccess.get_file_as_bytes(fixture))
+	copy.close()
+	var loaded := SaveManager.load_world(world_id)
+	assert_true(loaded.ok, loaded.error)
+	var old: WorldSession = SessionScript.new()
+	add_child(old)
+	assert_true(old.load_from(loaded.world))
+	old.set_process(false)
+	for person in old.people.all_people():
+		assert_eq(person.mentor_id, 0, "nobody's apprentice")
+		assert_true(old.occupations.has_def(person.occupation_id), "%s: a trade that still is" % person.occupation_id)
+	assert_eq(old.settlement._idle_since, {})
+	assert_eq(old.settlement._wanted_since, {})
+	assert_eq(SaveManager.SAVE_VERSION, 29)
+	assert_true(SaveManager.save_world(old, &"test"))
+	assert_eq(int(SaveContainer.read_header(SaveManager.world_dir(world_id).path_join(SaveManager.SAVE_FILE)).header["save_version"]), 29)
+	old.queue_free()
+	await wait_frames(1)

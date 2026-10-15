@@ -36,6 +36,7 @@ static var STEPS: Dictionary = { # int from_version -> Callable
 	25: _v25_to_v26,
 	26: _v26_to_v27,
 	27: _v27_to_v28,
+	28: _v28_to_v29,
 }
 
 
@@ -356,6 +357,16 @@ static func _v12_to_v13(data: Dictionary) -> Dictionary:
 		(state as Dictionary)["chronicle"] = {"adopt": true}
 	if not (state as Dictionary).has("stats"):
 		(state as Dictionary)["stats"] = {}
+	return data
+
+
+## Version 29 (buildings & villagers W1, F7): careers (mentors, apprentices,
+## former trades, mastery), building records, the W1 buildings, resources and
+## trades, and staffing's memory of how long each specialist has been called
+## for (F2 step 2). All of it is written only when set and read with
+## defaults: an older world loads with careers empty, no records, nobody
+## waiting — nothing to change in its data.
+static func _v28_to_v29(data: Dictionary) -> Dictionary:
 	return data
 
 

@@ -1221,6 +1221,19 @@ func on_building_named(_building_id: int, name: String, tile: Vector2i) -> void:
 		_log.record(&"building_named", {"title": name, "position": Places.middle_of(tile), "settlement": _settlement_id()})
 
 
+## A specialist trade split off its family, or merged back into it (F2 step 2).
+func on_trade_split(person_id: int, occupation: StringName, own: Settlement) -> void:
+	if _writing():
+		_log.record(&"trade_split", {"occupation": String(occupation), "participants": [person_id], "place": own.display_name(),
+				"position": _place_of(person_id), "settlement": own.id})
+
+
+func on_trade_merged(person_id: int, occupation: StringName, into: StringName, own: Settlement) -> void:
+	if _writing():
+		_log.record(&"trade_merged", {"occupation": String(occupation), "into": String(into), "participants": [person_id],
+				"place": own.display_name(), "position": _place_of(person_id), "settlement": own.id})
+
+
 func on_took_up(person_id: int, occupation: StringName) -> void:
 	if not _writing():
 		return

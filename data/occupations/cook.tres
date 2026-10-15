@@ -26,5 +26,6 @@ teaches = {
 elder_keeps = true
 danger = 0.05
 evening_topic = &"food"
+merges_into = &"forager"
 staffing_order = 8
 demand = &"cook"

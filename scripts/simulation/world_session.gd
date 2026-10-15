@@ -2060,6 +2060,8 @@ func _make_settlement(info: WorldSetup.StartInfo, its_places: Places, saved: Dic
 		if amount > 0 and learning != null:
 			learning.learn_from(&"food_spoiled", own.id))
 	own.took_up.connect(chronicle.on_took_up)
+	own.trade_split.connect(chronicle.on_trade_split.bind(own))
+	own.trade_merged.connect(chronicle.on_trade_merged.bind(own))
 	own.flood_took.connect(chronicle.on_flood_took)
 	own.home_moved.connect(chronicle.on_home_moved)
 	own.learned.connect(chronicle.on_learned)

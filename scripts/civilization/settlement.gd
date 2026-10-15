@@ -15,6 +15,10 @@ signal home_moved(hut_id: int, from: Vector2i, to: Vector2i)
 signal spoiled(resource: StringName, amount: int)
 ## Someone took up another occupation (the first farmer).
 signal took_up(person_id: int, occupation: StringName)
+## A specialist trade split off its family here, its first holder (F2 step 2) —
+## and merged back into it, its last.
+signal trade_split(person_id: int, occupation: StringName)
+signal trade_merged(person_id: int, occupation: StringName, into: StringName)
 ## It is short of food, or out of it, or has enough again (see Shortage).
 signal shortage_changed(stage: int, was: int)
 ## Out of food, it has begun to eat the grain it kept for seed.
@@ -632,10 +636,52 @@ func ensure_hunter(now: int) -> PersonData:
 # --- staffing (buildings & villagers F2) -------------------------------------------------------
 
 ## Once in a while: each trade the data staffs (OccupationDef.staffing_order),
-## in that order — wanted more than it has, one more takes it up.
+## in that order — wanted more than it has, one more takes it up; a
+## specialist no longer called for goes back to its family's trade.
 func staff(now: int) -> void:
 	for def in _staffed():
 		_staff(def, now)
+		if def.merges_into != &"":
+			_merge_back(def, now)
+
+
+## Specialists by demand (F2 step 2, §60–63): one split off its family is
+## taken up only once the call for it has lasted SPLIT_DAYS (not for a
+## passing need); with no call for it for MERGE_DAYS (a season), one of its
+## holders — the least skilled first — goes back to the trade it came from
+## (OccupationDef.merges_into), and another after as long again.
+const SPLIT_DAYS := 1
+const MERGE_DAYS := 6
+var _wanted_since: Dictionary = {} # trade (String) -> tick from which it has been wanted more than held
+var _idle_since: Dictionary = {} # trade (String) -> tick from which it has been held more than wanted
+
+
+func _merge_back(def: OccupationDef, now: int) -> void:
+	var key := String(def.id)
+	var demand := demand_of(def, now)
+	if demand.is_empty() or int(demand["have"]) <= int(demand["wanted"]):
+		_idle_since.erase(key)
+		return
+	var since := int(_idle_since.get(key, now))
+	_idle_since[key] = since
+	if now - since < MERGE_DAYS * TimeConfig.MINUTES_PER_DAY or occupations == null or not occupations.has_def(def.merges_into):
+		return
+	var into := occupations.get_def(def.merges_into)
+	var leaving: PersonData = null
+	for person in members():
+		if person.occupation_id != def.id or not into.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
+			continue
+		var skill := float(person.skills.get(key, 0.0))
+		var best := float(leaving.skills.get(key, 0.0)) if leaving != null else INF
+		if skill < best or (skill == best and person.id < leaving.id):
+			leaving = person
+	if leaving == null:
+		return
+	leaving.occupation_id = into.id
+	_idle_since[key] = now # (the next, after as long again)
+	if _holding(def.id) == 0:
+		trade_merged.emit(leaving.id, def.id, into.id)
+	jobs.refresh(self, now)
 
 
 ## How many of a trade the settlement wants now, and how it finds them: {"wanted":
@@ -769,7 +815,14 @@ func _staff_by_id(occupation: StringName, now: int) -> PersonData:
 func _staff(def: OccupationDef, now: int) -> PersonData:
 	var demand := demand_of(def, now)
 	if demand.is_empty() or int(demand["have"]) >= int(demand["wanted"]):
+		_wanted_since.erase(String(def.id))
 		return null
+	if def.merges_into != &"":
+		# (A specialist: only once the call for it has lasted.)
+		var since := int(_wanted_since.get(String(def.id), now))
+		_wanted_since[String(def.id)] = since
+		if now - since < SPLIT_DAYS * TimeConfig.MINUTES_PER_DAY:
+			return null
 	var taken := _take_up(def.id, int(demand["least"]), now, bool(demand["anywhere"]))
 	# (Pressed into building only when nobody builds at all: a second builder is
 	# never pressed — it took the farmer, and the farm a fisher, hour after hour.)
@@ -779,6 +832,8 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 	# to spare one, so one comes from a trade that has more than it wants.)
 	if taken == null and (def.demand == &"cook" or def.demand == &"workplace"):
 		taken = _take_spare(def, now)
+	if taken != null and def.merges_into != &"" and int(demand["have"]) == 0:
+		trade_split.emit(taken.id, def.id)
 	return taken
 
 
@@ -957,7 +1012,8 @@ func to_dict() -> Dictionary:
 		"served": _served.duplicate(), "served_day": _served_day,
 		"flood_level": flood_level, "moves": _moves.duplicate(), "move_day": _move_day,
 		"name": settlement_name, "founded": founded_tick, "founders": founders.duplicate(), "from": founded_from,
-		"produced": produced.duplicate(), "knows": knows.duplicate(), "tools_made": tools_made}
+		"produced": produced.duplicate(), "knows": knows.duplicate(), "tools_made": tools_made,
+		"wanted_since": _wanted_since.duplicate(), "idle_since": _idle_since.duplicate()}
 
 
 func from_dict(data: Dictionary) -> void:
@@ -991,6 +1047,14 @@ func from_dict(data: Dictionary) -> void:
 	settlement_name = str(data.get("name", "")) if typeof(data.get("name")) == TYPE_STRING else ""
 	founded_tick = int(data["founded"]) if typeof(data.get("founded")) == TYPE_INT else 0
 	founded_from = maxi(int(data["from"]), 0) if typeof(data.get("from")) == TYPE_INT else 0
+	for pair: Array in [[_wanted_since, "wanted_since"], [_idle_since, "idle_since"]]:
+		var into: Dictionary = pair[0]
+		into.clear()
+		var saved: Variant = data.get(pair[1])
+		if typeof(saved) == TYPE_DICTIONARY:
+			for trade: Variant in saved:
+				if typeof((saved as Dictionary)[trade]) == TYPE_INT:
+					into[str(trade)] = int((saved as Dictionary)[trade])
 	produced.clear()
 	if typeof(data.get("produced")) == TYPE_DICTIONARY:
 		for resource: Variant in data["produced"]:
