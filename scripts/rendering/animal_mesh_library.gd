@@ -28,15 +28,22 @@ static func _build(shape: StringName, color: Color) -> ArrayMesh:
 	var light := _plain(color.lightened(0.35))
 	match shape:
 		&"deer":
-			# Four legs, a long body, a neck held up, small antlers.
-			for leg: Vector2 in [Vector2(-0.17, -0.07), Vector2(-0.17, 0.07), Vector2(0.16, -0.07), Vector2(0.16, 0.07)]:
-				PropMeshLibrary._box(t, Vector3(leg.x, 0.14, leg.y), Vector3(0.028, 0.14, 0.028), dark)
-			PropMeshLibrary._box(t, Vector3(0.0, 0.36, 0.0), Vector3(0.24, 0.1, 0.1), body)
-			PropMeshLibrary._box(t, Vector3(0.24, 0.47, 0.0), Vector3(0.05, 0.11, 0.05), body)
-			PropMeshLibrary._box(t, Vector3(0.31, 0.57, 0.0), Vector3(0.085, 0.05, 0.055), body)
-			PropMeshLibrary._box(t, Vector3(-0.25, 0.4, 0.0), Vector3(0.025, 0.04, 0.03), light)
-			PropMeshLibrary._box(t, Vector3(0.28, 0.66, -0.045), Vector3(0.012, 0.05, 0.012), light)
-			PropMeshLibrary._box(t, Vector3(0.28, 0.66, 0.045), Vector3(0.012, 0.05, 0.012), light)
+			# Slim dark legs, a deep chest and a lighter rump, the
+			# neck slanting up to a head with a muzzle, antlers forking, a scut.
+			for leg: Vector2 in [Vector2(-0.17, -0.07), Vector2(-0.17, 0.07), Vector2(0.15, -0.07), Vector2(0.15, 0.07)]:
+				PropMeshLibrary._box(t, Vector3(leg.x, 0.15, leg.y), Vector3(0.022, 0.15, 0.022), dark)
+			PropMeshLibrary._box(t, Vector3(0.08, 0.37, 0.0), Vector3(0.17, 0.1, 0.1), body) # the chest
+			PropMeshLibrary._box(t, Vector3(-0.15, 0.38, 0.0), Vector3(0.1, 0.085, 0.09), light) # the rump
+			PropMeshLibrary._prism(t, Vector3(0.2, 0.4, 0.0), Vector3(0.3, 0.6, 0.0), 0.045, 5, body, body, false)
+			PropMeshLibrary._box(t, Vector3(0.32, 0.62, 0.0), Vector3(0.06, 0.045, 0.05), body)
+			PropMeshLibrary._box(t, Vector3(0.39, 0.6, 0.0), Vector3(0.035, 0.03, 0.035), dark) # the muzzle
+			PropMeshLibrary._box(t, Vector3(0.3, 0.68, -0.05), Vector3(0.01, 0.025, 0.018), body) # the ears
+			PropMeshLibrary._box(t, Vector3(0.3, 0.68, 0.05), Vector3(0.01, 0.025, 0.018), body)
+			for side: float in [-1.0, 1.0]:
+				var root := Vector3(0.31, 0.66, 0.03 * side)
+				PropMeshLibrary._limb(t, root, root + Vector3(-0.04, 0.1, 0.05 * side), 0.012, light, light)
+				PropMeshLibrary._limb(t, root + Vector3(-0.02, 0.05, 0.025 * side), root + Vector3(0.03, 0.09, 0.03 * side), 0.009, light, light)
+			PropMeshLibrary._box(t, Vector3(-0.26, 0.42, 0.0), Vector3(0.025, 0.035, 0.025), _plain(Palette.SNOW)) # the scut
 		&"rabbit":
 			# A round body, a head, two ears up, a white scut.
 			PropMeshLibrary._box(t, Vector3(0.0, 0.07, 0.0), Vector3(0.09, 0.06, 0.06), body)

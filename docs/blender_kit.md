@@ -51,7 +51,7 @@ What the procedural shapes cost today, and the most a modelled replacement shoul
 | Storehouse, workshop, well | 140 / 84 / 168 | 250 |
 | Campfire | 101 | 150 |
 | Boat | (own mesh) | 150 |
-| Animal | tens | 120 |
+| Animal | 60–150 | 150 |
 | A loose object | 10–24 | 40 |
 | A resource pile | 120 | 150 |
 

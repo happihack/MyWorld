@@ -494,13 +494,20 @@ static func _conifer(radius: float, height: float) -> Template:
 
 static func _rock(radius: float, height: float, twist: float) -> Template:
 	var t := Template.new()
-	# A squashed, slightly lopsided lump: wide base, narrower off-centre top.
-	var base := _ring(0.0, radius, 5, twist)
-	var top := _ring(height, radius * 0.55, 5, twist + 0.35)
-	for i in top.size():
-		top[i] += Vector3(radius * 0.12, 0.0, -radius * 0.08)
-	_band(t, base, top, _rgba(STONE_DARK, 0.0), _rgba(STONE, 0.0))
-	_fan(t, top, Vector3(radius * 0.12, height + 0.02, -radius * 0.08), _rgba(STONE, 0.0), _rgba(STONE.lightened(0.1), 0.0))
+	# A lopsided lump in two tiers: a wide jogged base, a narrower middle set
+	# off to one side, and a ridge of a top; darker towards the ground.
+	var base := _jog(_ring(0.0, radius, 6, twist), 0.1, 1)
+	for i in 6: # (the jog tilts a ring; the base stays on the ground)
+		base[i].y = 0.0
+	var middle := _jog(_ring(height * 0.55, radius * 0.78, 6, twist + 0.3), 0.12, 2)
+	var top := _jog(_ring(height * 0.9, radius * 0.4, 6, twist + 0.5), 0.1, 3)
+	var lean := Vector3(radius * 0.14, 0.0, -radius * 0.1)
+	for i in 6:
+		middle[i] += lean * 0.6
+		top[i] += lean
+	_band(t, base, middle, _rgba(STONE_DARK, 0.0), _rgba(STONE, 0.0))
+	_band(t, middle, top, _rgba(STONE, 0.0), _rgba(STONE.lightened(0.08), 0.0))
+	_fan(t, top, lean + Vector3(radius * 0.05, height + 0.02, 0.0), _rgba(STONE.lightened(0.08), 0.0), _rgba(STONE.lightened(0.16), 0.0))
 	return t
 
 
