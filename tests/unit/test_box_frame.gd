@@ -17,7 +17,7 @@ func after_each() -> void:
 
 
 func test_three_meshes_one_surface_each() -> void:
-	for mesh in [frame.wood_mesh(), frame.brass_mesh(), frame.glass_mesh()]:
+	for mesh in [frame.wood_mesh(), frame.posts_mesh(), frame.glass_mesh()]:
 		assert_not_null(mesh)
 		assert_eq(mesh.get_surface_count(), 1)
 
@@ -55,7 +55,7 @@ func test_no_wood_inside_the_world_bounds() -> void:
 
 
 func test_posts_reach_the_box_height() -> void:
-	var aabb := frame.brass_mesh().get_aabb()
+	var aabb := frame.posts_mesh().get_aabb()
 	assert_near(aabb.end.y, HEIGHT, 0.001)
 	assert_near(aabb.position.y, BoxFrame.RIM_HEIGHT, 0.001, "posts stand on the rim")
 	assert_true(aabb.position.x < BOUNDS.position.x and aabb.end.x > BOUNDS.end.x, "posts sit outside the corners")
@@ -85,7 +85,7 @@ func test_rebuild_follows_new_bounds() -> void:
 	frame.build(Rect2i(-64, -64, 128, 128), 12.0)
 	assert_eq(frame.bounds, Rect2i(-64, -64, 128, 128))
 	assert_true(frame.wood_mesh().get_aabb().size.x > small + 60.0, "the frame grew with the box")
-	assert_near(frame.brass_mesh().get_aabb().end.y, 12.0, 0.001)
+	assert_near(frame.posts_mesh().get_aabb().end.y, 12.0, 0.001)
 	assert_true(frame.thickness > 1.4, "a bigger box gets a thicker frame")
 
 
@@ -97,7 +97,7 @@ func test_thickness_is_clamped() -> void:
 
 
 func test_frame_triangles_face_their_normals() -> void:
-	for mesh in [frame.wood_mesh(), frame.brass_mesh()]:
+	for mesh in [frame.wood_mesh(), frame.posts_mesh()]:
 		var arrays: Array = mesh.surface_get_arrays(0)
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]

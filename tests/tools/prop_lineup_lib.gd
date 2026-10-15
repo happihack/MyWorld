@@ -61,6 +61,8 @@ static func extra_meshes(set: String, library: PropMeshLibrary) -> Array:
 
 
 static func build(set: String, season: float, night: float) -> Node3D:
+	if set == "box":
+		return build_box()
 	var scene := Node3D.new()
 	scene.name = "Lineup"
 	var items := lineup(set)
@@ -151,3 +153,59 @@ static func _mesh(t: PropMeshLibrary.Template) -> ArrayMesh:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+## The box itself around a small flat world, on its table, from the game's angle.
+static func build_box() -> Node3D:
+	var scene := Node3D.new()
+	scene.name = "Box"
+	var environment := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = WorldLighting.BACKGROUND
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = WorldLighting.AMBIENT_COLOR
+	env.ambient_light_energy = 0.9
+	environment.environment = env
+	scene.add_child(environment)
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = WorldLighting.SUN_ROTATION_DEG
+	sun.light_color = WorldLighting.SUN_COLOR
+	sun.light_energy = 1.2
+	sun.shadow_enabled = true
+	scene.add_child(sun)
+	var bounds := Rect2i(-16, -16, 32, 32)
+	var frame := BoxFrame.new()
+	scene.add_child(frame)
+	frame.build(bounds, 6.0)
+	frame.set_label("Ash Hollow")
+	frame.set_lid_open(0.85)
+	# The world inside: a slab of grass to the rim.
+	var ground := MeshInstance3D.new()
+	var slab := BoxMesh.new()
+	slab.size = Vector3(bounds.size.x, 1.0, bounds.size.y)
+	ground.mesh = slab
+	var ground_material := StandardMaterial3D.new()
+	ground_material.albedo_color = Palette.GRASS
+	ground_material.roughness = 1.0
+	ground.material_override = ground_material
+	ground.position = Vector3(0.0, -0.5 + 0.3, 0.0)
+	scene.add_child(ground)
+	# The table under it.
+	var table := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(300.0, 300.0)
+	table.mesh = plane
+	var table_material := ShaderMaterial.new()
+	table_material.shader = preload("res://assets/shaders/table.gdshader")
+	table_material.set_shader_parameter(&"box_half", Vector2(frame.outer_rect().size) * 0.5)
+	table.material_override = table_material
+	table.position = Vector3(0.0, frame.bottom_y() - 0.01, 0.0)
+	scene.add_child(table)
+	var camera := Camera3D.new()
+	camera.rotation_degrees = Vector3(-34.0, 0.0, 0.0)
+	camera.position = Vector3(0.0, 34.0, 52.0)
+	camera.fov = 48.0
+	camera.current = true
+	scene.add_child(camera)
+	return scene

@@ -102,6 +102,10 @@ func _ready() -> void:
 		int(Settings.get_value(&"time/last_seen_unix")))
 	_note_seen()
 	world_view.show_world(session.world, session.props, session.start, session.loose)
+	# The label on the box: the settlement's name, kept as it is renamed.
+	world_view.box_frame().set_label(session.settlement.display_name())
+	if not session.lexicon.renamed.is_connected(_on_settlement_renamed):
+		session.lexicon.renamed.connect(_on_settlement_renamed)
 	world_view.show_people(session.people, session.clock, session.occupations)
 	world_view.show_animals(session.animals, session.species, session.clock)
 	world_view.show_boats(session.boats)
@@ -268,6 +272,11 @@ func _ready() -> void:
 	debug_overlay.register_section(&"feedback", func() -> String:
 		return "%s\nhaptics %d (%d dropped)%s" % [AudioManager.debug_text(), Haptics.pulses_played,
 			Haptics.pulses_skipped, "" if Haptics.enabled else "  off"])
+
+
+func _on_settlement_renamed(settlement_id: int, _old_name: String, new_name: String) -> void:
+	if session != null and session.settlement != null and settlement_id == session.settlement.id:
+		world_view.box_frame().set_label(new_name)
 
 
 func _process(delta: float) -> void:

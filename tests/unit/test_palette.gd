@@ -61,7 +61,7 @@ func test_libraries_read_the_palette() -> void:
 	assert_eq(PropMeshLibrary.TRUNK, Palette.BARK)
 	assert_eq(PropMeshLibrary.PILE_COLORS[&"grain"], Palette.GOLD)
 	assert_eq(PersonMeshLibrary.ELDER_HAIR, Palette.HAIR_GREY)
-	assert_eq(BoxFrame.BRASS, Palette.BRASS)
+	assert_eq(BoxFrame.WOOD, Palette.BOX_WOOD)
 	var terrain := TerrainPalette.new()
 	assert_eq(terrain.top(ChunkData.Terrain.GRASS), Palette.GRASS)
 	assert_eq(terrain.side(ChunkData.Terrain.ROCK), Palette.STONE_DARK)
