@@ -347,6 +347,8 @@ func _each_day(day: int) -> void:
 		produced[resource] = float(produced[resource]) * keep
 		if float(produced[resource]) < 0.05:
 			produced.erase(resource)
+	_orchards(day)
+	_treat_with_herbs()
 	if knows_how(&"toolmaking"):
 		return
 	for person in members():
@@ -668,14 +670,24 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 		&"craft":
 			return {"wanted": 1 if workshop() != null and craft_wanted() else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
 		&"cook":
-			# (W1) Someone to smoke the meat and fish, once there is a smokehouse and something to smoke.
+			# (W1) A cook, once there is a smokehouse or drying rack and meat or fish has
+			# been coming in — not only at the moment some is in store: fish, spoiling
+			# first, is eaten first, and a 30-year soak never found three in store.)
+			var brought := float(produced.get("fish", 0.0)) + float(produced.get("meat", 0.0))
+			var wanted_cook := 1 if _has_workplace(def) and brought >= SettlementPlanner.SMOKE_FROM else 0
+			return {"wanted": wanted_cook, "have": _holding(def.id), "least": 3, "anywhere": false}
+		&"workplace":
+			# (W1) One to work a building with a recipe, while there is something to make there.
 			var lib := construction.buildings if construction != null else null
-			var wanted_cook := 0
+			var wanted_one := 0
 			for place in def.workplaces:
 				var building := lib.get_def(StringName(place)) if lib != null else null
 				if Recipes.workplace(self, building) != null and Recipes.next_step(self, building) >= 0:
-					wanted_cook = 1
-			return {"wanted": wanted_cook, "have": _holding(def.id), "least": 3, "anywhere": false}
+					wanted_one = 1
+			var tech := StringName(str(def.requires.get("tech", "")))
+			if tech != &"" and not knows_how(tech):
+				wanted_one = 0
+			return {"wanted": wanted_one, "have": _holding(def.id), "least": 3, "anywhere": false}
 		&"science":
 			return {"wanted": 1 if knows_how(&"natural_philosophy") else 0, "have": _holding(def.id), "least": 3, "anywhere": false}
 	return {}
@@ -689,6 +701,51 @@ func staffing_text(now: int) -> String:
 		if not demand.is_empty():
 			parts.append("%s %d/%d" % [def.id, int(demand["have"]), int(demand["wanted"])])
 	return "  ".join(parts)
+
+
+## Orchards (W1): planted, they bear only after ORCHARD_YEARS; then, but in
+## winter, fruit ripens on them day by day, up to ORCHARD_HOLDS, for the
+## foragers to pick. Their look follows: young, grown, bearing.
+const ORCHARD_YEARS := 3
+const ORCHARD_FRUIT_PER_DAY := 2
+const ORCHARD_HOLDS := 20
+
+
+func _orchards(day: int) -> void:
+	if planner == null or _props == null:
+		return
+	var now := day * TimeConfig.MINUTES_PER_DAY
+	for id in planner.standing_near(PropData.Kind.ORCHARD):
+		var orchard := _props.get_prop(id)
+		if orchard == null:
+			continue
+		if orchard.stock < 0:
+			orchard.stock = 0
+			orchard.stock_tick = now # (planted)
+		var grown := now - orchard.stock_tick >= ORCHARD_YEARS * Config.time.ticks_per_year()
+		if grown and Config.time.season_of(now) != 3:
+			orchard.stock = mini(orchard.stock + ORCHARD_FRUIT_PER_DAY, ORCHARD_HOLDS)
+		var look := 0 if not grown else (2 if orchard.stock >= 3 else 1)
+		if look != orchard.variant:
+			orchard.variant = look
+			_props.changed(orchard.id)
+
+
+## Herbs from the stores (W1): the ill and the hurt are treated, a bunch each a
+## day while there are any, and heal faster for it (Health.recovery).
+func _treat_with_herbs() -> void:
+	for person in members():
+		var ailing := Health.is_ill(person) or not person.injuries.is_empty()
+		person.set_flag(PersonData.FLAG_HERBS, ailing and stockpile.take(&"herbs", 1) > 0)
+
+
+## Does it keep one of `def`'s workplaces?
+func _has_workplace(def: OccupationDef) -> bool:
+	var lib := construction.buildings if construction != null else null
+	for place in def.workplaces:
+		if Recipes.workplace(self, lib.get_def(StringName(place)) if lib != null else null) != null:
+			return true
+	return false
 
 
 ## Is there something to make at a building with a recipe that it keeps (W1)?
@@ -718,7 +775,39 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 	# never pressed — it took the farmer, and the farm a fisher, hour after hour.)
 	if taken == null and def.demand == &"build" and int(demand["have"]) == 0 and (_roofless() or _homes_need_work()):
 		taken = _press_builder(now)
+	# (W1's trades at a workplace: villages of farmers seldom have three gatherers
+	# to spare one, so one comes from a trade that has more than it wants.)
+	if taken == null and (def.demand == &"cook" or def.demand == &"workplace"):
+		taken = _take_spare(def, now)
 	return taken
+
+
+## One from a trade holding more than it wants now (a third farmer where two
+## would do) takes up `def` (null: no trade has one to spare).
+func _take_spare(def: OccupationDef, now: int) -> PersonData:
+	var spare := {}
+	for other in _staffed():
+		# (Not the hunter or fisher: wanted as the game and the fish come and go, and,
+		# once gone, seldom found again — a soak lost its hunting so.)
+		if other == def or other.demand == &"hunt" or other.demand == &"fish":
+			continue
+		var demand := demand_of(other, now)
+		if not demand.is_empty() and int(demand["have"]) > int(demand["wanted"]):
+			spare[other.id] = true
+	var best: PersonData = null
+	for person in members():
+		if not spare.has(person.occupation_id) or not def.allows(person.life_stage(now, Config.time.ticks_per_year(), Config.people)):
+			continue
+		if best == null or def.affinity(person.traits) > def.affinity(best.traits) \
+				or (def.affinity(person.traits) == def.affinity(best.traits) and person.id < best.id):
+			best = person
+	if best == null:
+		return null
+	best.occupation_id = def.id
+	best.skills[String(def.id)] = maxf(float(best.skills.get(String(def.id), 0.0)), FIRST_FARMER_SKILL)
+	took_up.emit(best.id, def.id)
+	jobs.refresh(self, now)
+	return best
 
 
 ## How many of its people hold `occupation`.

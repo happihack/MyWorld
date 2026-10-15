@@ -54,8 +54,9 @@ static func voyage_to_bank(from_id: int, water: Vector2i, bank: Vector2i) -> Dic
 
 
 ## Taking the fish out of a trap at the bank (FB5), as much as the arms hold.
-static func from_trap(trap_id: int) -> Dictionary:
-	return {"type": String(TYPE), "landing": 0, "boat": 0, "unload": true, "trap": trap_id}
+## (Also what ripened in an orchard: `resource` fruit — W1.)
+static func from_trap(trap_id: int, resource: StringName = &"fish") -> Dictionary:
+	return {"type": String(TYPE), "landing": 0, "boat": 0, "unload": true, "trap": trap_id, "resource": String(resource)}
 
 
 ## A boat tied up at this landing with fish in it (null: none).
@@ -72,11 +73,12 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 	if bool(step.get("unload", false)):
 		person.pose = PersonData.Pose.CROUCH
 		if step.has("trap"):
-			if person.carrying_amount == 0 or person.carrying == &"fish":
+			var resource := StringName(str(step.get("resource", "fish")))
+			if person.carrying_amount == 0 or person.carrying == resource:
 				var got := FishGear.empty_trap(ctx.props.get_prop(int(step["trap"])), ctx.props,
-						ctx.carry_capacity(&"fish") - person.carrying_amount)
+						ctx.carry_capacity(resource) - person.carrying_amount)
 				if got > 0:
-					person.carrying = &"fish"
+					person.carrying = resource
 					person.carrying_amount += got
 			step["phase"] = "unloaded"
 			return

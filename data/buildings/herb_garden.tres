@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"herb_garden"
+prop_kind = 31
+materials = {
+&"wood": 6,
+&"stone": 4
+}
+labor = 140
+capacity = 0
+tags = PackedStringArray("herb_garden")
+category = PackedStringArray("health")
+tech = &"medicine"
+workers = {
+"herbalist": 1
+}
+recipe = [{
+"in": {},
+"keep": 20,
+"minutes": 90.0,
+"out": {
+&"herbs": 3
+}
+}]
+site = &"level"
+upgrade_of = &"herb_rack"
+limit_per_settlement = 1
+min_population = 20
+historic = false

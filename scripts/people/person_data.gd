@@ -20,6 +20,8 @@ const FLAG_INDOORS := 1 << 4
 const FLAG_TENDED := 1 << 5
 ## Of a settlement that weaves and dyes its cloth (M16.3: deeper colours).
 const FLAG_DYED := 1 << 6
+## Treated with herbs from the stores today (W1: the herbalist's herbs).
+const FLAG_HERBS := 1 << 7
 
 ## How someone holds themselves while doing something (what the view shows).
 ## (Plans store poses by number: append, never reorder.)

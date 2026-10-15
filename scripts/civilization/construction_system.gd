@@ -292,7 +292,8 @@ func _finish(p: Dictionary, now: int) -> void:
 		building.tile = tile
 		building.rotation_step = 0
 		# Homes are roofed as their settlement roofs them (M17.1).
-		if def.has_tag("home") and style_of.is_valid():
+		# (… and stores as they keep their food: a root cellar, a pit — W1.)
+		if (def.has_tag("home") or def.id == &"storehouse") and style_of.is_valid():
 			building.variant = int(style_of.call(settlement_of(p)))
 		if not _props.add(building):
 			return

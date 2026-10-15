@@ -144,8 +144,8 @@ func _target_of(pile: LooseObject) -> Picker.Result:
 func test_resources_are_defined_in_data() -> void:
 	var library := session.resources
 	assert_eq(library.problems.size(), 0, str(library.problems))
-	assert_eq(library.ids(), [&"berries", &"bows", &"clay", &"fish", &"grain", &"herbs", &"hide", &"meat", &"mushrooms", &"nets", &"nuts", &"preserved_food", &"roots", &"spears", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
-	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"grain", &"meat", &"mushrooms", &"nuts", &"preserved_food", &"roots"] as Array[StringName])
+	assert_eq(library.ids(), [&"berries", &"bows", &"clay", &"fish", &"fruit", &"grain", &"herbs", &"hide", &"meat", &"mushrooms", &"nets", &"nuts", &"preserved_food", &"roots", &"spears", &"stone", &"tools", &"water", &"wood"] as Array[StringName])
+	assert_eq(library.of_category(ResourceDef.Category.FOOD), [&"berries", &"fish", &"fruit", &"grain", &"meat", &"mushrooms", &"nuts", &"preserved_food", &"roots"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MATERIAL), [&"bows", &"clay", &"hide", &"nets", &"spears", &"stone", &"tools", &"wood"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.WATER), [&"water"] as Array[StringName])
 	assert_eq(library.of_category(ResourceDef.Category.MEDICINE), [&"herbs"] as Array[StringName])
@@ -160,7 +160,8 @@ func test_resources_are_defined_in_data() -> void:
 	assert_false(wood.is_food())
 	assert_false(wood.spoils())
 	assert_true(berries.is_food() and berries.spoils())
-	assert_true(library.get_def(&"clay").defined_only and library.get_def(&"herbs").defined_only, "defined for later")
+	assert_true(library.get_def(&"clay").defined_only, "defined for later")
+	assert_false(library.get_def(&"herbs").defined_only, "herbs: grown at the herb rack (W1)")
 	assert_false(library.get_def(&"grain").defined_only)
 	# How much one carries: by weight, at least one, at most so many.
 	assert_eq(wood.units_carried(8.0, 6), 2)

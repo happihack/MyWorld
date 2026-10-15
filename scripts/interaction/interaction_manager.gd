@@ -81,6 +81,10 @@ const _PROP_EFFECTS := {
 	PropData.Kind.SMOKEHOUSE: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.GRANARY: InteractionResponse.BUILDING_KNOCK,
 	PropData.Kind.SEED_STORE: InteractionResponse.BUILDING_KNOCK,
+	PropData.Kind.ORCHARD: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.QUARRY: InteractionResponse.ROCK_WOBBLE,
+	PropData.Kind.HERB_GARDEN: InteractionResponse.BUSH_RUSTLE,
+	PropData.Kind.DRYING_RACK: InteractionResponse.BUSH_RUSTLE,
 }
 
 ## Touches and long presses since this world was opened (debug overlay).

@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"quarry"
+prop_kind = 30
+materials = {
+&"wood": 6
+}
+labor = 100
+capacity = 0
+tags = PackedStringArray("quarry")
+category = PackedStringArray("craft")
+workers = {
+"quarry_worker": 1
+}
+recipe = [{
+"in": {},
+"keep": 30,
+"minutes": 90.0,
+"out": {
+&"stone": 2
+}
+}]
+site = &"rock"
+limit_per_settlement = 1
+min_population = 15
+historic = false

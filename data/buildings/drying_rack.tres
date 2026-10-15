@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"drying_rack"
+prop_kind = 32
+materials = {
+&"wood": 4
+}
+labor = 50
+capacity = 0
+tags = PackedStringArray("drying_rack")
+category = PackedStringArray("food")
+workers = {
+"cook": 1
+}
+recipe = [{
+"in": {
+&"fish": 2
+},
+"minutes": 90.0,
+"out": {
+&"preserved_food": 2
+}
+}, {
+"in": {
+&"meat": 2
+},
+"minutes": 90.0,
+"out": {
+&"preserved_food": 2
+}
+}]
+site = &"level"
+limit_per_settlement = 1
+min_population = 4
+historic = false

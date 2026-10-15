@@ -51,9 +51,13 @@ static func fall_ill(person: PersonData, kind: StringName, now: int) -> bool:
 ## How much faster than by itself someone's health comes back: tended by
 ## those who know which herbs heal (M16.3), half as fast again.
 const TENDED_RECOVERY := 1.5
+## Treated with herbs from the stores as well (W1): twice as fast.
+const HERBS_RECOVERY := 2.0
 
 
 static func recovery(person: PersonData) -> float:
+	if person.has_flag(PersonData.FLAG_HERBS):
+		return HERBS_RECOVERY
 	return TENDED_RECOVERY if person.has_flag(PersonData.FLAG_TENDED) else 1.0
 
 

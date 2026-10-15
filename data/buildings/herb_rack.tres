@@ -14,7 +14,17 @@ capacity = 0
 tags = PackedStringArray("herbs")
 tech = &"medicine"
 category = PackedStringArray("health")
-workers = {}
+workers = {
+"herbalist": 1
+}
+recipe = [{
+"in": {},
+"keep": 10,
+"minutes": 90.0,
+"out": {
+&"herbs": 1
+}
+}]
 site = &"level"
 limit_per_settlement = 1
 min_population = 6

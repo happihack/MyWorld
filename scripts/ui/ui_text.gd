@@ -48,6 +48,10 @@ const PROP_NAMES := {
 	PropData.Kind.SMOKEHOUSE: "Smokehouse",
 	PropData.Kind.GRANARY: "Granary",
 	PropData.Kind.SEED_STORE: "Seed store",
+	PropData.Kind.ORCHARD: "Orchard",
+	PropData.Kind.QUARRY: "Quarry",
+	PropData.Kind.HERB_GARDEN: "Herb garden",
+	PropData.Kind.DRYING_RACK: "Drying rack",
 }
 
 const SPECIES_NAMES := {
@@ -135,6 +139,8 @@ const OCCUPATION_NAMES := {
 	&"toolmaker": "Toolmaker",
 	&"scientist": "Scientist",
 	&"cook": "Cook",
+	&"herbalist": "Herbalist",
+	&"quarry_worker": "Quarry worker",
 	&"child": "Child",
 	&"elder": "Elder",
 }

@@ -121,7 +121,7 @@ func plan(now: int) -> Dictionary:
 			if bank == null:
 				continue
 			return _construction.start(def[0].id, bank[0], now, int(bank[1]), _settlement.id)
-		var site: Variant = shrine_site() if need == &"shrine" else site_for(def[0])
+		var site: Variant = shrine_site() if need == &"shrine" else (rock_site() if def[0].site == &"rock" else site_for(def[0]))
 		if site == null:
 			continue
 		return _construction.start(def[0].id, site, now, 0, _settlement.id)
@@ -157,7 +157,7 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"net_rack")
 	if fish_trap_wanted():
 		out.append(&"fish_trap")
-	for need: StringName in [&"smokehouse", &"seed_store", &"granary"]:
+	for need: StringName in [&"smokehouse", &"seed_store", &"granary", &"drying_rack", &"orchard", &"quarry", &"herb_garden"]:
 		if food_building_wanted(need):
 			out.append(need)
 	return out
@@ -191,6 +191,16 @@ func food_building_wanted(tag: StringName) -> bool:
 			return float(_settlement.produced.get("fish", 0.0)) + float(_settlement.produced.get("meat", 0.0)) >= SMOKE_FROM
 		&"seed_store":
 			return _settlement.farming != null and _settlement.farming.plot_count() > 0
+		&"drying_rack":
+			# (A camp's smokehouse: where there is none, and a little meat or fish comes in.)
+			return standing_near(PropData.Kind.SMOKEHOUSE).is_empty() \
+					and float(_settlement.produced.get("fish", 0.0)) + float(_settlement.produced.get("meat", 0.0)) >= SMOKE_FROM / 2.0
+		&"orchard":
+			return _settlement.farming != null and _settlement.farming.plot_count() > 0
+		&"quarry":
+			return _settlement.stockpile.amount(&"stone") < QUARRY_BELOW and rock_site() != null
+		&"herb_garden":
+			return not standing_near(PropData.Kind.HERB_RACK).is_empty()
 		&"granary":
 			return _settlement.farming != null and _settlement.farming.farmer_count() >= 2 \
 					and not standing_near(PropData.Kind.STOREHOUSE).is_empty()
@@ -199,6 +209,33 @@ func food_building_wanted(tag: StringName) -> bool:
 
 ## Meat and fish brought in of late (Settlement.produced) before a smokehouse is wanted.
 const SMOKE_FROM := 20.0
+## A quarry once the stores hold fewer stones than this.
+const QUARRY_BELOW := 10
+
+
+## Where a quarry goes (W1, site "rock"): ground to build on beside rocky
+## ground, the nearest the fire within reach (null: none).
+func rock_site() -> Variant:
+	var fire := _settlement.fire()
+	if fire == null or _world == null:
+		return null
+	var graves := _resting_tiles()
+	var reach := _config.site_farthest + 6
+	var best: Variant = null
+	var best_distance := INF
+	for dy in range(-reach, reach + 1):
+		for dx in range(-reach, reach + 1):
+			var distance := Vector2(dx, dy).length()
+			if distance < _config.site_nearest or distance > reach or distance >= best_distance:
+				continue
+			var tile := fire.tile + Vector2i(dx, dy)
+			var beside_rock := false
+			for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+				beside_rock = beside_rock or (_world.is_in_bounds(tile + step) and _world.get_terrain(tile + step) == ChunkData.Terrain.ROCK)
+			if beside_rock and _buildable(tile, graves):
+				best = tile
+				best_distance = distance
+	return best
 
 
 ## A rack to dry and mend the nets on (FB5): once they make nets and someone
@@ -570,7 +607,8 @@ func builds_at_once() -> int:
 ## close-knit to what is shared).
 const BASE := {&"home": 100.0, &"storage": 90.0, &"material_storage": 85.0, &"water": 80.0, &"workshop": 70.0,
 	&"kiln": 60.0, &"herbs": 60.0, &"records": 60.0, &"observatory": 60.0, &"shrine": 55.0, &"bridge": 50.0,
-	&"landing": 45.0, &"net_rack": 40.0, &"fish_trap": 38.0, &"smokehouse": 66.0, &"seed_store": 64.0, &"granary": 62.0}
+	&"landing": 45.0, &"net_rack": 40.0, &"fish_trap": 38.0, &"smokehouse": 66.0, &"seed_store": 64.0, &"granary": 62.0,
+	&"drying_rack": 58.0, &"orchard": 52.0, &"herb_garden": 50.0, &"quarry": 48.0}
 const MATERIALS_AT_HAND := 6.0
 const VALUES := 8.0
 

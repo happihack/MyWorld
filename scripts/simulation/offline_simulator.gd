@@ -226,6 +226,13 @@ func _end_day() -> void:
 func _work(own: Settlement, share: float, now: int) -> void:
 	if own.occupations == null:
 		return
+	# The orchards picked (W1: the foragers' first work, as on screen).
+	if own.planner != null:
+		for id in own.planner.standing_near(PropData.Kind.ORCHARD):
+			var fruit := FishGear.empty_trap(_s.props.get_prop(id), _s.props, own.stockpile.room(&"fruit"))
+			if fruit > 0:
+				own.stockpile.add(&"fruit", fruit)
+				own.note_produced(&"fruit", fruit)
 	# (What everyone gathers is added up and taken from the land once a
 	# resource: each gathering asks the stores for room, and that looks at
 	# every pile — a thousand times a day was seconds: M21.)

@@ -187,6 +187,9 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				if not cutting.is_empty():
 					return cutting
 			if target == &"bush":
+				var orchard := _orchard_work(person, ctx)
+				if not orchard.is_empty():
+					return orchard
 				var picking := _fruit_work(person, ctx, rng)
 				if not picking.is_empty():
 					return picking
@@ -568,6 +571,20 @@ static func _with_mentor(person: PersonData, ctx: AiContext, rng: RandomNumberGe
 	var walk := WalkToStep.make(_beside(mentor.position, person.position, ctx), person.sub_tile_offset)
 	walk["toward"] = mentor.id
 	return [walk, SocializeStep.make(mentor.id, snappedf(rng.randf_range(30.0, 60.0), 1.0))]
+
+
+## An orchard with fruit ripe on it (W1): picked first, and to the stores.
+static func _orchard_work(person: PersonData, ctx: AiContext) -> Array:
+	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+	if own == null or own.planner == null or person.carrying_amount > 0 or ctx.places == null:
+		return []
+	var stores: Variant = ctx.places.storage_tile(&"fruit")
+	for id in own.planner.standing_near(PropData.Kind.ORCHARD):
+		var orchard := ctx.props.get_prop(id)
+		if orchard != null and orchard.stock >= 3 and stores != null:
+			return [WalkToStep.make(_beside(orchard.tile, person.position, ctx), person.sub_tile_offset),
+				BoatStep.from_trap(orchard.id, &"fruit"), WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+	return []
 
 
 ## Fishing (M19.5): to the bank (or out in the landing's boat: FB4), fish a while, and home

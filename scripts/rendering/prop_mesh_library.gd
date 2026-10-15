@@ -123,6 +123,8 @@ const CROP_DEAD := Color(0.42, 0.30, 0.18)
 ## Fired clay (M16.3: kilns and pots).
 const CLAY := Color(0.70, 0.42, 0.28)
 const FISH_DRIED := Color(0.62, 0.44, 0.26)
+const FRUIT_RED := Color(0.86, 0.30, 0.20)
+const TURF := Color(0.36, 0.52, 0.26)
 const NUT := Color(0.52, 0.36, 0.20)
 const MUSHROOM_CAP := [Color(0.62, 0.42, 0.26), Color(0.80, 0.30, 0.22)]
 const MUSHROOM_STEM := Color(0.90, 0.86, 0.76)
@@ -145,6 +147,7 @@ const PILE_COLORS := {
 	&"herbs": Color(0.40, 0.62, 0.36),
 	&"mushrooms": Color(0.74, 0.62, 0.48), &"roots": Color(0.55, 0.36, 0.24), &"nuts": Color(0.58, 0.42, 0.24),
 	&"hide": Color(0.55, 0.40, 0.28), &"preserved_food": Color(0.50, 0.30, 0.20),
+	&"fruit": Color(0.85, 0.45, 0.25),
 }
 ## Looks of a prop that has been worked on (ResourceNodes.Look), as an
 ## offset to the key of the shape.
@@ -197,6 +200,13 @@ func _init() -> void:
 	_templates[_key(PropData.Kind.SMOKEHOUSE, 0)] = _smokehouse()
 	_templates[_key(PropData.Kind.GRANARY, 0)] = _granary()
 	_templates[_key(PropData.Kind.SEED_STORE, 0)] = _seed_store()
+	_templates[_key(PropData.Kind.STOREHOUSE, 1)] = _root_cellar()
+	_templates[_key(PropData.Kind.STOREHOUSE, 2)] = _storage_pit()
+	for look in 3:
+		_templates[_key(PropData.Kind.ORCHARD, look)] = _orchard(look)
+	_templates[_key(PropData.Kind.QUARRY, 0)] = _quarry()
+	_templates[_key(PropData.Kind.HERB_GARDEN, 0)] = _herb_garden()
+	_templates[_key(PropData.Kind.DRYING_RACK, 0)] = _drying_rack()
 	_templates[_key(PropData.Kind.RECORD_STONE, 0)] = _record_stone(false)
 	_templates[_key(PropData.Kind.BORDER_STONES, 0)] = _border_stones()
 	_templates[_key(PropData.Kind.RECORD_STONE, 1)] = _record_stone(true)
@@ -640,6 +650,100 @@ static func _seed_store() -> Template:
 	_fan(t, roof, Vector3(0, 0.58, 0), _rgba(THATCH_DARK.darkened(0.3), 0.0), _rgba(THATCH_DARK.darkened(0.3), 0.0), true)
 	for side: float in [-1.0, 1.0]:
 		_box(t, Vector3(side * 0.27, 0.30, 0.0), Vector3(0.02, 0.30, 0.02), _rgba(TRUNK, 0.0))
+	return t
+
+
+## A root cellar (W1, a storehouse as some cultures keep their food): a mound
+## of earth and turf over the store, a door in its face.
+static func _root_cellar() -> Template:
+	var t := Template.new()
+	var base := _ring(0.0, 0.46, 8, 0.0)
+	var shoulder := _ring(0.26, 0.38, 8, 0.0)
+	_band(t, base, shoulder, _rgba(SOIL_DARK, 0.0), _rgba(TURF, 0.0))
+	_fan(t, shoulder, Vector3(0, 0.42, 0), _rgba(TURF, 0.0), _rgba(TURF.lightened(0.1), 0.0))
+	_box(t, Vector3(0.40, 0.13, 0.0), Vector3(0.06, 0.13, 0.12), _rgba(STONE_DARK, 0.0))
+	_box(t, Vector3(0.465, 0.12, 0.0), Vector3(0.008, 0.10, 0.08), _rgba(DOOR, 0.0))
+	return t
+
+
+## A storage pit (W1, a storehouse as others keep it): a ring of stones round
+## a pit, a lid of poles and hides, a pole to lift it.
+static func _storage_pit() -> Template:
+	var t := Template.new()
+	for i in 10:
+		var angle := TAU * i / 10.0
+		_box(t, Vector3(cos(angle) * 0.36, 0.06, sin(angle) * 0.36), Vector3(0.08, 0.06, 0.06), _rgba(STONE if i % 2 == 0 else STONE_DARK, 0.0), angle)
+	var lid := _ring(0.08, 0.32, 8, 0.0)
+	_fan(t, lid, Vector3(0, 0.16, 0), _rgba(HIDE_DARK, 0.0), _rgba(HIDE, 0.0))
+	_box(t, Vector3(0.0, 0.26, 0.0), Vector3(0.02, 0.26, 0.02), _rgba(TRUNK, 0.0))
+	return t
+
+
+## An orchard (W1): a square of small fruit trees, young (0), grown (1), or
+## bearing (2: fruit among the leaves).
+static func _orchard(look: int) -> Template:
+	var t := Template.new()
+	var size := 0.55 if look == 0 else 1.0
+	for corner: Vector2 in [Vector2(-0.24, -0.24), Vector2(0.24, -0.24), Vector2(0.24, 0.24), Vector2(-0.24, 0.24)]:
+		var at := Vector3(corner.x, 0.0, corner.y)
+		_box(t, at + Vector3(0.0, 0.16 * size, 0.0), Vector3(0.025, 0.16 * size, 0.025), _rgba(TRUNK, 0.1))
+		var low := _ring(0.26 * size, 0.15 * size, 6, 0.3)
+		for i in low.size():
+			low[i] += at
+		_fan(t, low, at + Vector3(0.0, 0.50 * size, 0.0), _rgba(LEAF, 0.5), _rgba(LEAF_LIGHT, 0.8))
+		_fan(t, low, at + Vector3(0.0, 0.22 * size, 0.0), _rgba(LEAF.darkened(0.2), 0.4), _rgba(LEAF.darkened(0.2), 0.4), true)
+		if look == 2:
+			for k in 3:
+				var angle := TAU * k / 3.0 + corner.x * 4.0
+				_box(t, at + Vector3(cos(angle) * 0.12, 0.33, sin(angle) * 0.12), Vector3(0.03, 0.03, 0.03), _rgba(FRUIT_RED, 0.6))
+	return t
+
+
+## A quarry (W1): stone cut from the rock beside it — squared blocks stacked,
+## a heap of rubble, a lifting tripod.
+static func _quarry() -> Template:
+	var t := Template.new()
+	for i in 3:
+		_box(t, Vector3(-0.22 + i * 0.16, 0.06, 0.18), Vector3(0.07, 0.06, 0.06), _rgba(STONE if i % 2 == 0 else STONE_DARK, 0.0))
+	_box(t, Vector3(-0.14, 0.17, 0.18), Vector3(0.07, 0.05, 0.06), _rgba(STONE, 0.0))
+	var heap := _ring(0.0, 0.18, 6, 0.0)
+	for i in heap.size():
+		heap[i] += Vector3(0.22, 0.0, -0.14)
+	_fan(t, heap, Vector3(0.22, 0.16, -0.14), _rgba(STONE_DARK, 0.0), _rgba(STONE, 0.0))
+	for k in 3:
+		var angle := TAU * k / 3.0
+		_limb(t, Vector3(cos(angle) * 0.22 - 0.16, 0.02, sin(angle) * 0.22 - 0.14), Vector3(-0.16, 0.62, -0.14), 0.02, _rgba(TRUNK, 0.0), _rgba(TRUNK_DARK, 0.0))
+	return t
+
+
+## A herb garden (W1, the herb rack grown into one): low beds edged with stone,
+## green rows in them, the rack at one end.
+static func _herb_garden() -> Template:
+	var t := Template.new()
+	for row in 2:
+		var z := -0.2 + row * 0.36
+		_box(t, Vector3(-0.08, 0.035, z), Vector3(0.34, 0.035, 0.12), _rgba(STONE_DARK, 0.0))
+		_box(t, Vector3(-0.08, 0.075, z), Vector3(0.31, 0.01, 0.09), _rgba(SOIL_DARK, 0.0))
+		for k in 5:
+			_box(t, Vector3(-0.32 + k * 0.12, 0.12, z), Vector3(0.035, 0.05, 0.035), _rgba(HERB if (k + row) % 2 == 0 else HERB.darkened(0.2), 0.3))
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(0.38, 0.24, side * 0.18), Vector3(0.02, 0.24, 0.02), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.38, 0.46, 0.0), Vector3(0.015, 0.015, 0.20), _rgba(TRUNK_DARK, 0.0))
+	for k in 3:
+		_box(t, Vector3(0.38, 0.38, -0.12 + k * 0.12), Vector3(0.03, 0.07, 0.03), _rgba(HERB.darkened(0.1), 0.2))
+	return t
+
+
+## A drying rack (W1, a camp's smokehouse): an A-frame of poles with fish
+## hung along it in the sun and wind.
+static func _drying_rack() -> Template:
+	var t := Template.new()
+	for side: float in [-1.0, 1.0]:
+		_limb(t, Vector3(side * 0.30, 0.02, -0.18), Vector3(side * 0.30, 0.56, 0.0), 0.022, _rgba(TRUNK, 0.0), _rgba(TRUNK, 0.0))
+		_limb(t, Vector3(side * 0.30, 0.02, 0.18), Vector3(side * 0.30, 0.56, 0.0), 0.022, _rgba(TRUNK, 0.0), _rgba(TRUNK, 0.0))
+	_box(t, Vector3(0.0, 0.52, 0.0), Vector3(0.34, 0.015, 0.015), _rgba(TRUNK_DARK, 0.0))
+	for i in 5:
+		_box(t, Vector3(-0.24 + i * 0.12, 0.42, 0.0), Vector3(0.025, 0.09, 0.012), _rgba(FISH_DRIED, 0.3))
 	return t
 
 

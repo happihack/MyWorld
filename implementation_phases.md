@@ -2415,18 +2415,21 @@ The full plan: `buildings_villagers_implementation_plan.md` (from `buildings_pla
 
 - [ ] **W1 — Survival & food** (camp / hamlet, 8–30 people; about 4–5 sessions)
   - [x] **Granary** — built 2026-10-14: an upgrade of the storehouse (`upgrade_of`, F4) once a farming settlement of 15+ has two farmers; 120 room (the storehouse 60); food kept there spoils half as fast (`Settlement.GRANARY_KEEPS`); counts as the store everywhere (`PropData.STORES`, places, the settlement age).
-  - [ ] **Root cellar / storage pit** — the storehouse's look by culture (a variant, not a kind: `BuildingDef.variants`).
+  - [x] **Root cellar / storage pit** — built 2026-10-14: a storehouse takes its culture's look as homes take their roofs (`style_of`): a log store, a turf-covered root cellar, or a stone-ringed pit under a hide lid. *(A variant, not a kind.)*
   - [x] **Smokehouse** — built 2026-10-14: wanted once 20 meat or fish have come in of late (8+ people); its recipe 3 fish or 3 meat + 1 wood → 3 smoked food, an hour's work; worked by the **cook**.
-  - [ ] **Drying rack** (optional) — a cheap smokehouse for camps.
+  - [x] **Drying rack** — built 2026-10-14: a camp's smokehouse (4+ people, no smokehouse, 10 meat or fish come in): 2 fish or 2 meat → 2 smoked food, no wood, an hour and a half; the cook works it too.
   - [x] **Seed store** — built 2026-10-14 (agriculture, 10+ people, fields): the seed is held back for two days of empty stores (not eaten at once), and floods take no grain below the seed kept. *(Not yet: crop varieties lost with it.)*
-  - [ ] **Herbal garden** — an upgrade of the herb rack.
-  - [ ] **Orchard** — planted trees that bear fruit only after years (the vegetation system's saplings); `fruit` as food.
-  - [ ] **Quarry** — renewable stone at a rock outcrop (`site = rock`); today builders break stone where they find rocky ground (`BuildStep.QUARRY`), with no building.
-  - [x] **Cook** (food_prep family, kept into old age) — built 2026-10-14: taken up (staffing order 8, demand `cook`) when a smokehouse stands with something to smoke; works the recipe; the job board posts the work; away, six batches a day as the stores allow.
+  - [x] **Herbal garden** — built 2026-10-14: an upgrade of the herb rack (20+ people): herbs 3 a batch where the rack grew 1 (each kept up to 20 / 10 in store).
+  - [x] **Orchard** — built 2026-10-14 (agriculture, 12+ people; one for every 25): young for 3 years, then 2 fruit a day but in winter, up to 20, picked by foragers first and carried to the stores (on screen and away); looks young / grown / bearing. *(Its own trees, not the vegetation system's saplings.)*
+  - [x] **Quarry** — built 2026-10-14: on buildable ground beside rocky ground (`SettlementPlanner.rock_site`, the first `site` rule read), 15+ people and under 10 stone in store; the quarry worker makes 2 stone a batch while under 30 in store (a recipe's `keep`).
+  - [x] **Cook** (food_prep family, kept into old age) — built 2026-10-14: taken up (staffing order 8, demand `cook`) once a smokehouse or drying rack stands and 20 meat or fish have come in of late (a 30-year soak found three smokehouses and no cook when it waited for fish in store: fish, spoiling first, is eaten first); works the recipe; the job board posts the work; away, six batches a day as the stores allow.
   - [x] **The cook's meals** — built 2026-10-14: where someone cooks, a meal from the stores feeds 15% more (`Settlement.COOKED`), on screen and away. *(Not yet: a cooked meal at the fire as a gathering of its own.)*
-  - [ ] **Trades:** **herbalist / healer** (a forager-family specialist using the existing heal); **quarry worker** (builder family; merges back into builder in small camps).
+  - [x] **Herbalist** — built 2026-10-14 (gather family, medicine, kept into old age): grows herbs at the herb rack / garden; the ill and hurt are treated with a bunch a day from the stores and heal twice as fast (`Health.HERBS_RECOVERY`). Herbs are no longer "defined for later".
+  - [x] **Quarry worker** — built 2026-10-14 (build family): works the quarry.
+  - [x] **Staffed from a spare** — 2026-10-14: the cook, herbalist and quarry worker, where three gatherers cannot spare one (villages of farmers), take one from a trade holding more than it wants (`Settlement._take_spare`): a 30-year soak had smokehouses and a quarry standing at "cook 0/1, quarry_worker 0/1" for years. The older trades are staffed as before.
+  - [ ] Trades **merging back** into their family in small camps (F2 step 2).
   - [x] **`preserved_food`** — built 2026-10-14 ("smoked food"): nutrition 1.3, keeps 24 days (a year), a pile of its own.
-  - [ ] **`fruit`** (orchards).
+  - [x] **`fruit`** — built 2026-10-14: from orchards, nutrition 0.8, keeps 10 days.
   - [ ] **Techs:** none new, or a "smoking" tech if wanted (D5).
   - [x] **The generic craft step** — built 2026-10-14 (`Recipes`: work_for / next_step / make; `Planner._recipe_work` → `TradeStep.craft` with a recipe; the offline day `_recipes`). The step a recipe needs (F1 recipe → one `ActionStep`: take the inputs at the stores, work N minutes at the workplace, put the outputs in the stores — as the toolmaker's workshop and FB5's net making work today).
   - [ ] **Exit:** a smokehouse appears in fishing worlds, a granary in farming worlds; fewer `food_shortage` events than the r5 round. *(The soak reports them: `SOAK food buildings`.)*

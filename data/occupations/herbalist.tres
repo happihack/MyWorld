@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="OccupationDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/people/occupation_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"herbalist"
+life_stages = Array[int]([2, 3])
+starting_share = 0.0
+trait_weights = {
+"GENEROSITY": 0.4,
+"CURIOSITY": 0.3,
+"INTELLIGENCE": 0.2
+}
+accessory = &"basket"
+work_target = &"recipe"
+helps_with = PackedStringArray("bush")
+placeholder = false
+routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")
+family = &"gather"
+workplaces = PackedStringArray("herb_rack", "herb_garden")
+requires = {
+"tech": &"medicine"
+}
+teaches = {
+"medicine": 0.6,
+"nature": 0.2
+}
+elder_keeps = true
+danger = 0.05
+evening_topic = &"healing"
+staffing_order = 9
+demand = &"workplace"

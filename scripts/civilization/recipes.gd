@@ -28,6 +28,10 @@ static func next_step(own: Settlement, def: BuildingDef) -> int:
 		var room := true
 		for resource: Variant in step.get("out", {}):
 			room = room and own.stockpile.room(StringName(str(resource))) >= int(step["out"][resource])
+			# ("keep": made only while the stores hold less than this — a quarry
+			# with nothing put in would quarry for ever.)
+			if step.has("keep"):
+				room = room and own.stockpile.amount(StringName(str(resource))) < int(step["keep"])
 		if enough and room:
 			return i
 	return -1

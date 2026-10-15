@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://scripts/civilization/building_def.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"orchard"
+prop_kind = 29
+materials = {
+&"wood": 4
+}
+labor = 120
+capacity = 0
+tags = PackedStringArray("orchard")
+category = PackedStringArray("food")
+tech = &"agriculture"
+workers = {}
+site = &"field_edge"
+limit_per_settlement = 1
+per_people = 25
+min_population = 12
+historic = false

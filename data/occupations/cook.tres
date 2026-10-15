@@ -17,10 +17,8 @@ helps_with = PackedStringArray("bush")
 placeholder = false
 routine = PackedStringArray("05:30 wake", "07:00 eat", "08:00 work", "12:00 eat", "13:00 work", "17:00 socialize", "18:00 eat", "19:00 socialize", "20:30 go_home", "21:00 sleep")
 family = &"food_prep"
-workplaces = PackedStringArray("smokehouse")
-requires = {
-"building": &"smokehouse"
-}
+workplaces = PackedStringArray("smokehouse", "drying_rack")
+requires = {}
 teaches = {
 "craft": 0.3,
 "nature": 0.1

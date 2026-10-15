@@ -245,6 +245,15 @@ func _run() -> void:
 					parts.append("%s %d" % [name, by[name]])
 				trades.append("%d: %s" % [own.id, " ".join(parts)])
 			print("SOAK trades year %d  %s" % [day / days_per_year + 1, "  |  ".join(trades)])
+			# (Wanted against held, and the W1 workplaces each keeps.)
+			var staffing := PackedStringArray()
+			for own in s.settlements.all():
+				var kept := PackedStringArray()
+				for kind in [PropData.Kind.SMOKEHOUSE, PropData.Kind.DRYING_RACK, PropData.Kind.QUARRY, PropData.Kind.HERB_RACK, PropData.Kind.HERB_GARDEN]:
+					if own.planner != null and not own.planner.standing_near(kind).is_empty():
+						kept.append(PropData.Kind.keys()[kind].to_lower())
+				staffing.append("%d: %s [%s]" % [own.id, own.staffing_text(s.clock.tick), " ".join(kept)])
+			print("SOAK staffing year %d  %s" % [day / days_per_year + 1, "  |  ".join(staffing)])
 		if (day + 1) % days_per_year == 0:
 			print("SOAK tech year %d  %s  |  %s" % [day / days_per_year + 1, s.technology.debug_text(), s.learning.debug_text()])
 		if plans and (day + 1) % days_per_year == 0:
@@ -407,13 +416,21 @@ func _run() -> void:
 	# Food that keeps (BV W1): its buildings, cooks, and smoked food in store.
 	var cooks := 0
 	var smoked := 0
+	var herbalists := 0
+	var quarriers := 0
 	for own in s.settlements.all():
 		smoked += own.stockpile.amount(&"preserved_food")
 		for person in own.members():
 			cooks += 1 if person.occupation_id == &"cook" else 0
+			herbalists += 1 if person.occupation_id == &"herbalist" else 0
+			quarriers += 1 if person.occupation_id == &"quarry_worker" else 0
 	print("SOAK food buildings: smokehouses %d  granaries %d  seed stores %d  cooks %d  smoked food in store %d  upgrades %d" % [
 		s.construction.standing(PropData.Kind.SMOKEHOUSE).size(), s.construction.standing(PropData.Kind.GRANARY).size(),
 		s.construction.standing(PropData.Kind.SEED_STORE).size(), cooks, smoked, s.events.count_of(&"building_upgraded")])
+	print("SOAK food buildings 2: drying racks %d  orchards %d  quarries %d  herb gardens %d  herbalists %d  quarry workers %d" % [
+		s.construction.standing(PropData.Kind.DRYING_RACK).size(), s.construction.standing(PropData.Kind.ORCHARD).size(),
+		s.construction.standing(PropData.Kind.QUARRY).size(), s.construction.standing(PropData.Kind.HERB_GARDEN).size(),
+		herbalists, quarriers])
 	print("SOAK buildings: huts %d  storehouses %d  woodsheds %d  wells %d  ruins %d  begun %d  built %d  damaged %d  repaired %d  ruined %d  |  %s" % [
 		s.construction.standing(PropData.Kind.HUT).size(), s.construction.standing(PropData.Kind.STOREHOUSE).size(),
 		s.construction.standing(PropData.Kind.WOODSHED).size(), s.construction.standing(PropData.Kind.WELL).size(), s.construction.standing(PropData.Kind.RUIN).size(),
