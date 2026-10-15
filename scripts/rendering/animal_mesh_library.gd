@@ -43,7 +43,7 @@ static func _build(shape: StringName, color: Color) -> ArrayMesh:
 			PropMeshLibrary._box(t, Vector3(0.09, 0.12, 0.0), Vector3(0.045, 0.04, 0.04), body)
 			PropMeshLibrary._box(t, Vector3(0.08, 0.2, -0.02), Vector3(0.012, 0.045, 0.012), dark)
 			PropMeshLibrary._box(t, Vector3(0.08, 0.2, 0.02), Vector3(0.012, 0.045, 0.012), dark)
-			PropMeshLibrary._box(t, Vector3(-0.1, 0.08, 0.0), Vector3(0.02, 0.02, 0.02), _plain(Color(0.95, 0.95, 0.92)))
+			PropMeshLibrary._box(t, Vector3(-0.1, 0.08, 0.0), Vector3(0.02, 0.02, 0.02), _plain(Palette.SNOW))
 		&"fox":
 			# Low and long, pointed ears, a bushy tail with a pale tip.
 			for leg: Vector2 in [Vector2(-0.11, -0.045), Vector2(-0.11, 0.045), Vector2(0.11, -0.045), Vector2(0.11, 0.045)]:
@@ -98,8 +98,8 @@ static func _build(shape: StringName, color: Color) -> ArrayMesh:
 			PropMeshLibrary._box(t, Vector3(0.0, 0.3, 0.0), Vector3(0.16, 0.02, 0.025), dark) # the bristles
 			PropMeshLibrary._box(t, Vector3(0.26, 0.17, 0.0), Vector3(0.08, 0.07, 0.08), body)
 			PropMeshLibrary._box(t, Vector3(0.36, 0.14, 0.0), Vector3(0.04, 0.035, 0.045), dark)
-			PropMeshLibrary._box(t, Vector3(0.33, 0.12, -0.05), Vector3(0.03, 0.012, 0.01), _plain(Color(0.95, 0.93, 0.85)))
-			PropMeshLibrary._box(t, Vector3(0.33, 0.12, 0.05), Vector3(0.03, 0.012, 0.01), _plain(Color(0.95, 0.93, 0.85)))
+			PropMeshLibrary._box(t, Vector3(0.33, 0.12, -0.05), Vector3(0.03, 0.012, 0.01), _plain(Palette.PARCHMENT))
+			PropMeshLibrary._box(t, Vector3(0.33, 0.12, 0.05), Vector3(0.03, 0.012, 0.01), _plain(Palette.PARCHMENT))
 		_:
 			return null
 	var arrays: Array = []

@@ -2639,6 +2639,15 @@ At the owner's word, between M22 and M21 (commits 4586742, 2dfca3a, 1a81e3e, d62
 
 ---
 
+## ART — the owner's work (begun 2026-10-15)
+
+The decisions of 2026-10-15 with Josh are `docs/art_assets.md` §5 (direction A, the painted miniature: procedural in code by default, Jacob modelling hero shapes in Blender on his desktop, vertex colour only, a clean low-poly toy inside a hand-made box, people oversized with a new body, the Note20 the floor, the box an attic artefact). The work, in order:
+
+- [x] **One palette** (2026-10-15): `Palette` (`scripts/rendering/palette.gd`), 36 base colours in families plus the shades the shapes use and the people's skin, hair and cloth. `PropMeshLibrary`, `PersonMeshLibrary`, `AnimalMeshLibrary`, `BoxFrame` and `TerrainPalette`'s defaults (terrain tops and sides, water) alias it, so the constant names the templates use are unchanged. `docs/wiab_palette.gpl` is the same list for Blender's "Import Palettes" add-on, written by `tests/tools/palette_gpl.gd`; `test_palette` fails when it is stale, holds each shade to its base times its factor, and keeps the base colours apart (that caught bark and dead-crop soil being one colour). The species' colours stay in their `.tres`. Not changed: the UI's inks (`UITheme`), the lights (`WorldLighting`, `DayNight`), the maps' colours.
+- [ ] **The importer and the Blender kit**: a glTF with baked vertex colours becomes a `PropMeshLibrary.Template` (colour alpha → sway, a second colour attribute or UV2 → glow and leaf; the person body carries the r/g/b masks and limb ids); a reference `.blend` at the game's scale (1 tile = 1 unit, person 0.5, hut 0.94) with the current hut, tree and person in it; the conventions written down; a triangle budget per kind, checked on the Note20.
+- [ ] **Silhouettes where the eye lands**: the hut and building family, the four trees, the person body (same scale, same masks and limb ids), boats, animals. In code where a function carries it, from Blender where it does not.
+- [ ] **The box as an attic artefact**: `BoxFrame`, the lid (`HandDraw`), the table shader; worn wood, paper labels, tape, scuffs; the stray wood-grain AVIF converted and used, or the grain drawn in code.
+
 ## M24 — MOBILE POLISH
 
 **Goal:** Genuinely good on Android. (P:M24, S§49–50, S§72–74, S§96–98, B§30, B§31.12)

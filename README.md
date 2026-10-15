@@ -101,6 +101,14 @@ chalk over the world, menus and cards are sheets of paper. It is built in code, 
 To tune the look: the chalk width is `UITheme.CHALK_WIDTH`, the font sizes are the `FONT_*`
 constants, the colours are the constants at the top of `ui_theme.gd`.
 
+The world inside the box has one palette: `scripts/rendering/palette.gd` (`Palette`), 36 base
+colours in families (wood, foliage, earth, stone, made things, bright, water) plus the shades
+the shapes use, and the people's skin, hair and cloth. The mesh libraries, the terrain palette's
+defaults and the box frame alias it; nothing else names a world colour. Blender reads the same
+colours from `docs/wiab_palette.gpl`, written by
+`godot --headless --path . -s res://tests/tools/palette_gpl.gd` (a test fails when it is stale).
+The art decisions behind this: `docs/art_assets.md` §5.
+
 ## Project layout
 
 See `implementation_phases.md` Part D. Key folders: `scripts/` (code by system), `scenes/`, `data/configuration/` (all tunables), `tests/`.

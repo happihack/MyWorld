@@ -86,68 +86,69 @@ const LEAF_SHED := 1.0
 const LEAF_TURNS := 0.6
 const LEAF_EVERGREEN := 0.2
 
-const TRUNK := Color(0.42, 0.29, 0.18)
-const TRUNK_DARK := Color(0.33, 0.22, 0.14)
-const LEAF := Color(0.24, 0.50, 0.22)
-const LEAF_LIGHT := Color(0.36, 0.62, 0.27)
-const PINE := Color(0.14, 0.38, 0.24)
-const PINE_LIGHT := Color(0.22, 0.48, 0.29)
-const STONE := Color(0.56, 0.56, 0.58)
-const STONE_DARK := Color(0.43, 0.43, 0.46)
-const BUSH := Color(0.22, 0.45, 0.20)
-const BUSH_LIGHT := Color(0.31, 0.55, 0.24)
-const BERRY := Color(0.80, 0.16, 0.30)
-const WALL := Color(0.78, 0.66, 0.47)
-const WALL_DARK := Color(0.63, 0.52, 0.36)
-const THATCH := Color(0.74, 0.58, 0.28)
-const THATCH_DARK := Color(0.55, 0.42, 0.20)
-const DOOR := Color(0.24, 0.16, 0.10)
-const WINDOW := Color(0.28, 0.20, 0.14)
-const LOG := Color(0.30, 0.20, 0.12)
-const FLAME := Color(1.0, 0.55, 0.10)
-const FLAME_HOT := Color(1.0, 0.86, 0.35)
-const RUIN := Color(0.50, 0.52, 0.50)
-const RUIN_MOSS := Color(0.36, 0.47, 0.34)
-const GRASS_BLADE := Color(0.33, 0.58, 0.24)
-const GRASS_TIP := Color(0.52, 0.74, 0.34)
+# Colours: every one an alias of Palette (docs/art_assets.md §5, one palette).
+const TRUNK := Palette.BARK
+const TRUNK_DARK := Palette.BARK_DARK
+const LEAF := Palette.LEAF
+const LEAF_LIGHT := Palette.LEAF_LIGHT
+const PINE := Palette.PINE
+const PINE_LIGHT := Palette.PINE_LIGHT
+const STONE := Palette.STONE
+const STONE_DARK := Palette.STONE_DARK
+const BUSH := Palette.LEAF_DARK
+const BUSH_LIGHT := Palette.LEAF_LIGHT_DARK
+const BERRY := Palette.BERRY
+const WALL := Palette.DAUB
+const WALL_DARK := Palette.DAUB_DARK
+const THATCH := Palette.THATCH
+const THATCH_DARK := Palette.THATCH_DARK
+const DOOR := Palette.DOORWAY
+const WINDOW := Palette.TIMBER
+const LOG := Palette.TIMBER
+const FLAME := Palette.FLAME
+const FLAME_HOT := Palette.FLAME_HOT
+const RUIN := Palette.STONE_WORN
+const RUIN_MOSS := Palette.MOSS
+const GRASS_BLADE := Palette.SPROUT
+const GRASS_TIP := Palette.SPROUT_LIGHT
 
-const SEED_HUSK := Color(0.62, 0.50, 0.30)
-const STRANGE := Color(0.20, 0.23, 0.33)
-const STRANGE_GLINT := Color(0.45, 0.80, 0.78)
-const SOIL_DARK := Color(0.36, 0.26, 0.15)
-const CROP_GREEN := Color(0.38, 0.62, 0.22)
-const CROP_GOLD := Color(0.90, 0.74, 0.28)
-const CROP_STRAW := Color(0.78, 0.68, 0.40)
-const CROP_DRY := Color(0.66, 0.56, 0.26)
-const CROP_DEAD := Color(0.42, 0.30, 0.18)
+const SEED_HUSK := Palette.THATCH_HUSK
+const STRANGE := Palette.INK
+const STRANGE_GLINT := Palette.GLINT
+const SOIL_DARK := Palette.LOAM_DARK
+const CROP_GREEN := Palette.SPROUT
+const CROP_GOLD := Palette.GOLD
+const CROP_STRAW := Palette.STRAW
+const CROP_DRY := Palette.THATCH_DRY
+const CROP_DEAD := Palette.LOAM
 ## Fired clay (M16.3: kilns and pots).
-const CLAY := Color(0.70, 0.42, 0.28)
-const FISH_DRIED := Color(0.62, 0.44, 0.26)
-const FRUIT_RED := Color(0.86, 0.30, 0.20)
-const TURF := Color(0.36, 0.52, 0.26)
-const NUT := Color(0.52, 0.36, 0.20)
-const MUSHROOM_CAP := [Color(0.62, 0.42, 0.26), Color(0.80, 0.30, 0.22)]
-const MUSHROOM_STEM := Color(0.90, 0.86, 0.76)
-const ROOT_LEAF := Color(0.38, 0.56, 0.26)
-const ROOT_TOP := Color(0.66, 0.36, 0.30)
-const CLAY_DARK := Color(0.52, 0.30, 0.20)
-const HERB := Color(0.42, 0.60, 0.30)
-const NET := Color(0.70, 0.64, 0.50)
-const NET_FLOAT := Color(0.80, 0.42, 0.22)
+const CLAY := Palette.CLAY
+const FISH_DRIED := Palette.LEATHER_LIGHT
+const FRUIT_RED := Palette.EMBER
+const TURF := Palette.MOSS
+const NUT := Palette.LEATHER
+const MUSHROOM_CAP := [Palette.LEATHER_LIGHT, Palette.EMBER]
+const MUSHROOM_STEM := Palette.PARCHMENT
+const ROOT_LEAF := Palette.SPROUT
+const ROOT_TOP := Palette.CLAY_RED
+const CLAY_DARK := Palette.CLAY_DARK
+const HERB := Palette.SPROUT
+const NET := Palette.PARCHMENT_DARK
+const NET_FLOAT := Palette.EMBER
 ## Roofs of other cultures (M17.1): reeds, grey-green; hides, dark and low.
-const REEDS := Color(0.62, 0.64, 0.46)
-const REEDS_DARK := Color(0.44, 0.47, 0.32)
-const HIDE := Color(0.50, 0.36, 0.26)
-const HIDE_DARK := Color(0.36, 0.25, 0.18)
+const REEDS := Palette.REEDS
+const REEDS_DARK := Palette.REEDS_DARK
+const HIDE := Palette.LEATHER
+const HIDE_DARK := Palette.LEATHER_DARK
 
 ## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
 const PILE_COLORS := {
-	&"berries": BERRY, &"meat": Color(0.62, 0.22, 0.20), &"fish": Color(0.55, 0.66, 0.74),
-	&"grain": Color(0.86, 0.72, 0.32), &"water": Color(0.35, 0.58, 0.85), &"clay": Color(0.66, 0.44, 0.32),
-	&"herbs": Color(0.40, 0.62, 0.36),
-	&"mushrooms": Color(0.74, 0.62, 0.48), &"roots": Color(0.55, 0.36, 0.24), &"nuts": Color(0.58, 0.42, 0.24),
-	&"hide": Color(0.55, 0.40, 0.28), &"preserved_food": Color(0.50, 0.30, 0.20),
-	&"fruit": Color(0.85, 0.45, 0.25),
+	&"berries": Palette.BERRY, &"meat": Palette.MEAT, &"fish": Palette.FISH,
+	&"grain": Palette.GOLD, &"water": Palette.WATER_HELD, &"clay": Palette.CLAY,
+	&"herbs": Palette.SPROUT,
+	&"mushrooms": Palette.DAUB_PALE, &"roots": Palette.LEATHER, &"nuts": Palette.LEATHER_LIGHT,
+	&"hide": Palette.LEATHER, &"preserved_food": Palette.LEATHER_CURED,
+	&"fruit": Palette.FRUIT,
 }
 ## Looks of a prop that has been worked on (ResourceNodes.Look), as an
 ## offset to the key of the shape.

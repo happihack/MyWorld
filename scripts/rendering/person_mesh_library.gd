@@ -14,33 +14,21 @@ const ADULT_HEIGHT := 0.5
 ## How stocky the figures are (1 = as modelled).
 const BUILD := 1.12
 
-## Colours a person's appearance indexes (sizes fixed by PersonData).
-const SKIN: Array[Color] = [
-	Color(0.96, 0.80, 0.66), Color(0.89, 0.69, 0.52), Color(0.78, 0.57, 0.40),
-	Color(0.64, 0.44, 0.29), Color(0.48, 0.32, 0.21), Color(0.35, 0.23, 0.16),
-]
-const HAIR: Array[Color] = [
-	Color(0.10, 0.08, 0.07), Color(0.24, 0.15, 0.09), Color(0.42, 0.26, 0.13),
-	Color(0.62, 0.42, 0.18), Color(0.50, 0.20, 0.10),
-]
+## Colours a person's appearance indexes (sizes fixed by PersonData), from
+## the one Palette.
+const SKIN := Palette.SKIN
+const HAIR := Palette.HAIR
 ## Saturated, against the muted land (bible §28.3).
-const CLOTH: Array[Color] = [
-	Color(0.80, 0.25, 0.20), Color(0.93, 0.66, 0.16), Color(0.22, 0.45, 0.78),
-	Color(0.58, 0.28, 0.66), Color(0.90, 0.44, 0.16), Color(0.92, 0.90, 0.82),
-]
-## Woven and dyed (M16.3, weaving): madder, indigo, saffron, woad, a purple
-## from berries, a green from bark — deeper than undyed cloth.
-const CLOTH_DYED: Array[Color] = [
-	Color(0.62, 0.10, 0.16), Color(0.16, 0.20, 0.55), Color(0.86, 0.62, 0.06),
-	Color(0.10, 0.44, 0.44), Color(0.46, 0.16, 0.44), Color(0.22, 0.46, 0.20),
-]
-const ELDER_HAIR := Color(0.78, 0.78, 0.76)
+const CLOTH := Palette.CLOTH
+## Woven and dyed (M16.3, weaving): deeper than undyed cloth.
+const CLOTH_DYED := Palette.CLOTH_DYED
+const ELDER_HAIR := Palette.HAIR_GREY
 
-const WOOD := Color(0.42, 0.29, 0.18)
-const WICKER := Color(0.74, 0.58, 0.28)
-const WICKER_DARK := Color(0.55, 0.42, 0.20)
-const STONE := Color(0.56, 0.56, 0.58)
-const PARCHMENT := Color(0.90, 0.84, 0.66)
+const WOOD := Palette.BARK
+const WICKER := Palette.THATCH
+const WICKER_DARK := Palette.THATCH_DARK
+const STONE := Palette.STONE
+const PARCHMENT := Palette.PARCHMENT
 
 const ACCESSORIES: Array[StringName] = [&"staff", &"basket", &"axe", &"hoe", &"spear", &"scroll", &"rod", &"bow"]
 

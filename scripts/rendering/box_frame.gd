@@ -7,15 +7,15 @@ extends Node3D
 ##
 ## Built in code from the world bounds, so it is rebuilt when the box unfolds.
 
-const WOOD := Color(0.37, 0.25, 0.16)
-const WOOD_DARK := Color(0.25, 0.165, 0.105)
-const WOOD_LIGHT := Color(0.46, 0.32, 0.20)
-const BRASS := Color(0.80, 0.63, 0.32)
+const WOOD := Palette.BOX_WOOD
+const WOOD_DARK := Palette.BARK_DEEP
+const WOOD_LIGHT := Palette.BARK_LIGHT
+const BRASS := Palette.BRASS
 ## Glass tint; opacity is highest at the top of a pane and fades to nothing at
 ## the rim. Renderers that blend in linear light (Mobile, Forward+) make a pale
 ## tint over a dark background far more visible than sRGB blending
 ## (Compatibility) does, so each gets its own opacity to look alike.
-const GLASS_TINT := Color(0.82, 0.92, 1.0)
+const GLASS_TINT := Palette.GLASS
 const GLASS_OPACITY_LINEAR := 0.016
 const GLASS_OPACITY_SRGB := 0.07
 
