@@ -837,12 +837,63 @@ static func _well() -> Template:
 ## A workshop: an open shed with a bench under it.
 static func _workshop() -> Template:
 	var t := Template.new()
+	# Four posts under a gabled plank roof, its ridge along x: from above a
+	# ridge and two slopes read as a building where a flat roof read as a table.
 	for corner: Vector2 in [Vector2(-0.38, -0.30), Vector2(0.38, -0.30), Vector2(0.38, 0.30), Vector2(-0.38, 0.30)]:
-		_box(t, Vector3(corner.x, 0.30, corner.y), Vector3(0.03, 0.30, 0.03), _rgba(TRUNK, 0.0))
-	_box(t, Vector3(0.0, 0.62, 0.0), Vector3(0.46, 0.03, 0.38), _rgba(THATCH, 0.0))
-	_box(t, Vector3(0.0, 0.20, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.15), 0.0))
-	_box(t, Vector3(0.0, 0.10, -0.12), Vector3(0.025, 0.10, 0.08), _rgba(TRUNK_DARK, 0.0))
+		_box(t, Vector3(corner.x, 0.27, corner.y), Vector3(0.03, 0.27, 0.03), _rgba(TRUNK, 0.0))
+	_gable_roof(t, 0.48, 0.40, 0.54, 0.76, TRUNK.lightened(0.18), TRUNK, 3)
+	# A bench on trestles, a stump of an anvil, a tool leaning on a post.
+	_box(t, Vector3(0.0, 0.24, -0.12), Vector3(0.28, 0.02, 0.10), _rgba(LOG.lightened(0.25), 0.0))
+	for x: float in [-0.2, 0.2]:
+		_box(t, Vector3(x, 0.11, -0.12), Vector3(0.03, 0.11, 0.08), _rgba(TRUNK_DARK, 0.0))
+	_prism(t, Vector3(0.2, 0.0, 0.16), Vector3(0.2, 0.18, 0.16), 0.07, 6, STONE_DARK, STONE)
+	_prism(t, Vector3(-0.3, 0.0, 0.3), Vector3(-0.36, 0.5, 0.27), 0.012, 3, TRUNK_DARK, TRUNK_DARK)
+	_box(t, Vector3(-0.36, 0.5, 0.27), Vector3(0.05, 0.02, 0.025), _rgba(STONE, 0.0))
 	return t
+
+
+## A gabled roof of planks, the ridge along x at `ridge_y`, the eaves at
+## `eaves_y`, `half_x` long and `half_z` wide; `planks` strips a slope,
+## alternating between the two colours; a dark underside.
+static func _gable_roof(t: Template, half_x: float, half_z: float, eaves_y: float, ridge_y: float,
+		light: Color, dark: Color, planks: int) -> void:
+	for side: float in [-1.0, 1.0]:
+		for i in planks:
+			var f0 := float(i) / planks
+			var f1 := float(i + 1) / planks
+			var z0 := side * half_z * (1.0 - f0)
+			var z1 := side * half_z * (1.0 - f1)
+			var y0 := lerpf(eaves_y, ridge_y, f0)
+			var y1 := lerpf(eaves_y, ridge_y, f1)
+			var color := light if i % 2 == 0 else dark
+			_quad_outward(t, Vector3(-half_x, y0, z0), Vector3(half_x, y0, z0), Vector3(half_x, y1, z1), Vector3(-half_x, y1, z1),
+					_rgba(color, 0.0), Vector3(0.0, -2.0, 0.0))
+		var under := Vector3(0.0, -0.015, 0.0)
+		_quad_outward(t, Vector3(-half_x, eaves_y, side * half_z) + under, Vector3(half_x, eaves_y, side * half_z) + under,
+				Vector3(half_x, ridge_y, 0.0) + under, Vector3(-half_x, ridge_y, 0.0) + under,
+				_rgba(dark.darkened(0.35), 0.0), Vector3(0.0, 3.0, 0.0))
+
+
+## A log or a post: a prism of `sides` from `from` to `to`, its ends capped
+## (`cap_from` false: the far end is against something and goes uncapped).
+static func _prism(t: Template, from: Vector3, to: Vector3, radius: float, sides: int, from_color: Color, to_color: Color,
+		cap_from: bool = true) -> void:
+	var along := (to - from).normalized()
+	var across := along.cross(Vector3.RIGHT if absf(along.x) < 0.9 else Vector3.FORWARD).normalized()
+	var a: Array[Vector3] = []
+	var b: Array[Vector3] = []
+	for i in sides:
+		var spoke := across.rotated(along, TAU * i / sides) * radius
+		a.append(from + spoke)
+		b.append(to + spoke)
+	var middle := (from + to) * 0.5
+	for i in sides:
+		var j := (i + 1) % sides
+		_tri_outward(t, a[i], a[j], b[j], _rgba(from_color, 0.0), _rgba(from_color, 0.0), _rgba(to_color, 0.0), middle)
+		_tri_outward(t, a[i], b[j], b[i], _rgba(from_color, 0.0), _rgba(to_color, 0.0), _rgba(to_color, 0.0), middle)
+		_tri_outward(t, b[i], b[j], to, _rgba(to_color, 0.0), _rgba(to_color, 0.0), _rgba(to_color, 0.0), middle)
+		if cap_from:
+			_tri_outward(t, a[i], a[j], from, _rgba(from_color, 0.0), _rgba(from_color, 0.0), _rgba(from_color, 0.0), middle)
 
 
 ## Mushrooms (the owner, 2026-10-06): `count` of them in a clump, pale stems
@@ -882,19 +933,35 @@ static func _roots(variant: int, dug: bool) -> Template:
 ## to it, open in front — the wood and stone kept in it can be seen.
 static func _woodshed() -> Template:
 	var t := Template.new()
+	# A lean-to: posts, a plank wall at the back, low walls at the sides, the
+	# roof sloping down to the back in strips of planks, open in front — and
+	# the stack of logs inside, their ends to the front, is what says woodshed.
 	for corner: Vector3 in [Vector3(-0.42, 0.66, 0.36), Vector3(0.42, 0.66, 0.36), Vector3(-0.42, 0.46, -0.36), Vector3(0.42, 0.46, -0.36)]:
 		_box(t, Vector3(corner.x, corner.y * 0.5, corner.z), Vector3(0.03, corner.y * 0.5, 0.03), _rgba(TRUNK, 0.0))
 	_box(t, Vector3(0.0, 0.23, -0.37), Vector3(0.42, 0.23, 0.02), _rgba(LOG, 0.0))
 	for row in 3:
 		_box(t, Vector3(0.0, 0.10 + row * 0.13, -0.345), Vector3(0.43, 0.012, 0.012), _rgba(TRUNK_DARK, 0.0))
-	var front_left := Vector3(-0.50, 0.68, 0.44)
-	var front_right := Vector3(0.50, 0.68, 0.44)
-	var back_right := Vector3(0.50, 0.47, -0.44)
-	var back_left := Vector3(-0.50, 0.47, -0.44)
-	_quad_outward(t, front_left, front_right, back_right, back_left, _rgba(THATCH, 0.0), Vector3(0.0, -2.0, 0.0))
-	var under := Vector3(0.0, -0.012, 0.0)
-	_quad_outward(t, front_left + under, front_right + under, back_right + under, back_left + under,
-		_rgba(THATCH_DARK.darkened(0.3), 0.0), Vector3(0.0, 3.0, 0.0))
+	for side: float in [-1.0, 1.0]:
+		_box(t, Vector3(side * 0.41, 0.14, 0.0), Vector3(0.02, 0.14, 0.36), _rgba(LOG.lightened(0.1), 0.0))
+	var strips := 4
+	for i in strips:
+		var f0 := float(i) / strips
+		var f1 := float(i + 1) / strips
+		var color := TRUNK.lightened(0.18) if i % 2 == 0 else TRUNK
+		_quad_outward(t, Vector3(-0.50, lerpf(0.68, 0.47, f0), lerpf(0.44, -0.44, f0)), Vector3(0.50, lerpf(0.68, 0.47, f0), lerpf(0.44, -0.44, f0)),
+				Vector3(0.50, lerpf(0.68, 0.47, f1), lerpf(0.44, -0.44, f1)), Vector3(-0.50, lerpf(0.68, 0.47, f1), lerpf(0.44, -0.44, f1)),
+				_rgba(color, 0.0), Vector3(0.0, -2.0, 0.0))
+	var under := Vector3(0.0, -0.015, 0.0)
+	_quad_outward(t, Vector3(-0.50, 0.68, 0.44) + under, Vector3(0.50, 0.68, 0.44) + under, Vector3(0.50, 0.47, -0.44) + under, Vector3(-0.50, 0.47, -0.44) + under,
+		_rgba(TRUNK_DARK.darkened(0.35), 0.0), Vector3(0.0, 3.0, 0.0))
+	# The logs: a row of four and a row of three on them.
+	var r := 0.055
+	for i in 4:
+		var x := -0.27 + i * 0.18
+		_prism(t, Vector3(x, r, -0.3), Vector3(x, r, 0.26), r, 5, LOG, LOG.lightened(0.3), false)
+	for i in 3:
+		var x := -0.18 + i * 0.18
+		_prism(t, Vector3(x, r * 2.75, -0.28), Vector3(x, r * 2.75, 0.22), r, 5, LOG, LOG.lightened(0.3), false)
 	return t
 
 
