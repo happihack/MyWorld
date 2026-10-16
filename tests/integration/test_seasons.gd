@@ -343,7 +343,10 @@ func test_the_settlement_lays_in_for_winter() -> void:
 	board.refresh(settlement, _midnight(days * 3) - 60)
 	var food_autumn := board.job_for(&"berries").wanted
 	var wood_autumn := board.job_for(&"wood").wanted
-	assert_near(food_autumn, settlement.food_need_per_day() * config.food_days_wanted * config.winter_food_factor, 0.2)
+	# (Food: the whole winter now, not two days doubled — laying in, 2026-10-15.)
+	assert_near(food_autumn, settlement.winter_food_wanted(_midnight(days * 3) - 60), 0.2)
+	assert_true(food_autumn >= settlement.food_need_per_day() * config.food_days_wanted * config.winter_food_factor,
+		"at least what it wanted before")
 	assert_near(wood_autumn, config.fire_wood_per_day * config.wood_days_wanted * config.winter_wood_factor, 0.2)
 	assert_true(food_summer == 0.0 or food_autumn > food_summer * 1.8)
 	assert_true(wood_summer == 0.0 or wood_autumn > wood_summer * 1.8)
