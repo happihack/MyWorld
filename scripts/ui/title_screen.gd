@@ -59,6 +59,7 @@ var _frame := -1
 
 
 func _ready() -> void:
+	let_go_orientation() # (back from a world, or one that did not open: turning again)
 	name = "Title"
 	theme = UITheme.get_theme()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -754,10 +755,28 @@ func open_world(plan: Dictionary) -> void:
 		return
 	_opening = true
 	_opening_frames = 0
+	hold_orientation(size)
 	SaveManager.open_next = plan
 	_show_cover(MemoryText.translate("TITLE_MAKING" if str(plan.get("kind", "")) == "new" else "TITLE_OPENING"))
 	if ResourceLoader.load_threaded_request(MAIN_SCENE) != OK:
 		get_tree().change_scene_to_file.call_deferred(MAIN_SCENE)
+
+
+## While the world opens the screen keeps the way it is held (either way up of
+## it): the game builds the world in one long step, and a phone turned
+## meanwhile stretched the last frame drawn — the cover's text — across the
+## screen (the owner, 2026-10-16). Let go once the opening is over (Main).
+static func hold_orientation(view: Vector2) -> void:
+	if not OS.has_feature("mobile"):
+		return
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE if view.x > view.y else DisplayServer.SCREEN_SENSOR_PORTRAIT)
+
+
+## The screen turns with the phone again (as the project sets it).
+static func let_go_orientation() -> void:
+	if not OS.has_feature("mobile"):
+		return
+	DisplayServer.screen_set_orientation(int(ProjectSettings.get_setting("display/window/handheld/orientation", DisplayServer.SCREEN_SENSOR)) as DisplayServer.ScreenOrientation)
 
 
 func is_opening() -> bool:

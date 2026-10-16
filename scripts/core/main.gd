@@ -774,6 +774,7 @@ func _opening_done() -> void:
 	if _opening_over:
 		return
 	_opening_over = true
+	TitleScreen.let_go_orientation() # (held while the world opened)
 	opening_finished.emit()
 
 
