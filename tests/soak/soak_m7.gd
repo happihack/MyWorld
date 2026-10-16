@@ -118,6 +118,12 @@ func _run() -> void:
 	s.piles.stored.connect(func(resource: StringName, amount: int, _pile: int) -> void:
 		brought[resource] = int(brought.get(resource, 0)) + amount)
 	var trade_days := {}
+	# Every shortage and everyone weak with hunger, as they happen: the event log
+	# keeps 2000 events and lets the old go, so its count is no measure across
+	# runs (a busier world forgets faster — 2026-10-16).
+	var ever := {}
+	s.events.recorded.connect(func(event) -> void:
+		ever[event.type] = int(ever.get(event.type, 0)) + 1)
 	var started := Time.get_ticks_msec()
 	print("SOAK %d years (%d days) of seed %d: %d people" % [years, years * days_per_year, seed_value, people_at_start])
 	for day in years * days_per_year:
@@ -291,10 +297,11 @@ func _run() -> void:
 		if chronicle and (day + 1) % (days_per_year * 10) == 0:
 			_chronicle(s, (day + 1) / days_per_year, told)
 		if (day + 1) % days_per_season == 0 and not quiet:
-			print("SOAK year %d season %d  people %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f" % [
+			print("SOAK year %d season %d  people %d  food %.1f days  store: %s  fire %s  events %d  shortage %d  sick %d  hungriest so far %.2f  shortages ever %d  hungry-sick ever %d" % [
 				day / days_per_year + 1, (day % days_per_year) / days_per_season, alive, s.settlement.days_of_food(),
 				s.settlement.stockpile.debug_text(), "lit" if s.settlement.fire_lit() else "OUT", s.events.size(),
-				s.events.count_of(&"food_shortage"), s.events.count_of(&"person_hungry_sick"), hungriest])
+				s.events.count_of(&"food_shortage"), s.events.count_of(&"person_hungry_sick"), hungriest,
+				int(ever.get(&"food_shortage", 0)), int(ever.get(&"person_hungry_sick", 0))])
 	var elapsed := Time.get_ticks_msec() - started
 	# The books at the end.
 	for event in s.events.all_events():
