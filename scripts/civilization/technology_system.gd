@@ -89,7 +89,7 @@ func advance_to(now: int) -> void:
 ## 200-year soaks, 2026-10-09: a ruined storehouse put every later age out of
 ## reach — a world of villages could never be in the age of villages).
 func look_at_the_age() -> void:
-	phase_now = CivilizationPhase.evaluate(settlements, props, trade)
+	phase_now = CivilizationPhase.evaluate(settlements, props, trade, phase_reached)
 	while phase_reached + 1 <= CivilizationPhase.Phase.ADVANCED 			and CivilizationPhase.holds(phase_reached + 1, settlements, props, trade):
 		phase_reached += 1
 		era_entered.emit(phase_reached)

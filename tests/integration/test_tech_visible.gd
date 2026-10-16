@@ -167,6 +167,15 @@ func test_phase_evaluator() -> void:
 	tech.look_at_the_age()
 	assert_eq(session.events.of_type(&"era_entered").size(), 2, "an age begins once")
 	assert_eq(tech.phase_reached, CivilizationPhase.Phase.AGRICULTURE)
+	# Once reached, the age is kept while fields are worked, whatever the season's share.
+	own.produced = {"berries": 30.0, "grain": 10.0}
+	tech.look_at_the_age()
+	assert_eq(tech.phase_now, CivilizationPhase.Phase.SETTLEMENT, "no fields: fallen back")
+	assert_not_null(session.farming.sow(session.farming.next_plot(), session.clock.tick))
+	tech.look_at_the_age()
+	assert_eq(tech.phase_now, CivilizationPhase.Phase.AGRICULTURE, "fields worked: still the age of farming")
+	assert_eq(CivilizationPhase.evaluate(all, session.props, session.trade), CivilizationPhase.Phase.SETTLEMENT,
+		"(by its own rule alone it would not be)")
 	# Nothing of later ages without what they rest on.
 	assert_false(CivilizationPhase.holds(CivilizationPhase.Phase.CITIES, all, session.props, session.trade))
 	assert_false(CivilizationPhase.holds(CivilizationPhase.Phase.SCIENCE, all, session.props, session.trade))

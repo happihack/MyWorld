@@ -948,9 +948,12 @@ func _staff(def: OccupationDef, now: int) -> PersonData:
 	# never pressed — it took the farmer, and the farm a fisher, hour after hour.)
 	if taken == null and def.demand == &"build" and int(demand["have"]) == 0 and (_roofless() or _homes_need_work()):
 		taken = _press_builder(now)
-	# (W1's trades at a workplace: villages of farmers seldom have three gatherers
-	# to spare one, so one comes from a trade that has more than it wants.)
-	if taken == null and (def.demand == &"cook" or def.demand == &"workplace" or def.demand == &"build" or def.demand == &"wood"):
+	# (Villages of farmers seldom have three gatherers to spare one, so one comes
+	# from a trade that has more than it wants — W1's trades at a workplace first;
+	# then every trade but the farm and the fishing, which take from anywhere
+	# already: in the r7 round the toolmaker wanted went unfilled nine years in
+	# ten, the trader nearly always, the hunter two years in three.)
+	if taken == null and not bool(demand["anywhere"]):
 		taken = _take_spare(def, now)
 	if taken != null and def.merges_into != &"" and int(demand["have"]) == 0:
 		trade_split.emit(taken.id, def.id)

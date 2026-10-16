@@ -268,6 +268,20 @@ func test_toolmaking_a_workshop_and_tools() -> void:
 	first.stockpile.add(&"wood", 10)
 	first.stockpile.take(&"stone", first.stockpile.amount(&"stone"))
 	assert_true(first.tools_wanted())
+	# (A village of farmers, more than it wants, and no gatherers to spare: one
+	# of the farmers — the r7 round's toolmakers went unfilled nine years in ten.)
+	var kept := {}
+	for person in first.members():
+		kept[person.id] = person.occupation_id
+		if person.occupation_id != &"child" and person.occupation_id != &"elder":
+			person.occupation_id = &"farmer"
+	var farmers := first._holding(&"farmer")
+	assert_true(farmers > first.farmers_wanted() and farmers >= 3, "%d farmers, %d wanted" % [farmers, first.farmers_wanted()])
+	var spared := first.ensure_toolmaker(session.clock.tick)
+	assert_not_null(spared, "a spare farmer takes up toolmaking")
+	assert_eq(first._holding(&"farmer"), farmers - 1)
+	for person in first.members():
+		person.occupation_id = kept[person.id]
 	var maker := first.ensure_toolmaker(session.clock.tick)
 	assert_not_null(maker)
 	assert_eq(maker.occupation_id, &"toolmaker")

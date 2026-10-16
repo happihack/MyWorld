@@ -9,7 +9,7 @@ extends RefCounted
 ## Derived tiers (bible §17.1), by how many live there.
 enum Tier { CAMP, HAMLET, VILLAGE, TOWN, CITY }
 ## From how many people each tier begins (Camp: from the first).
-const TIER_FROM: Array[int] = [0, 10, 30, 60, 200] # (a town at 60: a box holds a hundred or two in all)
+const TIER_FROM: Array[int] = [0, 10, 30, 40, 200] # (a town at 40: a box holds a hundred or two in all, and the r7 round's biggest villages held 43–53 — at 60 there was never a town, nor an age of cities)
 const TIER_NAMES: Array[String] = ["Camp", "Hamlet", "Village", "Town", "City"]
 
 var _list: Array[Settlement] = []

@@ -18,21 +18,23 @@ const FOODS: Array[String] = ["berries", "grain", "meat", "fish", "salmon"]
 const SPECIALIZED: Array[int] = [PropData.Kind.WORKSHOP, PropData.Kind.KILN, PropData.Kind.HERB_RACK]
 
 
-## The phase the world is in now.
-static func evaluate(settlements: Settlements, props: PropRegistry, trade: TradeSystem = null) -> Phase:
+## The phase the world is in now. `reached`: the furthest it has been (an age
+## once reached is kept by a looser rule where its own rule swings with the
+## seasons — see `holds`).
+static func evaluate(settlements: Settlements, props: PropRegistry, trade: TradeSystem = null, reached: int = -1) -> Phase:
 	if settlements == null or settlements.size() == 0:
 		return Phase.PRIMITIVE
 	var phase := Phase.PRIMITIVE
 	for next: Phase in [Phase.SETTLEMENT, Phase.AGRICULTURE, Phase.VILLAGES, Phase.CITIES, Phase.CIVILIZATION,
 			Phase.SCIENCE, Phase.INDUSTRY, Phase.ADVANCED]:
-		if not holds(next, settlements, props, trade):
+		if not holds(next, settlements, props, trade, next <= reached):
 			break
 		phase = next
 	return phase
 
 
-## Does the rule of `phase` hold now?
-static func holds(phase: Phase, settlements: Settlements, props: PropRegistry, trade: TradeSystem = null) -> bool:
+## Does the rule of `phase` hold now? `kept`: the world has been in it before.
+static func holds(phase: Phase, settlements: Settlements, props: PropRegistry, trade: TradeSystem = null, kept: bool = false) -> bool:
 	match phase:
 		Phase.PRIMITIVE:
 			return true
@@ -40,8 +42,12 @@ static func holds(phase: Phase, settlements: Settlements, props: PropRegistry, t
 			# Homes to stay in, and stores to keep what is gathered.
 			return _standing(props, PropData.Kind.HUT) and (_standing(props, PropData.Kind.STOREHOUSE) or _standing(props, PropData.Kind.GRANARY))
 		Phase.AGRICULTURE:
+			# (Once reached, kept while fields are worked: the fields' share of what
+			# came in of late swings with the seasons, and the r7 round's worlds fell
+			# back out of the age and into it again forty times in 150 years.)
 			return settlements.all().any(func(own: Settlement) -> bool:
-				return own.knows_how(&"agriculture") and farms_feed(own) >= FARMS_FEED)
+				return own.knows_how(&"agriculture") and (farms_feed(own) >= FARMS_FEED
+					or (kept and own.farming != null and own.farming.plot_count() > 0)))
 		Phase.VILLAGES:
 			return settlements.all().any(func(own: Settlement) -> bool:
 				return own.tier() >= Settlements.Tier.VILLAGE and _specialized(own, props))
