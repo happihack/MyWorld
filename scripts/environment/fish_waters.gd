@@ -16,6 +16,22 @@ extends RefCounted
 signal run_began(at: Vector2i)
 ## A settlement caught far fewer fish last year than it is used to.
 signal bad_year(settlement_id: int, caught: int, usual: float)
+## The first salmon of the year taken (`at`: a water tile) — the history tells of it.
+signal salmon_ran(at: Vector2i)
+
+## The everyday fish (trout, in every water, all year) and the big one that
+## comes up the rivers in autumn (salmon: the owner, 2026-10-16 — a fish worth
+## more, at the time of laying in for the winter).
+const TROUT := &"fish"
+const SALMON := &"salmon"
+## Salmon come up the rivers (cells where the water runs faster than
+## RIVER_CURRENT) on the first day of autumn: SALMON_SHARE of what the cell
+## holds of trout. They thin out by SALMON_FADE a day (spawned, gone on) and
+## are gone with the winter. A salmon is SALMON_EFFORT times the work of a trout.
+const RIVER_CURRENT := 0.15
+const SALMON_SHARE := 0.6
+const SALMON_FADE := 0.12
+const SALMON_EFFORT := 1.5
 
 const CELL := 8
 ## One fish per so many tiles of water.
@@ -48,6 +64,9 @@ const USUAL_LEAST := 20.0
 var _world: WorldData
 var _current: Callable
 var _cells: Dictionary = {} # Vector2i -> [stock, capacity]
+var _river: Dictionary = {} # Vector2i -> true: cells the river runs through
+var _salmon: Dictionary = {} # Vector2i -> salmon in the cell (autumn)
+var _salmon_told := false
 var _run_cell := Vector2i.MAX
 var _run_until := -1 # day index
 var _run_told := false
@@ -70,6 +89,7 @@ func measure() -> void:
 		var entry: Array = _cells[cell]
 		kept[cell] = float(entry[0]) / maxf(float(entry[1]), 0.0001)
 	_cells.clear()
+	_river.clear()
 	if _world == null:
 		return
 	var step := _world.height_step
@@ -89,15 +109,21 @@ func measure() -> void:
 				share = DEEP_SHARE
 			elif depth < SHALLOW_LEVELS * step:
 				share = SHALLOW_SHARE
-			if _current.is_valid() and (_current.call(tile) as Vector2).length() > FAST_CURRENT:
+			var flow := (_current.call(tile) as Vector2).length() if _current.is_valid() else 0.0
+			if flow > FAST_CURRENT:
 				share *= FAST_SHARE
 			var cell := cell_of(tile)
+			if flow > RIVER_CURRENT:
+				_river[cell] = true
 			if not _cells.has(cell):
 				_cells[cell] = [0.0, 0.0]
 			_cells[cell][1] = float(_cells[cell][1]) + share / TILES_PER_FISH
 	for cell: Vector2i in _cells:
 		var entry: Array = _cells[cell]
 		entry[0] = float(entry[1]) * float(kept.get(cell, 0.8))
+	for cell: Vector2i in _salmon.keys():
+		if not _cells.has(cell):
+			_salmon.erase(cell)
 
 
 static func cell_of(tile: Vector2i) -> Vector2i:
@@ -206,6 +232,54 @@ func cells_near(tile: Vector2i, reach: float) -> Array:
 	return out
 
 
+## Is `resource` a fish (trout or salmon)?
+static func is_fish(resource: StringName) -> bool:
+	return resource == TROUT or resource == SALMON
+
+
+## The salmon in the cell of `tile` (0: none there now).
+func salmon_at(tile: Vector2i) -> float:
+	return float(_salmon.get(cell_of(tile), 0.0))
+
+
+## All the salmon in the box.
+func salmon_total() -> float:
+	var sum := 0.0
+	for cell: Vector2i in _salmon:
+		sum += float(_salmon[cell])
+	return sum
+
+
+## How full of salmon the cell of `tile` is, by what it holds of trout (0 … SALMON_SHARE).
+func salmon_share_at(tile: Vector2i) -> float:
+	var entry: Variant = _cells.get(cell_of(tile))
+	return salmon_at(tile) / float(entry[1]) if entry != null and float(entry[1]) > 0.0 else 0.0
+
+
+## Does the river run through the cell of `tile`?
+func is_river(tile: Vector2i) -> bool:
+	return _river.has(cell_of(tile))
+
+
+## Takes up to `amount` salmon from the cell of `tile`. Returns how many.
+func take_salmon(amount: int, tile: Vector2i) -> int:
+	var cell := cell_of(tile)
+	var got := mini(amount, floori(float(_salmon.get(cell, 0.0))))
+	if got <= 0:
+		return 0
+	_salmon[cell] = float(_salmon[cell]) - got
+	if not _salmon_told:
+		_salmon_told = true
+		salmon_ran.emit(middle_of(cell))
+	return got
+
+
+## The salmon in the cell of `tile` (tests, debug).
+func set_salmon(tile: Vector2i, salmon: float) -> void:
+	if _cells.has(cell_of(tile)):
+		_salmon[cell_of(tile)] = maxf(salmon, 0.0)
+
+
 ## Where the fish run now (Vector2i.MAX: nowhere).
 func run_cell() -> Vector2i:
 	return _run_cell
@@ -239,6 +313,30 @@ func advance_day(now: int, rng: RandomNumberGenerator) -> void:
 		_begin_run(day, rng)
 	if Config.time.day_of_season(now) == 1 and season == Seasons.SPRING:
 		_weigh_year(Config.time.year_of(now))
+	_salmon_day(season, Config.time.day_of_season(now) == 1)
+
+
+## The salmon come up the rivers with the autumn, thin out day by day, and
+## are gone by the winter.
+func _salmon_day(season: int, first_day: bool) -> void:
+	if season != Seasons.AUTUMN:
+		_salmon.clear()
+		return
+	if first_day:
+		_salmon.clear()
+		_salmon_told = false
+		var cells: Array = _river.keys()
+		cells.sort()
+		for cell: Vector2i in cells:
+			if _cells.has(cell):
+				_salmon[cell] = float(_cells[cell][1]) * SALMON_SHARE
+		return
+	for cell: Vector2i in _salmon.keys():
+		var left := float(_salmon[cell]) * (1.0 - SALMON_FADE)
+		if left < 1.0:
+			_salmon.erase(cell)
+		else:
+			_salmon[cell] = left
 
 
 func _begin_run(day: int, rng: RandomNumberGenerator) -> void:
@@ -321,7 +419,15 @@ func to_dict() -> Dictionary:
 		for y: int in _caught[settlement_id]:
 			years[str(y)] = int(_caught[settlement_id][y])
 		caught_out[str(settlement_id)] = years
-	return {"cells": cells, "run": [_run_cell, _run_until, _run_told], "caught": caught_out, "day": _day}
+	var out := {"cells": cells, "run": [_run_cell, _run_until, _run_told], "caught": caught_out, "day": _day}
+	if not _salmon.is_empty():
+		var salmon: Array = []
+		var salmon_keys: Array = _salmon.keys()
+		salmon_keys.sort()
+		for cell: Vector2i in salmon_keys:
+			salmon.append([cell, float(_salmon[cell])])
+		out["salmon"] = [salmon, _salmon_told]
+	return out
 
 
 ## Restores the fish (call after bind/measure). False if there was nothing usable.
@@ -348,4 +454,13 @@ func from_dict(data: Dictionary) -> bool:
 					years[int(str(y))] = int(caught_in[key][y])
 			_caught[int(str(key))] = years
 	_day = int(data.get("day", -1_000_000))
+	_salmon.clear()
+	var salmon: Variant = data.get("salmon")
+	if typeof(salmon) == TYPE_ARRAY and (salmon as Array).size() == 2 and typeof(salmon[0]) == TYPE_ARRAY:
+		for item: Variant in salmon[0]:
+			if typeof(item) == TYPE_ARRAY and (item as Array).size() == 2 and typeof(item[0]) == TYPE_VECTOR2I and _cells.has(item[0]):
+				var count := float(item[1])
+				if is_finite(count) and count > 0.0:
+					_salmon[item[0]] = minf(count, float(_cells[item[0]][1]) * SALMON_SHARE)
+		_salmon_told = bool(salmon[1])
 	return true

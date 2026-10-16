@@ -181,36 +181,45 @@ static func boat_of(own: Settlement) -> int:
 static func catch_fish(ctx: AiContext, person: PersonData, step: Dictionary, strokes: int) -> bool:
 	if ctx.fauna == null:
 		return true
-	if person.carrying_amount > 0 and person.carrying != &"fish":
+	if person.carrying_amount > 0 and not FishWaters.is_fish(person.carrying):
 		return true
 	var at: Variant = step.get("at")
-	var iced := typeof(at) == TYPE_VECTOR2I and ctx.pathfinder != null and ctx.pathfinder.is_bound() and ctx.pathfinder.is_ice(at)
-	var per_fish := FISH_STROKES * (ICE_FACTOR if iced else 1.0) / catch_factor(ctx.settlement, int(step.get("landing", 0)) != 0)
-	var capacity := ctx.carry_capacity(&"fish")
 	# (Out in a boat, what the arms cannot hold goes in the hold — FB4.)
 	var boat: BoatData = ctx.boats.get_boat(int(step.get("boat", 0))) if ctx.boats != null and step.has("phase") else null
+	# Salmon while they run here (and the arms and hold are not full of trout already); else trout.
+	var kind: StringName = person.carrying if person.carrying_amount > 0 else &""
+	if kind == &"" and boat != null and boat.load_amount > 0 and FishWaters.is_fish(boat.load_resource):
+		kind = boat.load_resource
+	if kind == &"":
+		kind = FishWaters.SALMON if typeof(at) == TYPE_VECTOR2I and ctx.fauna.waters.salmon_at(at) >= 1.0 else FishWaters.TROUT
+	var iced := typeof(at) == TYPE_VECTOR2I and ctx.pathfinder != null and ctx.pathfinder.is_bound() and ctx.pathfinder.is_ice(at)
+	var per_fish := FISH_STROKES * (ICE_FACTOR if iced else 1.0) / catch_factor(ctx.settlement, int(step.get("landing", 0)) != 0)
+	if kind == FishWaters.SALMON:
+		per_fish *= FishWaters.SALMON_EFFORT
+	var capacity := ctx.carry_capacity(kind)
 	var effort := float(step.get("effort", 0)) + strokes * pace(ctx, person)
 	var skill_key := String(person.occupation_id)
 	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
 	var caught := 0
-	while effort >= per_fish and (person.carrying_amount < capacity or (boat != null and boat.hold_room(&"fish") > 0)):
-		if ctx.fauna.take_fish(1, at) <= 0:
+	while effort >= per_fish and (person.carrying_amount < capacity or (boat != null and boat.hold_room(kind) > 0)):
+		var took := ctx.fauna.waters.take_salmon(1, at) if kind == FishWaters.SALMON else ctx.fauna.take_fish(1, at)
+		if took <= 0:
 			return true # (fished out here, for now)
 		caught += 1
 		ctx.fauna.waters.note_catch(own.id if own != null else 0, 1, ctx.now())
 		effort -= per_fish
 		if person.carrying_amount < capacity:
-			person.carrying = &"fish"
+			person.carrying = kind
 			person.carrying_amount += 1
 		else:
-			boat.load_resource = &"fish"
+			boat.load_resource = kind
 			boat.load_amount += 1
 		if boat != null:
 			boat.caught += 1
 		person.skills[skill_key] = minf(float(person.skills.get(skill_key, 0.0)) + Config.trade.skill_per_unit, 1.0)
 	FishGear.wear_nets(own, caught, ctx.rng) # (FB5: nets wear out with what they take)
 	step["effort"] = minf(effort, per_fish)
-	return person.carrying_amount >= capacity and (boat == null or boat.hold_room(&"fish") <= 0)
+	return person.carrying_amount >= capacity and (boat == null or boat.hold_room(kind) <= 0)
 
 
 ## How fast someone works: the skilled faster, and with tools faster still (M12.4).

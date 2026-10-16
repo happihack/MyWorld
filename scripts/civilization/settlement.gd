@@ -29,7 +29,7 @@ signal forage_changed(low: bool)
 signal learned(person_id: int, what: StringName)
 
 ## The trade a settlement is known for, by what it brings in most (M12.4).
-const SPECIALTY_TRADES := {"wood": &"woodcutter", "berries": &"forager", "grain": &"farmer", "meat": &"hunter", "fish": &"hunter"}
+const SPECIALTY_TRADES := {"wood": &"woodcutter", "berries": &"forager", "grain": &"farmer", "meat": &"hunter", "fish": &"fisher", "salmon": &"fisher"}
 ## Among other settlements, a settlement is known for what is at least this
 ## share of what it brings in and this many times its share of what all bring in.
 const RELATIVE_SHARE := 0.15
@@ -818,7 +818,7 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 			# (W1) A cook, once there is a smokehouse or drying rack and meat or fish has
 			# been coming in — not only at the moment some is in store: fish, spoiling
 			# first, is eaten first, and a 30-year soak never found three in store.)
-			var brought := float(produced.get("fish", 0.0)) + float(produced.get("meat", 0.0))
+			var brought := float(produced.get("fish", 0.0)) + float(produced.get("salmon", 0.0)) + float(produced.get("meat", 0.0))
 			# (… or berries and fruit, to dry for the winter where a drying rack stands: laying in.)
 			var picked := float(produced.get("berries", 0.0)) + float(produced.get("fruit", 0.0))
 			var drying := planner != null and not planner.standing_near(PropData.Kind.DRYING_RACK).is_empty()

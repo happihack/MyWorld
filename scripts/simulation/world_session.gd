@@ -329,6 +329,7 @@ func _init() -> void:
 	migration.founded.connect(chronicle.on_founded_by)
 	# Where the fish are (FB1): a run, a bad year.
 	fauna.waters.run_began.connect(chronicle.on_fish_run)
+	fauna.waters.salmon_ran.connect(chronicle.on_salmon_run)
 	fauna.waters.bad_year.connect(chronicle.on_bad_fishing_year)
 	# The boats (FB2): the first of a kind, one lost.
 	boats.boat_built.connect(chronicle.on_boat_built)

@@ -35,7 +35,7 @@ const SCUFFLE_HURT := 0.35
 ## A raid not over in this long (minutes) is given up.
 const MOST_MINUTES := 12 * 60
 ## What a raider takes: food, of these.
-const FOODS: Array[StringName] = [&"grain", &"meat", &"fish", &"berries"]
+const FOODS: Array[StringName] = [&"grain", &"meat", &"fish", &"salmon", &"berries"]
 const REASON := &"raid"
 
 var people: PersonRegistry

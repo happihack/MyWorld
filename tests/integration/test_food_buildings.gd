@@ -171,7 +171,7 @@ func test_a_drying_rack_in_a_camp() -> void:
 	own.stockpile.add(&"fish", 4)
 	var def := session.buildings.get_def(&"drying_rack")
 	var step := Recipes.next_step(own, def)
-	assert_eq(step, 0, "fish to dry, and no wood wanted")
+	assert_eq(step, 1, "fish to dry (after salmon), and no wood wanted")
 	assert_true(Recipes.make(own, def, step))
 	assert_eq(own.stockpile.amount(&"preserved_food"), 2)
 	assert_true(session.occupations.get_def(&"cook").workplaces.has("drying_rack"), "the cook works it too")

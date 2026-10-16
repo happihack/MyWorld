@@ -214,7 +214,7 @@ func _raid(raider: Settlement, victim: Settlement, leader: int, record: Dictiona
 		record["tension"] = minf(float(record["tension"]) + AFTER_RAID, MOST)
 		return # (told when it is over: raid_done)
 	var taken := 0
-	for resource: StringName in [&"grain", &"berries", &"meat", &"fish"]:
+	for resource: StringName in [&"grain", &"berries", &"meat", &"fish", &"salmon"]:
 		var units := floori(victim.stockpile.amount(resource) * RAID_TAKES)
 		if units <= 0:
 			continue

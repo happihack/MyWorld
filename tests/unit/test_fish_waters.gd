@@ -113,3 +113,45 @@ func test_saved_and_restored() -> void:
 	assert_near(again.stock_at(deep), waters.stock_at(deep), 0.001)
 	assert_eq(again.caught(4, 1), 9, "the first year's catch")
 	assert_false(FishWaters.new().from_dict({"fish": 12.0}), "an older save: nothing by cell")
+
+
+func test_the_salmon_come_up_the_river_in_autumn() -> void:
+	# (The owner, 2026-10-16: a big fish, worth more, at the time of laying in.)
+	# The shallow reach runs (a river); the deep pool is still.
+	var river := FishWaters.new()
+	river.bind(world, func(tile: Vector2i) -> Vector2: return Vector2(0.5, 0.0) if tile.x >= 8 else Vector2.ZERO)
+	assert_true(river.is_river(shallow))
+	assert_false(river.is_river(deep))
+	var days := Config.time.days_per_season
+	var summer := (days + 2) * DAY
+	var autumn := 2 * days * DAY
+	river.advance_day(summer, rng)
+	assert_eq(river.salmon_total(), 0.0, "none in summer")
+	var told: Array = []
+	river.salmon_ran.connect(func(at: Vector2i) -> void: told.append(at))
+	river.advance_day(autumn, rng)
+	assert_near(river.salmon_at(shallow), river.capacity_at(shallow) * FishWaters.SALMON_SHARE, 0.001, "with the autumn, up the river")
+	assert_eq(river.salmon_at(deep), 0.0, "not in the still pool")
+	assert_near(river.salmon_share_at(shallow), FishWaters.SALMON_SHARE, 0.001)
+	# Taken where they run — told of the first time.
+	var before := river.salmon_at(shallow)
+	var trout := river.stock_at(shallow)
+	assert_eq(river.take_salmon(1, shallow), 1)
+	assert_near(river.salmon_at(shallow), before - 1.0, 0.001)
+	assert_near(river.stock_at(shallow), trout, 0.001, "the trout untouched")
+	assert_eq(river.take_salmon(1, deep), 0)
+	river.take_salmon(1, shallow)
+	assert_eq(told.size(), 1, "the first salmon told, once")
+	# Kept with the water.
+	var again := FishWaters.new()
+	again.bind(world, func(tile: Vector2i) -> Vector2: return Vector2(0.5, 0.0) if tile.x >= 8 else Vector2.ZERO)
+	assert_true(again.from_dict(river.to_dict()))
+	assert_near(again.salmon_at(shallow), river.salmon_at(shallow), 0.001)
+	# They thin out day by day, and are gone with the winter.
+	var left := river.salmon_at(shallow)
+	river.advance_day(autumn + DAY, rng)
+	assert_near(river.salmon_at(shallow), left * (1.0 - FishWaters.SALMON_FADE), 0.001)
+	river.advance_day(3 * days * DAY + DAY, rng)
+	assert_eq(river.salmon_total(), 0.0, "none in winter")
+	assert_false(river.to_dict().has("salmon"), "nothing saved for them")
+	assert_true(FishWaters.is_fish(&"salmon") and FishWaters.is_fish(&"fish") and not FishWaters.is_fish(&"meat"))

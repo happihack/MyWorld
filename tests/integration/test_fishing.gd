@@ -132,6 +132,43 @@ func test_the_catch_by_ice_boat_and_net() -> void:
 	assert_true(WorkStep.catch_fish(ctx, fisher, step, 100), "fished out")
 
 
+func test_salmon_are_caught_while_they_run() -> void:
+	# (The owner, 2026-10-16: trout all year; salmon, bigger, up the river in autumn.)
+	var own := session.settlement
+	var waters := session.fauna.waters
+	var at := FishWaters.middle_of(waters.all_cells()[0][0])
+	waters.set_salmon(at, 5.0)
+	var fisher := _fisher()
+	var step := {"effort": 0.0, "at": at}
+	WorkStep.catch_fish(ctx, fisher, step, 100)
+	assert_eq(fisher.carrying, FishWaters.SALMON, "a salmon while they run")
+	var salmon := fisher.carrying_amount
+	assert_true(salmon >= 1 and salmon <= ctx.carry_capacity(FishWaters.SALMON))
+	assert_true(ctx.carry_capacity(FishWaters.SALMON) < ctx.carry_capacity(&"fish"), "fewer carried: they weigh more")
+	assert_near(waters.salmon_at(at), 5.0 - salmon, 0.001)
+	# Worth more than a trout, and smoked in the smokehouse like one.
+	var lib := session.resources
+	assert_true(lib.get_def(FishWaters.SALMON).nutrition > lib.get_def(&"fish").nutrition * 1.5)
+	assert_true(lib.get_def(FishWaters.SALMON).is_food())
+	var smokehouse := session.construction.buildings.get_def(&"smokehouse")
+	own.stockpile.add(FishWaters.SALMON, 2)
+	own.stockpile.add(&"wood", 2)
+	assert_eq(Recipes.next_step(own, smokehouse), 0, "salmon first: it spoils as fast")
+	# The run gone: trout again.
+	waters.set_salmon(at, 0.0)
+	fisher.carrying_amount = 0
+	fisher.carrying = &""
+	waters.set_stock(at, 10.0)
+	WorkStep.catch_fish(ctx, fisher, {"effort": 0.0, "at": at}, 100)
+	assert_eq(fisher.carrying, &"fish")
+	# Away, the fishers bring them home too.
+	var cell_at := FishWaters.middle_of(waters.cells_near(own.fire().tile, Config.settlement.fish_reach + FishWaters.CELL)[0][0])
+	waters.set_salmon(cell_at, 20.0)
+	var had := own.stockpile.amount(FishWaters.SALMON)
+	OfflineSimulator.new(session)._fish(own, 1.0)
+	assert_true(own.stockpile.amount(FishWaters.SALMON) > had, "salmon in the stores")
+
+
 func test_fishers_go_where_the_fishing_is_good() -> void:
 	# (FB1: fish are where the water is; a fisher walks a little further for
 	# water full of fish rather than fish where it is fished out.)

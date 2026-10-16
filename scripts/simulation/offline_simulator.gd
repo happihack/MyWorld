@@ -395,23 +395,40 @@ func _fish(own: Settlement, share: float) -> void:
 	var landing := boat != null
 	var iced := _s.pathfinder != null and _s.pathfinder.is_frozen()
 	var amount := FISH_PER_DAY * share * WorkStep.catch_factor(own, landing) / (WorkStep.ICE_FACTOR if iced else 1.0)
-	var units := mini(_whole(amount), own.stockpile.room(&"fish"))
-	# (From the richest water within reach of the fire, as a fisher would go — FB1.)
+	var units := _whole(amount)
+	# (From the richest water within reach of the fire, as a fisher would go — FB1;
+	# the salmon first, where they run.)
 	var got := 0
+	var salmon := 0
 	if units > 0:
 		var reach: float = BoatSystem.FISHING_REACH if landing else Config.settlement.fish_reach + FishWaters.CELL
-		for entry: Array in own.fauna.waters.cells_near(own.fire().tile, reach):
-			got += own.fauna.waters.take(units - got, FishWaters.middle_of(entry[0]))
-			if got >= units:
+		var cells := own.fauna.waters.cells_near(own.fire().tile, reach)
+		var effort := float(units)
+		var salmon_room := own.stockpile.room(FishWaters.SALMON)
+		for entry: Array in cells:
+			var most := mini(floori(effort / FishWaters.SALMON_EFFORT), salmon_room - salmon)
+			if most <= 0:
 				break
+			var took := own.fauna.waters.take_salmon(most, FishWaters.middle_of(entry[0]))
+			salmon += took
+			effort -= took * FishWaters.SALMON_EFFORT
+		var trout := mini(floori(effort), own.stockpile.room(&"fish"))
+		for entry: Array in cells:
+			if got >= trout:
+				break
+			got += own.fauna.waters.take(trout - got, FishWaters.middle_of(entry[0]))
+	if got + salmon > 0:
+		own.fauna.waters.note_catch(own.id, got + salmon, _s.clock.tick)
+		FishGear.wear_nets(own, got + salmon, _rng)
 	if got > 0:
-		own.fauna.waters.note_catch(own.id, got, _s.clock.tick)
 		own.stockpile.add(&"fish", got)
 		own.note_produced(&"fish", got)
-		FishGear.wear_nets(own, got, _rng)
+	if salmon > 0:
+		own.stockpile.add(FishWaters.SALMON, salmon)
+		own.note_produced(FishWaters.SALMON, salmon)
 	if boat != null:
 		boat.trips += 1
-		boat.caught += got
+		boat.caught += got + salmon
 		# (Out in a storm, now and then swamped.)
 		if _s.weather != null and _s.weather.is_storm() and _rng.randf() < OFFLINE_SWAMP:
 			_s.boats.swamp(boat, _s.clock.tick)

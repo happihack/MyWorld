@@ -346,7 +346,8 @@ func fishing_bank(from: Vector2i) -> Variant:
 		if distance > WATER_RADIUS:
 			continue
 		# (Further for good fishing: the water's fish weigh against the walk — FB1.)
-		var cost := distance - (RICH_WATER_PULL * minf(waters.richness_at(water), 1.0) if waters != null else 0.0)
+		# (And where the salmon run, further still: worth twice a full water of trout.)
+		var cost := distance - (RICH_WATER_PULL * (minf(waters.richness_at(water), 1.0) + 2.0 * minf(waters.salmon_share_at(water) / FishWaters.SALMON_SHARE, 1.0)) if waters != null else 0.0)
 		if cost >= best_cost:
 			continue
 		for step: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:

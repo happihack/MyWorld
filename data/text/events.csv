@@ -160,6 +160,7 @@ EVENT_KNOWLEDGE_LEARNED_TOOLMAKING,"{name} has worked out how to make good tools
 EVENT_LEADERSHIP,"{name} leads {place}"
 EVENT_SETTLEMENT_ABANDONED,"Nobody is left at {place}: it has been abandoned"
 EVENT_FISH_RUN,"The fish are running up the river: the water is thick with them"
+EVENT_SALMON_RUN,"The salmon have come up the river: big fish, and the winter coming"
 EVENT_BAD_FISHING_YEAR,"A bad year for the fishers of {place}: {caught} fish, where {usual} were usual"
 EVENT_PARTY_KILLED,"{name}'s hunting party has killed {beast_lower}"
 EVENT_PARTY_KILLED_PACK,"{name}'s hunting party has killed {count} of the wolves; the rest of the pack has fled"

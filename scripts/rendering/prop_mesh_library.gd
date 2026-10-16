@@ -143,7 +143,7 @@ const HIDE_DARK := Palette.LEATHER_DARK
 
 ## What a heap of each resource is made of (LooseObject.PILE_RESOURCES).
 const PILE_COLORS := {
-	&"berries": Palette.BERRY, &"meat": Palette.MEAT, &"fish": Palette.FISH,
+	&"berries": Palette.BERRY, &"meat": Palette.MEAT, &"fish": Palette.FISH, &"salmon": Palette.SALMON,
 	&"grain": Palette.GOLD, &"water": Palette.WATER_HELD, &"clay": Palette.CLAY,
 	&"herbs": Palette.SPROUT,
 	&"mushrooms": Palette.DAUB_PALE, &"roots": Palette.LEATHER, &"nuts": Palette.LEATHER_LIGHT,
@@ -270,8 +270,8 @@ func _init() -> void:
 						0.045 if resource == &"berries" else 0.06, 7 if resource == &"berries" else 5)
 			&"meat":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _meat_pile()
-			&"fish":
-				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _fish_pile()
+			&"fish", &"salmon":
+				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _fish_pile(resource)
 			&"grain":
 				_loose[loose_key(LooseObject.Kind.PILE, variant)] = _sheaf()
 			&"water":
@@ -621,16 +621,23 @@ static func _meat_pile() -> Template:
 
 
 ## Fish laid in a row on the mat, heads one way, a tail fin each.
-static func _fish_pile() -> Template:
+## (Salmon: three, longer and deeper, their flesh-coloured backs.)
+static func _fish_pile(resource: StringName = &"fish") -> Template:
 	var t := Template.new()
 	_mat(t)
-	var color: Color = PILE_COLORS[&"fish"]
-	for i in 4:
-		var at := Vector3(0.0, 0.035 + 0.01 * (i % 2), -0.12 + i * 0.08)
+	var color: Color = PILE_COLORS[resource]
+	var big := resource == &"salmon"
+	var count := 3 if big else 4
+	var length := 0.16 if big else 0.11
+	var depth := 0.032 if big else 0.022
+	var width := 0.045 if big else 0.03
+	var gap := 0.1 if big else 0.08
+	for i in count:
+		var at := Vector3(0.0, 0.035 + 0.01 * (i % 2), -0.12 + i * gap)
 		var yaw := 0.15 - 0.1 * i
-		_box(t, at, Vector3(0.11, 0.022, 0.03), _rgba(color.lightened(0.15), 0.0), yaw)
-		var tail := at - Vector3(cos(yaw), 0.0, -sin(yaw)) * 0.14
-		_box(t, tail, Vector3(0.03, 0.028, 0.012), _rgba(color.darkened(0.2), 0.0), yaw)
+		_box(t, at, Vector3(length, depth, width), _rgba(color.lightened(0.15), 0.0), yaw)
+		var tail := at - Vector3(cos(yaw), 0.0, -sin(yaw)) * (length + 0.03)
+		_box(t, tail, Vector3(0.03 if not big else 0.04, depth + 0.006, 0.012), _rgba(color.darkened(0.2), 0.0), yaw)
 	return t
 
 

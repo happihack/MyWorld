@@ -64,7 +64,7 @@ static func laden_at(boats: BoatSystem, landing_id: int) -> BoatData:
 	if boats == null:
 		return null
 	for boat in boats.boats_of(landing_id):
-		if boat.state == BoatData.State.MOORED and boat.load_resource == &"fish" and boat.load_amount > 0:
+		if boat.state == BoatData.State.MOORED and FishWaters.is_fish(boat.load_resource) and boat.load_amount > 0:
 			return boat
 	return null
 
@@ -83,14 +83,15 @@ func begin(ctx: AiContext, person: PersonData, step: Dictionary) -> void:
 			step["phase"] = "unloaded"
 			return
 		var laden := laden_at(ctx.boats, int(step.get("landing", 0)))
-		if laden != null and (person.carrying_amount == 0 or person.carrying == &"fish"):
-			var room := ctx.carry_capacity(&"fish") - person.carrying_amount
+		var catch_kind: StringName = laden.load_resource if laden != null else &""
+		if laden != null and (person.carrying_amount == 0 or person.carrying == catch_kind):
+			var room := ctx.carry_capacity(catch_kind) - person.carrying_amount
 			var taken := mini(room, laden.load_amount)
 			laden.load_amount -= taken
 			if laden.load_amount == 0:
 				laden.load_resource = &""
 			if taken > 0:
-				person.carrying = &"fish"
+				person.carrying = catch_kind
 				person.carrying_amount += taken
 		step["phase"] = "unloaded"
 		return

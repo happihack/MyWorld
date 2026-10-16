@@ -93,6 +93,7 @@ const TYPE_LEADERSHIP := &"leadership"
 const TYPE_ABANDONED := &"settlement_abandoned"
 ## Where the fish are (FB1).
 const TYPE_FISH_RUN := &"fish_run"
+const TYPE_SALMON_RUN := &"salmon_run"
 const TYPE_BAD_FISHING := &"bad_fishing_year"
 const TYPE_MOVED_TO := &"moved_to"
 const TYPE_BOAT_BUILT := &"boat_built"
@@ -701,6 +702,13 @@ func on_fish_run(at: Vector2i) -> void:
 	if not _writing():
 		return
 	_log.record(TYPE_FISH_RUN, {"position": Places.middle_of(at), "settlement": _settlement_id()})
+
+
+## The salmon have come up the river (and someone has taken one).
+func on_salmon_run(at: Vector2i) -> void:
+	if not _writing():
+		return
+	_log.record(TYPE_SALMON_RUN, {"position": Places.middle_of(at), "settlement": _settlement_id()})
 
 
 ## A settlement caught far fewer fish last year than it is used to.

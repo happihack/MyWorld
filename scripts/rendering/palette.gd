@@ -125,6 +125,7 @@ const PARCHMENT_DARK := Color(0.70, 0.66, 0.51) # PARCHMENT × 0.78 (nets)
 const MEAT := Color(0.64, 0.22, 0.25) # BERRY towards LOAM
 const FRUIT := Color(0.87, 0.43, 0.22) # EMBER towards GOLD
 const FISH := Color(0.48, 0.65, 0.72) # WATER_SHALLOW towards STONE
+const SALMON := Color(0.85, 0.52, 0.45) # FRUIT towards PARCHMENT (salmon flesh)
 const WATER_HELD := Color(0.29, 0.60, 0.79) # between WATER_DEEP and WATER_SHALLOW (a pot of it)
 
 # --- people (bible §28.3: saturated clothing against muted land) ------------------------------------

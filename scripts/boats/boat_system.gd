@@ -225,7 +225,7 @@ func _each_day(now: int) -> void:
 	refresh_ferries()
 	for boat in all_boats():
 		# Fish left in the hull spoil (as fish do: within two days) — half of them a day.
-		if boat.load_resource == &"fish" and boat.load_amount > 0:
+		if FishWaters.is_fish(boat.load_resource) and boat.load_amount > 0:
 			boat.load_amount /= 2
 			if boat.load_amount == 0:
 				boat.load_resource = &""
@@ -873,7 +873,7 @@ func swamp(boat: BoatData, _now: int) -> void:
 	var worst := hydrology != null and hydrology.high_water
 	for id in boat.crew:
 		var person := people.get_person(id) if people != null else null
-		if person != null and person.carrying == &"fish":
+		if person != null and FishWaters.is_fish(person.carrying):
 			person.carrying = &""
 			person.carrying_amount = 0
 		if worst and rng != null and rng.randf() < DROWN_SHARE:

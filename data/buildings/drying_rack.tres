@@ -18,6 +18,14 @@ workers = {
 }
 recipe = [{
 "in": {
+&"salmon": 1
+},
+"minutes": 90.0,
+"out": {
+&"preserved_food": 2
+}
+}, {
+"in": {
 &"fish": 2
 },
 "minutes": 90.0,
