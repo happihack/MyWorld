@@ -74,6 +74,9 @@ func update(ctx: AiContext, person: PersonData, step: Dictionary, minutes: float
 				return Status.DONE
 		elif bool(step.get("gather", false)) and gather(ctx, person, step, prop, made):
 			return Status.DONE
+	# A sapling set in the ground (a woodlot): planted when the time is up.
+	if time_up and bool(step.get("plant", false)) and typeof(step.get("at")) == TYPE_VECTOR2I and ctx.vegetation != null:
+		ctx.vegetation.plant_at(step["at"], bool(step.get("conifer", false)), ctx.now())
 	# Fruit lying about: picked up when the time (stooping, gathering) is up.
 	if time_up and bool(step.get("fruit", false)) and typeof(step.get("at")) == TYPE_VECTOR2I:
 		pick_fruit(ctx, person, step["at"])

@@ -835,12 +835,12 @@ func test_reacting_is_not_dropped_for_a_need_but_for_another_touch() -> void:
 	assert_true(is_same(person.current_action, first))
 	assert_eq(Interpretation.familiarity(person, Stimulus.TREE_SHAKEN), 1, "noticed all the same")
 	assert_eq(_reactions_of(person.id), 1)
-	# Another touch: they react to that.
+	# Another touch: starving and parched as they are, it is noticed but does not
+	# take them from their needs (the owner, 2026-10-15: poked over and over, a
+	# villager starved).
 	_touch(person)
-	assert_false(is_same(person.current_action, first))
-	assert_eq(BehaviorSystem.activity_of(person), BehaviorSystem.ACTIVITY_REACT)
-	assert_eq(_reactions_of(person.id), 2)
-	assert_eq(Interpretation.familiarity(person, Stimulus.TOUCH), 2)
+	assert_eq(_reactions_of(person.id), 1, "not reacted to")
+	assert_eq(Interpretation.familiarity(person, Stimulus.TOUCH), 2, "but noticed")
 	# Then, hungry as they are, they go and eat.
 	_run(40.0)
 	assert_true(person.activity_log.has("eat") or person.activity_log.has("drink") or BehaviorSystem.activity_of(person) in [&"eat", &"drink"],
@@ -1067,3 +1067,35 @@ func test_perception_is_cheap() -> void:
 	print("    perception: a stimulus noticed by %d people, interpreted and reacted to: %.3f ms" % [session.perception.last_noticed, each])
 	assert_true(session.perception.last_noticed >= 15)
 	assert_true(each < 4.0, "%.2f ms" % each)
+
+
+func test_the_players_touch_does_not_keep_anyone_from_food_drink_or_sleep() -> void:
+	# (The owner, 2026-10-15: poked over and over, a villager grew hungry and
+	# thirsty and died. The player's hand kills nobody but by a disaster.)
+	var people := session.people.all_people()
+	var hungry := _make(people[0])
+	var fed := _make(people[1])
+	hungry.needs[Needs.Need.HUNGER] = Needs.PRESSING - 0.05
+	assert_true(BehaviorSystem.in_need(hungry), "hungry enough that it presses")
+	assert_false(BehaviorSystem.in_need(fed))
+	for poke in 20:
+		_touch(hungry)
+		_touch(fed)
+		_run(2.0)
+	assert_true(Needs.value(hungry.needs, Needs.Need.HUNGER) > Needs.PRESSING,
+		"poked twenty times, the hungry one ate all the same (%.2f)" % Needs.value(hungry.needs, Needs.Need.HUNGER))
+	assert_true(session.memories.of(hungry).size() > 0, "it is still noticed, and remembered")
+	# Eating, they are not taken from it either — whatever their needs.
+	hungry.needs[Needs.Need.HUNGER] = 0.6
+	session.behavior.set_plan(hungry, &"eat", &"hunger", [RestStep.make(30.0)], 1.0)
+	assert_true(BehaviorSystem.in_need(hungry), "at their meal")
+	_touch(hungry)
+	_run(2.0)
+	assert_eq(BehaviorSystem.activity_of(hungry), &"eat", "still eating")
+	# The one who wants for nothing still reacts as ever.
+	var reacted := 0
+	for poke in 5:
+		_touch(fed)
+		_run(1.0)
+		reacted += 1 if BehaviorSystem.activity_of(fed) == BehaviorSystem.ACTIVITY_REACT else 0
+	assert_true(reacted > 0, "the well-fed one turns to the touch")

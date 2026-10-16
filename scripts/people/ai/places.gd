@@ -71,6 +71,9 @@ const RICH_WATER_PULL := 10.0
 ## How many times as far as usual people go for berries (more than 1 when
 ## the settlement is short of food; see Settlement).
 var forage_reach := 1.0
+## Short of wood, woodcutters go further for trees (the owner's world, year 79,
+## 2026-10-16: most of the trees stood beyond the reach of home).
+var wood_reach := 1.0
 
 
 func _init(world: WorldData, props: PropRegistry, people: PersonRegistry, pathfinder: Pathfinder,
@@ -623,7 +626,7 @@ func _nearest_prop(person: PersonData, kind: PropData.Kind, rng: RandomNumberGen
 		_work_version = _props.version
 		_work_places.clear()
 	# Short of food, people go further for berries (and have more bushes to choose from).
-	var further := forage_reach if PropData.FORAGE.has(kind) else 1.0
+	var further := forage_reach if PropData.FORAGE.has(kind) else (wood_reach if kind == PropData.Kind.TREE else 1.0)
 	var radius := WORK_RADIUS * further
 	var key := [kind, center, further]
 	if not _work_places.has(key):

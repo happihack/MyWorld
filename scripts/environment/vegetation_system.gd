@@ -32,6 +32,8 @@ const CAUSE_FIRE := &"fire"
 ## How many trees the world began with (the forest's bounds are shares of it).
 var forest_base := 0
 var seeded := 0
+## ...of them planted by people (a woodlot).
+var planted := 0
 var died := 0
 ## How many chunks were drawn anew because their grass changed (debug, tests).
 var redraws := 0
@@ -67,6 +69,7 @@ func bind(world: WorldData, props: PropRegistry, nodes: ResourceNodes, soil: Soi
 	_settlement = settlement
 	_shown.clear()
 	seeded = 0
+	planted = 0
 	died = 0
 	redraws = 0
 	if world != null:
@@ -83,7 +86,10 @@ func bind(world: WorldData, props: PropRegistry, nodes: ResourceNodes, soil: Soi
 # --- saving -------------------------------------------------------------------------------------------
 
 func to_dict() -> Dictionary:
-	return {"forest_base": forest_base, "seeded": seeded, "died": died}
+	var out := {"forest_base": forest_base, "seeded": seeded, "died": died}
+	if planted > 0:
+		out["planted"] = planted
+	return out
 
 
 ## Call after bind() (an older world's forest is the measure of itself).
@@ -92,6 +98,7 @@ func from_dict(data: Dictionary) -> void:
 		forest_base = int(data["forest_base"])
 	seeded = maxi(int(data["seeded"]), 0) if typeof(data.get("seeded")) == TYPE_INT else 0
 	died = maxi(int(data["died"]), 0) if typeof(data.get("died")) == TYPE_INT else 0
+	planted = maxi(int(data["planted"]), 0) if typeof(data.get("planted")) == TYPE_INT else 0
 
 
 # --- what grows ---------------------------------------------------------------------------------------
@@ -166,8 +173,8 @@ func potential(tile: Vector2i, season_share: float = 1.0) -> int:
 
 
 func debug_text() -> String:
-	return "plants: grass %.0f%%  trees %d (began with %d; %d seeded, %d died)  forest on %.1f%% of the land  %d redraws" % [
-		grass_cover() * 100.0, _trees, forest_base, seeded, died, forest_coverage() * 100.0, redraws]
+	return "plants: grass %.0f%%  trees %d (began with %d; %d seeded, %d of them planted, %d died)  forest on %.1f%% of the land  %d redraws" % [
+		grass_cover() * 100.0, _trees, forest_base, seeded, planted, died, forest_coverage() * 100.0, redraws]
 
 
 # --- fire (hooks for the fire system: M12 / M32) --------------------------------------------------------
@@ -349,31 +356,83 @@ func _seed_from(parent: PropData, now: int) -> void:
 		return
 	if _settlement != Vector2.INF and (Vector2(tile) + Vector2(0.5, 0.5)).distance_to(_settlement) < _config.settlement_clearance:
 		return
+	if _crowded(tile):
+		return
+	_sapling(tile, parent.is_conifer(), now)
+
+
+## Can a sapling be planted at `tile` (people planting a woodlot, the owner
+## 2026-10-16): open grass or bare earth, dry of water, nothing on it, not a
+## grave's, not crowded by trees? (Not the moisture the wild ones need: they
+## see it in.)
+func can_plant(tile: Vector2i) -> bool:
+	if _world == null or _props == null or not _world.bounds.has_point(tile) or _props.has_prop_at(tile) or Graves.on_plot(_props, tile):
+		return false
+	var chunk := _world.chunk_at_tile(tile)
+	if chunk == null:
+		return false
+	var i := _world.index_at_tile(tile)
+	var terrain := chunk.terrain[i]
+	if (terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT) or chunk.water[i] > 0.0:
+		return false
+	return not _crowded(tile)
+
+
+## A sapling planted at `tile` by people (null: it cannot be).
+func plant_at(tile: Vector2i, conifer: bool, now: int) -> PropData:
+	if not can_plant(tile):
+		return null
+	var sapling := _sapling(tile, conifer, now)
+	if sapling != null:
+		planted += 1
+	return sapling
+
+
+## A sapling planted somewhere `from` … `to` tiles from `center` where one can
+## be (a woodlot in the time away: Settlement.woodlot_wanted) — null if none of
+## a few tries could.
+func plant_near(center: Vector2i, from: float, to: float, now: int, tries: int = 12) -> PropData:
+	if _rng == null:
+		return null
+	for attempt in tries:
+		var turn := _rng.randf() * TAU
+		var far := _rng.randf_range(from, to)
+		var tile := center + Vector2i(roundi(cos(turn) * far), roundi(sin(turn) * far))
+		var sapling := plant_at(tile, _rng.randf() < 0.5, now)
+		if sapling != null:
+			return sapling
+	return null
+
+
+func _crowded(tile: Vector2i) -> bool:
 	var around := 0
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			var other := _props.prop_at(tile + Vector2i(dx, dy))
 			if other != null and other.kind == PropData.Kind.TREE:
 				around += 1
-	if around > _config.sapling_crowd:
-		return
+	return around > _config.sapling_crowd
+
+
+func _sapling(tile: Vector2i, conifer: bool, now: int) -> PropData:
 	var sapling := PropData.new()
 	sapling.id = _ids.next_id()
 	sapling.kind = PropData.Kind.TREE
 	sapling.tile = tile
 	# (Its parent's kind: broadleaf or conifer; one of the two shapes of it.)
-	sapling.variant = (PropData.TREE_CONIFER_FIRST_VARIANT if parent.is_conifer() else 0) + _rng.randi_range(0, 1)
+	sapling.variant = (PropData.TREE_CONIFER_FIRST_VARIANT if conifer else 0) + _rng.randi_range(0, 1)
 	sapling.rotation_step = _rng.randi_range(0, 255)
 	sapling.scale_percent = _rng.randi_range(85, 120)
 	sapling.offset_x = _rng.randi_range(-60, 60)
 	sapling.offset_y = _rng.randi_range(-60, 60)
 	if not _props.add(sapling):
-		return
+		return null
 	if _nodes != null:
 		_nodes.plant(sapling, now)
 	seeded += 1
 	_tree_props += 1
 	tree_seeded.emit(sapling.id)
+	return sapling
 
 
 func _kill(prop: PropData, cause: StringName) -> void:

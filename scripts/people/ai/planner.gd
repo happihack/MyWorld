@@ -189,6 +189,13 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var cutting := _log_work(person, ctx, rng)
 				if not cutting.is_empty():
 					return cutting
+				# Few trees left near home: a woodcutter now and then plants one.
+				# (No dice thrown unless a woodlot is wanted: the rest of the day as before.)
+				if person.occupation_id == &"woodcutter" and ctx.settlement != null and ctx.settlement.woodlot_wanted \
+						and rng.randf() < PLANT_SHARE:
+					var planting := _plant_work(person, ctx, rng)
+					if not planting.is_empty():
+						return planting
 			if target == &"bush":
 				var orchard := _orchard_work(person, ctx)
 				if not orchard.is_empty():
@@ -406,6 +413,38 @@ static func _clear_work(person: PersonData, ctx: AiContext) -> Array:
 		return []
 	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.clear(rubble.id, rubble.tile),
 		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
+## A woodlot (the owner's world, year 79, 2026-10-16: the trees near home were
+## felled as fast as they grew back, and the fire went short): with fewer
+## standing trees within reach than the settlement wants (Settlement.woodlot_wanted),
+## a woodcutter plants a sapling on open ground between PLANT_FROM and the
+## edge of reach of the fire ([]: none wanted, or nowhere to plant).
+static func _plant_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	var own := ctx.settlements.of(person) if ctx.settlements != null else ctx.settlement
+	if own == null or not own.woodlot_wanted or own.fire() == null or ctx.vegetation == null or person.carrying_amount > 0:
+		return []
+	var fire := own.fire().tile
+	for attempt in PLANT_TRIES:
+		var turn := rng.randf() * TAU
+		var far := rng.randf_range(PLANT_FROM, Places.WORK_RADIUS)
+		var tile := fire + Vector2i(roundi(cos(turn) * far), roundi(sin(turn) * far))
+		if not ctx.vegetation.can_plant(tile) or (ctx.pathfinder != null and not ctx.pathfinder.can_stand(tile)):
+			continue
+		var plant := WorkStep.make(&"field", 0, tile, PLANT_MINUTES)
+		plant["plant"] = true
+		plant["conifer"] = rng.randf() < 0.5
+		return [WalkToStep.make(_beside(tile, person.position, ctx), person.sub_tile_offset), plant]
+	return []
+
+
+## How often a woodcutter's turn at work goes to planting, when more trees are
+## wanted; how far from the fire at the least; how many places are tried; and
+## how long it takes (game minutes).
+const PLANT_SHARE := 0.3
+const PLANT_FROM := 6.0
+const PLANT_TRIES := 12
+const PLANT_MINUTES := 30.0
 
 
 ## How a builder comes by wood for their site: a fallen trunk near home cut

@@ -353,6 +353,7 @@ func _each_day(day: int) -> void:
 			produced.erase(resource)
 	_orchards(day)
 	_treat_with_herbs()
+	_count_trees()
 	if knows_how(&"toolmaking"):
 		return
 	for person in members():
@@ -707,6 +708,17 @@ func staff(now: int) -> void:
 const SPLIT_DAYS := 1
 ## One builder wanted at once for every this many people (two at least).
 const BUILDERS_PER := 25
+## How much further than usual woodcutters go for trees, short of wood.
+const WOOD_FURTHER := 2.0
+## A woodlot (the owner's world, year 79): with fewer standing trees than
+## TREES_WANTED_BASE and one for every person within reach of the fire, the
+## woodcutters plant saplings (Planner._plant_work).
+const TREES_WANTED_BASE := 20
+## Standing trees within reach of the fire (worked out once a day), and whether
+## more are wanted.
+var trees_near := -1
+var woodlot_wanted := false
+
 ## One woodcutter for every this many people (one at least): the fire takes
 ## what one brings, and building wants more (the owner's world, 2026-10-15).
 const WOOD_PER := 10
@@ -845,6 +857,18 @@ func _orchards(day: int) -> void:
 		if look != orchard.variant:
 			orchard.variant = look
 			_props.changed(orchard.id)
+
+
+func _count_trees() -> void:
+	if _props == null or fire() == null:
+		return
+	var at := fire().tile
+	var count := 0
+	for tree in _props.of_kind(PropData.Kind.TREE):
+		if not tree.felled and Vector2(tree.tile - at).length() <= Places.WORK_RADIUS:
+			count += 1
+	trees_near = count
+	woodlot_wanted = count < TREES_WANTED_BASE + member_count()
 
 
 ## Herbs from the stores (W1): the ill and the hurt are treated, a bunch each a
@@ -1170,6 +1194,8 @@ func _keep_seed() -> void:
 func _apply_reach() -> void:
 	if _places != null:
 		_places.forage_reach = _config.forage_further_factor if shortage != Shortage.NONE else 1.0
+		# (Short of wood: further for trees.)
+		_places.wood_reach = WOOD_FURTHER if jobs.wants(&"wood") else 1.0
 
 
 ## How many days the food in store lasts, not counting the grain that would

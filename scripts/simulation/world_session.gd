@@ -1471,6 +1471,7 @@ func _activate() -> void:
 	nodes.bind(props, Config.resources)
 	piles.bind(loose, ids, resources, Config.resources)
 	ai.nodes = nodes
+	ai.vegetation = vegetation
 	ai.piles = piles
 	ai.resources = resources
 	ai.places.resources = resources

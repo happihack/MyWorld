@@ -147,6 +147,33 @@ func test_inspect_card_sits_above_the_tool_bar() -> void:
 	assert_true(get_tree().root.get_visible_rect().encloses(card.get_global_rect()))
 
 
+func test_a_trail_keeps_the_inspect_card_on_the_screen() -> void:
+	# (The owner, 2026-10-16: a finger dragged with the eye over a boulder — the
+	# card grew up and to the right off the screen, its ✕ out of reach.)
+	var hut := session.props.get_prop(session.start.hut_ids[0])
+	_look_at(hut.position2d(), 16.0)
+	var target := view.pick(_ground_screen(hut.position2d()), 60.0)
+	var report := session.interactions.inspect(target)
+	var card := ui.open_inspect(report)
+	await wait_frames(1)
+	var one := card.size
+	# A trail sets it up again many times within a frame: it keeps its size.
+	for tile in 12:
+		ui.show_inspect(report)
+	assert_eq(card.size, one, "the same card, the same size")
+	await wait_frames(1)
+	assert_eq(card.size, one)
+	# A very long line wraps; and however much it says, its top stays on the screen.
+	var long := "and then " .repeat(60)
+	for n in 40:
+		report.history_lines.append(["Once", long])
+	ui.show_inspect(report)
+	await wait_frames(1)
+	var screen := get_tree().root.get_visible_rect()
+	assert_true(card.get_global_rect().position.y >= screen.position.y, "its top on the screen")
+	assert_true(card.get_global_rect().end.x <= screen.end.x + 0.5, "nor off the side (%s in %s)" % [card.get_global_rect(), screen])
+
+
 # --- observe --------------------------------------------------------------------------------
 
 func test_observing_shows_without_touching() -> void:

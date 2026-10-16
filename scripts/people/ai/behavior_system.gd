@@ -615,6 +615,13 @@ func _consider_perceptions(person: PersonData) -> bool:
 		if outcome.reaction == ReactionTable.STIR and ctx.day_log != null:
 			ctx.day_log.note(person.id, ctx.now(), DayLog.STIR)
 		return false
+	# Someone in need — at their meal or drink, or hungry, thirsty or worn out
+	# enough that it presses — takes in what the player did (and remembers it)
+	# but does not drop what keeps them alive for it (the owner, 2026-10-15:
+	# poked over and over, a villager starved; the player's hand kills nobody
+	# but by a disaster).
+	if stimulus.origin == Stimulus.Origin.PLAYER and in_need(person):
+		return false
 	set_plan(person, ACTIVITY_REACT, outcome.interpretation, outcome.steps)
 	if ctx.day_log != null:
 		# Whom they go to tell, or who told them.
@@ -635,6 +642,18 @@ func _consider_perceptions(person: PersonData) -> bool:
 	_reacted.append([person.id, outcome.reaction, outcome.interpretation,
 		StringName(str(person.current_action["stimulus"])), outcome.direct])
 	return true
+
+
+## Is the person at their meal or drink, or in pressing need (hunger, thirst,
+## sleep at Needs.PRESSING or below)? Then the player's doings do not take them
+## from it. (A sleeper may be woken, as ever — until sleep presses.)
+static func in_need(person: PersonData) -> bool:
+	if [&"eat", &"drink"].has(activity_of(person)):
+		return true
+	for need in [Needs.Need.HUNGER, Needs.Need.THIRST, Needs.Need.SLEEP]:
+		if Needs.value(person.needs, need) <= Needs.PRESSING:
+			return true
+	return false
 
 
 ## Is perception `a` more to the person than `b`? What happened to them comes

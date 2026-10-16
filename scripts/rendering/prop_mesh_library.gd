@@ -1416,7 +1416,9 @@ static func _boat_parts(t: Template, boat: int) -> void:
 			_box(t, Vector3(0.40, 0.10, 0.10), Vector3(0.01, 0.012, 0.16), _rgba(WALL, 0.0), 0.35) # a paddle laid across
 		PropData.Boat.PLANK_BOAT, PropData.Boat.SAIL:
 			_box(t, Vector3(0.42, 0.06, -0.12), Vector3(0.11, 0.06, 0.34), _rgba(WALL_DARK, 0.0), 0.0)
-			_box(t, Vector3(0.42, 0.10, -0.12), Vector3(0.085, 0.02, 0.30), _rgba(TRUNK_DARK, 0.0), 0.0)
+			# (Its top a little above the hull's, not level with it: the two flickered
+			# through each other, flashing lines across the thwarts — the owner, 2026-10-16.)
+			_box(t, Vector3(0.42, 0.105, -0.12), Vector3(0.085, 0.02, 0.30), _rgba(TRUNK_DARK, 0.0), 0.0)
 			for z: float in [-0.30, -0.12, 0.06]:
 				_box(t, Vector3(0.42, 0.125, z), Vector3(0.10, 0.008, 0.02), _rgba(WALL, 0.0), 0.0) # the thwarts
 			if boat == PropData.Boat.SAIL:

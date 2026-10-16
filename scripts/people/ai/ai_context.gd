@@ -46,6 +46,8 @@ var day_log: DayLog
 ## The world's resource nodes, its piles, and what resources there are (may
 ## be null: then work yields nothing, as before there were resources).
 var nodes: ResourceNodes
+## What grows on the land: woodcutters plant saplings into it (a woodlot).
+var vegetation: VegetationSystem
 var piles: PileStore
 var resources: ResourceLibrary
 ## The settlement: its stores and its job board (may be null: then food is

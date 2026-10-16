@@ -93,6 +93,7 @@ func _gathering_only() -> void:
 	Config.settlement.urgent_from = 2.0
 	Config.construction.cut_off_least = 1_000_000 # (no bridge across wanting wood)
 	Config.construction.storage_room_least = -1000 # (nor a woodshed, when the wood piles fill)
+	session.settlement.woodlot_wanted = false # (felling, not planting: test_short_of_wood_…)
 	_empty_stores()
 
 
@@ -998,6 +999,64 @@ func test_a_rock_turned_to_stone_is_carried_home() -> void:
 	target.tile = tree.tile
 	assert_null(session.interactions.turn_to_stone(target))
 	assert_not_null(session.props.get_prop(tree.id))
+
+
+func test_short_of_wood_they_go_further_and_plant_a_woodlot() -> void:
+	# (The owner's world, year 79, 2026-10-16: few trees near home, felled as
+	# fast as they grew back; most of the forest beyond reach.)
+	_set_hour(8.5)
+	var cutter := _calm(_adult(&"woodcutter"))
+	_only([cutter])
+	var own := session.settlement
+	var fire := own.fire().tile
+	var home: Vector2i = ctx.places.home_tile(cutter)
+	# No tree within reach of home or the fire; one, further off.
+	var far: PropData = null
+	for tree in session.props.of_kind(PropData.Kind.TREE).duplicate():
+		var d := minf(Vector2(tree.tile - home).length(), Vector2(tree.tile - fire).length())
+		if d <= Places.WORK_RADIUS:
+			session.props.remove(tree.id)
+		elif far == null and Vector2(tree.tile - home).length() <= Places.WORK_RADIUS * Settlement.WOOD_FURTHER - 2.0:
+			far = tree
+	assert_not_null(far, "a tree further off")
+	ctx.places.wood_reach = 1.0
+	assert_true(ctx.places.work_place(cutter, &"tree", ctx.rng).is_empty(), "none within the usual reach")
+	# Short of wood: further.
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	own.jobs.refresh(own, session.clock.tick)
+	assert_true(own.jobs.wants(&"wood"))
+	own._apply_reach()
+	assert_eq(ctx.places.wood_reach, Settlement.WOOD_FURTHER)
+	assert_false(ctx.places.work_place(cutter, &"tree", ctx.rng).is_empty(), "a tree from further off")
+	# Few trees near: a woodlot wanted; a woodcutter plants a sapling.
+	own._count_trees()
+	assert_eq(own.trees_near, 0)
+	assert_true(own.woodlot_wanted)
+	var steps := Planner._plant_work(cutter, ctx, ctx.rng)
+	assert_eq(steps.size(), 2, str(steps))
+	assert_true(bool(steps[1].get("plant", false)))
+	var tile: Vector2i = steps[1]["at"]
+	var from_fire := Vector2(tile - fire).length()
+	assert_true(from_fire >= Planner.PLANT_FROM - 1.0 and from_fire <= Places.WORK_RADIUS + 1.0, "between the village and the edge of reach (%.1f)" % from_fire)
+	behavior.set_plan(cutter, &"work", &"purpose", steps, 2.0)
+	var waited := 0.0
+	while session.props.prop_at(tile) == null and waited < 300.0:
+		_run(1.0)
+		waited += 1.0
+	var sapling := session.props.prop_at(tile)
+	assert_not_null(sapling, "a sapling planted (%d minutes)" % waited)
+	assert_eq(sapling.kind, PropData.Kind.TREE)
+	assert_true(sapling.felled, "young: it grows up as a felled tree grows back")
+	assert_eq(session.vegetation.planted, 1)
+	assert_true(session.vegetation.to_dict().has("planted"), "and the count kept")
+	# Away, the woodcutters plant too.
+	var before := session.vegetation.planted
+	var away := OfflineSimulator.new(session)
+	away._work(own, 1.0, session.clock.tick)
+	assert_true(session.vegetation.planted > before, "planted in the time away")
+	# Enough trees: no more planting.
+	own.woodlot_wanted = false
+	assert_eq(Planner._plant_work(cutter, ctx, ctx.rng), [])
 
 
 # --- over days ---------------------------------------------------------------------------------------

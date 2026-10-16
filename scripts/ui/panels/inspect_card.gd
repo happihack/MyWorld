@@ -28,7 +28,12 @@ func _ready() -> void:
 
 func setup(report: InspectReport, height_step: float = 0.4) -> void:
 	_height_step = height_step
+	# (Gone at once, not at the end of the frame: a trail of tiles under a moving
+	# finger set the card up again and again within a frame, and it measured the
+	# old rows with the new — growing off the top of the screen, its ✕ out of
+	# reach: the owner, 2026-10-16.)
 	for child in _rows.get_children():
+		_rows.remove_child(child)
 		child.queue_free()
 	_tile = report.tile
 	_subtitle.visible = false
@@ -114,6 +119,9 @@ func layout() -> void:
 	custom_minimum_size.x = UIPanel.across(view, MAX_WIDTH, EDGE_MARGIN).y
 	reset_size()
 	position = Vector2(UIPanel.left_for(view, size.x, EDGE_MARGIN), view.y - UIPanel.bottom_for(view, BOTTOM_MARGIN) - size.y)
+	# (Whatever it says, its top — and its ✕ — stay on the screen.)
+	position.y = maxf(position.y, EDGE_MARGIN)
+	position.x = clampf(position.x, 0.0, maxf(view.x - size.x, 0.0))
 
 
 func title_text() -> String:
@@ -149,4 +157,6 @@ func _add_row(label: String, value: String) -> void:
 	var value_label := Label.new()
 	value_label.text = value
 	value_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# (A long one wraps: it does not push the card off the side of the screen.)
+	value_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rows.add_child(value_label)

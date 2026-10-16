@@ -35,6 +35,9 @@ const EAT_PER_DAY := 2.45
 ## other trades spend this share of the day gathering food (PG.4).
 const HUNGRY_DAYS := 1.0
 const HUNGRY_HANDS := 0.75
+## Saplings a woodcutter plants in a day, where more trees are wanted (about as
+## on screen: Planner.PLANT_SHARE of their turns at work).
+const PLANTED_PER_DAY := 1.5
 const FOOD_WORK: Array[StringName] = [&"bush", &"game", &"fish", &"field"]
 ## Each day-step ends at this hour (minute of the day): late enough that what
 ## waits for the morning (the planner's day, setting out) has had its turn.
@@ -255,6 +258,10 @@ func _work(own: Settlement, share: float, now: int) -> void:
 				_add_to(gathered, PropData.Kind.BUSH, &"berries", RATES[&"bush"][&"berries"] * share)
 			&"tree":
 				_add_to(gathered, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * own_share)
+				# More trees wanted near home: some of the day goes to planting (a woodlot).
+				if person.occupation_id == &"woodcutter" and own.woodlot_wanted and own.fire() != null and _s.vegetation != null:
+					for sapling in _whole(PLANTED_PER_DAY * share):
+						_s.vegetation.plant_near(own.fire().tile, Planner.PLANT_FROM, Places.WORK_RADIUS, now)
 			&"game":
 				_hunt(own, share)
 			&"fish":
@@ -302,16 +309,18 @@ func _gather(own: Settlement, kind: PropData.Kind, resource: StringName, amount:
 		own.note_produced(resource, got)
 
 
-## The nodes of `kind` within a day's walk of the fire, nearest first (kept for the run).
+## The nodes of `kind` within a day's walk of the fire, nearest first (kept for
+## the run) — trees from further, short of wood (Settlement.WOOD_FURTHER), as on screen.
 var _near: Dictionary = {}
 func _nodes_near(own: Settlement, kind: PropData.Kind) -> Array:
-	var key := [own.id, kind]
+	var further := Settlement.WOOD_FURTHER if kind == PropData.Kind.TREE and own.jobs.wants(&"wood") else 1.0
+	var key := [own.id, kind, further]
 	if _near.has(key):
 		return _near[key]
 	var fire := own.fire().tile
 	var found: Array = []
 	for prop in _s.props.of_kind(kind):
-		if prop.kind == kind and Vector2(prop.tile - fire).length() <= Places.WORK_RADIUS:
+		if prop.kind == kind and Vector2(prop.tile - fire).length() <= Places.WORK_RADIUS * further:
 			found.append(prop)
 	found.sort_custom(func(a: PropData, b: PropData) -> bool:
 		var da := (a.tile - fire).length_squared()
