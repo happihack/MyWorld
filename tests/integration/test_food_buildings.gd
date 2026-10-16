@@ -375,9 +375,16 @@ func test_food_is_laid_in_for_the_winter() -> void:
 	assert_true(wanted >= need * (winter_days + 1), "on its eve: all of the winter (%.1f days)" % (wanted / need))
 	# What still comes in counts — but not in the winter, when nothing grows.
 	own.produced["berries"] = need * 2.0 / 0.65 / (1.0 - Config.trade.produced_kept_per_day)
-	assert_true(own.winter_food_wanted(eve) < wanted and own.winter_food_wanted(eve) > need * winter_days * 0.9,
-		"a day of gathering left before it: a little less")
+	# (A day of gathering before it, and the first days of spring after it.)
+	assert_near(own.winter_food_wanted(eve), wanted - own.food_coming_in_per_day() * (1 + Settlement.SPRING_GAP_DAYS), 0.01,
+		"the days of gathering around it: a little less")
+	assert_true(own.winter_food_wanted(eve) > need * winter_days * 0.6)
 	own.produced.clear()
+	# And it is to last into the spring, before anything is ripe (the r7 round:
+	# spring was the leanest time of all).
+	var last_day := winter_from + (winter_days - 1) * DAY
+	assert_true(own.winter_food_wanted(last_day) >= need * (1 + Settlement.SPRING_GAP_DAYS),
+		"on winter's last day: the first days of spring too")
 	# The job board asks for it: with five days of food, more is wanted on winter's eve.
 	for resource in [&"berries", &"fish", &"meat", &"mushrooms", &"roots", &"nuts", &"fruit", &"preserved_food"]:
 		own.stockpile.take(resource, own.stockpile.amount(resource))
@@ -388,6 +395,29 @@ func test_food_is_laid_in_for_the_winter() -> void:
 	assert_false(own.jobs.wants(&"berries"), "five days in spring: enough")
 	own.jobs.refresh(own, eve)
 	assert_true(own.jobs.wants(&"berries"), "five days on winter's eve: not enough")
+
+
+func test_bare_bushes_bring_a_farmer() -> void:
+	# (The owner, 2026-10-16: a village known for berries never farmed, and
+	# picked its bushes bare.)
+	_grow_to(10)
+	for person in own.members():
+		if person.occupation_id == &"farmer":
+			person.occupation_id = &"forager"
+	for resource in [&"berries", &"grain", &"fish", &"meat"]:
+		own.stockpile.add(resource, 200)
+	var farmer_def := session.occupations.get_def(&"farmer")
+	var year := Config.time.ticks_per_year()
+	var winter := (session.clock.tick / year + 1) * year + (Config.time.seasons_per_year - 1) * Config.time.days_per_season * DAY + DAY
+	assert_false(own.is_short())
+	assert_false(session.farming.sowing_time(winter))
+	own.forage_low = false
+	assert_eq(int(own.demand_of(farmer_def, winter)["wanted"]), 0, "no farmer until the sowing")
+	assert_eq(own.farmers_wanted(), 1)
+	own.forage_low = true
+	assert_eq(int(own.demand_of(farmer_def, winter)["wanted"]), 2, "the bushes bare: one more, and at once")
+	assert_eq(own.farmers_wanted(), 2)
+	own.forage_low = false
 
 
 func test_berries_are_dried_for_the_winter() -> void:

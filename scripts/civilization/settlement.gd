@@ -240,6 +240,15 @@ func specialty_trade() -> StringName:
 	return SPECIALTY_TRADES.get(String(specialty()), &"")
 
 
+## The trade the young are drawn to: what the place is known for, but not
+## foraging with the bushes picked bare (the owner, 2026-10-16: a village known
+## for berries made foragers of its young until the bushes were bare, and never
+## farmed).
+func trade_pull() -> StringName:
+	var trade := specialty_trade()
+	return &"" if trade == &"forager" and forage_low else trade
+
+
 func knows_how(what: StringName) -> bool:
 	return knows.has(String(what))
 
@@ -477,11 +486,16 @@ func winter_food_wanted(now: int) -> float:
 	var days := 0
 	var growing := 0
 	var seen_winter := false
+	var after := 0
 	while days < Config.time.days_per_year():
 		var tick := now + days * TimeConfig.MINUTES_PER_DAY
 		var winter := Seasons.is_winter(tick)
+		# (And into the spring, before anything is ripe: the stores were spent by
+		# winter's end, and spring was the leanest time of all — the r7 round.)
 		if seen_winter and not winter:
-			break
+			after += 1
+			if after > SPRING_GAP_DAYS:
+				break
 		seen_winter = seen_winter or winter
 		growing += 0 if winter else 1
 		days += 1
@@ -624,9 +638,11 @@ const FARMERS_ONE_BELOW := 12
 
 
 func farmers_wanted() -> int:
+	# (One more while the bushes are picked bare: the berries will not feed them.)
+	var more := 1 if forage_low else 0
 	if member_count() < FARMERS_ONE_BELOW:
-		return 1
-	return clampi(member_count() / FARMERS_PER_PEOPLE, 1, FARMERS_MOST)
+		return 1 + more
+	return clampi(member_count() / FARMERS_PER_PEOPLE + more, 1, FARMERS_MOST)
 
 
 ## Likewise with game about and nobody hunting.
@@ -712,6 +728,8 @@ const BUILDERS_PER := 25
 ## fire takes about what one brings in (the owner's world, year 79).
 const WOOD_LEAST := 2
 const WOOD_LEAST_FROM := 8
+## Days into the spring the food laid in for the winter is to last.
+const SPRING_GAP_DAYS := 3
 ## How much further than usual woodcutters go for trees, short of wood.
 const WOOD_FURTHER := 2.0
 ## A woodlot (the owner's world, year 79): with fewer standing trees than
@@ -769,7 +787,10 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 				return {}
 			var farmers := farming.farmer_count()
 			# (The first in a season for sowing; more as the settlement grows, any time.)
-			var wanted := 0 if farmers == 0 and not farming.sowing_time(now) else farmers_wanted()
+			# (The bushes picked bare, or the stores short: a first farmer at once, to
+			# have the fields ready by the sowing — the owner, 2026-10-16: a berry
+			# village never farmed.)
+			var wanted := 0 if farmers == 0 and not farming.sowing_time(now) and not forage_low and not is_short() else farmers_wanted()
 			return {"wanted": wanted, "have": farmers, "least": _config.farmer_from_gatherers if farmers == 0 else 2, "anywhere": true}
 		&"hunt":
 			if fauna == null:

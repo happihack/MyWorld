@@ -534,6 +534,40 @@ func test_trees_seed_and_die() -> void:
 	assert_eq(plants.tree_count(), standing)
 
 
+func test_bushes_spread() -> void:
+	# (The owner, 2026-10-16: a berry village picked its land bare, and no bush
+	# ever grew again.)
+	_go_to(2) # spring
+	var bushes := session.props.of_kind(PropData.Kind.BUSH)
+	assert_true(bushes.size() > 0)
+	assert_eq(plants.bushes_base, bushes.size())
+	_knob(config, &"bush_chance_per_day", 1.0)
+	for coord in world.chunk_coords():
+		plants._tree_days(coord, 1, clock.tick)
+	var now := session.props.of_kind(PropData.Kind.BUSH)
+	assert_true(now.size() > bushes.size(), "%d bushes, %d before" % [now.size(), bushes.size()])
+	assert_eq(plants.bushes_seeded, now.size() - bushes.size())
+	for bush: PropData in now:
+		if PropData.is_generated_id(bush.id):
+			continue
+		# A new one: on open ground, bare at first, bearing as a picked one does.
+		var terrain := world.get_terrain(bush.tile)
+		assert_true(terrain == ChunkData.Terrain.GRASS or terrain == ChunkData.Terrain.DIRT)
+		assert_near(world.get_water(bush.tile), 0.0, 0.0001)
+		assert_eq(session.nodes.available(bush), 0, "nothing on it yet")
+	# Never past the bound.
+	var cap := roundi(plants.bushes_base * config.bush_most)
+	for n in 30:
+		plants._count_trees()
+		for coord in world.chunk_coords():
+			plants._tree_days(coord, 1, clock.tick)
+	assert_true(session.props.of_kind(PropData.Kind.BUSH).size() <= cap)
+	# Kept with the land.
+	var data := plants.to_dict()
+	assert_eq(int(data["bushes_seeded"]), plants.bushes_seeded)
+	assert_eq(int(data["bushes_base"]), plants.bushes_base)
+
+
 func test_vegetation_bounds() -> void:
 	# Years of the real weather over the untouched land: the grass and the forest stay within bounds.
 	var grass_at_first := plants.grass_cover()

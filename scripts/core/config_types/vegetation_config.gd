@@ -61,6 +61,15 @@ extends ConfigBase
 @export_range(1.0, 5.0, 0.05) var forest_most: float = 1.3
 @export_range(0.0, 1.0, 0.05) var forest_least: float = 0.5
 
+@export_group("Bushes")
+## The chance that a berry bush seeds another in a day (in the seasons things
+## grow in), on open ground within `bush_reach` tiles; never beyond `bush_most`
+## times the bushes the world began with (the owner, 2026-10-16: a berry
+## village picked its land bare, and no bush ever grew again).
+@export_range(0.0, 1.0, 0.0005) var bush_chance_per_day: float = 0.005
+@export_range(1, 8) var bush_reach: int = 2
+@export_range(1.0, 5.0, 0.05) var bush_most: float = 1.5
+
 @export_group("Fire (for the fire system to come)")
 ## How much of what would burn is grass (full cover) and how much a tree.
 @export_range(0.0, 1.0, 0.05) var fuel_grass: float = 0.6

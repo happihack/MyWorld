@@ -116,11 +116,15 @@ func test_years_away_do_not_wear_a_band_down() -> void:
 	var start := s.people.size()
 	OfflineSimulator.new(s).run(10 * Config.time.ticks_per_year())
 	var starved := 0
+	var mauled := 0
 	for record in s.archive.all_records():
 		if record.cause == Lifecycle.CAUSE_STARVATION:
 			starved += 1
+		elif record.cause == Lifecycle.CAUSE_MAULED:
+			mauled += 1
 	assert_eq(starved, 0, "nobody starved in ten years away")
-	assert_true(s.people.size() >= start, "the band has not dwindled: %d at the start, %d after ten years" % [start, s.people.size()])
+	# (Not counting a bear's luck: what this guards is a band worn down by want.)
+	assert_true(s.people.size() + mauled >= start, "the band has not dwindled: %d at the start, %d after ten years (%d mauled)" % [start, s.people.size(), mauled])
 	s.queue_free()
 	await wait_frames(1)
 

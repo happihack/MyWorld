@@ -666,9 +666,11 @@ func test_the_day_has_a_shape() -> void:
 		if minute < 1440:
 			continue
 		var hour := session.clock.hour_of_day()
+		# (At the meal or on the way to it: who sits down a few minutes later is
+		# still at the same meal.)
 		var eating := 0
 		for p in people:
-			if p.pose == PersonData.Pose.EAT:
+			if p.pose == PersonData.Pose.EAT or BehaviorSystem.activity_of(p) == &"eat":
 				eating += 1
 		for meal: int in most_at_meal:
 			if hour >= meal and hour <= meal + 1:

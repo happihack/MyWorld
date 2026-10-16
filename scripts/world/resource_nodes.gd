@@ -231,6 +231,17 @@ func take(prop_id: int, units: int, now: int) -> int:
 	return given
 
 
+## A bush newly seeded: nothing on it yet; it bears as a picked one grows back.
+func sprout(prop: PropData, now: int) -> void:
+	if prop == null or prop.kind != PropData.Kind.BUSH:
+		return
+	prop.stock = 0
+	prop.stock_tick = now
+	_tracked[prop.id] = true
+	if _props != null:
+		_props.changed(prop.id)
+
+
 ## A sapling: a tree newly seeded is a felled one with the first of its
 ## growth, and grows up like a felled one growing back.
 func plant(prop: PropData, now: int) -> void:

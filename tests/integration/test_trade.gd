@@ -130,6 +130,15 @@ func test_settlements_are_known_for_what_sets_them_apart() -> void:
 	assert_eq(first.specialty(), &"berries", "berries set the first apart")
 	assert_eq(own.specialty(), &"wood", "wood sets the camp apart")
 	assert_eq(own.specialty_trade(), &"woodcutter")
+	# The young are drawn to it — but not to foraging with the bushes picked bare.
+	assert_eq(first.specialty_trade(), &"forager")
+	assert_eq(first.trade_pull(), &"forager")
+	first.forage_low = true
+	assert_eq(first.trade_pull(), &"", "bare bushes: no pull to foraging")
+	own.forage_low = true
+	assert_eq(own.trade_pull(), &"woodcutter", "other trades still pull")
+	first.forage_low = false
+	own.forage_low = false
 
 
 func test_skill_and_tools_make_work_faster() -> void:

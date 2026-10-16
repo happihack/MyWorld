@@ -50,6 +50,11 @@ var _config: VegetationConfig
 var _settlement := Vector2.INF
 var _shown: Dictionary = {} # chunk coord -> the grass as the chunk was last drawn
 var _trees := 0 # trees standing (not felled ones, not saplings)
+var _bushes := 0 # berry bushes
+## How many bushes the world began with (their bound is a share of it), and
+## how many have grown from others since.
+var bushes_base := 0
+var bushes_seeded := 0
 var _tree_props := 0 # all of them: standing, stumps and saplings
 
 
@@ -79,6 +84,8 @@ func bind(world: WorldData, props: PropRegistry, nodes: ResourceNodes, soil: Soi
 				_shown[coord] = chunk.vegetation.duplicate()
 	_count_trees()
 	forest_base = _trees
+	bushes_base = _bushes
+	bushes_seeded = 0
 	if _soil != null:
 		_soil.chunk_done.connect(_on_chunk_done)
 
@@ -89,6 +96,9 @@ func to_dict() -> Dictionary:
 	var out := {"forest_base": forest_base, "seeded": seeded, "died": died}
 	if planted > 0:
 		out["planted"] = planted
+	if bushes_seeded > 0:
+		out["bushes_base"] = bushes_base
+		out["bushes_seeded"] = bushes_seeded
 	return out
 
 
@@ -99,6 +109,9 @@ func from_dict(data: Dictionary) -> void:
 	seeded = maxi(int(data["seeded"]), 0) if typeof(data.get("seeded")) == TYPE_INT else 0
 	died = maxi(int(data["died"]), 0) if typeof(data.get("died")) == TYPE_INT else 0
 	planted = maxi(int(data["planted"]), 0) if typeof(data.get("planted")) == TYPE_INT else 0
+	if typeof(data.get("bushes_base")) == TYPE_INT and int(data["bushes_base"]) > 0:
+		bushes_base = int(data["bushes_base"])
+	bushes_seeded = maxi(int(data["bushes_seeded"]), 0) if typeof(data.get("bushes_seeded")) == TYPE_INT else 0
 
 
 # --- what grows ---------------------------------------------------------------------------------------
@@ -173,8 +186,8 @@ func potential(tile: Vector2i, season_share: float = 1.0) -> int:
 
 
 func debug_text() -> String:
-	return "plants: grass %.0f%%  trees %d (began with %d; %d seeded, %d of them planted, %d died)  forest on %.1f%% of the land  %d redraws" % [
-		grass_cover() * 100.0, _trees, forest_base, seeded, planted, died, forest_coverage() * 100.0, redraws]
+	return "plants: grass %.0f%%  trees %d (began with %d; %d seeded, %d of them planted, %d died)  bushes %d (began with %d; %d seeded)  forest on %.1f%% of the land  %d redraws" % [
+		grass_cover() * 100.0, _trees, forest_base, seeded, planted, died, _bushes, bushes_base, bushes_seeded, forest_coverage() * 100.0, redraws]
 
 
 # --- fire (hooks for the fire system: M12 / M32) --------------------------------------------------------
@@ -326,7 +339,13 @@ func _tree_days(coord: Vector2i, days: int, now: int) -> void:
 	var cold := _weather != null and _weather.has_condition(WeatherSystem.COLD_SNAP)
 	var most := roundi(forest_base * _config.forest_most)
 	var least := roundi(forest_base * _config.forest_least)
+	var bush_chance := 1.0 - pow(1.0 - _config.bush_chance_per_day, days)
+	var bushes_most := roundi(bushes_base * _config.bush_most)
 	for prop: PropData in _props.props_in_chunk(coord).duplicate():
+		if prop.kind == PropData.Kind.BUSH:
+			if growing and _bushes < bushes_most and _rng.randf() < bush_chance:
+				_spread_bush(prop, now)
+			continue
 		if prop.kind != PropData.Kind.TREE:
 			continue
 		var i := _world.index_at_tile(prop.tile)
@@ -340,6 +359,47 @@ func _tree_days(coord: Vector2i, days: int, now: int) -> void:
 			continue
 		if growing and _tree_props < most and _rng.randf() < seed_chance:
 			_seed_from(prop, now)
+
+
+## A berry bush seeds another beside it, on open ground moist enough, not
+## crowded by bushes (the owner, 2026-10-16: picked-over land never filled in).
+func _spread_bush(parent: PropData, now: int) -> void:
+	var reach := _config.bush_reach
+	var tile := parent.tile + Vector2i(_rng.randi_range(-reach, reach), _rng.randi_range(-reach, reach))
+	if tile == parent.tile or not _world.bounds.has_point(tile) or _props.has_prop_at(tile) or Graves.on_plot(_props, tile):
+		return
+	var chunk := _world.chunk_at_tile(tile)
+	var i := _world.index_at_tile(tile)
+	var terrain := chunk.terrain[i]
+	if (terrain != ChunkData.Terrain.GRASS and terrain != ChunkData.Terrain.DIRT) or chunk.water[i] > 0.0:
+		return
+	if chunk.moisture[i] < _config.sapling_moisture:
+		return
+	if _settlement != Vector2.INF and (Vector2(tile) + Vector2(0.5, 0.5)).distance_to(_settlement) < _config.settlement_clearance:
+		return
+	var around := 0
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var other := _props.prop_at(tile + Vector2i(dx, dy))
+			if other != null and other.kind == PropData.Kind.BUSH:
+				around += 1
+	if around > _config.sapling_crowd:
+		return
+	var bush := PropData.new()
+	bush.id = _ids.next_id()
+	bush.kind = PropData.Kind.BUSH
+	bush.tile = tile
+	bush.variant = parent.variant
+	bush.rotation_step = _rng.randi_range(0, 255)
+	bush.scale_percent = _rng.randi_range(80, 110)
+	bush.offset_x = _rng.randi_range(-60, 60)
+	bush.offset_y = _rng.randi_range(-60, 60)
+	if not _props.add(bush):
+		return
+	if _nodes != null:
+		_nodes.sprout(bush, now)
+	_bushes += 1
+	bushes_seeded += 1
 
 
 func _seed_from(parent: PropData, now: int) -> void:
@@ -463,7 +523,9 @@ func on_depleted(prop_id: int) -> void:
 func _count_trees() -> void:
 	_trees = 0
 	_tree_props = 0
+	_bushes = 0
 	if _props != null:
+		_bushes = _props.of_kind(PropData.Kind.BUSH).size()
 		for prop in _props.of_kind(PropData.Kind.TREE):
 			if prop.kind == PropData.Kind.TREE:
 				_tree_props += 1

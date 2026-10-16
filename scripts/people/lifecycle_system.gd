@@ -239,7 +239,7 @@ func _grow(person: PersonData, now: int) -> void:
 			counts_now[other.occupation_id] = int(counts_now.get(other.occupation_id, 0)) + 1
 		var own := _settlement_of(person)
 		var chosen := occupations.choose(stage, person.traits, rng, counts_now,
-			own.specialty_trade() if own != null else &"", Config.trade.specialty_pull)
+			own.trade_pull() if own != null else &"", Config.trade.specialty_pull)
 		if chosen != &"":
 			person.occupation_id = chosen
 			var trade := occupations.get_def(chosen)
