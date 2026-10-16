@@ -1059,6 +1059,56 @@ func test_short_of_wood_they_go_further_and_plant_a_woodlot() -> void:
 	assert_eq(Planner._plant_work(cutter, ctx, ctx.rng), [])
 
 
+func test_the_elders_bring_firewood_and_two_cut_wood() -> void:
+	# (The owner's world, year 79, 2026-10-16: an old village had nobody to
+	# cut wood, and one woodcutter's wood went on the fire.)
+	_set_hour(10.0)
+	var own := session.settlement
+	var elder: PersonData = null
+	for person in own.members():
+		if ctx.stage_of(person) == PersonData.LifeStage.ADULT:
+			elder = person
+			break
+	elder.birth_tick = session.clock.tick - (Config.people.elder_from_years + 2) * Config.time.ticks_per_year()
+	elder.occupation_id = &"elder"
+	ctx.enter(elder)
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	own.jobs.refresh(own, session.clock.tick)
+	assert_true(own.jobs.wants(&"wood"))
+	for object in session.loose.all_objects():
+		if object.kind == LooseObject.Kind.LOG:
+			session.loose.remove(object.id)
+	var steps: Array = []
+	for attempt in 40:
+		steps = Planner._firewood_work(elder, ctx, ctx.rng)
+		if not steps.is_empty():
+			break
+	assert_eq(steps.size(), 4, "to a tree near home, an armful, to the stores (%s)" % [steps])
+	assert_eq([str(steps[1]["type"]), str(steps[3]["type"])], ["work", "store"])
+	var home: Vector2i = ctx.places.home_tile(elder)
+	assert_true(Vector2(Vector2i(steps[1]["at"]) - home).length() <= Planner.FIREWOOD_REACH, "near home")
+	# With wood enough, they keep to the fire.
+	own.stockpile.add(&"wood", 60)
+	own.jobs.refresh(own, session.clock.tick)
+	assert_false(own.jobs.wants(&"wood"))
+	for attempt in 20:
+		assert_eq(Planner._firewood_work(elder, ctx, ctx.rng), [])
+	# Away, the elders bring some in too.
+	own.stockpile.take(&"wood", own.stockpile.amount(&"wood"))
+	own.jobs.refresh(own, session.clock.tick)
+	for person in own.members():
+		if person != elder:
+			person.occupation_id = &"child" # (nobody else at work)
+	var away := OfflineSimulator.new(session)
+	away._work(own, 1.0, session.clock.tick)
+	assert_true(own.stockpile.amount(&"wood") > 0, "firewood in the time away")
+	# Two woodcutters wanted at the least, in a place of eight or more.
+	var woodcutter := session.occupations.get_def(&"woodcutter")
+	while own.member_count() < Settlement.WOOD_LEAST_FROM:
+		session.spawn_person(own.fire().tile + Vector2i(1, 1))
+	assert_true(int(own.demand_of(woodcutter, session.clock.tick)["wanted"]) >= Settlement.WOOD_LEAST)
+
+
 # --- over days ---------------------------------------------------------------------------------------
 
 func test_a_week_of_gathering() -> void:

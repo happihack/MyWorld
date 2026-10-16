@@ -35,6 +35,8 @@ const EAT_PER_DAY := 2.45
 ## other trades spend this share of the day gathering food (PG.4).
 const HUNGRY_DAYS := 1.0
 const HUNGRY_HANDS := 0.75
+## How much of a grown woodcutter's work an elder gets through.
+const ELDER_PACE := 0.5
 ## Saplings a woodcutter plants in a day, where more trees are wanted (about as
 ## on screen: Planner.PLANT_SHARE of their turns at work).
 const PLANTED_PER_DAY := 1.5
@@ -274,6 +276,10 @@ func _work(own: Settlement, share: float, now: int) -> void:
 				_craft(own, own_share)
 			&"recipe":
 				_recipes(own, def, own_share)
+			&"fire":
+				# The elders: firewood from near home, when wood is wanted (as on screen).
+				if own.jobs.wants(&"wood"):
+					_add_to(gathered, PropData.Kind.TREE, &"wood", RATES[&"tree"][&"wood"] * Planner.FIREWOOD_SHARE * ELDER_PACE * own_share)
 		# Better at it for the day's work (as they would be, a unit at a time: WorkStep).
 		var key := String(person.occupation_id)
 		person.skills[key] = minf(float(person.skills.get(key, 0.0)) + Config.trade.skill_per_unit * SKILL_UNITS_PER_DAY * share, 1.0)

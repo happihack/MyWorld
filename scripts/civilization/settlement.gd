@@ -708,6 +708,10 @@ func staff(now: int) -> void:
 const SPLIT_DAYS := 1
 ## One builder wanted at once for every this many people (two at least).
 const BUILDERS_PER := 25
+## Two woodcutters at the least once a settlement has this many people: the
+## fire takes about what one brings in (the owner's world, year 79).
+const WOOD_LEAST := 2
+const WOOD_LEAST_FROM := 8
 ## How much further than usual woodcutters go for trees, short of wood.
 const WOOD_FURTHER := 2.0
 ## A woodlot (the owner's world, year 79): with fewer standing trees than
@@ -817,7 +821,8 @@ func demand_of(def: OccupationDef, now: int) -> Dictionary:
 			# (The owner's world, year 62, 2026-10-15: every woodcutter had been
 			# taken up into the other trades, nobody brought wood, and nothing
 			# was built or mended for want of it. One for every WOOD_PER people.)
-			return {"wanted": maxi(1, floori(member_count() / float(WOOD_PER))), "have": _holding(def.id), "least": 2, "anywhere": false}
+			var least := WOOD_LEAST if member_count() >= WOOD_LEAST_FROM else 1
+			return {"wanted": maxi(least, floori(member_count() / float(WOOD_PER))), "have": _holding(def.id), "least": 2, "anywhere": false}
 	return {}
 
 

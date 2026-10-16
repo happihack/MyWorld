@@ -203,6 +203,11 @@ static func plan(activity: StringName, person: PersonData, ctx: AiContext) -> Ar
 				var picking := _fruit_work(person, ctx, rng)
 				if not picking.is_empty():
 					return picking
+			# The elders keep the fire: short of wood, they bring some in from near home.
+			if target == &"fire":
+				var firewood := _firewood_work(person, ctx, rng)
+				if not firewood.is_empty():
+					return firewood
 			var place := ctx.places.work_place(person, target, rng)
 			if place.is_empty():
 				return []
@@ -413,6 +418,38 @@ static func _clear_work(person: PersonData, ctx: AiContext) -> Array:
 		return []
 	return [WalkToStep.make(_beside(rubble.tile, person.position, ctx)), BuildStep.clear(rubble.id, rubble.tile),
 		WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
+## Firewood (the owner's world, year 79, 2026-10-16: an old village — nine
+## elders, ten grown, every one of them farming or fishing — had nobody to cut
+## wood, and its fire went short): with wood wanted, an elder now and then
+## cuts up a fallen trunk near home, or takes an armful from a tree within
+## FIREWOOD_REACH of it, and brings it to the stores ([]: not now).
+static func _firewood_work(person: PersonData, ctx: AiContext, rng: RandomNumberGenerator) -> Array:
+	if ctx.settlement == null or ctx.places == null or person.carrying_amount > 0 or not ctx.settlement.jobs.wants(&"wood"):
+		return []
+	if rng.randf() >= FIREWOOD_SHARE:
+		return []
+	var logs := _log_work(person, ctx, rng)
+	if not logs.is_empty():
+		return logs
+	var home: Variant = ctx.places.home_tile(person)
+	var tree := ctx.places.work_place(person, &"tree", rng)
+	if tree.is_empty() or (home != null and Vector2(Vector2i(tree["tile"]) - (home as Vector2i)).length() > FIREWOOD_REACH):
+		return []
+	var stores: Variant = ctx.places.storage_tile(&"wood")
+	if stores == null:
+		return []
+	var cut := WorkStep.make(&"tree", tree["id"], tree["tile"], FIREWOOD_MINUTES)
+	cut["gather"] = true
+	return [WalkToStep.make(tree["tile"], person.sub_tile_offset), cut, WalkToStep.make(stores, STORE_STAND), StoreStep.make()]
+
+
+## How often an elder's turn at the fire goes to firewood, wood being wanted;
+## how far from home they go for it; how long they work at it (game minutes).
+const FIREWOOD_SHARE := 0.5
+const FIREWOOD_REACH := 10.0
+const FIREWOOD_MINUTES := 50.0
 
 
 ## A woodlot (the owner's world, year 79, 2026-10-16: the trees near home were
