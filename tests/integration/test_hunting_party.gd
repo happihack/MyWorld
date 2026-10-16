@@ -300,3 +300,43 @@ func test_no_party_for_a_beast_out_of_reach() -> void:
 	assert_false(parties.can_get_to(own, bear[0].group), "across deep water: out of reach")
 	assert_eq(parties.form(bear[0].group, own.id, &"bear", session.clock.tick), {}, "nobody sets out for it")
 	assert_true(parties.parties().is_empty())
+
+
+func test_a_neighbour_hunts_what_the_first_cannot() -> void:
+	# (The owner's world, 2026-10-16: a bear seen first by one village's people,
+	# on the far bank from the other — which watched it for days and never went.)
+	_at_hour(9.0)
+	var fire := own.fire().tile
+	for dy in range(-28, 29, 2):
+		for dx in range(-28, 29, 2):
+			own.places().mark_visited(fire + Vector2i(dx, dy))
+	while own.member_count() < 14:
+		var a := session.spawn_person(fire + Vector2i(1, 1))
+		var b := session.spawn_person(fire + Vector2i(1, 1))
+		a.sex = PersonData.Sex.MALE
+		b.sex = PersonData.Sex.FEMALE
+		session.households.form_couple(a, b, session.clock.tick, session.ids.next_id())
+	var journey := session.migration.depart(own, session.clock.tick)
+	var second := session.migration.found(journey, session.clock.tick)
+	assert_not_null(second, "a second settlement")
+	for person in session.people.all_people():
+		person.health = 1.0
+		person.needs = PackedFloat32Array([0.95, 0.95, 0.95, 0.9, 0.6, 1.0])
+	# A bear near both; seen first by the first's people.
+	var between := (Vector2(fire) + Vector2(second.fire().tile)) * 0.5
+	var ground := session.pathfinder.standable_near(Vector2i(between.round()), 1, 4)
+	var bear: AnimalData = fauna.bring(&"bear", Vector2(ground[0]) + Vector2(0.5, 0.5), session.clock.tick)[0]
+	watch.seen(bear, own.members()[0], session.clock.tick)
+	assert_eq(int(watch.known(bear.group)["settlement"]), own.id)
+	var hunters := parties.hunters_of(bear.group, own.id)
+	assert_true(hunters.has(own) and hunters.has(second), "either might go")
+	# The first has nobody fit to go: the other goes.
+	for person in own.members():
+		person.health = 0.2
+	var formed := []
+	parties.formed.connect(func(party: Dictionary) -> void: formed.append(party))
+	parties._form_where_needed(session.clock.tick)
+	assert_eq(formed.size(), 1, "a party all the same")
+	assert_eq(int(formed[0]["settlement"]), second.id, "from the other settlement")
+	parties._form_where_needed(session.clock.tick)
+	assert_eq(formed.size(), 1, "one party for the beast")

@@ -208,3 +208,38 @@ func test_drowned_is_told_so() -> void:
 	var name := person.given_name
 	session.lifecycle.die(person, Lifecycle.CAUSE_DROWNED, session.clock.tick)
 	assert_eq(EventText.text(session.events.of_type(Chronicler.TYPE_DIED)[-1], session.people), "%s has drowned" % name)
+
+
+func test_a_beast_across_the_water_is_watched_not_run_from() -> void:
+	# (The owner's world, 2026-10-16: a bear on the far bank of the river, the
+	# bridge far off — whoever came near the bank shouted and ran home, all day.)
+	_at_hour(12.0)
+	var person := _out_there(14.0)
+	var at := person.world2d() + Vector2(6.0, 0.0)
+	var bear: AnimalData = fauna.bring(&"bear", at, session.clock.tick)[0]
+	# Deep water all round the bear: an island it cannot leave.
+	var deep := (Pathfinder.WADE_DEPTH + 2.0) * session.world.height_step
+	var ring: Array[Vector2i] = []
+	for dy in range(-3, 4):
+		for dx in range(-3, 4):
+			if maxi(absi(dx), absi(dy)) == 3:
+				var tile := bear.tile() + Vector2i(dx, dy)
+				session.world.set_water(tile, maxf(session.world.get_water(tile), deep))
+				ring.append(tile)
+	for tile in ring:
+		session.pathfinder.mark_dirty(tile)
+	session.pathfinder.refresh_dirty()
+	_look()
+	assert_true(watch.alarm(own.id), "seen all the same, and known about")
+	assert_ne(str(person.current_action.get("reason")), String(PredatorWatch.REASON_RUN), "but not run from")
+	assert_false(watch.could_reach(bear, person))
+	assert_null(watch._lone_one_near(bear), "nor can it go for them")
+	# The water gone: it could come at them — they run.
+	for tile in ring:
+		session.world.set_water(tile, 0.0)
+		session.pathfinder.mark_dirty(tile)
+	session.pathfinder.refresh_dirty()
+	session.clock.tick += PredatorWatch.CHECK_MINUTES
+	_look()
+	assert_true(watch.could_reach(bear, person))
+	assert_eq(str(person.current_action.get("reason")), String(PredatorWatch.REASON_RUN), "now they run")

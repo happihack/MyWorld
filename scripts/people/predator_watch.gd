@@ -75,6 +75,7 @@ func advance_to(now: int) -> void:
 	if fauna == null or people == null or now - _last < CHECK_MINUTES:
 		return
 	_last = now
+	_ways.clear()
 	var about := fauna.visitors()
 	_forget_gone(about)
 	if about.is_empty():
@@ -102,9 +103,42 @@ func advance_to(now: int) -> void:
 			return a.world2d().distance_squared_to(beast.position) < b.world2d().distance_squared_to(beast.position))
 		_seen(beast, seers[0], now)
 		for person in seers + near:
-			run_home(person, beast, now)
+			# (Not from one that could not come at them — across the river with the
+			# bridge far off: the owner's world, 2026-10-16, ran home from a bear on
+			# the far bank all day.)
+			if could_reach(beast, person):
+				run_home(person, beast, now)
 	_attacks(about, now, hour)
 	_keep_near(now)
+
+
+## Could `beast` come at `person` by a way about as short as it looks — not
+## across water with the nearest crossing far off? (Without a pathfinder: yes.)
+func could_reach(beast: AnimalData, person: PersonData) -> bool:
+	var pathfinder := behavior.ctx.pathfinder if behavior != null and behavior.ctx != null else null
+	if pathfinder == null or not pathfinder.is_bound():
+		return true
+	var way: Dictionary = _ways.get(beast.id, {})
+	if way.is_empty():
+		var area := Rect2i(beast.tile(), Vector2i.ONE).grow(WAY_AREA)
+		way = {"area": area, "steps": pathfinder.walk_steps(beast.tile(), area)}
+		_ways[beast.id] = way
+	var area: Rect2i = way["area"]
+	var at := person.position
+	if not area.has_point(at):
+		return false
+	var steps := int((way["steps"] as PackedInt32Array)[(at.y - area.position.y) * area.size.x + at.x - area.position.x])
+	var straight := Vector2(at - beast.tile()).length()
+	return steps >= 0 and float(steps) <= maxf(straight * DIRECT_FACTOR, straight + DIRECT_SLACK)
+
+
+## How far round a beast may have to go and still be feared (or come at
+## someone): this many times the straight way, or this many steps more; and
+## how far about it its ways are worked out (tiles; beyond: too far).
+const DIRECT_FACTOR := 1.5
+const DIRECT_SLACK := 4.0
+const WAY_AREA := 20
+var _ways: Dictionary = {} # beast id -> {"area", "steps"}, this check's
 
 
 ## Is a beast known to be about near this settlement (the alarm is up)?
@@ -209,6 +243,8 @@ func _lone_one_near(beast: AnimalData) -> PersonData:
 			continue
 		if str(person.current_action.get("reason", "")) == "hunting_party":
 			continue # (they are fought with: PR4)
+		if not could_reach(beast, person):
+			continue # (across the water from it)
 		var distance := person.world2d().distance_to(beast.position)
 		if distance >= best_distance:
 			continue

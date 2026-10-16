@@ -148,7 +148,34 @@ func _form_where_needed(now: int) -> void:
 		if busy or int(_formed_day.get(group, -1)) == today:
 			continue
 		_formed_day[group] = today
-		form(group, int(seen["settlement"]), StringName(seen["species"]), now)
+		# (Not only the settlement that saw it first: the nearest that can get to it
+		# and has the people — the owner's world, 2026-10-16, watched a bear on the
+		# far bank for days while its bridge stood free.)
+		for own in hunters_of(group, int(seen["settlement"])):
+			if not form(group, own.id, StringName(seen["species"]), now).is_empty():
+				break
+
+
+## The settlements that might hunt a beast (a pack): those whose fire is within
+## PredatorWatch.ALARM_REACH of it, the nearest first — and the one whose
+## people saw it first, wherever it is (`first_id`).
+func hunters_of(group: int, first_id: int) -> Array[Settlement]:
+	var out: Array[Settlement] = []
+	var beasts := fauna.of_group(group)
+	if settlements == null or beasts.is_empty():
+		return out
+	var at := beasts[0].position
+	var near: Array = [] # [distance, settlement]
+	for own in settlements.all():
+		if own.fire() == null:
+			continue
+		var distance := at.distance_to(own.fire().position2d())
+		if distance <= PredatorWatch.ALARM_REACH or own.id == first_id:
+			near.append([distance, own])
+	near.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0] or (a[0] == b[0] and (a[1] as Settlement).id < (b[1] as Settlement).id))
+	for entry: Array in near:
+		out.append(entry[1])
+	return out
 
 
 ## Gathers a party against a beast (a pack). Returns it ({} if too few are able).

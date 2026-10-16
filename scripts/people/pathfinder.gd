@@ -288,6 +288,38 @@ func walk_out(start: Vector2i, area: Rect2i) -> PackedByteArray:
 	return marks
 
 
+## How many steps (the four ways) it takes to walk from `start` to each tile of
+## `area`, row by row — -1 where it cannot be walked to within the area. (A
+## beast across a river is far, however near it looks: PredatorWatch.)
+func walk_steps(start: Vector2i, area: Rect2i) -> PackedInt32Array:
+	var steps := PackedInt32Array()
+	steps.resize(area.size.x * area.size.y)
+	steps.fill(-1)
+	if not area.has_point(start) or not can_stand(start):
+		return steps
+	var width := area.size.x
+	var queue := PackedInt32Array([(start.y - area.position.y) * width + (start.x - area.position.x)])
+	steps[queue[0]] = 0
+	var head := 0
+	while head < queue.size():
+		var i := queue[head]
+		head += 1
+		@warning_ignore("integer_division")
+		var at := Vector2i(area.position.x + i % width, area.position.y + i / width)
+		var links := _astar.get_point_connections(_id(at))
+		for step: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var next := at + step
+			if not area.has_point(next):
+				continue
+			var j := (next.y - area.position.y) * width + (next.x - area.position.x)
+			if steps[j] >= 0:
+				continue
+			if _bounds.has_point(next) and _solid[_id(next)] == 0 and links.has(_id(next)):
+				steps[j] = steps[i] + 1
+				queue.append(j)
+	return steps
+
+
 # --- ferries (FB6) --------------------------------------------------------------------------------
 
 ## The ways over water by boat, as pairs [a, b] of tiles that can be stood on:
