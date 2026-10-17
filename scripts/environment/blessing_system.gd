@@ -32,20 +32,24 @@ const SOIL := &"soil"
 ## Teeming waters: the water within reach filled with fish, and a run begun
 ## out of season (FishWaters).
 const WATERS := &"waters"
+## Healing: everyone ill, injured or sick from cold or hunger within reach
+## recovers over the day. Nobody made younger, nobody brought back.
+const HEALING := &"healing"
 ## In the order of the buttons.
-const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS]
+const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS, HEALING]
 
 ## How long each goes on (game minutes): the act itself, watched — what it
 ## leaves behind (silt, a run, a season's bounty) lasts by its own rules.
-const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60}
+const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60}
 ## How long of each is there to be watched (game minutes from its start):
 ## the world goes at its usual speed meanwhile, as for a disaster.
-const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60}
+const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60}
 ## How long the world rests after one before the Presence's next act — the
 ## same as after a disaster, and the same rest.
 const REST_MINUTES := DisasterSystem.REST_MINUTES
 ## What each is written down as (data/events/<id>.tres).
-const EVENTS := {LIGHTS: &"lights_in_sky", BOUNTY: &"bounty_of_bushes", SOIL: &"rich_soil", WATERS: &"teeming_waters"}
+const EVENTS := {LIGHTS: &"lights_in_sky", BOUNTY: &"bounty_of_bushes", SOIL: &"rich_soil", WATERS: &"teeming_waters",
+	HEALING: &"healing"}
 ## How far a blessing of the land or the water reaches (tiles) from where
 ## the camera looks — a little more than a quake.
 const REACH := 10.0
@@ -60,6 +64,8 @@ var _s: WorldSession
 var _rng := RandomNumberGenerator.new()
 ## The event it was written down as.
 var _event_id := 0
+## Who the last healing mended (person ids; for what tells of it).
+var healed: Array[int] = []
 
 
 func bind(session: WorldSession) -> void:
@@ -104,6 +110,7 @@ func start(which: StringName, where: Vector2, now: int) -> bool:
 		var event := _s.events.record(EVENTS[which], {"position": at})
 		_event_id = event.id if event != null else 0
 	var day := Config.time.day_index(now)
+	healed = []
 	match which:
 		BOUNTY:
 			_fill_bushes()
@@ -115,6 +122,8 @@ func start(which: StringName, where: Vector2, now: int) -> bool:
 		WATERS:
 			if _s.fauna != null and _s.fauna.waters != null:
 				_s.fauna.waters.fill_near(WorldCoords.world2d_to_tile(at), REACH, day)
+		HEALING:
+			healed = _heal_near(now)
 	Log.info(Log.Category.WORLD, "A blessing is given", {"kind": which, "at": at, "until": until})
 	started.emit(which, at)
 	return true
@@ -156,6 +165,51 @@ func _fill_bushes() -> void:
 	for prop in _s.props.of_kind(PropData.Kind.BUSH):
 		if prop.kind == PropData.Kind.BUSH and prop.position2d().distance_to(at) <= REACH:
 			_s.nodes.fill(prop)
+
+
+## Everyone within reach who is hurt or ill is mended: injuries give back
+## the health they took and are gone; an illness has passed, and the health
+## it took comes back over the day as it does after any illness; the weak
+## with hunger stand up (still hungry); the cold-sick are warmed through.
+## Nobody made younger, nobody brought back. Returns who was mended.
+func _heal_near(now: int) -> Array[int]:
+	var mended: Array[int] = []
+	if _s.people == null:
+		return mended
+	var ctx: AiContext = _s.behavior.ctx if _s.behavior != null else null
+	for person in _s.people.all_people():
+		if person.world2d().distance_to(at) > REACH:
+			continue
+		var was_mended := false
+		for injury: Variant in person.injuries:
+			if typeof(injury) == TYPE_DICTIONARY:
+				person.health = minf(person.health + float((injury as Dictionary).get("took", 0.0)), 1.0)
+				was_mended = true
+		person.injuries.clear()
+		var illness := Health.illness_of(person)
+		if not illness.is_empty() and not bool(illness.get("fed", false)):
+			illness["fed"] = true
+			if ctx != null:
+				ctx.ailments.append([person.id, Health.ILLNESS, false])
+			was_mended = true
+		var hunger := Hardship.condition_of(person, Hardship.HUNGER)
+		if not hunger.is_empty() and bool(hunger.get("sick", false)) and not bool(hunger.get("fed", false)):
+			hunger["sick"] = false
+			hunger["since"] = now
+			if ctx != null:
+				ctx.ailments.append([person.id, Hardship.HUNGER, false])
+			was_mended = true
+		var cold := Hardship.condition_of(person, Exposure.COLD)
+		if not cold.is_empty():
+			if bool(cold.get("sick", false)) and not bool(cold.get("fed", false)):
+				person.health = maxf(person.health, float(cold.get("well", person.health)))
+				if ctx != null:
+					ctx.ailments.append([person.id, Exposure.COLD, false])
+				was_mended = true
+			person.conditions.erase(cold)
+		if was_mended:
+			mended.append(person.id)
+	return mended
 
 
 ## The land (not water) within `reach` of where it was given.

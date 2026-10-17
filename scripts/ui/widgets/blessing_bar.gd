@@ -63,5 +63,14 @@ static func draw_blessing_glyph(canvas: CanvasItem, kind: StringName, center: Ve
 				center + Vector2(1.3, 0.3) * u, center + Vector2(0.8, -0.15) * u]), ink, width * 0.8, true)
 			canvas.draw_circle(center + Vector2(-0.4, -0.25) * u, u * 0.09, ink)
 			canvas.draw_arc(center + Vector2(0.0, 1.0) * u, u * 0.9, PI * 1.15, PI * 1.85, 10, GOLD if lit else ink, width * 0.7, true)
+		BlessingSystem.HEALING:
+			# An open hand laid on: a palm and four fingers, a glow in the palm.
+			canvas.draw_arc(center + Vector2(0.0, 0.55) * u, u * 0.7, PI * 0.05, PI * 0.95, 12, ink, width, true)
+			for i in 4:
+				var x := (i - 1.5) * 0.42
+				var top := -1.25 if i == 1 or i == 2 else -0.95
+				canvas.draw_line(center + Vector2(x, 0.55) * u, center + Vector2(x, top) * u, ink, width, true)
+			canvas.draw_line(center + Vector2(-0.7, 0.55) * u, center + Vector2(-1.2, -0.2) * u, ink, width, true)
+			canvas.draw_circle(center + Vector2(0.0, 0.5) * u, u * 0.22, GOLD if lit else ink)
 		_:
 			canvas.draw_arc(center, u * 0.8, 0.0, TAU, 24, ink, width, true)

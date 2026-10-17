@@ -51,7 +51,7 @@ func _pass(minutes: int) -> void:
 
 
 func test_one_act_a_day_whichever_hand() -> void:
-	assert_eq(BlessingSystem.KINDS.size(), 4, "the first cut so far: the lights, the land, the water")
+	assert_eq(BlessingSystem.KINDS.size(), 5, "the first cut: the lights, the land, the water, the body")
 	assert_true(bool(Settings.get_value(&"gameplay/gentle_hands")), "gentle hands are on")
 	var iv := session.interactions.bless(BlessingSystem.LIGHTS, _fire())
 	assert_true(iv.applied, "asked for and confirmed: not held back by gentle hands (%s)" % iv.rejected)
@@ -249,3 +249,62 @@ func test_teeming_waters_fill_the_river_and_bring_a_run() -> void:
 	clock.tick += (FishWaters.RUN_DAYS + 1) * Config.time.MINUTES_PER_DAY
 	waters.advance_day(clock.tick, RandomNumberGenerator.new())
 	assert_eq(waters.run_cell(), Vector2i.MAX, "over after its days")
+
+
+# --- healing (step 3) -----------------------------------------------------------------------------
+
+func test_healing_mends_the_ill_and_the_hurt_within_reach() -> void:
+	var fire := _fire()
+	var people := session.people.all_people()
+	assert_true(people.size() >= 4)
+	var hurt: PersonData = people[0]
+	var ill: PersonData = people[1]
+	var hungry: PersonData = people[2]
+	var cold: PersonData = people[3]
+	var well: PersonData = people[4] if people.size() > 4 else null
+	for person: PersonData in [hurt, ill, hungry, cold]:
+		person.position = WorldCoords.world2d_to_tile(fire + Vector2(1.0, 0.5))
+	var far: PersonData = null
+	for person in people:
+		if not [hurt, ill, hungry, cold, well].has(person):
+			far = person
+			far.position = WorldCoords.world2d_to_tile(fire + Vector2(BlessingSystem.REACH + 6.0, 0.0))
+			break
+	assert_not_null(far)
+	var now := clock.tick
+	Health.injure(hurt, Health.FALL, 0.6, now)
+	var hurt_health := hurt.health
+	assert_true(hurt_health < 1.0 and not hurt.injuries.is_empty())
+	assert_true(Health.fall_ill(ill, &"fever", now))
+	assert_true(Health.is_ill(ill))
+	hungry.conditions.append({"id": String(Hardship.HUNGER), "since": now - 3000, "sick": true, "fed": false})
+	assert_true(Hardship.is_sick(hungry))
+	cold.health = 0.5
+	cold.conditions.append({"id": String(Exposure.COLD), "exposed": 400.0, "sick": true, "well": 0.9, "fed": false})
+	Health.injure(far, Health.CUT, 0.5, now)
+	var far_health := far.health
+	var births: Array = []
+	for person in people:
+		births.append(person.birth_tick)
+	var living := people.size()
+	assert_true(session.interactions.bless(BlessingSystem.HEALING, fire).applied)
+	assert_true(hurt.injuries.is_empty(), "the injury is gone")
+	assert_true(hurt.health > hurt_health, "and the health it took is back")
+	assert_false(Health.is_ill(ill), "the illness has passed")
+	assert_false(Health.illness_of(ill).is_empty(), "health comes back over the day, as after any illness")
+	assert_false(Hardship.is_sick(hungry), "the weak with hunger stand up")
+	assert_false(Hardship.condition_of(hungry).is_empty(), "still hungry")
+	assert_true(Hardship.condition_of(cold, Exposure.COLD).is_empty(), "warmed through")
+	assert_near(cold.health, 0.9, 0.001)
+	assert_eq(far.injuries.size(), 1, "beyond reach: as they were")
+	assert_eq(far.health, far_health)
+	assert_eq(blessings.healed.size(), 4, "four mended: %s" % str(blessings.healed))
+	assert_true(blessings.healed.has(hurt.id) and blessings.healed.has(cold.id))
+	assert_false(blessings.healed.has(far.id))
+	var ailing: Array = session.behavior.ctx.ailments
+	assert_true(ailing.any(func(entry: Array) -> bool: return entry[0] == ill.id and entry[1] == Health.ILLNESS and not entry[2]),
+		"told of as a recovery")
+	assert_eq(session.people.size(), living, "nobody brought back")
+	for n in people.size():
+		assert_eq(people[n].birth_tick, births[n], "nobody made younger")
+	assert_eq(session.events.of_type(&"healing").size(), 1)
