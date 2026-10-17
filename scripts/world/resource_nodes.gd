@@ -250,6 +250,20 @@ func fill(prop: PropData) -> void:
 			_props.touch(prop.id)
 
 
+## A felled tree or a sapling grown up at once, as it was made (a blessing:
+## BlessingSystem.FOREST).
+func grow_tree(prop: PropData) -> void:
+	if prop == null or prop.kind != PropData.Kind.TREE or (not prop.felled and prop.stock < 0):
+		return
+	prop.felled = false
+	prop.stock = -1
+	prop.stock_tick = 0
+	_tracked.erase(prop.id)
+	if _props != null:
+		_props.changed(prop.id)
+	regrown.emit(prop.id)
+
+
 ## A bush newly seeded: nothing on it yet; it bears as a picked one grows back.
 func sprout(prop: PropData, now: int) -> void:
 	if prop == null or prop.kind != PropData.Kind.BUSH:

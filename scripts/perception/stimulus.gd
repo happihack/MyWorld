@@ -56,6 +56,9 @@ const HEALED := &"healed"
 ## A herd come down in numbers nobody had seen (the drought broken is the
 ## weather's own: the rain's return tells of it).
 const HERDS_CAME := &"herds_came"
+## Water risen out of dry ground; a wood grown up overnight.
+const SPRING_ROSE := &"spring_rose"
+const FOREST_GREW := &"forest_grew"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
@@ -64,7 +67,7 @@ const TOLD := &"told"
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
 	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN,
-	LIGHTS_IN_SKY, BOUNTY_OF_BUSHES, RICH_SOIL, TEEMING_WATERS, HEALED, HERDS_CAME]
+	LIGHTS_IN_SKY, BOUNTY_OF_BUSHES, RICH_SOIL, TEEMING_WATERS, HEALED, HERDS_CAME, SPRING_ROSE, FOREST_GREW]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -202,6 +205,10 @@ static func type_for(iv: Intervention) -> StringName:
 					return HEALED
 				BlessingSystem.HERDS:
 					return HERDS_CAME
+				BlessingSystem.SPRING:
+					return SPRING_ROSE
+				BlessingSystem.FOREST:
+					return FOREST_GREW
 				# (The drought broken: the weather's own; the rain's return tells of it.)
 	return &""
 

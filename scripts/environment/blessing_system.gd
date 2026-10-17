@@ -41,16 +41,24 @@ const HEALING := &"healing"
 const RAIN := &"rain"
 ## The herds return: a herd of deer comes to the land within reach.
 const HERDS := &"herds"
+## The lasting ones (the workshop: later and rarer; the owner, 2026-10-17,
+## "in order"). A spring: water rises on the tile under the camera's eye and
+## does not stop — a pool that feeds a stream downhill, kept by the blessing
+## for good (the only blessing that reshapes the world), and water to drink.
+const SPRING := &"spring"
+## A forest: every felled tree and sapling within reach grows up, and
+## saplings sprout on the open grass there. For good.
+const FOREST := &"forest"
 ## In the order of the buttons.
-const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS, HEALING, RAIN, HERDS]
+const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS, HEALING, RAIN, HERDS, SPRING, FOREST]
 
 ## How long each goes on (game minutes): the act itself, watched — what it
-## leaves behind (silt, a run, a season's bounty, a day's rain) lasts by its
-## own rules.
-const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60}
+## leaves behind (silt, a run, a season's bounty, a day's rain, a spring)
+## lasts by its own rules.
+const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60, SPRING: 60, FOREST: 60}
 ## How long of each is there to be watched (game minutes from its start):
 ## the world goes at its usual speed meanwhile, as for a disaster.
-const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60}
+const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60, SPRING: 60, FOREST: 60}
 ## How long the rain of the drought broken goes on.
 const RAIN_MINUTES := 1440
 ## How long the world rests after one before the Presence's next act — the
@@ -58,9 +66,16 @@ const RAIN_MINUTES := 1440
 const REST_MINUTES := DisasterSystem.REST_MINUTES
 ## What each is written down as (data/events/<id>.tres).
 const EVENTS := {LIGHTS: &"lights_in_sky", BOUNTY: &"bounty_of_bushes", SOIL: &"rich_soil", WATERS: &"teeming_waters",
-	HEALING: &"healing", RAIN: &"drought_broken", HERDS: &"herds_returned"}
+	HEALING: &"healing", RAIN: &"drought_broken", HERDS: &"herds_returned", SPRING: &"spring_rose", FOREST: &"forest_grew"}
 ## The herds that return.
 const HERD_SPECIES := &"deer"
+## A spring: what rises an hour (depth) until the pool stands this deep; how
+## many springs the world may hold.
+const SPRING_FLOW := 0.08
+const SPRING_DEPTH := 0.6
+const SPRINGS_MOST := 3
+## A forest: how many saplings are planted on the open grass within reach.
+const FOREST_SAPLINGS := 10
 ## How far a blessing of the land or the water reaches (tiles) from where
 ## the camera looks — a little more than a quake.
 const REACH := 10.0
@@ -77,6 +92,9 @@ var _rng := RandomNumberGenerator.new()
 var _event_id := 0
 ## Who the last healing mended (person ids; for what tells of it).
 var healed: Array[int] = []
+## The springs the Presence opened (tiles), for good: each flows every hour.
+var springs: Array[Vector2i] = []
+var _flowed_hour := -1
 
 
 func bind(session: WorldSession) -> void:
@@ -147,15 +165,27 @@ func start(which: StringName, where: Vector2, now: int) -> bool:
 		HERDS:
 			if _s.fauna != null:
 				_s.fauna.bring_herd(HERD_SPECIES, at, now, REACH)
+		SPRING:
+			_open_spring(now)
+		FOREST:
+			_grow_forest(now)
 	Log.info(Log.Category.WORLD, "A blessing is given", {"kind": which, "at": at, "until": until})
 	started.emit(which, at)
 	return true
 
 
-## Brings it up to the clock: when its time is up it is over, and the world
-## rests — the one rest, kept by the disasters.
+## Brings it up to the clock: the springs flow (every hour, for good); when
+## the act's time is up it is over, and the world rests — the one rest,
+## kept by the disasters.
 func advance_to(now: int) -> void:
-	if kind == &"" or _s == null:
+	if _s == null:
+		return
+	@warning_ignore("integer_division")
+	var hour := now / 60
+	if hour != _flowed_hour and not springs.is_empty():
+		_flowed_hour = hour
+		_flow()
+	if kind == &"":
 		return
 	if now >= until:
 		var was := kind
@@ -235,6 +265,43 @@ func _heal_near(now: int) -> Array[int]:
 	return mended
 
 
+## A spring on the tile under the camera's eye (dry land in the box; at most
+## SPRINGS_MOST in the world): it rises now, and every hour after.
+func _open_spring(now: int) -> void:
+	var tile := WorldCoords.world2d_to_tile(at)
+	if _s.world == null or not _s.world.is_in_bounds(tile) or springs.has(tile) or springs.size() >= SPRINGS_MOST:
+		return
+	if _s.world.get_water(tile) > 0.0:
+		return # (water already: nothing to open)
+	springs.append(tile)
+	@warning_ignore("integer_division")
+	_flowed_hour = now / 60
+	_flow()
+
+
+## Every spring gives its hour's water, until its pool stands deep enough;
+## what overflows runs downhill as water does (WaterSim).
+func _flow() -> void:
+	if _s.water == null or _s.world == null:
+		return
+	for tile in springs:
+		if _s.world.is_in_bounds(tile) and _s.world.get_water(tile) < SPRING_DEPTH:
+			_s.water.add_water(tile, SPRING_FLOW)
+
+
+## Every felled tree and sapling within reach grows up, and saplings are
+## planted on the open grass there (VegetationSystem.plant_near).
+func _grow_forest(now: int) -> void:
+	if _s.nodes != null and _s.props != null:
+		for prop in _s.props.of_kind(PropData.Kind.TREE):
+			if prop.kind == PropData.Kind.TREE and prop.position2d().distance_to(at) <= REACH:
+				_s.nodes.grow_tree(prop)
+	if _s.vegetation != null:
+		var middle := WorldCoords.world2d_to_tile(at)
+		for n in FOREST_SAPLINGS:
+			_s.vegetation.plant_near(middle, 1.5, REACH, now)
+
+
 ## The land (not water) within `reach` of where it was given.
 func _land_within(reach: float) -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
@@ -259,14 +326,27 @@ func _inside(where: Vector2) -> Vector2:
 
 # --- saved with the world ----------------------------------------------------------------------
 
-## Only while one goes on: a world without a blessing saves no more.
+## Only while one goes on, or while the world has springs: a world without
+## saves no more.
 func to_dict() -> Dictionary:
-	if kind == &"":
-		return {}
-	return {"kind": String(kind), "at": [at.x, at.y], "began": began, "until": until, "event": _event_id}
+	var out := {}
+	if kind != &"":
+		out = {"kind": String(kind), "at": [at.x, at.y], "began": began, "until": until, "event": _event_id}
+	if not springs.is_empty():
+		var tiles: Array = []
+		for tile in springs:
+			tiles.append([tile.x, tile.y])
+		out["springs"] = tiles
+	return out
 
 
 func from_dict(data: Dictionary) -> void:
+	springs.clear()
+	_flowed_hour = -1
+	if typeof(data.get("springs")) == TYPE_ARRAY:
+		for pair: Variant in data["springs"]:
+			if typeof(pair) == TYPE_ARRAY and (pair as Array).size() == 2:
+				springs.append(Vector2i(int(pair[0]), int(pair[1])))
 	kind = StringName(str(data.get("kind", "")))
 	if not KINDS.has(kind):
 		kind = &""

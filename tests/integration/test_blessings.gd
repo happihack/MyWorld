@@ -51,7 +51,7 @@ func _pass(minutes: int) -> void:
 
 
 func test_one_act_a_day_whichever_hand() -> void:
-	assert_eq(BlessingSystem.KINDS.size(), 7, "the first cut, and the mirror completed: the rain and the herds")
+	assert_eq(BlessingSystem.KINDS.size(), 9, "the first cut, the mirror completed, and the lasting two")
 	assert_true(bool(Settings.get_value(&"gameplay/gentle_hands")), "gentle hands are on")
 	var iv := session.interactions.bless(BlessingSystem.LIGHTS, _fire())
 	assert_true(iv.applied, "asked for and confirmed: not held back by gentle hands (%s)" % iv.rejected)
@@ -572,3 +572,95 @@ func test_the_chosen_people_are_envied_by_their_neighbours() -> void:
 	assert_true(conflicts.tension(own.id, other.id) < high + ConflictSystem.ENVY * 0.5, "no envy added")
 	assert_eq(int(conflicts.pair(own.id, other.id)["envy"]), 0, "may be told again another year")
 	assert_true(before >= 0.0)
+
+
+# --- the lasting blessings (step 9) -------------------------------------------------------------------
+
+func _dry_land_near(where: Vector2) -> Vector2:
+	var middle := WorldCoords.world2d_to_tile(where)
+	for r in range(2, 9):
+		for dy in range(-r, r + 1):
+			for dx in range(-r, r + 1):
+				var tile := middle + Vector2i(dx, dy)
+				if session.world.is_in_bounds(tile) and session.world.get_water(tile) <= 0.0 and not session.props.has_prop_at(tile):
+					var dry := true
+					for y in range(-1, 2):
+						for x in range(-1, 2):
+							if session.world.get_water(tile + Vector2i(x, y)) > 0.0:
+								dry = false
+					if dry:
+						return Vector2(tile) + Vector2(0.5, 0.5)
+	return where
+
+
+func test_a_spring_rises_and_does_not_stop() -> void:
+	var where := _dry_land_near(_fire())
+	var tile := WorldCoords.world2d_to_tile(where)
+	assert_eq(session.world.get_water(tile), 0.0, "dry ground")
+	stimuli.clear()
+	assert_true(session.interactions.bless(BlessingSystem.SPRING, where).applied)
+	assert_eq(blessings.springs, [tile] as Array[Vector2i])
+	assert_true(session.world.get_water(tile) > 0.0, "water has risen")
+	assert_true(stimuli.any(func(s: Stimulus) -> bool: return s.type == Stimulus.SPRING_ROSE))
+	assert_eq(session.events.of_type(&"spring_rose").size(), 1)
+	# Hour after hour it rises, to its depth and no deeper.
+	for hour in 12:
+		_pass(60)
+	assert_true(session.world.get_water(tile) >= BlessingSystem.SPRING_DEPTH - BlessingSystem.SPRING_FLOW, "a pool (%.2f)" % session.world.get_water(tile))
+	assert_true(session.world.get_water(tile) <= BlessingSystem.SPRING_DEPTH + BlessingSystem.SPRING_FLOW, "and no deeper")
+	# For good: saved though no blessing goes on, and flowing again when loaded.
+	_pass(BlessingSystem.REST_MINUTES)
+	assert_false(blessings.is_active())
+	assert_true(blessings.to_dict().has("springs"))
+	assert_true(SaveManager.save_world(session, &"test"))
+	var loaded := SaveManager.load_world(session.world_id)
+	assert_true(loaded.ok, loaded.error)
+	var again: WorldSession = SessionScript.new()
+	add_child(again)
+	assert_true(again.load_from(loaded.world))
+	again.set_process(false)
+	assert_eq(again.blessings.springs, [tile] as Array[Vector2i], "the spring kept")
+	again.world.set_water(tile, 0.0)
+	again.clock.tick += 60
+	again.blessings.advance_to(again.clock.tick)
+	assert_true(again.world.get_water(tile) > 0.0, "and it flows")
+	again.queue_free()
+	# Three at most; not on water.
+	disasters.rest_until = 0
+	assert_true(session.interactions.bless(BlessingSystem.SPRING, where + Vector2(2.0, 0.0)).applied)
+	disasters.rest_until = 0
+	blessings.kind = &""
+	assert_true(session.interactions.bless(BlessingSystem.SPRING, where + Vector2(-2.0, 0.0)).applied)
+	disasters.rest_until = 0
+	blessings.kind = &""
+	assert_true(session.interactions.bless(BlessingSystem.SPRING, where + Vector2(0.0, 2.0)).applied, "given, but")
+	assert_eq(blessings.springs.size(), BlessingSystem.SPRINGS_MOST, "no fourth")
+	var none: Array[StringName] = []
+	assert_true(Dependence.digs_wells(none))
+	assert_false(Dependence.digs_wells([&"spring_rose"] as Array[StringName]), "water from the ground: no well")
+
+
+func test_a_forest_grows_up_within_reach() -> void:
+	var fire := _fire()
+	var felled := 0
+	var saplings_before := session.vegetation.planted
+	var grown_before := 0
+	for prop in session.props.of_kind(PropData.Kind.TREE):
+		if prop.kind != PropData.Kind.TREE or prop.position2d().distance_to(fire) > BlessingSystem.REACH:
+			continue
+		if felled < 2 and not prop.felled:
+			session.nodes.take(prop.id, 1000, clock.tick) # (felled: a stump)
+			felled += 1
+		if not prop.felled:
+			grown_before += 1
+	assert_eq(felled, 2, "two trees felled near the fire")
+	stimuli.clear()
+	assert_true(session.interactions.bless(BlessingSystem.FOREST, fire).applied)
+	var grown_after := 0
+	for prop in session.props.of_kind(PropData.Kind.TREE):
+		if prop.kind == PropData.Kind.TREE and prop.position2d().distance_to(fire) <= BlessingSystem.REACH and not prop.felled:
+			grown_after += 1
+	assert_true(grown_after >= grown_before + 2, "the felled grown up again: %d → %d" % [grown_before, grown_after])
+	assert_true(session.vegetation.planted > saplings_before, "saplings on the open grass: %d" % (session.vegetation.planted - saplings_before))
+	assert_true(stimuli.any(func(s: Stimulus) -> bool: return s.type == Stimulus.FOREST_GREW))
+	assert_eq(session.events.of_type(&"forest_grew").size(), 1)

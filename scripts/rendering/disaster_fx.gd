@@ -79,14 +79,17 @@ func _on_blessing_started(kind: StringName, at: Vector2) -> void:
 	match kind:
 		BlessingSystem.LIGHTS:
 			AudioManager.play_at(&"chime", ground, -4.0, 0.8, false)
-		BlessingSystem.BOUNTY, BlessingSystem.SOIL, BlessingSystem.WATERS, BlessingSystem.HEALING:
+		BlessingSystem.RAIN:
+			AudioManager.play_at(&"rain", ground, -8.0, 1.0, false)
+			Haptics.pulse(Haptics.Strength.LIGHT)
+		_:
 			if _effects != null:
 				_effects.ring(ground, BlessingSystem.REACH, 2.2, GOLD)
 				_effects.burst(WorldEffects.Burst.MOTES, ground + Vector3(0.0, 0.3, 0.0), GOLD)
-				if kind == BlessingSystem.BOUNTY:
+				if kind == BlessingSystem.BOUNTY or kind == BlessingSystem.FOREST:
 					_effects.burst(WorldEffects.Burst.LEAVES, ground + Vector3(0.0, 0.6, 0.0), BERRY_LEAF)
 			AudioManager.play_at(&"chime", ground, -2.0, 1.1 if kind == BlessingSystem.HEALING else 0.9, false)
-			if kind == BlessingSystem.WATERS:
+			if kind == BlessingSystem.WATERS or kind == BlessingSystem.SPRING:
 				AudioManager.play_at(&"plip", ground, 0.0, 0.9, true)
 			Haptics.pulse(Haptics.Strength.LIGHT)
 

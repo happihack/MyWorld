@@ -9,9 +9,33 @@ const GOLD := Color(0.93, 0.78, 0.40)
 const BERRY := Color(0.78, 0.18, 0.28)
 
 
+## At most this many to a row: more kinds than the disasters, so the bar
+## would run off the left of a phone held upright in one row (2026-10-17).
+const PER_ROW := 5
+
+
 func _init() -> void:
 	super._init()
 	name = "BlessingBar"
+	# The buttons into rows of PER_ROW, the rows stacked (the bar itself stays
+	# the one node UIRoot slides out).
+	var buttons: Array[Node] = get_children()
+	var column := VBoxContainer.new()
+	column.name = "Rows"
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override(&"separation", 10)
+	var row: HBoxContainer = null
+	for n in buttons.size():
+		if n % PER_ROW == 0:
+			row = HBoxContainer.new()
+			row.name = "Row%d" % (n / PER_ROW + 1)
+			row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.alignment = BoxContainer.ALIGNMENT_END
+			row.add_theme_constant_override(&"separation", 10)
+			column.add_child(row)
+		remove_child(buttons[n])
+		row.add_child(buttons[n])
+	add_child(column)
 
 
 func kinds() -> Array[StringName]:
@@ -87,5 +111,20 @@ static func draw_blessing_glyph(canvas: CanvasItem, kind: StringName, center: Ve
 				canvas.draw_line(center + Vector2(side * 0.45, 0.25) * u, center + Vector2(side * 1.2, -0.2) * u, ink, width * 0.8, true)
 				canvas.draw_line(center + Vector2(side * 0.62, -0.5) * u, center + Vector2(side * 1.15, -1.0) * u, ink, width * 0.8, true)
 			canvas.draw_arc(center + Vector2(0.0, 1.25) * u, u * 0.3, PI * 1.1, PI * 1.9, 8, GOLD if lit else ink, width * 0.8, true)
+		BlessingSystem.SPRING:
+			# A pool, and water rising from its middle in a plume.
+			canvas.draw_arc(center + Vector2(0.0, 0.8) * u, u * 1.1, PI * 0.05, PI * 0.95, 14, ink, width, true)
+			canvas.draw_line(center + Vector2(-1.15, 0.75) * u, center + Vector2(1.15, 0.75) * u, ink, width, true)
+			canvas.draw_line(center + Vector2(0.0, 0.7) * u, center + Vector2(0.0, -0.9) * u, GOLD if lit else ink, width, true)
+			canvas.draw_arc(center + Vector2(-0.45, -0.6) * u, u * 0.45, PI * 1.5, PI * 2.0, 6, GOLD if lit else ink, width * 0.8, true)
+			canvas.draw_arc(center + Vector2(0.45, -0.6) * u, u * 0.45, PI * 1.0, PI * 1.5, 6, GOLD if lit else ink, width * 0.8, true)
+		BlessingSystem.FOREST:
+			# Three trees: a tall one between two short.
+			for tree: Array in [[-0.85, 0.5], [0.0, 1.0], [0.85, 0.5]]:
+				var x: float = tree[0]
+				var h: float = tree[1]
+				canvas.draw_line(center + Vector2(x, 1.2) * u, center + Vector2(x, 0.3 * h) * u, ink, width, true)
+				canvas.draw_polyline(PackedVector2Array([center + Vector2(x - 0.45, 0.35 * h) * u, center + Vector2(x, -1.2 * h) * u,
+					center + Vector2(x + 0.45, 0.35 * h) * u, center + Vector2(x - 0.45, 0.35 * h) * u]), GOLD if lit and h == 1.0 else ink, width * 0.8, true)
 		_:
 			canvas.draw_arc(center, u * 0.8, 0.0, TAU, 24, ink, width, true)

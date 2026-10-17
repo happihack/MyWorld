@@ -84,6 +84,8 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"teeming_waters": [0.6, 0.6, 16.0, true, true, false],
 	&"healed": [0.9, 0.9, 0.0, true, false, false],
 	&"herds_came": [0.5, 0.5, 16.0, true, true, false],
+	&"spring_rose": [0.7, 0.7, 16.0, true, true, false],
+	&"forest_grew": [0.7, 0.7, 16.0, true, true, false],
 }
 
 @export_group("Perception")

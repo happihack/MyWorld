@@ -869,9 +869,12 @@ func to_dict() -> Dictionary:
 	if is_active:
 		simulation.settle()
 	var saved := _state_dict()
-	# (A blessing only while one goes on: a world without saves no more.)
-	if blessings != null and blessings.is_active():
-		saved["world_state"]["blessings"] = blessings.to_dict()
+	# (A blessing only while one goes on, or while the world has springs: a
+	# world without saves no more.)
+	if blessings != null:
+		var kept := blessings.to_dict()
+		if not kept.is_empty():
+			saved["world_state"]["blessings"] = kept
 	return saved
 
 

@@ -424,7 +424,7 @@ A **lightweight cellular heightfield simulation**, not fluid physics.
 | Storm | Weather | Rain+Wind tools combined | Damage, injuries, fear |
 | Meteor | Very rare natural event (sky object) | Major intervention (late) | Crater, impossible material deposit, massive myth |
 
-**Blessings — the other hand (the owner and Josh, 2026-10-16).** What the player can give, as the disasters are what they can bring down: a green button under the Disaster button, its blessings sliding out the same way, each offered on a card and given where the camera looks. **The Presence acts once a day, whichever way**: one rest for both hands. Every blessing **lasts a while and fades** (a season at the most), so that the people can make a story of it; the lasting ones (a spring, a forest) are later and rarer. And the gifts are **not free** (§24): a settlement blessed again and again comes to expect it — fewer fields after a bounty, no nets after a full river, and hunger when the gifts stop. And **the chosen people**: a settlement favoured twice in a year beside a neighbour not favoured at all feeds envy into the tension between them each day (ConflictSystem), told once — "Imoul looks with envy on Miska, whom the Presence favours" — until the favour ends.
+**Blessings — the other hand (the owner and Josh, 2026-10-16).** What the player can give, as the disasters are what they can bring down: a green button under the Disaster button, its blessings sliding out the same way, each offered on a card and given where the camera looks. **The Presence acts once a day, whichever way**: one rest for both hands. Every blessing **lasts a while and fades** (a season at the most), so that the people can make a story of it — all but two: the spring and the forest reshape the world for good (the world holds three springs at most). And the gifts are **not free** (§24): a settlement blessed again and again comes to expect it — fewer fields after a bounty, no nets after a full river, and hunger when the gifts stop. And **the chosen people**: a settlement favoured twice in a year beside a neighbour not favoured at all feeds envy into the tension between them each day (ConflictSystem), told once — "Imoul looks with envy on Miska, whom the Presence favours" — until the favour ends.
 
 | Blessing | What it does | Lasts | What the people make of it |
 |---|---|---|---|
@@ -435,6 +435,8 @@ A **lightweight cellular heightfield simulation**, not fluid physics.
 | Healing | Everyone ill or hurt within reach recovers over the day; nobody made younger, nobody brought back | A day | "the Healer"; the laying on of hands |
 | The drought broken | A day of soft rain over the world; a drought ended; the river back to its bed, no higher. The weather's own: the rain's return tells of it | A day | (the rain dance, as any rain); a village that expects it digs no well |
 | The herds return | A herd of deer comes to the land within reach and stays | Until hunted | "the Bringer of the Herds"; the welcoming of the deer |
+| A spring | Water rises on the tile under the eye and never stops: a pool that feeds a stream downhill, water to drink. Three at most in a world | For good | "the Opener of Springs"; the blessing of the spring; a village that expects it digs no well |
+| A forest | Every felled tree and sapling within reach grows up, saplings sprout on the open grass | For good | "the Planter of Forests"; the planting day |
 
 ---
 
