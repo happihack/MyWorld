@@ -544,7 +544,8 @@ const CHRONICLE_KINDS: Array[StringName] = [&"era_entered", &"knowledge_learned"
 	&"settlement_abandoned", &"migration", &"war_begun", &"battle", &"peace", &"raid", &"raid_repelled", &"revolution",
 	&"leadership", &"box_research", &"hypothesis", &"mystery_clue", &"trade_route", &"region_found", &"edge_moved",
 	&"became_important", &"renamed", &"first_farm", &"first_storage", &"earthquake", &"flood", &"drought", &"blizzard",
-	&"tornado", &"meteor_storm", &"eclipse", &"reinterpreted", &"dispute", &"cultural_memory"]
+	&"tornado", &"meteor_storm", &"eclipse", &"reinterpreted", &"dispute", &"cultural_memory",
+	&"lights_in_sky", &"bounty_of_bushes", &"rich_soil", &"teeming_waters", &"healing"]
 const BUILDING_KINDS := {"huts": 3, "stores": 9, "wells": 10, "workshops": 11, "bridges": 12, "kilns": 13, "herb racks": 14,
 	"record stones": 15, "stone circles": 16, "shrines": 17, "cemeteries": 18, "landings": 19, "woodsheds": 20, "border stones": 23}
 

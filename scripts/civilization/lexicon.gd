@@ -34,6 +34,8 @@ const CONCEPTS := {
 	&"unseen_hand": ["myth:touch", "EPITHET_TOUCH"],
 	&"mover": ["myth:object_moved", "EPITHET_OBJECT_MOVED"],
 	&"windcaller": ["myth:sourceless_wind", "EPITHET_SOURCELESS_WIND"],
+	&"giver": ["myth:bounty_of_bushes", "EPITHET_BOUNTY_OF_BUSHES"],
+	&"healer": ["myth:healed", "EPITHET_HEALED"],
 	&"home": ["home", "CONCEPT_HOME"],
 	&"edge": ["edge", "CONCEPT_EDGE"],
 	&"river": ["region:water", "CONCEPT_RIVER"],

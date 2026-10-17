@@ -308,3 +308,73 @@ func test_healing_mends_the_ill_and_the_hurt_within_reach() -> void:
 	for n in people.size():
 		assert_eq(people[n].birth_tick, births[n], "nobody made younger")
 	assert_eq(session.events.of_type(&"healing").size(), 1)
+
+
+# --- noticed and remembered (step 4) ----------------------------------------------------------------
+
+func test_the_land_and_the_water_are_noticed_by_those_near() -> void:
+	var fire := _fire()
+	for pair: Array in [[BlessingSystem.BOUNTY, Stimulus.BOUNTY_OF_BUSHES], [BlessingSystem.SOIL, Stimulus.RICH_SOIL],
+			[BlessingSystem.WATERS, Stimulus.TEEMING_WATERS]]:
+		stimuli.clear()
+		disasters.rest_until = 0
+		blessings.kind = &""
+		assert_true(session.interactions.bless(pair[0], fire).applied, "%s given" % pair[0])
+		assert_eq(stimuli.size(), 1, "%s: one thing to notice" % pair[0])
+		var seen: Stimulus = stimuli[0]
+		assert_eq(seen.type, pair[1])
+		assert_true(seen.anomalous and seen.large and not seen.weatherlike)
+		assert_true(seen.radius > BlessingSystem.REACH, "noticed by those about: %.0f" % seen.radius)
+		assert_near(seen.position.distance_to(fire), 0.0, 0.6)
+		assert_true(MemoryText.has("MEMWHAT_" + String(pair[1]).to_upper()))
+		assert_true(MemoryText.has("EPITHET_" + String(pair[1]).to_upper()))
+		assert_true(CultureSystem.FROM_MEMORIES.has(pair[1]), "%s may become a tradition" % pair[1])
+		assert_true(MemoryText.has(str(CultureSystem.FROM_MEMORIES[pair[1]][0])))
+
+
+func test_being_healed_is_felt_by_each_one_healed() -> void:
+	var fire := _fire()
+	var people := session.people.all_people()
+	var mended: Array[PersonData] = [people[0], people[1]]
+	for person in mended:
+		person.position = WorldCoords.world2d_to_tile(fire + Vector2(1.0, 0.5))
+		Health.injure(person, Health.FALL, 0.5, clock.tick)
+	var well: PersonData = people[2]
+	well.position = WorldCoords.world2d_to_tile(fire + Vector2(-1.0, 0.5))
+	stimuli.clear()
+	assert_true(session.interactions.bless(BlessingSystem.HEALING, fire).applied)
+	assert_eq(stimuli.size(), 2, "one for each mended, none for the well")
+	for person in mended:
+		var felt: Array = stimuli.filter(func(s: Stimulus) -> bool: return s.type == Stimulus.HEALED and s.target_id == person.id)
+		assert_eq(felt.size(), 1, "felt by %d" % person.id)
+		assert_eq((felt[0] as Stimulus).radius, 0.0, "and by nobody else: as a touch")
+	assert_false(stimuli.any(func(s: Stimulus) -> bool: return s.target_id == well.id))
+
+
+func test_a_blessing_lived_through_becomes_a_tradition() -> void:
+	var own := session.settlement
+	# The bushes heavy with fruit, the Giver's doing, on five days over two seasons.
+	for day: int in [1, 2, 3, 7, 8]:
+		var tick := day * TimeConfig.MINUTES_PER_DAY + 60
+		for person in own.members():
+			var memory := Memory.new()
+			memory.subject = Stimulus.BOUNTY_OF_BUSHES
+			memory.interpretation = ReactionTable.DEITY
+			memory.source = Memory.Source.WITNESSED
+			memory.tick = tick
+			memory.first_tick = tick
+			memory.importance = 0.8
+			memory.intensity = 0.8
+			memory.intervention_id = 42
+			memory.emotions = PackedFloat32Array([0.1, 0.6, 0.0, 0.7, 0.2])
+			session.memories.remember(person, memory)
+	var now := 9 * TimeConfig.MINUTES_PER_DAY
+	session.culture.settle(now)
+	session.cultures.look_for_traditions(now)
+	var formed := session.cultures.tradition_of(own.id, Stimulus.BOUNTY_OF_BUSHES)
+	assert_false(formed.is_empty(), "the offering of first fruits")
+	assert_eq(formed["name"], "TRADITION_FIRST_FRUITS")
+	assert_true(formed["player"], "it goes back to the player")
+	var told := session.events.of_type(&"tradition_formed")
+	assert_eq(told.size(), 1)
+	assert_has(EventText.text(told[0], session.people), "the offering of first fruits")

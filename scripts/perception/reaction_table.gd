@@ -76,8 +76,13 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"tornado": [0.9, 0.9, 30.0, false, true, true],
 	&"blood_water": [0.95, 0.95, 400.0, true, true, false],
 	&"meteors": [0.95, 0.95, 40.0, true, true, false],
-	# The blessings (BlessingSystem): the lights are seen everywhere.
+	# The blessings (BlessingSystem): the lights are seen everywhere; the land
+	# and the water by those near; being healed by the one healed, as a touch.
 	&"lights_in_sky": [0.8, 0.8, 400.0, true, true, false],
+	&"bounty_of_bushes": [0.6, 0.6, 16.0, true, true, false],
+	&"rich_soil": [0.5, 0.5, 16.0, true, true, false],
+	&"teeming_waters": [0.6, 0.6, 16.0, true, true, false],
+	&"healed": [0.9, 0.9, 0.0, true, false, false],
 }
 
 @export_group("Perception")

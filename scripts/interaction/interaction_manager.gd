@@ -238,6 +238,15 @@ func apply_intervention(iv: Intervention) -> Intervention:
 			Log.info(Log.Category.WORLD, "Achievement unlocked", {"achievement": achievement, "tick": iv.tick})
 			EventBus.achievement_unlocked.emit(achievement)
 	intervention_applied.emit(iv)
+	if iv.type == Intervention.BLESSING and iv.subject == BlessingSystem.HEALING:
+		# Felt by each one healed, as a touch is: one stimulus each, aimed at them.
+		for id: int in (blessings.healed if blessings != null else [] as Array[int]):
+			iv.target_id = id
+			var felt := Stimulus.from_intervention(iv, Config.reactions)
+			if felt != null:
+				stimulus_emitted.emit(felt)
+		iv.target_id = 0
+		return iv
 	var stimulus := Stimulus.from_intervention(iv, Config.reactions)
 	if stimulus != null:
 		stimulus_emitted.emit(stimulus)

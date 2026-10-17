@@ -44,6 +44,10 @@ const FROM_MEMORIES := {
 	&"blood_water": ["TRADITION_WATER_CLEANSING", "ritual", "day"],
 	&"meteors": ["TRADITION_STAR_FALL", "remembrance", "day"],
 	&"lights_in_sky": ["TRADITION_LIGHTS", "festival", "day"],
+	&"bounty_of_bushes": ["TRADITION_FIRST_FRUITS", "ceremony", "day"],
+	&"rich_soil": ["TRADITION_SOIL_TURNING", "ceremony", "day"],
+	&"teeming_waters": ["TRADITION_RIVER_FEAST", "festival", "day"],
+	&"healed": ["TRADITION_LAYING_ON_OF_HANDS", "ceremony", "day"],
 }
 ## What a first becomes: event type -> [name key, kind, season (its day: the
 ## first of that season), or -1: the day it happened].

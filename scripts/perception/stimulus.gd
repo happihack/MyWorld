@@ -45,8 +45,14 @@ const ECLIPSE := &"eclipse"
 const TORNADO := &"tornado"
 const BLOOD_WATER := &"blood_water"
 const METEORS := &"meteors"
-## The blessings the player gives (BlessingSystem): lights in the sky.
+## The blessings the player gives (BlessingSystem): lights in the sky, the
+## bushes heavy with fruit, the ground dark and soft, the water thick with
+## fish — and being healed, felt by the one healed, as a touch is.
 const LIGHTS_IN_SKY := &"lights_in_sky"
+const BOUNTY_OF_BUSHES := &"bounty_of_bushes"
+const RICH_SOIL := &"rich_soil"
+const TEEMING_WATERS := &"teeming_waters"
+const HEALED := &"healed"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
@@ -55,7 +61,7 @@ const TOLD := &"told"
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
 	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN,
-	LIGHTS_IN_SKY]
+	LIGHTS_IN_SKY, BOUNTY_OF_BUSHES, RICH_SOIL, TEEMING_WATERS, HEALED]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -107,7 +113,7 @@ static func from_intervention(iv: Intervention, table: ReactionTable) -> Stimulu
 	stimulus.position = Vector2(iv.position.x, iv.position.z)
 	stimulus.tick = iv.tick
 	stimulus.intervention_id = iv.id
-	stimulus.target_id = iv.target_id if kind == TOUCH else 0
+	stimulus.target_id = iv.target_id if kind == TOUCH or kind == HEALED else 0
 	stimulus.object_id = iv.target_id if kind == OBJECT_LIFTED or kind == OBJECT_MOVED else 0
 	stimulus.building_id = iv.target_id if kind == KNOCK else 0
 	table.describe(stimulus, strength_of(iv))
@@ -182,6 +188,15 @@ static func type_for(iv: Intervention) -> StringName:
 			match iv.subject:
 				BlessingSystem.LIGHTS:
 					return LIGHTS_IN_SKY
+				BlessingSystem.BOUNTY:
+					return BOUNTY_OF_BUSHES
+				BlessingSystem.SOIL:
+					return RICH_SOIL
+				BlessingSystem.WATERS:
+					return TEEMING_WATERS
+				BlessingSystem.HEALING:
+					# (One for each person healed, aimed at them: InteractionManager.)
+					return HEALED
 	return &""
 
 
