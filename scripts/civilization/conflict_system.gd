@@ -20,6 +20,8 @@ extends RefCounted
 ## leader may be **overthrown** (a revolution).
 
 signal dispute(a: int, b: int, causes: Array)
+## `envious` looks with envy on `favoured`, whom the Presence favours.
+signal envy(envious: int, favoured: int, causes: Array)
 signal raided(raider: int, victim: int, units: int, leader: int, causes: Array)
 ## A raid walked (FC5) was driven off empty-handed.
 signal repelled(raider: int, victim: int, leader: int, causes: Array)
@@ -38,6 +40,14 @@ const TRADE_EASES := 0.08
 const MOST := 1.0
 ## Near enough to want the same land (tiles between their fires).
 const NEAR := 30.0
+## The chosen people (bible §24, the plan's BLESSINGS section, step 8): a
+## settlement the Presence has favoured this often in a year, beside one it
+## has not favoured at all within this reach (word of a gift travels further
+## than a quarrel over berries), feeds envy into the tension each day — and
+## the envy is told, once, until the favour ends.
+const ENVY := 0.03
+const FAVOURED_FROM := 2
+const ENVY_REACH := NEAR * 1.5
 ## The thresholds: a dispute, a raid, a war.
 const DISPUTE_AT := 0.35
 const RAID_AT := 0.55
@@ -81,6 +91,9 @@ var walk_battle := Callable()
 var kill := Callable()
 ## The event id of a settlement's latest shortage (for causes): Callable(settlement_id) -> int (0: none).
 var shortage_event := Callable()
+## How many gifts of the Presence fell on a settlement's land in the last
+## year (settlement id -> int; Dependence). Invalid: none.
+var gifts_in_year := Callable()
 ## Pair key "a:b" (a < b) -> {"tension", "raids": [ticks], "dispute": event id, "raid_events": [ids], "war": {} or
 ##   {"since", "fallen", "event"}, "border": bool, "trips": trade trips seen}.
 var pairs: Dictionary = {}
@@ -104,7 +117,7 @@ static func key(a: int, b: int) -> String:
 func pair(a: int, b: int) -> Dictionary:
 	var k := key(a, b)
 	if not pairs.has(k):
-		pairs[k] = {"tension": 0.0, "raids": [], "dispute": 0, "raid_events": [], "war": {}, "border": false, "trips": 0}
+		pairs[k] = {"tension": 0.0, "raids": [], "dispute": 0, "raid_events": [], "war": {}, "border": false, "trips": 0, "envy": 0}
 	return pairs[k]
 
 
@@ -162,6 +175,18 @@ func _between(a: Settlement, b: Settlement, now: int) -> void:
 		var pb: Dictionary = cultures.profiles.get(b.id, {})
 		if not pa.is_empty() and not pb.is_empty() and pa.get("presence") != pb.get("presence"):
 			t += STRANGERS
+	# The chosen people: one favoured by the Presence, the other not at all.
+	if gifts_in_year.is_valid() and apart <= ENVY_REACH:
+		var ga := int(gifts_in_year.call(a.id))
+		var gb := int(gifts_in_year.call(b.id))
+		var favoured := a if ga >= FAVOURED_FROM and gb == 0 else (b if gb >= FAVOURED_FROM and ga == 0 else null)
+		if favoured != null:
+			t += ENVY
+			if int(record.get("envy", 0)) == 0:
+				record["envy"] = -1 # (told; the event id is filled in by note_event)
+				envy.emit((b if favoured == a else a).id, favoured.id, [])
+		elif int(record.get("envy", 0)) != 0:
+			record["envy"] = 0 # (the favour over: it may be told again another year)
 	# Trade eases it: each trip between them since yesterday.
 	if trade != null:
 		var trips := int((trade.routes.get("%d>%d" % [a.id, b.id], {}) as Dictionary).get("trips", 0)) \
@@ -319,6 +344,8 @@ func note_event(a: int, b: int, what: String, event_id: int) -> void:
 	match what:
 		"dispute":
 			record["dispute"] = event_id
+		"envy":
+			record["envy"] = event_id
 		"raid":
 			(record["raid_events"] as Array).append(event_id)
 		"war":

@@ -570,7 +570,7 @@ static func beliefs(s: WorldSession) -> PackedStringArray:
 	# What they have come to expect of the Presence (Dependence), first.
 	out.append_array(Dependence.lines(s, s.clock.tick if s.clock != null else 0))
 	var found: Array = []
-	for type: StringName in [&"myth_formed", &"cultural_memory", &"faith_founded", &"schism", &"myth_spread"]:
+	for type: StringName in [&"myth_formed", &"cultural_memory", &"faith_founded", &"schism", &"myth_spread", &"envy"]:
 		found.append_array(s.events.of_type(type))
 	for e: WorldEvent in newest_first(found):
 		out.append(EventText.line(e, s.people, s.events))

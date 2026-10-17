@@ -402,6 +402,10 @@ func _init() -> void:
 		var e := chronicle.on_conflict(&"dispute", a, b, [], causes)
 		if e != null:
 			conflicts.note_event(a, b, "dispute", e.id))
+	conflicts.envy.connect(func(envious: int, favoured: int, causes: Array) -> void:
+		var e := chronicle.on_conflict(&"envy", envious, favoured, [], causes)
+		if e != null:
+			conflicts.note_event(envious, favoured, "envy", e.id))
 	conflicts.raided.connect(func(raider: int, victim: int, units: int, leader: int, causes: Array) -> void:
 		var e := chronicle.on_conflict(&"raid", raider, victim, [leader] if leader != 0 else [], causes, {"units": units})
 		if e != null:
@@ -1861,6 +1865,11 @@ func _activate() -> void:
 		var person := people.get_person(person_id)
 		if person != null:
 			lifecycle.die(person, cause, clock.tick, causes)
+	conflicts.gifts_in_year = func(settlement_id: int) -> int:
+		var total := 0
+		for count: int in Dependence.gifts_in_year(self, settlements.get_settlement(settlement_id), clock.tick).values():
+			total += count
+		return total
 	conflicts.shortage_event = func(settlement_id: int) -> int:
 		var found := events.of_type(&"food_shortage")
 		for n in range(found.size() - 1, -1, -1):

@@ -518,3 +518,57 @@ func test_a_village_that_expects_the_rain_digs_no_well() -> void:
 	session.weigh_dependence(clock.tick, true)
 	assert_eq(own.expected, [&"drought_broken"] as Array[StringName])
 	assert_has(MenuPages.beliefs(session), "%s has come to expect the rain — and digs no well" % own.display_name())
+
+
+# --- the chosen people (step 8) -----------------------------------------------------------------------
+
+## A second settlement, founded from the first (as the trade tests do it).
+func _second() -> Settlement:
+	var first := session.settlement
+	var fire := first.fire().tile
+	for dy in range(-28, 29, 2):
+		for dx in range(-28, 29, 2):
+			first.places().mark_visited(fire + Vector2i(dx, dy))
+	while first.member_count() < 14:
+		var a := session.spawn_person(fire + Vector2i(1, 1))
+		var b := session.spawn_person(fire + Vector2i(1, 1))
+		a.sex = PersonData.Sex.MALE
+		b.sex = PersonData.Sex.FEMALE
+		session.households.form_couple(a, b, session.clock.tick, session.ids.next_id())
+	var journey := session.migration.depart(first, session.clock.tick)
+	assert_false(journey.is_empty())
+	return session.migration.found(journey, session.clock.tick)
+
+
+func test_the_chosen_people_are_envied_by_their_neighbours() -> void:
+	var own := session.settlement
+	var other := _second()
+	assert_not_null(other)
+	var apart := Vector2(own.fire().tile - other.fire().tile).length()
+	assert_true(apart <= ConflictSystem.ENVY_REACH, "near enough to hear of it (%.0f tiles)" % apart)
+	var conflicts := session.conflicts
+	conflicts.each_day(clock.tick)
+	var before := conflicts.tension(own.id, other.id)
+	# Favoured once: a gift. Twice in a year, beside a neighbour given nothing: envy.
+	assert_true(session.interactions.bless(BlessingSystem.BOUNTY, _fire()).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.BOUNTY]) + BlessingSystem.REST_MINUTES)
+	conflicts.each_day(clock.tick)
+	assert_true(session.events.of_type(&"envy").is_empty(), "once is a gift")
+	assert_true(session.interactions.bless(BlessingSystem.BOUNTY, _fire()).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.BOUNTY]) + BlessingSystem.REST_MINUTES)
+	var eased := conflicts.tension(own.id, other.id)
+	conflicts.each_day(clock.tick)
+	assert_true(conflicts.tension(own.id, other.id) >= eased * ConflictSystem.EASES + ConflictSystem.ENVY - 0.001, "envy feeds the tension")
+	var told := session.events.of_type(&"envy")
+	assert_eq(told.size(), 1, "told once")
+	assert_eq(EventText.text(told[0], session.people), "%s looks with envy on %s, whom the Presence favours" % [other.display_name(), own.display_name()])
+	assert_has(MenuPages.beliefs(session), EventText.line(told[0], session.people, session.events))
+	conflicts.each_day(clock.tick + Config.time.MINUTES_PER_DAY)
+	assert_eq(session.events.of_type(&"envy").size(), 1, "not again while the favour lasts")
+	# A year without: the favour over, and the envy fades with the rest.
+	_pass(Config.time.ticks_per_year() + Config.time.MINUTES_PER_DAY)
+	var high := conflicts.tension(own.id, other.id)
+	conflicts.each_day(clock.tick)
+	assert_true(conflicts.tension(own.id, other.id) < high + ConflictSystem.ENVY * 0.5, "no envy added")
+	assert_eq(int(conflicts.pair(own.id, other.id)["envy"]), 0, "may be told again another year")
+	assert_true(before >= 0.0)
