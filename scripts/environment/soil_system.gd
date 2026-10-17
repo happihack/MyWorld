@@ -179,8 +179,22 @@ func settle_all(now: int) -> void:
 
 ## A flood has run off these tiles: it leaves silt on the land.
 func on_drained(tiles: Array[Vector2i]) -> void:
-	if _world == null or _config == null or _config.silt_gain <= 0:
-		return
+	if _config != null:
+		_lay_silt(tiles, _config.silt_gain)
+
+
+## The land blessed (BlessingSystem.SOIL): silt as two floods would leave,
+## up to the same bound, fading as silt does. Returns how many tiles took it.
+func enrich(tiles: Array[Vector2i]) -> int:
+	if _config == null:
+		return 0
+	return _lay_silt(tiles, _config.silt_gain * 2)
+
+
+func _lay_silt(tiles: Array[Vector2i], gain: int) -> int:
+	if _world == null or _config == null or gain <= 0:
+		return 0
+	var took := 0
 	for tile in tiles:
 		var chunk := _world.chunk_at_tile(tile)
 		if chunk == null:
@@ -193,9 +207,11 @@ func on_drained(tiles: Array[Vector2i]) -> void:
 		var now := int(chunk.fertility[i])
 		if now >= most:
 			continue
-		chunk.fertility[i] = mini(now + _config.silt_gain, most)
+		chunk.fertility[i] = mini(now + gain, most)
 		chunk.mark_changed()
 		silted += 1
+		took += 1
+	return took
 
 
 # --- internals ----------------------------------------------------------------------------------------

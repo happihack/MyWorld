@@ -56,6 +56,15 @@ var _bushes := 0 # berry bushes
 var bushes_base := 0
 var bushes_seeded := 0
 var _tree_props := 0 # all of them: standing, stumps and saplings
+## A bounty (BlessingSystem.BOUNTY): where it was given, how far it reaches,
+## until which day; -1: none. While it lasts the bushes there spread and
+## grow back faster.
+var _bounty_at := Vector2.ZERO
+var _bounty_reach := 0.0
+var _bounty_until_day := -1
+## How much faster bushes spread, and grow back, under a bounty.
+const BOUNTY_SPREAD := 4.0
+const BOUNTY_REGROW := 2.0
 
 
 func bind(world: WorldData, props: PropRegistry, nodes: ResourceNodes, soil: SoilSystem, weather: WeatherSystem,
@@ -99,6 +108,8 @@ func to_dict() -> Dictionary:
 	if bushes_seeded > 0:
 		out["bushes_base"] = bushes_base
 		out["bushes_seeded"] = bushes_seeded
+	if _bounty_until_day >= 0:
+		out["bounty"] = [_bounty_at.x, _bounty_at.y, _bounty_reach, _bounty_until_day]
 	return out
 
 
@@ -112,6 +123,36 @@ func from_dict(data: Dictionary) -> void:
 	if typeof(data.get("bushes_base")) == TYPE_INT and int(data["bushes_base"]) > 0:
 		bushes_base = int(data["bushes_base"])
 	bushes_seeded = maxi(int(data["bushes_seeded"]), 0) if typeof(data.get("bushes_seeded")) == TYPE_INT else 0
+	_bounty_until_day = -1
+	var bounty: Variant = data.get("bounty")
+	if typeof(bounty) == TYPE_ARRAY and (bounty as Array).size() == 4:
+		_bounty_at = Vector2(float(bounty[0]), float(bounty[1]))
+		_bounty_reach = float(bounty[2])
+		_bounty_until_day = int(bounty[3])
+
+
+# --- a bounty (BlessingSystem.BOUNTY) ---------------------------------------------------------------
+
+## For a while the bushes within `reach` of `at` spread and grow back faster.
+func bless_bushes(at: Vector2, reach: float, until_day: int) -> void:
+	_bounty_at = at
+	_bounty_reach = reach
+	_bounty_until_day = until_day
+
+
+## How much faster a node at `tile` grows back now: BOUNTY_REGROW under a
+## bounty, 1 elsewhere and after (ResourceNodes.regrow_boost).
+func bounty_at(tile: Vector2i) -> float:
+	return BOUNTY_REGROW if _bounty_covers(tile, _today()) else 1.0
+
+
+func _bounty_covers(tile: Vector2i, day: int) -> bool:
+	return _bounty_until_day >= 0 and day < _bounty_until_day \
+		and (Vector2(tile) + Vector2(0.5, 0.5)).distance_to(_bounty_at) <= _bounty_reach
+
+
+func _today() -> int:
+	return Config.time.day_index(_clock.tick) if _clock != null else 0
 
 
 # --- what grows ---------------------------------------------------------------------------------------
@@ -340,10 +381,13 @@ func _tree_days(coord: Vector2i, days: int, now: int) -> void:
 	var most := roundi(forest_base * _config.forest_most)
 	var least := roundi(forest_base * _config.forest_least)
 	var bush_chance := 1.0 - pow(1.0 - _config.bush_chance_per_day, days)
+	var blessed_chance := 1.0 - pow(1.0 - minf(_config.bush_chance_per_day * BOUNTY_SPREAD, 1.0), days)
 	var bushes_most := roundi(bushes_base * _config.bush_most)
+	var today := Config.time.day_index(now)
 	for prop: PropData in _props.props_in_chunk(coord).duplicate():
 		if prop.kind == PropData.Kind.BUSH:
-			if growing and _bushes < bushes_most and _rng.randf() < bush_chance:
+			var chance := blessed_chance if _bounty_covers(prop.tile, today) else bush_chance
+			if growing and _bushes < bushes_most and _rng.randf() < chance:
 				_spread_bush(prop, now)
 			continue
 		if prop.kind != PropData.Kind.TREE:

@@ -33,6 +33,9 @@ var last_settle_tick := -1_000_000
 var _props: PropRegistry
 var _config: ResourcesConfig
 var _tracked: Dictionary = {} # prop id -> true: has given something up
+## How much faster a node at a tile grows back (tile -> float; 1 = as usual):
+## the land under a bounty (VegetationSystem.bounty_at). Invalid: as usual.
+var regrow_boost: Callable
 
 
 # --- the rules (static: they need only the prop and the numbers) ---------------------------------
@@ -231,6 +234,22 @@ func take(prop_id: int, units: int, now: int) -> int:
 	return given
 
 
+## A bush filled as it was made (a blessing: BlessingSystem.BOUNTY): nothing
+## to remember about it any more.
+func fill(prop: PropData) -> void:
+	if prop == null or prop.kind != PropData.Kind.BUSH:
+		return
+	var before := look_of(prop, _config)
+	prop.stock = -1
+	prop.stock_tick = 0
+	_tracked.erase(prop.id)
+	if _props != null:
+		if look_of(prop, _config) != before:
+			_props.changed(prop.id)
+		else:
+			_props.touch(prop.id)
+
+
 ## A bush newly seeded: nothing on it yet; it bears as a picked one grows back.
 func sprout(prop: PropData, now: int) -> void:
 	if prop == null or prop.kind != PropData.Kind.BUSH:
@@ -314,7 +333,9 @@ func _settle_one(prop: PropData, now: int) -> bool:
 	if bare_in_winter(prop) or (prop.kind == PropData.Kind.MUSHROOM and season != Seasons.SPRING and season != Seasons.AUTUMN):
 		prop.stock_tick = now
 		return false
-	var minutes_per_unit := maxi(roundi(days * Config.time.MINUTES_PER_DAY / float(full)), 1)
+	# (Faster where the land is blessed: VegetationSystem.bounty_at.)
+	var boost := maxf(float(regrow_boost.call(prop.tile)), 0.01) if regrow_boost.is_valid() else 1.0
+	var minutes_per_unit := maxi(roundi(days * Config.time.MINUTES_PER_DAY / float(full) / boost), 1)
 	@warning_ignore("integer_division")
 	var units := (now - prop.stock_tick) / minutes_per_unit
 	if units <= 0:

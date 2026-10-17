@@ -1545,6 +1545,7 @@ func _activate() -> void:
 	soil.from_dict(_saved_soil)
 	_saved_soil = {}
 	vegetation.bind(world, props, nodes, soil, weather, ids, rng.stream(&"vegetation"), clock, Config.vegetation, fire_at)
+	nodes.regrow_boost = vegetation.bounty_at # (faster under a bounty: BlessingSystem)
 	vegetation.from_dict(_saved_vegetation)
 	_saved_vegetation = {}
 	# The powers that have shown themselves — and, for a world from before

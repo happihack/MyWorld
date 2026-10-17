@@ -51,7 +51,7 @@ func _pass(minutes: int) -> void:
 
 
 func test_one_act_a_day_whichever_hand() -> void:
-	assert_eq(BlessingSystem.KINDS, [BlessingSystem.LIGHTS] as Array[StringName], "the first cut's first")
+	assert_eq(BlessingSystem.KINDS.size(), 4, "the first cut so far: the lights, the land, the water")
 	assert_true(bool(Settings.get_value(&"gameplay/gentle_hands")), "gentle hands are on")
 	var iv := session.interactions.bless(BlessingSystem.LIGHTS, _fire())
 	assert_true(iv.applied, "asked for and confirmed: not held back by gentle hands (%s)" % iv.rejected)
@@ -144,3 +144,108 @@ func test_it_goes_on_while_away() -> void:
 	session.advance_systems()
 	assert_false(blessings.is_active(), "over, by the clock")
 	assert_eq(disasters.rest_until, until + BlessingSystem.REST_MINUTES)
+
+
+# --- the land and the water (step 2) ---------------------------------------------------------------
+
+func _bush_near(where: Vector2, within: float, beyond: float = 0.0) -> PropData:
+	var best: PropData = null
+	for prop in session.props.of_kind(PropData.Kind.BUSH):
+		if prop.kind != PropData.Kind.BUSH:
+			continue
+		var d := prop.position2d().distance_to(where)
+		if d <= within and d > beyond and (best == null or d < best.position2d().distance_to(where)):
+			best = prop
+	return best
+
+
+func _fertility(tile: Vector2i) -> int:
+	var chunk := session.world.chunk_at_tile(tile)
+	return int(chunk.fertility[session.world.index_at_tile(tile)]) if chunk != null else 0
+
+
+func test_the_bounty_fills_the_bushes_and_they_grow_back_faster_for_a_season() -> void:
+	var fire := _fire()
+	var near := _bush_near(fire, BlessingSystem.REACH)
+	var far := _bush_near(fire, 60.0, BlessingSystem.REACH + 2.0)
+	assert_not_null(near, "a bush within reach of the fire")
+	assert_not_null(far, "and one beyond it")
+	var nodes := session.nodes
+	var full := nodes.capacity(near)
+	assert_eq(nodes.take(near.id, 3, clock.tick), 3, "picked")
+	assert_eq(nodes.take(far.id, 3, clock.tick), 3)
+	assert_eq(nodes.left(near), full - 3)
+	assert_true(session.interactions.bless(BlessingSystem.BOUNTY, fire).applied)
+	assert_eq(nodes.left(near), full, "filled as it was made")
+	assert_eq(nodes.left(far), nodes.capacity(far) - 3, "beyond reach: as it was")
+	assert_eq(session.vegetation.bounty_at(near.tile), VegetationSystem.BOUNTY_REGROW, "grows back faster under the bounty")
+	assert_eq(session.vegetation.bounty_at(far.tile), 1.0, "not elsewhere")
+	# Twice as fast (a bush grows all its berries back in two days).
+	assert_eq(nodes.take(near.id, 3, clock.tick), 3)
+	clock.tick += roundi(2.0 * Config.time.MINUTES_PER_DAY / full / VegetationSystem.BOUNTY_REGROW) + 10
+	nodes.settle(clock.tick)
+	assert_eq(nodes.left(near), full - 2, "a berry back already under the bounty")
+	assert_eq(nodes.left(far), nodes.capacity(far) - 3, "none yet beyond it")
+	assert_eq(session.events.of_type(&"bounty_of_bushes").size(), 1, "written down")
+	# A season later: as before.
+	clock.tick += Config.time.days_per_season * Config.time.MINUTES_PER_DAY
+	assert_eq(session.vegetation.bounty_at(near.tile), 1.0, "the season over")
+	# Kept with the world while it lasts.
+	clock.tick -= Config.time.days_per_season * Config.time.MINUTES_PER_DAY
+	assert_true(session.vegetation.to_dict().has("bounty"))
+	var again := VegetationSystem.new()
+	again.from_dict(session.vegetation.to_dict())
+	assert_eq(again.to_dict()["bounty"], session.vegetation.to_dict()["bounty"])
+
+
+func test_rich_soil_lies_on_the_land_within_reach_and_fades() -> void:
+	var fire := _fire()
+	var middle := WorldCoords.world2d_to_tile(fire)
+	var before: Dictionary = {}
+	for dy in range(-12, 13):
+		for dx in range(-12, 13):
+			var tile := middle + Vector2i(dx, dy)
+			if session.world.is_in_bounds(tile):
+				before[tile] = _fertility(tile)
+	var far := middle + Vector2i(0, 12)
+	assert_true(session.interactions.bless(BlessingSystem.SOIL, fire).applied)
+	var risen: Array[Vector2i] = []
+	for tile: Vector2i in before:
+		if _fertility(tile) > int(before[tile]):
+			risen.append(tile)
+			assert_true(Vector2(tile - middle).length() <= BlessingSystem.REACH, "%s within reach" % tile)
+	assert_true(risen.size() >= 20, "%d tiles richer" % risen.size())
+	assert_eq(_fertility(far), before[far], "beyond reach: as it was")
+	var one := risen[0]
+	assert_true(Farming.fertility_factor(_fertility(one)) > Farming.fertility_factor(before[one]), "heavier at harvest")
+	assert_true(session.soil.silted >= risen.size())
+	assert_eq(session.events.of_type(&"rich_soil").size(), 1)
+	# It fades as silt does: a year on, the land is about as it was.
+	session.soil.settle_all(clock.tick)
+	for i in 40:
+		clock.tick += 4 * Config.time.MINUTES_PER_DAY
+		session.soil.settle_all(clock.tick)
+	assert_true(_fertility(one) <= int(before[one]) + 4, "faded (%d, was %d)" % [_fertility(one), before[one]])
+
+
+func test_teeming_waters_fill_the_river_and_bring_a_run() -> void:
+	var waters := session.fauna.waters
+	var fire := _fire()
+	var middle := WorldCoords.world2d_to_tile(fire)
+	var cells := waters.cells_near(middle, BlessingSystem.REACH)
+	assert_false(cells.is_empty(), "water within reach of the fire")
+	var at := FishWaters.middle_of(cells[0][0])
+	var holds := waters.capacity_at(at)
+	waters.set_stock(at, 1.0)
+	assert_true(waters.stock_at(at) < holds, "fished down")
+	assert_true(session.interactions.bless(BlessingSystem.WATERS, fire).applied)
+	assert_true(waters.stock_at(at) >= holds - 0.01, "filled to what it holds")
+	var run := waters.run_cell()
+	assert_ne(run, Vector2i.MAX, "a run")
+	assert_true(Vector2(FishWaters.middle_of(run) - middle).length() <= BlessingSystem.REACH, "within reach")
+	assert_near(waters.stock_at(FishWaters.middle_of(run)), waters.capacity_at(FishWaters.middle_of(run)) * FishWaters.RUN_SHARE, 0.01, "thick with fish")
+	assert_eq(session.events.of_type(&"teeming_waters").size(), 1)
+	# It lasts its days, as a run does.
+	clock.tick += (FishWaters.RUN_DAYS + 1) * Config.time.MINUTES_PER_DAY
+	waters.advance_day(clock.tick, RandomNumberGenerator.new())
+	assert_eq(waters.run_cell(), Vector2i.MAX, "over after its days")

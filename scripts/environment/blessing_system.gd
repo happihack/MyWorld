@@ -23,19 +23,32 @@ signal ended(kind: StringName)
 ## and violet, the day's sun ringed pale gold. Harms nothing, changes
 ## nothing: made of what people make of it.
 const LIGHTS := &"lights"
+## Bounty of the bushes: every berry bush within reach filled, and for a
+## season the bushes there spread and grow back faster (VegetationSystem).
+const BOUNTY := &"bounty"
+## Rich soil: silt on the land within reach, as a flood leaves it
+## (SoilSystem), fading as silt does; the fields there heavier at harvest.
+const SOIL := &"soil"
+## Teeming waters: the water within reach filled with fish, and a run begun
+## out of season (FishWaters).
+const WATERS := &"waters"
 ## In the order of the buttons.
-const KINDS: Array[StringName] = [LIGHTS]
+const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS]
 
-## How long each goes on (game minutes).
-const LASTS := {LIGHTS: 70}
+## How long each goes on (game minutes): the act itself, watched — what it
+## leaves behind (silt, a run, a season's bounty) lasts by its own rules.
+const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60}
 ## How long of each is there to be watched (game minutes from its start):
 ## the world goes at its usual speed meanwhile, as for a disaster.
-const WATCH := {LIGHTS: 70}
+const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60}
 ## How long the world rests after one before the Presence's next act — the
 ## same as after a disaster, and the same rest.
 const REST_MINUTES := DisasterSystem.REST_MINUTES
 ## What each is written down as (data/events/<id>.tres).
-const EVENTS := {LIGHTS: &"lights_in_sky"}
+const EVENTS := {LIGHTS: &"lights_in_sky", BOUNTY: &"bounty_of_bushes", SOIL: &"rich_soil", WATERS: &"teeming_waters"}
+## How far a blessing of the land or the water reaches (tiles) from where
+## the camera looks — a little more than a quake.
+const REACH := 10.0
 
 ## What is going on now (&"": nothing), where, since and until when.
 var kind: StringName = &""
@@ -90,6 +103,18 @@ func start(which: StringName, where: Vector2, now: int) -> bool:
 	if EVENTS.has(which) and _s.events != null:
 		var event := _s.events.record(EVENTS[which], {"position": at})
 		_event_id = event.id if event != null else 0
+	var day := Config.time.day_index(now)
+	match which:
+		BOUNTY:
+			_fill_bushes()
+			if _s.vegetation != null:
+				_s.vegetation.bless_bushes(at, REACH, day + Config.time.days_per_season)
+		SOIL:
+			if _s.soil != null:
+				_s.soil.enrich(_land_within(REACH))
+		WATERS:
+			if _s.fauna != null and _s.fauna.waters != null:
+				_s.fauna.waters.fill_near(WorldCoords.world2d_to_tile(at), REACH, day)
 	Log.info(Log.Category.WORLD, "A blessing is given", {"kind": which, "at": at, "until": until})
 	started.emit(which, at)
 	return true
@@ -120,6 +145,31 @@ func lights_amount(now: int) -> float:
 		return 0.0
 	var share := clampf(float(now - began) / maxf(float(until - began), 1.0), 0.0, 1.0)
 	return smoothstep(0.0, 0.25, share) * (1.0 - smoothstep(0.75, 1.0, share))
+
+
+# --- what they do -------------------------------------------------------------------------------
+
+## Every berry bush within reach, filled as it was made.
+func _fill_bushes() -> void:
+	if _s.nodes == null or _s.props == null:
+		return
+	for prop in _s.props.of_kind(PropData.Kind.BUSH):
+		if prop.kind == PropData.Kind.BUSH and prop.position2d().distance_to(at) <= REACH:
+			_s.nodes.fill(prop)
+
+
+## The land (not water) within `reach` of where it was given.
+func _land_within(reach: float) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	var middle := WorldCoords.world2d_to_tile(at)
+	var r := ceili(reach)
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var tile := middle + Vector2i(dx, dy)
+			if Vector2(dx, dy).length() > reach or not _s.world.is_in_bounds(tile) or _s.world.get_water(tile) > 0.0:
+				continue
+			out.append(tile)
+	return out
 
 
 ## Within the box.

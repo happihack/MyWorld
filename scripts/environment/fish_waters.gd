@@ -232,6 +232,34 @@ func cells_near(tile: Vector2i, reach: float) -> Array:
 	return out
 
 
+## The waters blessed (BlessingSystem.WATERS): every cell within `reach` of
+## `tile` filled to what it holds, and a run begun, out of season, in the
+## one that holds most. Returns how many cells were below and are full.
+func fill_near(tile: Vector2i, reach: float, day: int) -> int:
+	var filled := 0
+	var best: Variant = null
+	var most := 0.0
+	var cells: Array = _cells.keys()
+	cells.sort()
+	for cell: Vector2i in cells:
+		if Vector2(middle_of(cell) - tile).length() > reach:
+			continue
+		var entry: Array = _cells[cell]
+		if float(entry[0]) < float(entry[1]):
+			entry[0] = float(entry[1])
+			filled += 1
+		if float(entry[1]) > most:
+			most = float(entry[1])
+			best = cell
+	if best != null:
+		_run_cell = best
+		_run_until = day + RUN_DAYS
+		_run_told = false
+		var entry: Array = _cells[best]
+		entry[0] = float(entry[1]) * RUN_SHARE
+	return filled
+
+
 ## Is `resource` a fish (trout or salmon)?
 static func is_fish(resource: StringName) -> bool:
 	return resource == TROUT or resource == SALMON
