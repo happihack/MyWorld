@@ -1060,6 +1060,24 @@ func _turn_profile_window() -> void:
 		entry[1] = 0
 
 
+## Once a day: what each settlement has come to expect of the Presence
+## (Dependence, from the year's blessings), for its fields and its fishers.
+var _dependence_day := -1
+
+
+func weigh_dependence(now: int, force: bool = false) -> void:
+	var day := Config.time.day_index(now)
+	if day == _dependence_day and not force:
+		return
+	_dependence_day = day
+	if settlements == null:
+		return
+	for own in settlements.all():
+		own.expected = Dependence.expects(self, own, now)
+		if own.farming != null:
+			own.farming.expected = own.expected
+
+
 ## Everything that goes by the clock rather than by people's minutes, brought
 ## up to the clock (each frame — and, while the player is away, day by day: M20).
 func advance_systems() -> void:
@@ -1098,6 +1116,7 @@ func system_steps() -> Array:
 				if nodes.due(clock.tick - STAGGER_NODES):
 					nodes.settle(clock.tick - STAGGER_NODES)],
 			[&"settlements", func() -> void: settlements.step(clock.tick)],
+			[&"dependence", func() -> void: weigh_dependence(clock.tick)],
 			# (These five the people's own step brings up to the clock too, at the
 			# clock: never a staggered moment behind it — a day's dice would be
 			# thrown again and again for the first minutes of every day as the two

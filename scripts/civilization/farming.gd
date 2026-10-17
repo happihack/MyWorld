@@ -231,8 +231,13 @@ func farmer_count() -> int:
 	return count
 
 
+## What the settlement has come to expect of the Presence (Dependence; the
+## session keeps it): fewer fields while the bushes are expected to fill.
+var expected: Array[StringName] = []
+
+
 func plots_wanted() -> int:
-	return farmer_count() * _config.plots_per_farmer
+	return Dependence.plots_wanted(farmer_count() * _config.plots_per_farmer, expected)
 
 
 ## How many plots have been reaped so far.

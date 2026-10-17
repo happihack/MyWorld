@@ -91,6 +91,9 @@ var planner: SettlementPlanner
 ## it was founded, by whom and from where (0: the first settlement, by the band).
 var settlement_name := ""
 var founded_tick := 0
+## What it has come to expect of the Presence (Dependence; the session
+## weighs it once a day): fewer fishers taken up while the river is expected full.
+var expected: Array[StringName] = []
 var founders: Array[int] = []
 var founded_from := 0
 ## Trade between settlements (M12.4; may be null).
@@ -618,7 +621,7 @@ func fishers_wanted() -> int:
 				room += fauna.waters.capacity_at(middle)
 		if room <= 0.0 or stock < room * FISHED_DOWN:
 			wanted = 1
-	return wanted
+	return Dependence.fishers_wanted(wanted, expected)
 
 
 ## A settlement of gatherers with nobody farming: in a season for sowing,

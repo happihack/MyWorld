@@ -48,6 +48,29 @@ static func expects(s: WorldSession, own: Settlement, now: int) -> Array[StringN
 	return out
 
 
+## Step 6, the teeth: a settlement that expects the bushes to be filled keeps
+## this share of the fields it would have made (the bushes will feed it);
+## one that expects the river full takes up no more fishers than the one it
+## has (why learn the nets?). When the gifts stop, the hunger is real.
+const FIELDS_KEPT := 0.66
+
+
+## How many plots a settlement that expects `expected` wants, of the `wanted`
+## it would otherwise (Farming.plots_wanted).
+static func plots_wanted(wanted: int, expected: Array[StringName]) -> int:
+	if wanted <= 0 or not expected.has(&"bounty_of_bushes"):
+		return wanted
+	return maxi(floori(wanted * FIELDS_KEPT), 1)
+
+
+## How many fishers one that expects `expected` wants, of the `wanted` it
+## would otherwise (Settlement.fishers_wanted).
+static func fishers_wanted(wanted: int, expected: Array[StringName]) -> int:
+	if not expected.has(&"teeming_waters"):
+		return wanted
+	return mini(wanted, 1)
+
+
 ## In words, for the Beliefs page: "Ama's camp has come to expect the fruit".
 static func lines(s: WorldSession, now: int) -> PackedStringArray:
 	var out := PackedStringArray()

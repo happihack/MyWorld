@@ -51,9 +51,19 @@ func _run() -> void:
 	var game_steps := OS.get_cmdline_user_args().has("--game-steps")
 	var chronicle := OS.get_cmdline_user_args().has("--chronicle")
 	var plans := OS.get_cmdline_user_args().has("--plans")
+	# (--bless=bounty --bless-years=10: the home fire blessed with that gift on the
+	# first day of every season for so many years, then left alone — the
+	# dependence soak of the plan's BLESSINGS section, step 6.)
+	var bless := &""
+	var bless_years := 10
+	var blessed := 0
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--years="):
 			years = maxi(int(argument.get_slice("=", 1)), 1)
+		elif argument.begins_with("--bless="):
+			bless = StringName(argument.get_slice("=", 1))
+		elif argument.begins_with("--bless-years="):
+			bless_years = maxi(int(argument.get_slice("=", 1)), 0)
 		elif argument.begins_with("--seed="):
 			seed_value = int(argument.get_slice("=", 1))
 		elif argument == "--quiet":
@@ -127,6 +137,12 @@ func _run() -> void:
 	var started := Time.get_ticks_msec()
 	print("SOAK %d years (%d days) of seed %d: %d people" % [years, years * days_per_year, seed_value, people_at_start])
 	for day in years * days_per_year:
+		if bless != &"" and day % days_per_season == 0 and day / days_per_year < bless_years and s.settlement.fire() != null:
+			var gift: Variant = s.interactions.bless(bless, s.settlement.fire().position2d())
+			if gift.applied:
+				blessed += 1
+			else:
+				_problem("day %d: the blessing %s was not given (%s)" % [day, bless, gift.rejected])
 		for i in 1440:
 			# (The clock takes at most a frame's worth at a time.)
 			var seconds := minute
@@ -148,6 +164,9 @@ func _run() -> void:
 				s.knowledge.advance_to(s.clock.tick)
 				s.learning.advance_to(s.clock.tick) # (M16: what people know, and what they work out)
 				s.technology.advance_to(s.clock.tick)
+				s.disasters.advance_to(s.clock.tick)
+				s.blessings.advance_to(s.clock.tick) # (the Presence's acts end, and the one rest with them)
+				s.weigh_dependence(s.clock.tick) # (what the settlements have come to expect of them)
 				s.cultures.advance_to(s.clock.tick) # (M17: traditions, festivals)
 				s.faith.advance_to(s.clock.tick)
 				s.lexicon.advance_to(s.clock.tick)
@@ -383,6 +402,11 @@ func _run() -> void:
 			in_year += s.fauna.waters.caught(own.id, year)
 		by_year.append(str(in_year))
 	print("SOAK fish caught by year: %s" % ", ".join(by_year))
+	if bless != &"":
+		var expects := PackedStringArray()
+		for own in s.settlements.all():
+			expects.append("%s: %s" % [own.display_name(), ", ".join(own.expected) if not own.expected.is_empty() else "nothing"])
+		print("SOAK blessed with %s %d times over %d years, then left alone; expects now — %s" % [bless, blessed, mini(bless_years, years), "; ".join(expects)])
 	var food_parts := PackedStringArray()
 	for resource: StringName in brought:
 		var def: ResourceDef = s.resources.get_def(resource)

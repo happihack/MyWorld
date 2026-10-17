@@ -415,3 +415,48 @@ func test_a_gift_far_from_the_fire_is_not_the_settlements() -> void:
 	assert_true(session.interactions.bless(BlessingSystem.SOIL, away).applied)
 	_pass(int(BlessingSystem.LASTS[BlessingSystem.SOIL]) + BlessingSystem.REST_MINUTES)
 	assert_true(Dependence.gifts_in_year(session, own, clock.tick).is_empty(), "blessed land, but not theirs")
+
+
+# --- dependence, step two (step 6) -------------------------------------------------------------------
+
+func test_what_is_expected_has_teeth() -> void:
+	var none: Array[StringName] = []
+	var fruit: Array[StringName] = [&"bounty_of_bushes"]
+	var river: Array[StringName] = [&"teeming_waters"]
+	assert_eq(Dependence.plots_wanted(6, none), 6)
+	assert_eq(Dependence.plots_wanted(6, fruit), 3, "fewer fields: the bushes will feed them")
+	assert_eq(Dependence.plots_wanted(1, fruit), 1, "never none")
+	assert_eq(Dependence.plots_wanted(0, fruit), 0)
+	assert_eq(Dependence.plots_wanted(6, river), 6, "the river is not the fields' business")
+	assert_eq(Dependence.fishers_wanted(3, none), 3)
+	assert_eq(Dependence.fishers_wanted(3, river), 1, "no more take up the nets")
+	assert_eq(Dependence.fishers_wanted(1, river), 1)
+	assert_eq(Dependence.fishers_wanted(3, fruit), 3)
+
+
+func test_the_session_weighs_what_is_expected_once_a_day() -> void:
+	var own := session.settlement
+	var fire := _fire()
+	for n in 2:
+		assert_true(session.interactions.bless(BlessingSystem.BOUNTY, fire).applied)
+		_pass(int(BlessingSystem.LASTS[BlessingSystem.BOUNTY]) + BlessingSystem.REST_MINUTES)
+	assert_true(own.expected.is_empty(), "not weighed yet today")
+	var plots_before := own.farming.plots_wanted()
+	var fishers_before := own.fishers_wanted()
+	session.weigh_dependence(clock.tick, true)
+	assert_eq(own.expected, [&"bounty_of_bushes"] as Array[StringName])
+	assert_eq(own.farming.expected, own.expected, "the fields know it")
+	assert_true(own.farming.plots_wanted() <= plots_before)
+	assert_eq(own.fishers_wanted(), fishers_before, "the river was not expected")
+	# Once a day: the same day, nothing is weighed again; the next day it is.
+	own.expected = []
+	session.weigh_dependence(clock.tick)
+	assert_true(own.expected.is_empty(), "weighed once a day")
+	_pass(Config.time.MINUTES_PER_DAY)
+	session.weigh_dependence(clock.tick)
+	assert_eq(own.expected, [&"bounty_of_bushes"] as Array[StringName], "the day after, again")
+	# A year without, and the fields are their own again.
+	_pass(Config.time.ticks_per_year())
+	session.weigh_dependence(clock.tick)
+	assert_true(own.expected.is_empty())
+	assert_true(own.farming.expected.is_empty())
