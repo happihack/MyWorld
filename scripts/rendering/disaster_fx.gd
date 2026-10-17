@@ -10,6 +10,9 @@ const FALL_SECONDS := 0.6
 const FALL_HEIGHT := 22.0
 const FALL_SIDE := 9.0
 const STAR_COLOR := Color(1.0, 0.62, 0.22)
+## The blessings' gold, and the green of leaves stirred by a bounty.
+const GOLD := Color(0.95, 0.80, 0.42)
+const BERRY_LEAF := Color(0.45, 0.68, 0.32)
 const DUST := Color(0.58, 0.50, 0.40)
 const FUNNEL_COLOR := Color(0.30, 0.27, 0.24, 0.78)
 const FUNNEL_HEIGHT := 6.0
@@ -68,10 +71,24 @@ func bind_blessings(blessings: BlessingSystem) -> void:
 		blessings.started.connect(_on_blessing_started)
 
 
+## A blessing has a moment where it lands: a gold ring spreading as far as
+## it reaches, motes rising, a chime — and leaves for the bushes, a splash
+## of plips for the water, a warmer chime for the healing.
 func _on_blessing_started(kind: StringName, at: Vector2) -> void:
+	var ground := _ground(at)
 	match kind:
 		BlessingSystem.LIGHTS:
-			AudioManager.play_at(&"chime", _ground(at), -4.0, 0.8, false)
+			AudioManager.play_at(&"chime", ground, -4.0, 0.8, false)
+		BlessingSystem.BOUNTY, BlessingSystem.SOIL, BlessingSystem.WATERS, BlessingSystem.HEALING:
+			if _effects != null:
+				_effects.ring(ground, BlessingSystem.REACH, 2.2, GOLD)
+				_effects.burst(WorldEffects.Burst.MOTES, ground + Vector3(0.0, 0.3, 0.0), GOLD)
+				if kind == BlessingSystem.BOUNTY:
+					_effects.burst(WorldEffects.Burst.LEAVES, ground + Vector3(0.0, 0.6, 0.0), BERRY_LEAF)
+			AudioManager.play_at(&"chime", ground, -2.0, 1.1 if kind == BlessingSystem.HEALING else 0.9, false)
+			if kind == BlessingSystem.WATERS:
+				AudioManager.play_at(&"plip", ground, 0.0, 0.9, true)
+			Haptics.pulse(Haptics.Strength.LIGHT)
 
 
 func _process(delta: float) -> void:

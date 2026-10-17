@@ -158,3 +158,17 @@ func test_slowed_to_be_watched_and_the_sky_lit() -> void:
 	await wait_frames(2)
 	assert_eq(view.day_night().lights(), 0.0, "and gone")
 	assert_eq(clock.speed_index, GameClock.SPEED_VERY_FAST, "and as fast as before, after")
+
+
+func test_a_blessing_has_a_moment_where_it_lands() -> void:
+	var effects := view.effects()
+	var rings := effects.active_ring_count()
+	var motes := effects.burst_count(WorldEffects.Burst.MOTES)
+	var leaves := effects.burst_count(WorldEffects.Burst.LEAVES)
+	main.give(BlessingSystem.BOUNTY)
+	await wait_frames(2)
+	assert_true(effects.active_ring_count() > rings, "a ring where it lands")
+	assert_eq(effects.burst_count(WorldEffects.Burst.MOTES), motes + 1, "motes rising")
+	assert_eq(effects.burst_count(WorldEffects.Burst.LEAVES), leaves + 1, "and leaves, for the bushes")
+	var at := effects.last_burst_position(WorldEffects.Burst.MOTES)
+	assert_near(Vector2(at.x, at.z).distance_to(session.blessings.at), 0.0, 0.6, "where it was given")
