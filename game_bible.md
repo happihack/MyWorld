@@ -424,6 +424,16 @@ A **lightweight cellular heightfield simulation**, not fluid physics.
 | Storm | Weather | Rain+Wind tools combined | Damage, injuries, fear |
 | Meteor | Very rare natural event (sky object) | Major intervention (late) | Crater, impossible material deposit, massive myth |
 
+**Blessings — the other hand (the owner and Josh, 2026-10-16).** What the player can give, as the disasters are what they can bring down: a green button under the Disaster button, its blessings sliding out the same way, each offered on a card and given where the camera looks. **The Presence acts once a day, whichever way**: one rest for both hands. Every blessing **lasts a while and fades** (a season at the most), so that the people can make a story of it; the lasting ones (a spring, a forest) are later and rarer. And the gifts are **not free** (§24): a settlement blessed again and again comes to expect it — fewer fields after a bounty, no nets after a full river, and hunger when the gifts stop.
+
+| Blessing | What it does | Lasts | What the people make of it |
+|---|---|---|---|
+| Lights in the sky | An hour of lights over the box: the night lit green and violet, the day's sun ringed gold. Harms nothing, changes nothing. | An hour | "the Lighter of the Sky"; the festival of the lights |
+| Bounty of the bushes | Every berry bush within reach filled; for a season they spread and regrow faster | A season, fading | "the Giver of Fruit"; the offering of first fruits |
+| Rich soil | Silt on the land within reach, as a flood leaves it; the fields heavier at harvest | Fades over a year | "the Darkener of the Soil"; the turning of the soil |
+| Teeming waters | The water within reach filled with fish, and a run begun out of season | The run's days | "the Filler of the River"; the feast of the river |
+| Healing | Everyone ill or hurt within reach recovers over the day; nobody made younger, nobody brought back | A day | "the Healer"; the laying on of hands |
+
 ---
 
 ## 11. RESOURCES & MATERIALS [CANON]
@@ -1206,6 +1216,7 @@ Tone: quiet, short, curious. Never exclamation-heavy, never "Great job!".
 - **Top-center (transient):** notification toasts.
 - **Bottom:** tool bar, centred (held on its side it sits lower, at the bottom edge).
 - **Bottom-right corner:** minimap (collapsible) + **Home** button — on its side the minimap goes to the bottom left, and the cards keep above it (2026-10-13).
+- **The column under the clock:** the speed button, Home, the journal, the **Disaster** button and, under it, the **Blessing** button (green, a sprig; 2026-10-16) — the two hands of the Presence (§10.5), each sliding its kinds out to the left. On its side, when the column would run past the bottom, the Blessing button sits beside the Disaster button.
 - **Contextual:** person card (bottom sheet), locate button, follow banner ("Following Mara · ✕").
 All touch targets **≥ 48 dp** (min 44). Nothing opaque covers more of the world than necessary. Drawn as §28.5 says: chalk over the world.
 The corners keep their margins from the phone's **safe area**, not the screen's edge (2026-10-16): below the notch and above the home indicator on iOS, clear of the camera hole on Android — and only where the hole actually crosses a control, so a hole at the top centre moves the follow banner and nothing else. On a desktop nothing moves.

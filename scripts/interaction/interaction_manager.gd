@@ -222,6 +222,8 @@ func apply_intervention(iv: Intervention) -> Intervention:
 			done = _do_carve(iv)
 		Intervention.DISASTER:
 			done = _do_disaster(iv)
+		Intervention.BLESSING:
+			done = _do_blessing(iv)
 		_:
 			iv.rejected = &"unknown_type"
 	if not done:
@@ -382,6 +384,16 @@ func rain(at: Vector2, units: float, phase: StringName = Intervention.PHASE_END,
 ## by accident.
 func disaster(kind: StringName, at: Vector2) -> Intervention:
 	var iv := Intervention.create(Intervention.DISASTER, &"disaster")
+	iv.tile = WorldCoords.world2d_to_tile(at)
+	iv.position = Vector3(at.x, 0.0, at.y)
+	iv.params = {"kind": kind}
+	return apply_intervention(iv)
+
+
+## Gives the blessing `kind` around `at` (world X/Z; see BlessingSystem).
+## Asked for and confirmed, like a disaster: not held back by "gentle hands".
+func bless(kind: StringName, at: Vector2) -> Intervention:
+	var iv := Intervention.create(Intervention.BLESSING, &"blessing")
 	iv.tile = WorldCoords.world2d_to_tile(at)
 	iv.position = Vector3(at.x, 0.0, at.y)
 	iv.params = {"kind": kind}
@@ -696,6 +708,27 @@ func _do_disaster(iv: Intervention) -> bool:
 		iv.rejected = &"resting"
 		return false
 	iv.position = Vector3(disasters.at.x, iv.position.y, disasters.at.y)
+	return true
+
+
+## The blessings (see BlessingSystem): the other hand, confirmed the same way.
+var blessings: BlessingSystem
+
+
+func _do_blessing(iv: Intervention) -> bool:
+	var kind := StringName(str(iv.params.get("kind", "")))
+	if blessings == null or not BlessingSystem.KINDS.has(kind):
+		iv.rejected = &"no_such_blessing"
+		return false
+	if not blessings.can_start(_clock.tick if _clock != null else 0):
+		iv.rejected = &"resting"
+		return false
+	iv.subject = kind
+	iv.severity = Intervention.Severity.MAJOR
+	if not blessings.start(kind, Vector2(iv.position.x, iv.position.z), iv.tick):
+		iv.rejected = &"resting"
+		return false
+	iv.position = Vector3(blessings.at.x, iv.position.y, blessings.at.y)
 	return true
 
 

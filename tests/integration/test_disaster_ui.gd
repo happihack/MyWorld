@@ -53,7 +53,7 @@ func test_the_button_and_its_disasters() -> void:
 	var journal := ui.journal_button()
 	await wait_frames(2)
 	assert_true(button.is_visible_in_tree())
-	assert_eq(ui.column()[-1], button, "the last of the column")
+	assert_eq(ui.column()[-2], button, "under the journal, above the blessings")
 	assert_true(button.get_global_rect().position.y >= journal.get_global_rect().end.y, "under the journal")
 	assert_near(button.get_global_rect().size.x, journal.get_global_rect().size.x, 1.0, "as big as the others")
 	assert_near(button.get_global_rect().size.x, SpeedControl.BUTTON_SIZE, 1.0)

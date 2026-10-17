@@ -45,6 +45,8 @@ const ECLIPSE := &"eclipse"
 const TORNADO := &"tornado"
 const BLOOD_WATER := &"blood_water"
 const METEORS := &"meteors"
+## The blessings the player gives (BlessingSystem): lights in the sky.
+const LIGHTS_IN_SKY := &"lights_in_sky"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
@@ -52,7 +54,8 @@ const TOLD := &"told"
 
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
-	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN]
+	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN,
+	LIGHTS_IN_SKY]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -175,6 +178,10 @@ static func type_for(iv: Intervention) -> StringName:
 					return BLOOD_WATER
 				DisasterSystem.METEORS:
 					return METEORS
+		Intervention.BLESSING:
+			match iv.subject:
+				BlessingSystem.LIGHTS:
+					return LIGHTS_IN_SKY
 	return &""
 
 

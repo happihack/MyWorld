@@ -24,6 +24,7 @@ var _day_night: DayNight
 var _water: ShaderMaterial
 var _effects: WorldEffects
 var _disasters: DisasterSystem
+var _blessings: BlessingSystem
 var _clock: GameClock
 var _world: WorldData
 var _funnel: Node3D
@@ -58,12 +59,28 @@ func bind(disasters: DisasterSystem, clock: GameClock, world: WorldData) -> void
 		disasters.started.connect(_on_started)
 
 
+## The blessings too (BlessingSystem): the lights in the sky.
+func bind_blessings(blessings: BlessingSystem) -> void:
+	if _blessings != null and _blessings.started.is_connected(_on_blessing_started):
+		_blessings.started.disconnect(_on_blessing_started)
+	_blessings = blessings
+	if blessings != null:
+		blessings.started.connect(_on_blessing_started)
+
+
+func _on_blessing_started(kind: StringName, at: Vector2) -> void:
+	match kind:
+		BlessingSystem.LIGHTS:
+			AudioManager.play_at(&"chime", _ground(at), -4.0, 0.8, false)
+
+
 func _process(delta: float) -> void:
 	if _disasters == null or _clock == null:
 		return
 	var now := _clock.tick
 	if _day_night != null:
 		_day_night.set_eclipse(_disasters.eclipse_amount(now))
+		_day_night.set_lights(_blessings.lights_amount(now) if _blessings != null else 0.0)
 	if _water != null:
 		_water.set_shader_parameter(&"blood", _disasters.blood_amount(now))
 	match _disasters.kind:

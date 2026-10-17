@@ -101,8 +101,12 @@ func is_active() -> bool:
 	return kind != &""
 
 
-## Can `which` be brought down now (nothing going on, the world rested)?
+## Can `which` be brought down now (nothing going on — of either hand of the
+## Presence: a blessing neither (BlessingSystem) — and the world rested)?
+## `rest_until` is the one rest, after a disaster or a blessing alike.
 func can_start(now: int) -> bool:
+	if _s != null and _s.blessings != null and _s.blessings.is_active():
+		return false
 	return kind == &"" and now >= rest_until
 
 
@@ -110,6 +114,8 @@ func can_start(now: int) -> bool:
 func rest_left(now: int) -> int:
 	if kind != &"":
 		return maxi(until - now, 0) + REST_MINUTES
+	if _s != null and _s.blessings != null and _s.blessings.is_active():
+		return _s.blessings.rest_left(now)
 	return maxi(rest_until - now, 0)
 
 

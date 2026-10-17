@@ -23,6 +23,8 @@ const MAKE_WIND := &"make_wind"
 const CARVE := &"carve"
 ## A disaster brought down (subject: which; see DisasterSystem).
 const DISASTER := &"disaster"
+## A blessing given (subject: which; see BlessingSystem).
+const BLESSING := &"blessing"
 
 ## Acts that go on for a while (rain while a finger is held, a channel
 ## carved tile by tile) come in phases: they take effect as they go, and

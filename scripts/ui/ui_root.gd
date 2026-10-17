@@ -25,6 +25,8 @@ signal event_chosen(event_id: int)
 ## A disaster was chosen and confirmed (see DisasterCard): bring it down
 ## where the camera looks.
 signal disaster_requested(kind: StringName)
+## A blessing was chosen and confirmed (the Blessing button).
+signal blessing_requested(kind: StringName)
 ## Another world is to be opened (VS.3; see MainMenu.world_requested).
 signal world_requested(plan: Dictionary, erase_this: bool)
 ## For the main menu (Main saves the world and goes there).
@@ -71,6 +73,8 @@ var _journal_button: JournalButton
 ## and the row of them that slides out to its left.
 var _disaster_button: DisasterButton
 var _disaster_bar: DisasterBar
+var _blessing_button: BlessingButton
+var _blessing_bar: BlessingBar
 var _bar_slide: Tween
 ## The minimap (M13.3): bottom right, above the journal.
 var _minimap: Minimap
@@ -149,6 +153,22 @@ func _ready() -> void:
 	_disaster_bar.chosen.connect(func(kind: StringName) -> void:
 		_tick()
 		warn_of_disaster(kind))
+	# The other hand: the blessings, under the disasters (placed by _place_corner).
+	_blessing_button = BlessingButton.new()
+	_blessing_button.anchor_left = 1.0
+	_blessing_button.anchor_right = 1.0
+	add_child(_blessing_button)
+	move_child(_blessing_button, _panel_layer.get_index())
+	_blessing_button.pressed.connect(func() -> void:
+		_tick()
+		toggle_blessings())
+	_blessing_bar = BlessingBar.new()
+	_blessing_bar.visible = false
+	add_child(_blessing_bar)
+	move_child(_blessing_bar, _panel_layer.get_index())
+	_blessing_bar.chosen.connect(func(kind: StringName) -> void:
+		_tick()
+		offer_blessing(kind))
 	# The minimap: bottom right, just above the row of tools, its corner kept
 	# as it folds.
 	_minimap = Minimap.new()
@@ -811,36 +831,66 @@ func toggle_disasters() -> void:
 
 
 func show_disasters() -> void:
+	hide_blessings()
 	_refresh_disaster_state()
-	_disaster_bar.visible = true
+	_slide_out(_disaster_bar, _disaster_button)
 	_disaster_button.open = true
-	_disaster_bar.reset_size()
-	var button := _disaster_button.get_global_rect()
-	var rest := Vector2(button.position.x - CORNER_GAP - _disaster_bar.size.x, button.get_center().y - _disaster_bar.size.y * 0.5)
-	# On a screen held on its side the button is level with the row of tools:
-	# the disasters would slide out across them. Then they come out above the row.
-	if _tool_bar != null and _tool_bar.visible:
-		var tools := _tool_bar.get_global_rect().grow(CORNER_GAP)
-		if Rect2(rest, _disaster_bar.size).intersects(tools):
-			rest.y = tools.position.y - _disaster_bar.size.y
-	if _bar_slide != null:
-		_bar_slide.kill()
-	if bool(Settings.get_value(&"accessibility/reduced_motion")):
-		_disaster_bar.position = rest
-		_disaster_bar.modulate.a = 1.0
-		return
-	_disaster_bar.position = Vector2(button.position.x - _disaster_bar.size.x * 0.3, rest.y)
-	_disaster_bar.modulate.a = 0.0
-	_bar_slide = create_tween().set_parallel()
-	_bar_slide.tween_property(_disaster_bar, "position", rest, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	_bar_slide.tween_property(_disaster_bar, "modulate:a", 1.0, 0.18)
 
 
 func hide_disasters() -> void:
+	_slide_in(_disaster_bar)
+	_disaster_button.open = false
+
+
+## The blessings, the same way from their button (2026-10-16).
+func toggle_blessings() -> void:
+	if _blessing_bar.visible:
+		hide_blessings()
+	else:
+		show_blessings()
+
+
+func show_blessings() -> void:
+	hide_disasters()
+	_refresh_disaster_state()
+	_slide_out(_blessing_bar, _blessing_button)
+	_blessing_button.open = true
+
+
+func hide_blessings() -> void:
+	_slide_in(_blessing_bar)
+	_blessing_button.open = false
+
+
+## Slides `bar` out to the left of `from` (a button of the column).
+func _slide_out(bar: Control, from: Control) -> void:
+	bar.visible = true
+	bar.reset_size()
+	var button := from.get_global_rect()
+	var rest := Vector2(button.position.x - CORNER_GAP - bar.size.x, button.get_center().y - bar.size.y * 0.5)
+	# On a screen held on its side the button is level with the row of tools:
+	# the bar would slide out across them. Then it comes out above the row.
+	if _tool_bar != null and _tool_bar.visible:
+		var tools := _tool_bar.get_global_rect().grow(CORNER_GAP)
+		if Rect2(rest, bar.size).intersects(tools):
+			rest.y = tools.position.y - bar.size.y
 	if _bar_slide != null:
 		_bar_slide.kill()
-	_disaster_bar.visible = false
-	_disaster_button.open = false
+	if bool(Settings.get_value(&"accessibility/reduced_motion")):
+		bar.position = rest
+		bar.modulate.a = 1.0
+		return
+	bar.position = Vector2(button.position.x - bar.size.x * 0.3, rest.y)
+	bar.modulate.a = 0.0
+	_bar_slide = create_tween().set_parallel()
+	_bar_slide.tween_property(bar, "position", rest, 0.22).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_bar_slide.tween_property(bar, "modulate:a", 1.0, 0.18)
+
+
+func _slide_in(bar: Control) -> void:
+	if bar.visible and _bar_slide != null:
+		_bar_slide.kill()
+	bar.visible = false
 
 
 ## The warning before `kind` (or, while the world rests, when it can be).
@@ -865,6 +915,28 @@ func disaster_bar() -> DisasterBar:
 	return _disaster_bar
 
 
+## The offer of `kind` (or, while the world rests, when it can be given).
+func offer_blessing(kind: StringName) -> DisasterCard:
+	hide_blessings()
+	var card := DisasterCard.new()
+	var now := _session.clock.tick if _session != null else 0
+	var waiting := 0
+	if _session != null and _session.blessings != null and not _session.blessings.can_start(now):
+		waiting = maxi(_session.blessings.rest_left(now), 1)
+	card.setup(kind, waiting, &"blessing")
+	card.confirmed.connect(func(which: StringName) -> void: blessing_requested.emit(which))
+	open_panel(card)
+	return card
+
+
+func blessing_button() -> BlessingButton:
+	return _blessing_button
+
+
+func blessing_bar() -> BlessingBar:
+	return _blessing_bar
+
+
 ## The button shows whether a disaster goes on, and how far the world has
 ## rested since the last.
 func _refresh_disaster_state() -> void:
@@ -875,6 +947,13 @@ func _refresh_disaster_state() -> void:
 	_disaster_button.active = disasters.is_active()
 	_disaster_button.rested = 1.0 - clampf(float(disasters.rest_left(now)) / DisasterSystem.REST_MINUTES, 0.0, 1.0) 		if not disasters.is_active() else 0.0
 	_disaster_bar.can_strike = disasters.can_start(now)
+	# The other hand: the same rest, shown on its own button.
+	var blessings := _session.blessings
+	if blessings != null and _blessing_button != null:
+		_blessing_button.active = blessings.is_active()
+		_blessing_button.rested = 1.0 - clampf(float(blessings.rest_left(now)) / BlessingSystem.REST_MINUTES, 0.0, 1.0) \
+			if not blessings.is_active() else 0.0
+		_blessing_bar.can_strike = blessings.can_start(now)
 
 
 func _process(_delta: float) -> void:
@@ -883,7 +962,7 @@ func _process(_delta: float) -> void:
 
 ## The round buttons under the speed button, top to bottom.
 func column() -> Array[Control]:
-	return [_home_button, _journal_button, _disaster_button]
+	return [_home_button, _journal_button, _disaster_button, _blessing_button]
 
 
 ## The right-hand column: Home under the clock and the weather, the journal
@@ -916,6 +995,14 @@ func _place_corner() -> void:
 	var landscape := view != Vector2.ZERO and view.x > view.y
 	var map_size := _minimap.custom_minimum_size
 	var bar_bottom := ToolBar.bottom_for(viewport) if viewport != null else ToolBar.BOTTOM_MARGIN
+	# On a screen held on its side the column may run past the bottom: then
+	# the Blessing button sits beside the Disaster button, to its left, and
+	# its blessings slide out from there (2026-10-16).
+	if landscape and _blessing_button != null and _blessing_button.offset_bottom > view.y - bar_bottom:
+		_blessing_button.offset_top = _disaster_button.offset_top
+		_blessing_button.offset_bottom = _disaster_button.offset_bottom
+		_blessing_button.offset_right = _disaster_button.offset_left - CORNER_GAP
+		_blessing_button.offset_left = _blessing_button.offset_right - side
 	if landscape:
 		_minimap.anchor_left = 0.0
 		_minimap.anchor_right = 0.0

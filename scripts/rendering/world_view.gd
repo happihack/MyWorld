@@ -226,6 +226,10 @@ func show_disasters(disasters: DisasterSystem, clock: GameClock, world: WorldDat
 	_disaster_fx.bind(disasters, clock, world)
 
 
+func show_blessings(blessings: BlessingSystem) -> void:
+	_disaster_fx.bind_blessings(blessings)
+
+
 func disaster_fx() -> DisasterFx:
 	return _disaster_fx
 

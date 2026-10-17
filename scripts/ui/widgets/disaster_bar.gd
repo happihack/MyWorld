@@ -24,13 +24,13 @@ func _init() -> void:
 	name = "DisasterBar"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE # only the buttons take touches
 	add_theme_constant_override(&"separation", 10)
-	for kind in DisasterSystem.KINDS:
+	for kind in kinds():
 		var button := Button.new()
 		button.name = String(kind).capitalize().replace(" ", "")
 		button.flat = true
 		button.focus_mode = Control.FOCUS_NONE
 		button.text = ""
-		button.tooltip_text = MemoryText.translate("DISASTER_" + String(kind).to_upper())
+		button.tooltip_text = MemoryText.translate(tooltip_key(kind))
 		var side := size_of_one()
 		button.custom_minimum_size = Vector2(side, side)
 		button.add_to_group(InputRouter.UI_BLOCKER_GROUP) # touches here never reach the world
@@ -40,6 +40,20 @@ func _init() -> void:
 		button.pressed.connect(func() -> void: chosen.emit(kind))
 		add_child(button)
 		_buttons[kind] = button
+
+
+## What is on the bar, in order (the blessings' bar, BlessingBar, has its own).
+func kinds() -> Array[StringName]:
+	return DisasterSystem.KINDS
+
+
+func tooltip_key(kind: StringName) -> String:
+	return "DISASTER_" + String(kind).to_upper()
+
+
+## The sign of `kind` on one of the buttons.
+func glyph(canvas: CanvasItem, kind: StringName, center: Vector2, u: float, ink: Color, lit: bool) -> void:
+	draw_glyph(canvas, kind, center, u, ink, lit)
 
 
 ## Two thirds as big as the round buttons of the column (half was too
@@ -58,7 +72,7 @@ func _draw_button(button: Button, kind: StringName) -> void:
 	button.draw_circle(center, radius, HomeButton.BACKDROP_PRESSED if button.button_pressed else HomeButton.BACKDROP)
 	button.draw_arc(center, radius, 0.0, TAU, 32, HomeButton.RING, maxf(radius * 0.07, 1.5), true)
 	var ink := HomeButton.GLYPH if can_strike else Color(HomeButton.GLYPH, 0.35)
-	draw_glyph(button, kind, center, radius * 0.5, ink, can_strike)
+	glyph(button, kind, center, radius * 0.5, ink, can_strike)
 
 
 ## The sign of a disaster, drawn on `canvas` around `center` (`u`: a unit

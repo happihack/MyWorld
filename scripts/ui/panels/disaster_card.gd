@@ -5,18 +5,23 @@ extends UIPanel
 ## a milestone (MilestoneCard). While the world still rests after the last,
 ## it says when the next can be brought down, and only closes.
 
-## Yes: bring it down.
+## Yes: bring it down (or give it).
 signal confirmed(kind: StringName)
 
 const RED := Color(0.92, 0.32, 0.26)
+## The blessings' card is green (the other hand, 2026-10-16).
+const GREEN := Color(0.52, 0.78, 0.50)
 const DIM := Color(0.0, 0.0, 0.0, 0.55)
 const CARD_WIDTH := 820.0
 
 var kind: StringName = &""
+## What is offered: &"disaster" or &"blessing" (the texts' prefix, the colour).
+var act: StringName = &"disaster"
 var _heading: Label
 var _text: Label
 var _yes: Button
 var _cancel: Button
+var _frame: StyleBoxFlat
 
 
 func _init() -> void:
@@ -31,10 +36,10 @@ func _init() -> void:
 	add_child(middle)
 	var card := PanelContainer.new()
 	card.name = "Card"
-	var frame := MilestoneCard.style()
-	frame.border_color = RED
-	frame.shadow_color = Color(RED, 0.4)
-	card.add_theme_stylebox_override(&"panel", frame)
+	_frame = MilestoneCard.style()
+	_frame.border_color = RED
+	_frame.shadow_color = Color(RED, 0.4)
+	card.add_theme_stylebox_override(&"panel", _frame)
 	middle.add_child(card)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override(&"separation", 26)
@@ -80,18 +85,26 @@ func _ready() -> void:
 	_fit()
 
 
-## Warns of `which`; `rest_minutes` > 0: the world still rests that long, and
-## it cannot be brought down yet.
-func setup(which: StringName, rest_minutes: int = 0) -> void:
+## Warns of `which` (a disaster, or with `what` &"blessing" offers one);
+## `rest_minutes` > 0: the world still rests that long, and it cannot be yet.
+func setup(which: StringName, rest_minutes: int = 0, what: StringName = &"disaster") -> void:
 	kind = which
+	act = what
+	var prefix := String(act).to_upper() + "_"
+	var colour := GREEN if act == &"blessing" else RED
+	_heading.add_theme_color_override(&"font_color", colour)
+	_yes.add_theme_color_override(&"font_color", colour)
+	_frame.border_color = colour
+	_frame.shadow_color = Color(colour, 0.4)
+	_yes.text = MemoryText.translate(prefix + "YES")
 	var key := String(which).to_upper()
-	_heading.text = MemoryText.translate("DISASTER_" + key).to_upper()
+	_heading.text = MemoryText.translate(prefix + key).to_upper()
 	if rest_minutes > 0:
-		_text.text = MemoryText.translate("DISASTER_RESTING").format({"time": time_left(rest_minutes)})
+		_text.text = MemoryText.translate(prefix + "RESTING").format({"time": time_left(rest_minutes)})
 		_yes.visible = false
 		_cancel.text = MemoryText.translate("DISASTER_OK")
 	else:
-		_text.text = MemoryText.translate("DISASTER_WARN_" + key)
+		_text.text = MemoryText.translate(prefix + "WARN_" + key)
 		_yes.visible = true
 		_cancel.text = MemoryText.translate("DISASTER_CANCEL")
 

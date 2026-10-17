@@ -131,6 +131,8 @@ const STARTLE_RADIUS := 3.0
 var weather: WeatherSystem
 ## The disasters the player brings down (the Disaster button).
 var disasters: DisasterSystem
+## The blessings the player gives (the Blessing button): the other hand.
+var blessings: BlessingSystem
 ## What kinds of animals there are, the animals themselves, and their lives.
 var species: SpeciesLibrary
 var animals: AnimalRegistry
@@ -214,6 +216,7 @@ var _saved_construction: Dictionary = {}
 var _saved_planner: Dictionary = {}
 var _saved_traffic: Dictionary = {}
 var _saved_disasters: Dictionary = {}
+var _saved_blessings: Dictionary = {}
 ## (null: a world from before boats were things — its landings get theirs.)
 var _saved_boats: Variant = {}
 var _saved_predators: Dictionary = {}
@@ -254,6 +257,7 @@ func _init() -> void:
 	wars = WarParties.new()
 	weather = WeatherSystem.new()
 	disasters = DisasterSystem.new()
+	blessings = BlessingSystem.new()
 	events = EventLog.new()
 	chronicle = Chronicler.new()
 	stats = StatsRecorder.new()
@@ -634,6 +638,7 @@ func create_new(seed_value: int = 0, size_tiles: int = 0, land: StringName = &""
 	_saved_planner = {}
 	_saved_traffic = {}
 	_saved_disasters = {}
+	_saved_blessings = {}
 	_saved_boats = {}
 	_saved_predators = {}
 	_saved_parties = {}
@@ -720,6 +725,7 @@ func load_from(data: Dictionary) -> bool:
 		if typeof((state as Dictionary).get("traffic")) == TYPE_DICTIONARY:
 			_saved_traffic = state["traffic"]
 		_saved_disasters = state["disasters"] if typeof((state as Dictionary).get("disasters")) == TYPE_DICTIONARY else {}
+		_saved_blessings = state["blessings"] if typeof((state as Dictionary).get("blessings")) == TYPE_DICTIONARY else {}
 		_saved_boats = state["boats"] if typeof((state as Dictionary).get("boats")) == TYPE_DICTIONARY else null
 		_saved_predators = state["predators"] if typeof((state as Dictionary).get("predators")) == TYPE_DICTIONARY else {}
 		_saved_parties = state["parties"] if typeof((state as Dictionary).get("parties")) == TYPE_DICTIONARY else {}
@@ -858,6 +864,14 @@ func watch_followed(person_id: int) -> bool:
 func to_dict() -> Dictionary:
 	if is_active:
 		simulation.settle()
+	var saved := _state_dict()
+	# (A blessing only while one goes on: a world without saves no more.)
+	if blessings != null and blessings.is_active():
+		saved["world_state"]["blessings"] = blessings.to_dict()
+	return saved
+
+
+func _state_dict() -> Dictionary:
 	return {
 		"world_id": world_id,
 		"world_seed": world_seed,
@@ -1077,6 +1091,7 @@ func system_steps() -> Array:
 			[&"stories", func() -> void: stories.advance_to(clock.tick)],
 			[&"weather", func() -> void: weather.advance_to(clock.tick)],
 			[&"disasters", func() -> void: disasters.advance_to(clock.tick)],
+			[&"blessings", func() -> void: blessings.advance_to(clock.tick)],
 			[&"soil", func() -> void: soil.advance_to(clock.tick - STAGGER_SOIL)],
 			[&"powers", func() -> void: _look_for_powers()],
 			[&"nodes", func() -> void:
@@ -1695,6 +1710,11 @@ func _activate() -> void:
 	_saved_disasters = {}
 	interactions.disasters = disasters
 	ai.water_withheld = disasters.water_is_blood
+	# The blessings: the other hand, the same rest.
+	blessings.bind(self)
+	blessings.from_dict(_saved_blessings)
+	_saved_blessings = {}
+	interactions.blessings = blessings
 	# Old stones to take: what fell, not what was there of old or a mystery's.
 	ai.is_rubble = func(prop: PropData) -> bool:
 		return prop != null and prop.kind == PropData.Kind.RUIN and (start == null or prop.id != start.ruin_id) and not mysteries.lies_at(prop.tile)

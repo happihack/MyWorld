@@ -111,6 +111,7 @@ func _ready() -> void:
 	world_view.show_boats(session.boats)
 	world_view.show_weather(session.weather, session.clock)
 	world_view.show_disasters(session.disasters, session.clock, session.world)
+	world_view.show_blessings(session.blessings)
 	world_view.show_knowledge(session.knowledge)
 	# The minimap and the map (M13.3): where they send the camera, whom they mark.
 	ui_root.camera_mover = func(world_xz: Vector2, animate: bool) -> void:
@@ -202,6 +203,7 @@ func _ready() -> void:
 	_begin_opening()
 	ui_root.home_pressed.connect(go_home)
 	ui_root.disaster_requested.connect(bring_down)
+	ui_root.blessing_requested.connect(give)
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)
@@ -1086,9 +1088,16 @@ var _slowed_for := -1
 func _slow_for_disasters() -> void:
 	var clock := session.clock
 	var disasters := session.disasters
+	var blessings := session.blessings
+	# (A blessing as a disaster: the Presence's act, watched as it begins.)
+	var watched_began := -1
 	if disasters.watching(clock.tick):
-		if _slowed_for != disasters.began:
-			_slowed_for = disasters.began
+		watched_began = disasters.began
+	elif blessings != null and blessings.watching(clock.tick):
+		watched_began = blessings.began
+	if watched_began >= 0:
+		if _slowed_for != watched_began:
+			_slowed_for = watched_began
 			if clock.speed_index > GameClock.SPEED_NORMAL:
 				_speed_before_disaster = clock.speed_index
 				ui_root.set_speed(GameClock.SPEED_NORMAL)
@@ -1102,6 +1111,12 @@ func _slow_for_disasters() -> void:
 func bring_down(kind: StringName) -> Intervention:
 	var pivot := world_view.camera_rig().pivot()
 	return session.interactions.disaster(kind, Vector2(pivot.x, pivot.z))
+
+
+## A blessing, chosen and confirmed: given where the camera looks.
+func give(kind: StringName) -> Intervention:
+	var pivot := world_view.camera_rig().pivot()
+	return session.interactions.bless(kind, Vector2(pivot.x, pivot.z))
 
 
 func go_home() -> void:

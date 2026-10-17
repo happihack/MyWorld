@@ -65,6 +65,7 @@ var forced_hour := -1.0
 var _cover := 0.0
 var _flash := 0.0
 var _eclipse := 0.0
+var _lights := 0.0
 
 
 func _ready() -> void:
@@ -136,6 +137,19 @@ func eclipse() -> float:
 	return _eclipse
 
 
+## Lights in the sky (a blessing: DisasterFx): 0 … 1, how much they fill it.
+func set_lights(amount: float) -> void:
+	amount = clampf(amount, 0.0, 1.0)
+	if absf(amount - _lights) < 0.004:
+		return
+	_lights = amount
+	_shown_hour = -100.0
+
+
+func lights() -> float:
+	return _lights
+
+
 func set_weather(cover: float, flash: float = 0.0) -> void:
 	cover = clampf(cover, 0.0, 1.0)
 	flash = clampf(flash, 0.0, 1.0)
@@ -202,7 +216,7 @@ func refresh() -> void:
 	if absf(now - _shown_hour) < UPDATE_HOURS:
 		return
 	_shown_hour = now
-	_state = eclipsed(under_weather(state_at(now, Config.day_night), _cover, _flash, Config.weather_fx), _eclipse)
+	_state = lit_by_lights(eclipsed(under_weather(state_at(now, Config.day_night), _cover, _flash, Config.weather_fx), _eclipse), _lights)
 	if _lighting != null:
 		_lighting.set_sun(_state.light_rotation, _state.light_color, _state.light_energy)
 		_lighting.set_atmosphere(_state.ambient_color, _state.ambient_energy, _state.background, _state.table_light, _state.shadow_opacity)
@@ -300,6 +314,22 @@ static func eclipsed(state: State, amount: float) -> State:
 	state.table_light *= lerpf(1.0, 0.4, amount)
 	state.window_light = maxf(state.window_light, amount)
 	state.night = maxf(state.night, amount * 0.85)
+	return state
+
+
+## The light `state` with lights in the sky `amount` (0 … 1; a blessing,
+## BlessingSystem.LIGHTS): by night the sky glows green and violet and the
+## land is lit a little by it; by day the sun is ringed pale gold.
+static func lit_by_lights(state: State, amount: float) -> State:
+	if amount <= 0.0:
+		return state
+	var night := state.night
+	state.background = state.background.lerp(Color(0.16, 0.42, 0.40), amount * lerpf(0.35, 0.8, night))
+	state.ambient_color = state.ambient_color.lerp(Color(0.58, 0.84, 0.78), amount * lerpf(0.25, 0.55, night))
+	# (Lit, not daylit: a night under them is still a night.)
+	state.ambient_energy *= lerpf(1.0, lerpf(1.1, 1.45, night), amount)
+	state.light_color = state.light_color.lerp(Color(1.0, 0.93, 0.72), amount * (1.0 - night) * 0.35)
+	state.shadow_opacity *= lerpf(1.0, 0.8, amount * night)
 	return state
 
 

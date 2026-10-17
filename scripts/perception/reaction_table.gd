@@ -76,6 +76,8 @@ const REACTIONS: Array[StringName] = [LOOK, INVESTIGATE, FREEZE, RUN, YELL, LAUG
 	&"tornado": [0.9, 0.9, 30.0, false, true, true],
 	&"blood_water": [0.95, 0.95, 400.0, true, true, false],
 	&"meteors": [0.95, 0.95, 40.0, true, true, false],
+	# The blessings (BlessingSystem): the lights are seen everywhere.
+	&"lights_in_sky": [0.8, 0.8, 400.0, true, true, false],
 }
 
 @export_group("Perception")
