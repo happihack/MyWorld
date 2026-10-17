@@ -874,6 +874,15 @@ func _slide_out(bar: Control, from: Control) -> void:
 		var tools := _tool_bar.get_global_rect().grow(CORNER_GAP)
 		if Rect2(rest, bar.size).intersects(tools):
 			rest.y = tools.position.y - bar.size.y
+	# Nor across another button of the column: on its side the Blessing
+	# button stands to the left of the Disaster button, and the disasters
+	# slid out straight over it (the owner, 2026-10-17). Then out past it.
+	for other: Control in column():
+		if other == null or other == from or not other.visible:
+			continue
+		var its := other.get_global_rect().grow(CORNER_GAP * 0.5)
+		if Rect2(rest, bar.size).intersects(its):
+			rest.x = its.position.x - CORNER_GAP * 0.5 - bar.size.x
 	if _bar_slide != null:
 		_bar_slide.kill()
 	if bool(Settings.get_value(&"accessibility/reduced_motion")):

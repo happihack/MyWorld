@@ -172,3 +172,26 @@ func test_a_blessing_has_a_moment_where_it_lands() -> void:
 	assert_eq(effects.burst_count(WorldEffects.Burst.LEAVES), leaves + 1, "and leaves, for the bushes")
 	var at := effects.last_burst_position(WorldEffects.Burst.MOTES)
 	assert_near(Vector2(at.x, at.z).distance_to(session.blessings.at), 0.0, 0.6, "where it was given")
+
+
+func test_on_its_side_the_disasters_slide_out_past_the_blessing_button() -> void:
+	# As _place_corner lays them out on a phone held on its side: the Blessing
+	# button beside the Disaster button, to its left.
+	var disaster := ui.disaster_button()
+	var bless := ui.blessing_button()
+	bless.offset_top = disaster.offset_top
+	bless.offset_bottom = disaster.offset_bottom
+	bless.offset_right = disaster.offset_left - UIRoot.CORNER_GAP
+	bless.offset_left = bless.offset_right - disaster.size.x
+	await wait_frames(2)
+	ui.show_disasters()
+	await wait_frames(30)
+	var bar := ui.disaster_bar().get_global_rect()
+	assert_false(bar.intersects(bless.get_global_rect()), "not across the Blessing button (the owner, 2026-10-17)")
+	assert_true(bar.end.x <= bless.get_global_rect().position.x, "out past it, to its left")
+	assert_true(bar.position.x >= 0.0, "and still on the screen")
+	ui.show_blessings()
+	await wait_frames(30)
+	var row := ui.blessing_bar().get_global_rect()
+	assert_true(row.end.x <= bless.get_global_rect().position.x, "the blessings to the left of their own button")
+	assert_false(row.intersects(disaster.get_global_rect()))

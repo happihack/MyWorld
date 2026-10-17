@@ -27,6 +27,11 @@ static func shoot(tree: SceneTree, out: String) -> bool:
 		await tree.process_frame
 	if not _save(tree, out + "_bar.png"):
 		return false
+	ui.show_disasters()
+	for i in 6:
+		await tree.process_frame
+	if not _save(tree, out + "_disasters.png"):
+		return false
 	var card := ui.offer_blessing(BlessingSystem.LIGHTS)
 	for i in 6:
 		await tree.process_frame
