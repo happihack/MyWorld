@@ -27,6 +27,9 @@ signal event_chosen(event_id: int)
 signal disaster_requested(kind: StringName)
 ## A blessing was chosen and confirmed (the Blessing button).
 signal blessing_requested(kind: StringName)
+## The player is aiming one hand of the Presence (a bar out, or its card
+## up): &"blessing", &"disaster", or &"" (the aim ring: DisasterFx.set_aim).
+signal aim_changed(kind: StringName)
 ## Another world is to be opened (VS.3; see MainMenu.world_requested).
 signal world_requested(plan: Dictionary, erase_this: bool)
 ## For the main menu (Main saves the world and goes there).
@@ -76,6 +79,7 @@ var _disaster_bar: DisasterBar
 var _blessing_button: BlessingButton
 var _blessing_bar: BlessingBar
 var _bar_slide: Tween
+var _aiming: StringName = &""
 ## The minimap (M13.3): bottom right, above the journal.
 var _minimap: Minimap
 ## Where the camera is asked to go (Main): Callable(world_xz: Vector2, animate: bool).
@@ -835,11 +839,30 @@ func show_disasters() -> void:
 	_refresh_disaster_state()
 	_slide_out(_disaster_bar, _disaster_button)
 	_disaster_button.open = true
+	_update_aim()
 
 
 func hide_disasters() -> void:
 	_slide_in(_disaster_bar)
 	_disaster_button.open = false
+	_update_aim()
+
+
+## Which hand is being aimed now, if any (see aim_changed).
+func _update_aim() -> void:
+	var kind: StringName = &""
+	var card := top_panel() as DisasterCard
+	if _blessing_bar.visible or (card != null and card.act == &"blessing"):
+		kind = &"blessing"
+	elif _disaster_bar.visible or (card != null and card.act == &"disaster"):
+		kind = &"disaster"
+	if kind != _aiming:
+		_aiming = kind
+		aim_changed.emit(kind)
+
+
+func aiming() -> StringName:
+	return _aiming
 
 
 ## The blessings, the same way from their button (2026-10-16).
@@ -855,11 +878,13 @@ func show_blessings() -> void:
 	_refresh_disaster_state()
 	_slide_out(_blessing_bar, _blessing_button)
 	_blessing_button.open = true
+	_update_aim()
 
 
 func hide_blessings() -> void:
 	_slide_in(_blessing_bar)
 	_blessing_button.open = false
+	_update_aim()
 
 
 ## Slides `bar` out to the left of `from` (a button of the column).
@@ -912,7 +937,9 @@ func warn_of_disaster(kind: StringName) -> DisasterCard:
 		waiting = maxi(_session.disasters.rest_left(now), 1)
 	card.setup(kind, waiting)
 	card.confirmed.connect(func(which: StringName) -> void: disaster_requested.emit(which))
+	card.closed.connect(func() -> void: _update_aim.call_deferred())
 	open_panel(card)
+	_update_aim()
 	return card
 
 
@@ -934,7 +961,9 @@ func offer_blessing(kind: StringName) -> DisasterCard:
 		waiting = maxi(_session.blessings.rest_left(now), 1)
 	card.setup(kind, waiting, &"blessing")
 	card.confirmed.connect(func(which: StringName) -> void: blessing_requested.emit(which))
+	card.closed.connect(func() -> void: _update_aim.call_deferred())
 	open_panel(card)
+	_update_aim()
 	return card
 
 

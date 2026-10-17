@@ -1223,6 +1223,7 @@ Tone: quiet, short, curious. Never exclamation-heavy, never "Great job!".
 - **The column under the clock:** the speed button, Home, the journal, the **Disaster** button and, under it, the **Blessing** button (green, a sprig; 2026-10-16) — the two hands of the Presence (§10.5), each sliding its kinds out to the left. On its side, when the column would run past the bottom, the Blessing button sits beside the Disaster button.
 - **Contextual:** person card (bottom sheet), locate button, follow banner ("Following Mara · ✕").
 All touch targets **≥ 48 dp** (min 44). Nothing opaque covers more of the world than necessary. Drawn as §28.5 says: chalk over the world.
+While either hand's bar is out or its card is up, an **aim ring** lies on the ground at the point the camera looks at, as wide as the act reaches, green-gold for a blessing and red for a disaster, following the view (2026-10-17: a blessing was hard to aim).
 The corners keep their margins from the phone's **safe area**, not the screen's edge (2026-10-16): below the notch and above the home indicator on iOS, clear of the camera hole on Android — and only where the hole actually crosses a control, so a hole at the top centre moves the follow banner and nothing else. On a desktop nothing moves.
 
 ### 26.5 Hamburger menu [CANON structure]

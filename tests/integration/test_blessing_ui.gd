@@ -195,3 +195,33 @@ func test_on_its_side_the_disasters_slide_out_past_the_blessing_button() -> void
 	var row := ui.blessing_bar().get_global_rect()
 	assert_true(row.end.x <= bless.get_global_rect().position.x, "the blessings to the left of their own button")
 	assert_false(row.intersects(disaster.get_global_rect()))
+
+
+func test_an_aim_ring_shows_where_the_act_would_land() -> void:
+	var fx := view.disaster_fx()
+	assert_eq(fx.aim_kind(), &"", "nothing aimed")
+	ui.show_blessings()
+	await wait_frames(2)
+	assert_eq(fx.aim_kind(), &"blessing", "the blessings out: aiming one")
+	assert_eq(ui.aiming(), &"blessing")
+	var pivot := rig.pivot()
+	assert_near(Vector2(fx.aim_position().x, fx.aim_position().z).distance_to(Vector2(pivot.x, pivot.z)), 0.0, 0.01, "at the point the camera looks at")
+	# It follows the view.
+	var look := Vector2(session.start.settlement_tile) + Vector2(6.5, 3.5)
+	rig.focus_on(Vector3(look.x, 0.0, look.y), Config.camera.home_distance, false)
+	await wait_frames(2)
+	assert_near(Vector2(fx.aim_position().x, fx.aim_position().z).distance_to(look), 0.0, 0.6, "and follows the view")
+	# The card keeps it; closing the card ends it.
+	ui.blessing_bar().button(BlessingSystem.LIGHTS).pressed.emit()
+	await wait_frames(2)
+	assert_eq(fx.aim_kind(), &"blessing", "the card up: still aiming")
+	(ui.top_panel() as DisasterCard).cancel_button().pressed.emit()
+	await wait_frames(2)
+	assert_eq(fx.aim_kind(), &"", "the card gone: aimed no more")
+	# The other hand, in red.
+	ui.show_disasters()
+	await wait_frames(2)
+	assert_eq(fx.aim_kind(), &"disaster")
+	ui.hide_disasters()
+	await wait_frames(2)
+	assert_eq(fx.aim_kind(), &"")

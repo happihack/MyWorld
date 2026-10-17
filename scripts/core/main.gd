@@ -204,6 +204,7 @@ func _ready() -> void:
 	ui_root.home_pressed.connect(go_home)
 	ui_root.disaster_requested.connect(bring_down)
 	ui_root.blessing_requested.connect(give)
+	ui_root.aim_changed.connect(func(kind: StringName) -> void: world_view.disaster_fx().set_aim(kind))
 	debug_overlay.register_section(&"pick", func() -> String: return "pick %s" % _last_pick)
 	debug_overlay.register_section(&"camera", _camera_debug_section)
 	debug_overlay.register_section(&"world", _world_debug_section)

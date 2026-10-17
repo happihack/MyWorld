@@ -13,6 +13,11 @@ const STAR_COLOR := Color(1.0, 0.62, 0.22)
 ## The blessings' gold, and the green of leaves stirred by a bounty.
 const GOLD := Color(0.95, 0.80, 0.42)
 const BERRY_LEAF := Color(0.45, 0.68, 0.32)
+## The aim ring: green-gold for a blessing, red for a disaster, a little
+## above the ground.
+const AIM_BLESSING := Color(0.80, 0.92, 0.45, 0.75)
+const AIM_DISASTER := Color(0.92, 0.32, 0.26, 0.75)
+const AIM_LIFT := 0.06
 const DUST := Color(0.58, 0.50, 0.40)
 const FUNNEL_COLOR := Color(0.30, 0.27, 0.24, 0.78)
 const FUNNEL_HEIGHT := 6.0
@@ -31,6 +36,9 @@ var _blessings: BlessingSystem
 var _clock: GameClock
 var _world: WorldData
 var _funnel: Node3D
+var _aim: Node3D
+var _aim_kind: StringName = &""
+var _aim_reach := 1.0
 var _jolt := 0.0
 var _dust := 0.0
 var _rng := RandomNumberGenerator.new()
@@ -47,6 +55,74 @@ func setup(rig: CameraRig, day_night: DayNight, water: ShaderMaterial, effects: 
 	_funnel = _make_funnel()
 	_funnel.visible = false
 	add_child(_funnel)
+	_aim = _make_aim()
+	_aim.visible = false
+	add_child(_aim)
+
+
+# --- the aim ------------------------------------------------------------------------------------
+
+## Where the Presence's next act would land (the owner, 2026-10-17: a
+## blessing was hard to aim): a ring on the ground at the point the camera
+## looks at, as wide as the act reaches, while the blessings or the
+## disasters are slid out or their card is up. `kind` &"blessing",
+## &"disaster", or &"" for none.
+func set_aim(kind: StringName) -> void:
+	_aim_kind = kind
+	_aim.visible = kind != &""
+	if kind == &"":
+		return
+	var colour := AIM_BLESSING if kind == &"blessing" else AIM_DISASTER
+	for i in _aim.get_child_count():
+		var part := _aim.get_child(i) as MeshInstance3D
+		(part.mesh.material as StandardMaterial3D).albedo_color = colour
+	_aim_reach = BlessingSystem.REACH if kind == &"blessing" else DisasterSystem.QUAKE_REACH
+	_aim.scale = Vector3(_aim_reach, 1.0, _aim_reach)
+	_follow_aim()
+
+
+func aim_kind() -> StringName:
+	return _aim_kind
+
+
+func aim_position() -> Vector3:
+	return _aim.position
+
+
+func _follow_aim() -> void:
+	if _rig == null or not _aim.visible:
+		return
+	var pivot := _rig.pivot()
+	_aim.position = _ground(Vector2(pivot.x, pivot.z)) + Vector3(0.0, AIM_LIFT, 0.0)
+	if not reduced_motion:
+		var breath := 1.0 + 0.03 * sin(Time.get_ticks_msec() * 0.003)
+		_aim.scale = Vector3(_aim_reach * breath, 1.0, _aim_reach * breath)
+
+
+## A ring the size of a unit's reach (scaled to the act's), a small ring
+## about a tile wide round the heart (the reach ring is wider than the
+## screen at the usual zoom), and a dot at the exact point.
+func _make_aim() -> Node3D:
+	var aim := Node3D.new()
+	aim.name = "Aim"
+	for part: Array in [[0.975, 1.0], [0.11, 0.135], [0.0, 0.025]]:
+		var piece := MeshInstance3D.new()
+		var mesh := TorusMesh.new()
+		mesh.inner_radius = part[0]
+		mesh.outer_radius = part[1]
+		mesh.rings = 64
+		mesh.ring_segments = 6
+		var material := StandardMaterial3D.new()
+		material.albedo_color = AIM_BLESSING
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.cull_mode = BaseMaterial3D.CULL_DISABLED
+		material.no_depth_test = true
+		mesh.material = material
+		piece.mesh = mesh
+		piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		aim.add_child(piece)
+	return aim
 
 
 func bind(disasters: DisasterSystem, clock: GameClock, world: WorldData) -> void:
@@ -95,6 +171,7 @@ func _on_blessing_started(kind: StringName, at: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
+	_follow_aim()
 	if _disasters == null or _clock == null:
 		return
 	var now := _clock.tick
