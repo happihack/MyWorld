@@ -567,6 +567,8 @@ static func government(s: WorldSession) -> Array:
 ## What the world has come to believe: its shared memories and myths, in words.
 static func beliefs(s: WorldSession) -> PackedStringArray:
 	var out := PackedStringArray()
+	# What they have come to expect of the Presence (Dependence), first.
+	out.append_array(Dependence.lines(s, s.clock.tick if s.clock != null else 0))
 	var found: Array = []
 	for type: StringName in [&"myth_formed", &"cultural_memory", &"faith_founded", &"schism", &"myth_spread"]:
 		found.append_array(s.events.of_type(type))

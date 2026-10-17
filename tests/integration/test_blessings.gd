@@ -378,3 +378,40 @@ func test_a_blessing_lived_through_becomes_a_tradition() -> void:
 	var told := session.events.of_type(&"tradition_formed")
 	assert_eq(told.size(), 1)
 	assert_has(EventText.text(told[0], session.people), "the offering of first fruits")
+
+
+# --- dependence, step one (step 5) -------------------------------------------------------------------
+
+func test_blessed_twice_in_a_year_a_settlement_comes_to_expect_it() -> void:
+	var own := session.settlement
+	var fire := _fire()
+	assert_true(Dependence.expects(session, own, clock.tick).is_empty(), "nothing yet")
+	assert_true(session.interactions.bless(BlessingSystem.BOUNTY, fire).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.BOUNTY]) + BlessingSystem.REST_MINUTES)
+	assert_eq(Dependence.gifts_in_year(session, own, clock.tick), {&"bounty_of_bushes": 1})
+	assert_true(Dependence.expects(session, own, clock.tick).is_empty(), "once is a gift")
+	assert_false(MenuPages.beliefs(session).has("%s has come to expect the fruit" % own.display_name()))
+	_pass(20 * Config.time.MINUTES_PER_DAY)
+	assert_true(session.interactions.bless(BlessingSystem.BOUNTY, fire).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.BOUNTY]) + BlessingSystem.REST_MINUTES)
+	assert_eq(Dependence.expects(session, own, clock.tick), [&"bounty_of_bushes"] as Array[StringName], "twice is expected")
+	assert_has(MenuPages.beliefs(session), "%s has come to expect the fruit" % own.display_name())
+	# Another gift, once: not that one.
+	assert_true(session.interactions.bless(BlessingSystem.WATERS, fire).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.WATERS]) + BlessingSystem.REST_MINUTES)
+	assert_eq(Dependence.gifts_in_year(session, own, clock.tick), {&"bounty_of_bushes": 2, &"teeming_waters": 1})
+	assert_eq(Dependence.expects(session, own, clock.tick), [&"bounty_of_bushes"] as Array[StringName])
+	# A year without: forgotten.
+	_pass(Config.time.ticks_per_year())
+	assert_true(Dependence.expects(session, own, clock.tick).is_empty(), "a year on, as before")
+	assert_false(MenuPages.beliefs(session).has("%s has come to expect the fruit" % own.display_name()))
+
+
+func test_a_gift_far_from_the_fire_is_not_the_settlements() -> void:
+	var own := session.settlement
+	var away := _fire() + Vector2(Dependence.NEAR + 12.0, 0.0)
+	assert_true(session.interactions.bless(BlessingSystem.SOIL, away).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.SOIL]) + BlessingSystem.REST_MINUTES)
+	assert_true(session.interactions.bless(BlessingSystem.SOIL, away).applied)
+	_pass(int(BlessingSystem.LASTS[BlessingSystem.SOIL]) + BlessingSystem.REST_MINUTES)
+	assert_true(Dependence.gifts_in_year(session, own, clock.tick).is_empty(), "blessed land, but not theirs")
