@@ -1208,6 +1208,7 @@ Tone: quiet, short, curious. Never exclamation-heavy, never "Great job!".
 - **Bottom-right corner:** minimap (collapsible) + **Home** button — on its side the minimap goes to the bottom left, and the cards keep above it (2026-10-13).
 - **Contextual:** person card (bottom sheet), locate button, follow banner ("Following Mara · ✕").
 All touch targets **≥ 48 dp** (min 44). Nothing opaque covers more of the world than necessary. Drawn as §28.5 says: chalk over the world.
+The corners keep their margins from the phone's **safe area**, not the screen's edge (2026-10-16): below the notch and above the home indicator on iOS, clear of the camera hole on Android — and only where the hole actually crosses a control, so a hole at the top centre moves the follow banner and nothing else. On a desktop nothing moves.
 
 ### 26.5 Hamburger menu [CANON structure]
 

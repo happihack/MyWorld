@@ -71,6 +71,27 @@ func _init() -> void:
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(gap)
 	add_child(_button)
+	resized.connect(place)
+
+
+func _ready() -> void:
+	get_viewport().size_changed.connect(place)
+	place()
+
+
+## Its corner, with its margins from the screen's safe area (SafeArea): on a
+## phone with a notch, below it; held on its side, in from it.
+func place() -> void:
+	if not is_inside_tree():
+		return
+	var viewport := get_viewport()
+	var view := viewport.get_visible_rect().size
+	var right := EDGE_MARGIN + SafeArea.inset(viewport, SIDE_RIGHT, Vector2(TOP, TOP + size.y))
+	var top := TOP + SafeArea.inset(viewport, SIDE_TOP, Vector2(view.x - right - size.x, view.x - right))
+	if is_equal_approx(offset_right, -right) and is_equal_approx(offset_top, top):
+		return
+	offset_right = -right
+	offset_top = top
 
 
 func bind(clock: GameClock, weather: WeatherSystem = null) -> void:

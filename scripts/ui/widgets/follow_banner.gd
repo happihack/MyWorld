@@ -70,20 +70,11 @@ func _place() -> void:
 	offset_top = top_for(get_viewport())
 
 
-## Where the banner's top is on `viewport` (canvas units).
+## Where the banner's top is on `viewport` (canvas units): the baseline, or
+## BELOW_CUTOUT under the notch or camera the phone tells of (SafeArea).
 static func top_for(viewport: Viewport) -> float:
-	var top := TOP
-	if viewport == null or DisplayServer.get_name() == "headless":
-		return top
-	var window := DisplayServer.window_get_size()
-	if window.y <= 0:
-		return top
-	var per_pixel := viewport.get_visible_rect().size.y / float(window.y)
-	for cutout: Rect2 in DisplayServer.get_display_cutouts():
-		# (One along the top edge — a camera — not a notch at the bottom.)
-		if cutout.position.y < window.y * 0.2:
-			top = maxf(top, (cutout.end.y) * per_pixel + BELOW_CUTOUT)
-	return top
+	var inset := SafeArea.inset(viewport, SIDE_TOP)
+	return TOP if inset <= 0.0 else maxf(TOP, inset + BELOW_CUTOUT)
 
 
 ## Shows who is followed ("" = nobody), and whether the camera is with them.

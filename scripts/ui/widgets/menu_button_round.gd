@@ -25,6 +25,20 @@ func _init() -> void:
 	set_process(false)
 
 
+func _ready() -> void:
+	get_viewport().size_changed.connect(place)
+	place()
+
+
+## Its corner, with its margins from the screen's safe area (SafeArea): on a
+## phone with a notch, below it.
+func place() -> void:
+	var viewport := get_viewport()
+	var left := EDGE_MARGIN + SafeArea.inset(viewport, SIDE_LEFT, Vector2(TOP, TOP + SIZE))
+	var top := TOP + SafeArea.inset(viewport, SIDE_TOP, Vector2(left, left + SIZE))
+	position = Vector2(left, top)
+
+
 ## Glows softly for `seconds` (a ring that breathes; VS.4: once, at the
 ## first event — there is something to read in here).
 func glow(seconds: float) -> void:

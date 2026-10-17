@@ -338,7 +338,7 @@ func open_context_menu(anchor: Vector2, target: Picker.Result, what: Interaction
 ## beside it, on a screen held on its side) at the right.
 func clear_of_hud() -> Rect2:
 	var view := _panel_layer.get_viewport_rect().size
-	var bottom := view.y - (ToolBar.bottom_margin_for(view) + ToolButton.SIZE + CORNER_GAP)
+	var bottom := view.y - (ToolBar.bottom_for(_panel_layer.get_viewport()) + ToolButton.SIZE + CORNER_GAP)
 	var right := view.x
 	if _home_button != null:
 		right = view.x + _home_button.offset_left - CORNER_GAP
@@ -895,34 +895,42 @@ func _place_corner() -> void:
 	# All the round buttons of the column as big as the speed button above
 	# them, in line with it, evenly spaced (the owner's playtest, 2026-10-05).
 	var side := SpeedControl.BUTTON_SIZE
+	# (The clock first: it is the one that knows the phone's notch — SafeArea —
+	# and the column hangs from it, in line with it.)
+	_speed_control.place()
 	var top := _speed_control.offset_top + _speed_control.size.y + CORNER_GAP
 	for button: Control in column():
 		button.custom_minimum_size = Vector2(side, side)
-		button.offset_right = -SpeedControl.EDGE_MARGIN
+		button.offset_right = _speed_control.offset_right
 		button.offset_left = button.offset_right - side
 		button.offset_top = top
 		button.offset_bottom = top + side
 		top += side + CORNER_GAP
-	var view := _panel_layer.get_viewport_rect().size if _panel_layer != null and _panel_layer.is_inside_tree() else Vector2.ZERO
+	var in_tree := _panel_layer != null and _panel_layer.is_inside_tree()
+	var viewport := _panel_layer.get_viewport() if in_tree else null
+	var view := _panel_layer.get_viewport_rect().size if in_tree else Vector2.ZERO
 	# The minimap: held upright, bottom right above the row of tools; on its
 	# side, bottom left (the owner, 2026-10-13: at the right it stood in the
 	# way of the disasters), the cards keeping to its right (UIPanel.left_for).
+	# Either way above the home indicator, with the row of tools (SafeArea).
 	var landscape := view != Vector2.ZERO and view.x > view.y
 	var map_size := _minimap.custom_minimum_size
+	var bar_bottom := ToolBar.bottom_for(viewport) if viewport != null else ToolBar.BOTTOM_MARGIN
 	if landscape:
 		_minimap.anchor_left = 0.0
 		_minimap.anchor_right = 0.0
 		_minimap.grow_horizontal = Control.GROW_DIRECTION_END
-		_minimap.offset_left = SpeedControl.EDGE_MARGIN
+		_minimap.offset_bottom = -bar_bottom
+		_minimap.offset_left = SpeedControl.EDGE_MARGIN + SafeArea.inset(viewport, SIDE_LEFT,
+			Vector2(view.y - bar_bottom - map_size.y, view.y - bar_bottom))
 		_minimap.offset_right = _minimap.offset_left + map_size.x
-		_minimap.offset_bottom = -ToolBar.LANDSCAPE_BOTTOM_MARGIN
 	else:
 		_minimap.anchor_left = 1.0
 		_minimap.anchor_right = 1.0
 		_minimap.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		_minimap.offset_right = _home_button.offset_right
 		_minimap.offset_left = _minimap.offset_right - map_size.x
-		_minimap.offset_bottom = -(ToolBar.BOTTOM_MARGIN + ToolButton.SIZE + CORNER_GAP)
+		_minimap.offset_bottom = -(bar_bottom + ToolButton.SIZE + CORNER_GAP)
 	_minimap.offset_top = _minimap.offset_bottom - map_size.y
 
 

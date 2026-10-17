@@ -18,6 +18,14 @@ const GAP := 24
 ## How far the row's bottom edge is from the bottom of a screen of `view`.
 static func bottom_margin_for(view: Vector2) -> float:
 	return LANDSCAPE_BOTTOM_MARGIN if view.x > view.y else BOTTOM_MARGIN
+
+
+## How far the row's bottom edge is from the bottom of `viewport`'s screen:
+## its margin, or its landscape margin above the phone's home indicator
+## (SafeArea), whichever is higher — upright the margin already clears it.
+static func bottom_for(viewport: Viewport) -> float:
+	var margin := bottom_margin_for(viewport.get_visible_rect().size)
+	return maxf(margin, SafeArea.inset(viewport, SIDE_BOTTOM) + LANDSCAPE_BOTTOM_MARGIN)
 ## Room kept free at either side of the screen (the Home button stands in
 ## the same row): with many tools the buttons get smaller rather than run
 ## under it — but never smaller than a finger.
@@ -92,7 +100,7 @@ func place() -> void:
 			button.custom_minimum_size = Vector2(side, side)
 			button.size = Vector2(side, side)
 	reset_size()
-	position = Vector2((view.x - size.x) * 0.5, view.y - bottom_margin_for(view) - size.y)
+	position = Vector2((view.x - size.x) * 0.5, view.y - bottom_for(get_viewport()) - size.y)
 
 
 func _on_pressed(id: StringName) -> void:
