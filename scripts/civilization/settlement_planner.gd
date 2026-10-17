@@ -140,7 +140,8 @@ func needs(now: int) -> Array[StringName]:
 		out.append(&"storage")
 	if material_storage_short():
 		out.append(&"material_storage")
-	if water_far():
+	# (A village that has come to expect the rain digs no well: Dependence, bible §24.)
+	if water_far() and Dependence.digs_wells(_settlement.expected):
 		out.append(&"water")
 	if workshop_wanted():
 		out.append(&"workshop")

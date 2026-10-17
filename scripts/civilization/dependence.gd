@@ -11,7 +11,8 @@ extends RefCounted
 ## Blessed this often with one kind in a year, a settlement expects it.
 const EXPECTS_FROM := 2
 ## The gifts that can be expected (the lights change nothing to live by).
-const GIFTS: Array[StringName] = [&"bounty_of_bushes", &"rich_soil", &"teeming_waters", &"healing"]
+const GIFTS: Array[StringName] = [&"bounty_of_bushes", &"rich_soil", &"teeming_waters", &"healing", &"drought_broken",
+	&"herds_returned"]
 ## How far from its fire a gift counts as the settlement's (the blessing's
 ## reach, and the walk to the bushes and the bank beyond it).
 const NEAR := BlessingSystem.REACH + 6.0
@@ -69,6 +70,13 @@ static func fishers_wanted(wanted: int, expected: Array[StringName]) -> int:
 	if not expected.has(&"teeming_waters"):
 		return wanted
 	return mini(wanted, 1)
+
+
+## Does a settlement that expects `expected` dig a well when water is far
+## (SettlementPlanner)? Not one that expects the rain (bible §24: "a village
+## that always gets rain may never dig wells").
+static func digs_wells(expected: Array[StringName]) -> bool:
+	return not expected.has(&"drought_broken")
 
 
 ## In words, for the Beliefs page: "Ama's camp has come to expect the fruit".

@@ -72,5 +72,20 @@ static func draw_blessing_glyph(canvas: CanvasItem, kind: StringName, center: Ve
 				canvas.draw_line(center + Vector2(x, 0.55) * u, center + Vector2(x, top) * u, ink, width, true)
 			canvas.draw_line(center + Vector2(-0.7, 0.55) * u, center + Vector2(-1.2, -0.2) * u, ink, width, true)
 			canvas.draw_circle(center + Vector2(0.0, 0.5) * u, u * 0.22, GOLD if lit else ink)
+		BlessingSystem.RAIN:
+			# A soft cloud, and three drops falling from it.
+			canvas.draw_arc(center + Vector2(-0.45, -0.3) * u, u * 0.45, PI * 0.9, PI * 2.0, 10, ink, width, true)
+			canvas.draw_arc(center + Vector2(0.3, -0.45) * u, u * 0.6, PI * 1.0, PI * 2.05, 12, ink, width, true)
+			canvas.draw_line(center + Vector2(-0.9, 0.15) * u, center + Vector2(0.9, 0.15) * u, ink, width, true)
+			for i in 3:
+				var x := (i - 1) * 0.5
+				canvas.draw_line(center + Vector2(x, 0.5) * u, center + Vector2(x - 0.15, 1.1) * u, GOLD if lit else ink, width * 0.8, true)
+		BlessingSystem.HERDS:
+			# Antlers: two beams, each with two tines.
+			for side: float in [-1.0, 1.0]:
+				canvas.draw_line(center + Vector2(side * 0.25, 1.1) * u, center + Vector2(side * 0.75, -1.0) * u, ink, width, true)
+				canvas.draw_line(center + Vector2(side * 0.45, 0.25) * u, center + Vector2(side * 1.2, -0.2) * u, ink, width * 0.8, true)
+				canvas.draw_line(center + Vector2(side * 0.62, -0.5) * u, center + Vector2(side * 1.15, -1.0) * u, ink, width * 0.8, true)
+			canvas.draw_arc(center + Vector2(0.0, 1.25) * u, u * 0.3, PI * 1.1, PI * 1.9, 8, GOLD if lit else ink, width * 0.8, true)
 		_:
 			canvas.draw_arc(center, u * 0.8, 0.0, TAU, 24, ink, width, true)

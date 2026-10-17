@@ -51,7 +51,7 @@ func _pass(minutes: int) -> void:
 
 
 func test_one_act_a_day_whichever_hand() -> void:
-	assert_eq(BlessingSystem.KINDS.size(), 5, "the first cut: the lights, the land, the water, the body")
+	assert_eq(BlessingSystem.KINDS.size(), 7, "the first cut, and the mirror completed: the rain and the herds")
 	assert_true(bool(Settings.get_value(&"gameplay/gentle_hands")), "gentle hands are on")
 	var iv := session.interactions.bless(BlessingSystem.LIGHTS, _fire())
 	assert_true(iv.applied, "asked for and confirmed: not held back by gentle hands (%s)" % iv.rejected)
@@ -460,3 +460,61 @@ func test_the_session_weighs_what_is_expected_once_a_day() -> void:
 	session.weigh_dependence(clock.tick)
 	assert_true(own.expected.is_empty())
 	assert_true(own.farming.expected.is_empty())
+
+
+# --- the mirror completed (step 7) --------------------------------------------------------------------
+
+func test_the_drought_broken_is_a_day_of_soft_rain_and_the_river_back_in_its_bed() -> void:
+	var weather := session.weather
+	var river := session.hydrology
+	weather.begin_drought(clock.tick)
+	assert_true(weather.has_condition(WeatherSystem.DROUGHT), "a drought")
+	river.add(-0.3)
+	assert_true(river.level < 0.0, "the river low")
+	stimuli.clear()
+	assert_true(session.interactions.bless(BlessingSystem.RAIN, _fire()).applied)
+	assert_false(weather.has_condition(WeatherSystem.DROUGHT), "broken")
+	assert_eq(weather.state, WeatherSystem.RAIN, "soft rain")
+	assert_near(river.level, 0.0, 0.001, "the river back where it was made")
+	assert_true(stimuli.is_empty(), "the weather's own: nothing of the Presence to notice")
+	assert_eq(session.events.of_type(&"drought_broken").size(), 1)
+	# Not over its banks: a river already high stays as it is.
+	disasters.rest_until = 0
+	blessings.kind = &""
+	river.add(0.2)
+	var high := river.level
+	assert_true(session.interactions.bless(BlessingSystem.RAIN, _fire()).applied)
+	assert_near(river.level, high, 0.001, "no higher")
+	# It does not come back tomorrow for the dry days before.
+	weather.advance_to(clock.tick + 2 * Config.time.MINUTES_PER_DAY)
+	assert_false(weather.has_condition(WeatherSystem.DROUGHT), "the day's rain counted")
+
+
+func test_the_herds_return_within_reach() -> void:
+	var fire := _fire()
+	var deer_before := session.animals.count(BlessingSystem.HERD_SPECIES)
+	stimuli.clear()
+	assert_true(session.interactions.bless(BlessingSystem.HERDS, fire).applied)
+	var deer_after := session.animals.count(BlessingSystem.HERD_SPECIES)
+	assert_true(deer_after >= deer_before + 5, "a herd: %d → %d" % [deer_before, deer_after])
+	var near := 0
+	for animal in session.animals.all_animals():
+		if animal.species == BlessingSystem.HERD_SPECIES and animal.position.distance_to(fire) <= BlessingSystem.REACH + 2.0:
+			near += 1
+	assert_true(near >= 5, "%d of them within reach" % near)
+	assert_true(stimuli.any(func(s: Stimulus) -> bool: return s.type == Stimulus.HERDS_CAME), "noticed")
+	assert_eq(session.events.of_type(&"herds_returned").size(), 1)
+
+
+func test_a_village_that_expects_the_rain_digs_no_well() -> void:
+	var none: Array[StringName] = []
+	var rain: Array[StringName] = [&"drought_broken"]
+	assert_true(Dependence.digs_wells(none))
+	assert_false(Dependence.digs_wells(rain))
+	var own := session.settlement
+	for n in 2:
+		assert_true(session.interactions.bless(BlessingSystem.RAIN, _fire()).applied)
+		_pass(int(BlessingSystem.LASTS[BlessingSystem.RAIN]) + BlessingSystem.REST_MINUTES)
+	session.weigh_dependence(clock.tick, true)
+	assert_eq(own.expected, [&"drought_broken"] as Array[StringName])
+	assert_has(MenuPages.beliefs(session), "%s has come to expect the rain — and digs no well" % own.display_name())

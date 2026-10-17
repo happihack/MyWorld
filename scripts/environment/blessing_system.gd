@@ -35,21 +35,32 @@ const WATERS := &"waters"
 ## Healing: everyone ill, injured or sick from cold or hunger within reach
 ## recovers over the day. Nobody made younger, nobody brought back.
 const HEALING := &"healing"
+## The drought broken: a day of soft rain over the world, the drought ended,
+## the river back to where it was made. The weather's own, as the storm and
+## the flood are the disasters': the weather tells of it.
+const RAIN := &"rain"
+## The herds return: a herd of deer comes to the land within reach.
+const HERDS := &"herds"
 ## In the order of the buttons.
-const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS, HEALING]
+const KINDS: Array[StringName] = [LIGHTS, BOUNTY, SOIL, WATERS, HEALING, RAIN, HERDS]
 
 ## How long each goes on (game minutes): the act itself, watched — what it
-## leaves behind (silt, a run, a season's bounty) lasts by its own rules.
-const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60}
+## leaves behind (silt, a run, a season's bounty, a day's rain) lasts by its
+## own rules.
+const LASTS := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60}
 ## How long of each is there to be watched (game minutes from its start):
 ## the world goes at its usual speed meanwhile, as for a disaster.
-const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60}
+const WATCH := {LIGHTS: 70, BOUNTY: 60, SOIL: 60, WATERS: 60, HEALING: 60, RAIN: 60, HERDS: 60}
+## How long the rain of the drought broken goes on.
+const RAIN_MINUTES := 1440
 ## How long the world rests after one before the Presence's next act — the
 ## same as after a disaster, and the same rest.
 const REST_MINUTES := DisasterSystem.REST_MINUTES
 ## What each is written down as (data/events/<id>.tres).
 const EVENTS := {LIGHTS: &"lights_in_sky", BOUNTY: &"bounty_of_bushes", SOIL: &"rich_soil", WATERS: &"teeming_waters",
-	HEALING: &"healing"}
+	HEALING: &"healing", RAIN: &"drought_broken", HERDS: &"herds_returned"}
+## The herds that return.
+const HERD_SPECIES := &"deer"
 ## How far a blessing of the land or the water reaches (tiles) from where
 ## the camera looks — a little more than a quake.
 const REACH := 10.0
@@ -124,6 +135,18 @@ func start(which: StringName, where: Vector2, now: int) -> bool:
 				_s.fauna.waters.fill_near(WorldCoords.world2d_to_tile(at), REACH, day)
 		HEALING:
 			healed = _heal_near(now)
+		RAIN:
+			if _s.weather != null:
+				_s.weather.hold(WeatherSystem.RAIN, now + RAIN_MINUTES)
+				_s.weather.break_drought(now)
+			if _s.hydrology != null:
+				# (Back to where it was made, if it stands below it; never over its banks.)
+				if _s.hydrology.level < 0.0:
+					_s.hydrology.add(-_s.hydrology.level)
+				_s.hydrology.settle(now)
+		HERDS:
+			if _s.fauna != null:
+				_s.fauna.bring_herd(HERD_SPECIES, at, now, REACH)
 	Log.info(Log.Category.WORLD, "A blessing is given", {"kind": which, "at": at, "until": until})
 	started.emit(which, at)
 	return true

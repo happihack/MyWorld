@@ -433,6 +433,8 @@ A **lightweight cellular heightfield simulation**, not fluid physics.
 | Rich soil | Silt on the land within reach, as a flood leaves it; the fields heavier at harvest | Fades over a year | "the Darkener of the Soil"; the turning of the soil |
 | Teeming waters | The water within reach filled with fish, and a run begun out of season | The run's days | "the Filler of the River"; the feast of the river |
 | Healing | Everyone ill or hurt within reach recovers over the day; nobody made younger, nobody brought back | A day | "the Healer"; the laying on of hands |
+| The drought broken | A day of soft rain over the world; a drought ended; the river back to its bed, no higher. The weather's own: the rain's return tells of it | A day | (the rain dance, as any rain); a village that expects it digs no well |
+| The herds return | A herd of deer comes to the land within reach and stays | Until hunted | "the Bringer of the Herds"; the welcoming of the deer |
 
 ---
 

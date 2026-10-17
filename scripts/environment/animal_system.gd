@@ -1084,6 +1084,34 @@ func bring(species_id: StringName, at: Vector2, now: int) -> Array[AnimalData]:
 	return out
 
 
+## A herd of `species_id` (deer) comes to the land near `at` and stays — a
+## blessing (BlessingSystem.HERDS): a group as the species keeps them, on
+## open ground within `reach` away from people, or at `at` itself if there
+## is none. Returns them (empty if the species is unknown).
+func bring_herd(species_id: StringName, at: Vector2, now: int, reach: float = 10.0) -> Array[AnimalData]:
+	var out: Array[AnimalData] = []
+	var def := species.get_def(species_id) if species != null else null
+	if def == null or def.aggregate:
+		return out
+	var place := at
+	for attempt in 32:
+		var there := at + Vector2.RIGHT.rotated(_rng.randf() * TAU) * _rng.randf_range(reach * 0.4, reach)
+		var tile := WorldCoords.world2d_to_tile(there)
+		if _can_stand(tile) and _world.get_water(tile) <= 0.0 and _from_people(there) >= 6.0:
+			place = there
+			break
+	var group := _next_group
+	_next_group += 1
+	var size := _rng.randi_range(def.group_min, def.group_max)
+	for i in size:
+		var animal := spawn(species_id, _scatter(place, 1.2) if i > 0 else place, place, group,
+			now - def.adult_days * 2 * TimeConfig.MINUTES_PER_DAY)
+		if animal != null:
+			animal.fed_tick = now
+			out.append(animal)
+	return out
+
+
 ## Back to the wilds (the stay is over).
 func _send_off(group: int) -> void:
 	var kind: StringName = &""

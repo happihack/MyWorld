@@ -53,6 +53,9 @@ const BOUNTY_OF_BUSHES := &"bounty_of_bushes"
 const RICH_SOIL := &"rich_soil"
 const TEEMING_WATERS := &"teeming_waters"
 const HEALED := &"healed"
+## A herd come down in numbers nobody had seen (the drought broken is the
+## weather's own: the rain's return tells of it).
+const HERDS_CAME := &"herds_came"
 ## Something the player moved, come upon where it now lies (see Discovery).
 const OBJECT_FOUND := &"object_found"
 ## Someone tells of what they experienced (origin PERSON; see `told_by`).
@@ -61,7 +64,7 @@ const TOLD := &"told"
 const TYPES: Array[StringName] = [TOUCH, GROUND_TOUCHED, KNOCK, TREE_SHAKEN, TREE_UPROOTED, WATER_DISTURBED,
 	OBJECT_LIFTED, OBJECT_MOVED, WATER_TAKEN, WATER_POURED, RAIN_FROM_CLEAR_SKY, RAIN_FELL, SOURCELESS_WIND, GROUND_CARVED,
 	THUNDERSTORM, RAIN_RETURNED, FLOOD, OBJECT_FOUND, TOLD, EARTHQUAKE, ECLIPSE, TORNADO, BLOOD_WATER, METEORS, ROCK_BROKEN,
-	LIGHTS_IN_SKY, BOUNTY_OF_BUSHES, RICH_SOIL, TEEMING_WATERS, HEALED]
+	LIGHTS_IN_SKY, BOUNTY_OF_BUSHES, RICH_SOIL, TEEMING_WATERS, HEALED, HERDS_CAME]
 
 ## Number within this session (0 until emitted; see PerceptionSystem).
 var id := 0
@@ -197,6 +200,9 @@ static func type_for(iv: Intervention) -> StringName:
 				BlessingSystem.HEALING:
 					# (One for each person healed, aimed at them: InteractionManager.)
 					return HEALED
+				BlessingSystem.HERDS:
+					return HERDS_CAME
+				# (The drought broken: the weather's own; the rain's return tells of it.)
 	return &""
 
 

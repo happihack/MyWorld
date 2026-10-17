@@ -159,6 +159,27 @@ func release() -> void:
 	_held_until = -1
 
 
+## A drought broken by the Presence (BlessingSystem.RAIN): over now, and
+## the day's rain counted enough that it does not come back tomorrow.
+func break_drought(now: int) -> void:
+	@warning_ignore("integer_division")
+	var day := _calendar(now) / DAY
+	if _config != null:
+		_rain[day] = maxf(float(_rain.get(day, 0.0)), _config.drought_rain_below)
+	_set_condition(DROUGHT, false, day)
+
+
+## A drought as if the last days had been dry (tests).
+func begin_drought(now: int) -> void:
+	@warning_ignore("integer_division")
+	var day := _calendar(now) / DAY
+	if _config != null:
+		for d in range(day - _config.drought_days + 1, day + 1):
+			_rain[d] = 0.0
+			_warmest[d] = float(_warmest.get(d, 20.0))
+	_set_condition(DROUGHT, true, day)
+
+
 func is_held() -> bool:
 	return _held_until >= 0 and (_clock == null or _clock.tick < _held_until)
 
